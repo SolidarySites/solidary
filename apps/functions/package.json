@@ -1,0 +1,16 @@
+{
+  "name": "@solidary/functions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo \"(no lint configured)\""
+  },
+  "dependencies": {
+    "@netlify/functions": "^5.1.2",
+    "@solidary/protocol": "0.0.0",
+    "@supabase/supabase-js": "^2.93.3"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

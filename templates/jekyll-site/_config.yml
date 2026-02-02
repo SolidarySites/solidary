@@ -1,0 +1,13 @@
+title: Solidary Links Site
+email: hello@example.com
+description: >-
+  A starter Jekyll site for Solidary Links.
+baseurl: ""
+url: ""
+markdown: kramdown
+theme: null
+include:
+  - ".well-known"
+  - "solidary-links"
+plugins:
+  - jekyll-feed

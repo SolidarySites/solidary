@@ -1,0 +1,3 @@
+-- Replace <user_uuid> with an auth.users id from your project.
+-- insert into public.sites (user_id, name, slug)
+-- values ('<user_uuid>', 'My First Site', 'my-first-site');

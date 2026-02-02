@@ -1,0 +1,14 @@
+{
+  "name": "solidary-links",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm -w apps/studio run dev",
+    "build": "npm -w apps/studio run build",
+    "lint": "npm -w apps/studio run lint",
+    "functions:dev": "netlify dev --dir apps/functions"
+  }
+}

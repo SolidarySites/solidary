@@ -1,0 +1,7 @@
+{
+  "protocol_version": "1.0",
+  "site_id": "00000000-0000-0000-0000-000000000000",
+  "site_url": "https://example.com",
+  "snapshot_url": "https://example.com/solidary-links/snapshot.json",
+  "manifest_hash": ""
+}

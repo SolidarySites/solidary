@@ -1,0 +1,21 @@
+:root {
+  color-scheme: light;
+  font-family: "Georgia", "Times New Roman", serif;
+  line-height: 1.6;
+  background: #faf7f2;
+  color: #1f1c1a;
+}
+
+body {
+  margin: 0;
+  padding: 2.5rem;
+}
+
+header {
+  border-bottom: 1px solid #ded6cc;
+  margin-bottom: 2rem;
+}
+
+main {
+  max-width: 720px;
+}

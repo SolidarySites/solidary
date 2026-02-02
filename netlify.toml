@@ -1,0 +1,7 @@
+[functions]
+  directory = "apps/functions/src"
+  node_bundler = "esbuild"
+
+[dev]
+  functions = "apps/functions/src"
+  port = 8888
