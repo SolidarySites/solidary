@@ -11,7 +11,7 @@ export const siteSchema = z.object({
   first_seen_at: z.string(),
   last_seen_at: z.string().nullable(),
   last_manifest_hash: z.string().nullable(),
-  meta: z.record(z.unknown()),
+  meta: z.record(z.string(), z.unknown()),
   created_at: z.string(),
   updated_at: z.string()
 });
