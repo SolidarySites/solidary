@@ -1,3 +1,8 @@
+[build]
+  base = "/"
+  command = "npm run build"
+  publish = "apps/studio/dist"
+
 [functions]
   directory = "apps/functions/src"
   node_bundler = "esbuild"
