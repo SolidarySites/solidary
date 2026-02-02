@@ -195,8 +195,8 @@ export default function App() {
         </div>
         {!isSupabaseConfigured() && (
           <div className="warning">
-            Add <code>VITE_SUPABASE_URL</code> and
-            <code>VITE_SUPABASE_ANON_KEY</code> to
+            Add <code>VITE_SUPABASE_PROJECT_ID</code> and
+            <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to
             <code>apps/studio/.env</code> before signing in.
           </div>
         )}
