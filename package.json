@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "dev": "npm -w apps/studio run dev",
-    "build": "npm -w apps/studio run build",
+    "build": "npm -w packages/protocol run build && npm -w apps/studio run build",
     "lint": "npm -w apps/studio run lint",
     "functions:dev": "netlify dev --dir apps/functions"
   }
