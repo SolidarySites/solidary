@@ -1,6 +1,6 @@
 export type Site = {
   id: string;
-  canonical_url: string;
+  canonical_url: string | null;
   title: string | null;
   description: string | null;
   image_url: string | null;

@@ -1,3 +1,6 @@
--- Replace <user_uuid> with an auth.users id from your project.
--- insert into public.sites (user_id, name, slug)
--- values ('<user_uuid>', 'My First Site', 'my-first-site');
+-- Seed a starter archive for the first auth user in the project.
+-- If you want a specific owner, replace the subquery with a UUID.
+insert into public.archives (owner_user_id, slug, title)
+select id, 'my-archive', 'My First Archive'
+from auth.users
+limit 1;

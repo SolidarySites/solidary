@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const siteSchema = z.object({
   id: z.string().uuid(),
-  canonical_url: z.string().url(),
+  canonical_url: z.string().url().nullable(),
   title: z.string().nullable(),
   description: z.string().nullable(),
   image_url: z.string().nullable(),

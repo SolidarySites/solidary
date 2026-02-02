@@ -4,7 +4,7 @@ create extension if not exists "pgcrypto";
 -- Sites
 create table if not exists public.sites (
   id uuid primary key,
-  canonical_url text not null unique,
+  canonical_url text unique,
   title text,
   description text,
   image_url text,
@@ -227,6 +227,9 @@ alter table public.site_admins enable row level security;
 -- Public read access to sites + urls
 create policy "sites_select_public" on public.sites
   for select using (true);
+
+create policy "sites_insert_authenticated" on public.sites
+  for insert with check (auth.role() = 'authenticated');
 
 create policy "site_urls_select_public" on public.site_urls
   for select using (true);

@@ -1,0 +1,8 @@
+title: "{{TITLE}}"
+description: "{{DESCRIPTION}}"
+baseurl: ""
+url: ""
+markdown: kramdown
+theme: null
+include:
+  - ".well-known"
