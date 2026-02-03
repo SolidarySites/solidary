@@ -23,6 +23,25 @@ export const handler: Handler = async (event) => {
       "Content-Type": "application/json"
     };
 
+    const fetchPages = async () => {
+      const pagesResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28"
+        }
+      });
+      const pagesPayload = await pagesResponse.json().catch(() => ({}));
+      if (!pagesResponse.ok) {
+        console.log("[github-enable-pages] pages fetch failed", {
+          status: pagesResponse.status,
+          message: (pagesPayload as { message?: string })?.message
+        });
+        return null;
+      }
+      return pagesPayload as Record<string, unknown>;
+    };
+
     let lastStatus = 0;
     let lastPayload: Record<string, unknown> = {};
 
@@ -52,18 +71,29 @@ export const handler: Handler = async (event) => {
       });
 
       if (response.status === 409) {
+        const pages = await fetchPages();
         return {
           statusCode: 200,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ status: "already_enabled" })
+          body: JSON.stringify({
+            status: "already_enabled",
+            pages,
+            pagesUrl: (pages as { html_url?: string } | null)?.html_url
+          })
         };
       }
 
       if (response.ok) {
+        const pages = (payload as { html_url?: string })?.html_url ? payload : await fetchPages();
+        const pagesData = pages ?? payload;
         return {
           statusCode: 200,
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ status: "enabled", pages: payload })
+          body: JSON.stringify({
+            status: "enabled",
+            pages: pagesData,
+            pagesUrl: (pagesData as { html_url?: string })?.html_url
+          })
         };
       }
 

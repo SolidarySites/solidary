@@ -21,6 +21,8 @@ type SiteDraft = {
   repoHtmlUrl: string;
   defaultBranch: string;
   siteUrl: string;
+  siteUrlRoot: string;
+  baseUrl: string;
 };
 
 type RepoFileSet = {
@@ -236,7 +238,11 @@ export default function App() {
       });
 
       const repo = repoResponse.repo;
-      const siteUrl = `https://${repo.owner.login}.github.io/${repo.name}`;
+      const ownerLogin = repo.owner.login;
+      const pagesRootUrl = `https://${ownerLogin}.github.io`;
+      const isUserSite = repo.name.toLowerCase() === `${ownerLogin.toLowerCase()}.github.io`;
+      const baseUrl = isUserSite ? "" : `/${repo.name}`;
+      const initialSiteUrl = isUserSite ? pagesRootUrl : `${pagesRootUrl}${baseUrl}`;
 
       const draft: SiteDraft = {
         id: siteId,
@@ -248,14 +254,16 @@ export default function App() {
         repoFullName: repo.full_name,
         repoHtmlUrl: repo.html_url,
         defaultBranch: repo.default_branch,
-        siteUrl
+        siteUrl: initialSiteUrl,
+        siteUrlRoot: pagesRootUrl,
+        baseUrl
       };
 
       setProvisionStep("Uploading starter files...");
       const imageBase64 = toBase64(await siteImage.arrayBuffer());
       await githubRequest("/.netlify/functions/github-contents-write", {
         token: providerToken,
-        owner: repo.owner.login,
+        owner: ownerLogin,
         repo: repo.name,
         path: imagePath,
         message: "Add site header image",
@@ -266,30 +274,25 @@ export default function App() {
       const indexHtml = renderTemplate(templateIndex, draft);
       const indexMarkdown = buildIndexMarkdown(indexHtml);
       const configContent = renderTemplate(templateConfig, draft);
-      const solidaryContent = renderTemplate(templateSolidary, {
-        ...draft,
-        siteUrl
-      });
 
-      await writeTextFile(providerToken, repo.owner.login, repo.name, "index.md", indexMarkdown, repo.default_branch);
-      await writeTextFile(providerToken, repo.owner.login, repo.name, "_config.yml", configContent, repo.default_branch);
-      await writeTextFile(
-        providerToken,
-        repo.owner.login,
-        repo.name,
-        ".well-known/solidary-links.json",
-        solidaryContent,
-        repo.default_branch
-      );
+      await writeTextFile(providerToken, ownerLogin, repo.name, "index.md", indexMarkdown, repo.default_branch);
+      await writeTextFile(providerToken, ownerLogin, repo.name, "_config.yml", configContent, repo.default_branch);
 
       setProvisionStep("Enabling GitHub Pages...");
+      let siteUrl = initialSiteUrl;
       try {
-        await githubRequest("/.netlify/functions/github-enable-pages", {
-          token: providerToken,
-          owner: repo.owner.login,
-          repo: repo.name,
-          branch: repo.default_branch
-        });
+        const enableResponse = await githubRequest<{ pagesUrl?: string }>(
+          "/.netlify/functions/github-enable-pages",
+          {
+            token: providerToken,
+            owner: ownerLogin,
+            repo: repo.name,
+            branch: repo.default_branch
+          }
+        );
+        if (enableResponse?.pagesUrl) {
+          siteUrl = enableResponse.pagesUrl;
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to enable GitHub Pages.";
         const isBranchPending = message.toLowerCase().includes("branch must exist");
@@ -301,12 +304,36 @@ export default function App() {
         setNoticeKind(isBranchPending ? "notice" : "error");
       }
 
+      setProvisionStep("Saving site URL...");
+      const { error: canonicalError } = await supabase
+        .from("sites")
+        .update({ canonical_url: siteUrl })
+        .eq("id", siteId);
+      if (canonicalError) {
+        console.warn("[studio] Failed to save site URL", canonicalError);
+      }
+
+      const finalizedDraft: SiteDraft = {
+        ...draft,
+        siteUrl
+      };
+
+      const solidaryContent = renderTemplate(templateSolidary, finalizedDraft);
+      await writeTextFile(
+        providerToken,
+        ownerLogin,
+        repo.name,
+        ".well-known/solidary-links.json",
+        solidaryContent,
+        repo.default_branch
+      );
+
       setProvisionStep("Fetching repo content...");
       const [indexFile, configFile, solidaryFile, readmeFile] = await Promise.all([
-        readTextFile(providerToken, repo.owner.login, repo.name, "index.md", repo.default_branch),
-        readTextFile(providerToken, repo.owner.login, repo.name, "_config.yml", repo.default_branch),
-        readTextFile(providerToken, repo.owner.login, repo.name, ".well-known/solidary-links.json", repo.default_branch),
-        readTextFile(providerToken, repo.owner.login, repo.name, "README.md", repo.default_branch, true)
+        readTextFile(providerToken, ownerLogin, repo.name, "index.md", repo.default_branch),
+        readTextFile(providerToken, ownerLogin, repo.name, "_config.yml", repo.default_branch),
+        readTextFile(providerToken, ownerLogin, repo.name, ".well-known/solidary-links.json", repo.default_branch),
+        readTextFile(providerToken, ownerLogin, repo.name, "README.md", repo.default_branch, true)
       ]);
 
       const files: RepoFileSet = {
@@ -334,7 +361,7 @@ export default function App() {
         { onConflict: "owner_user_id,repo_full_name" }
       );
 
-      setSiteDraft(draft);
+      setSiteDraft(finalizedDraft);
       setRepoFiles(files);
       setContentHtml(htmlFromIndexMarkdown(files.index));
       setFlow("editor");
@@ -355,7 +382,9 @@ export default function App() {
       .replaceAll("{{IMAGE_URL}}", site.imageUrl)
       .replaceAll("{{IMAGE_PATH}}", site.imagePath)
       .replaceAll("{{DESCRIPTION}}", site.description)
-      .replaceAll("{{SITE_URL}}", site.siteUrl);
+      .replaceAll("{{SITE_URL}}", site.siteUrl)
+      .replaceAll("{{SITE_URL_ROOT}}", site.siteUrlRoot)
+      .replaceAll("{{BASEURL}}", site.baseUrl);
 
   const readTextFile = async (
     token: string,
