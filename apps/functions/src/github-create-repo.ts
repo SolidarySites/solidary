@@ -3,18 +3,32 @@ import type { Handler } from "@netlify/functions";
 const GITHUB_API = "https://api.github.com";
 
 export const handler: Handler = async (event) => {
+  console.log("[github-create-repo] invoked", {
+    method: event.httpMethod,
+    hasBody: Boolean(event.body)
+  });
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
     const { token, name, description, private: isPrivate } = JSON.parse(event.body ?? "{}");
+    console.log("[github-create-repo] payload", {
+      hasToken: Boolean(token),
+      name,
+      descriptionLength: typeof description === "string" ? description.length : 0,
+      isPrivate
+    });
     if (!token || !name) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing token or name." }) };
     }
 
     const templateOwner = process.env.GITHUB_TEMPLATE_OWNER;
     const templateRepo = process.env.GITHUB_TEMPLATE_REPO;
+    console.log("[github-create-repo] template config", {
+      templateOwner,
+      templateRepo
+    });
 
     if (!templateOwner || !templateRepo) {
       return {
