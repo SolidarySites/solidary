@@ -47,7 +47,8 @@ export const handler: Handler = async (event) => {
         status: response.status,
         statusText: response.statusText,
         message: (payload as { message?: string })?.message,
-        documentation_url: (payload as { documentation_url?: string })?.documentation_url
+        documentation_url: (payload as { documentation_url?: string })?.documentation_url,
+        errors: (payload as { errors?: unknown })?.errors
       });
 
       if (response.status === 409) {
@@ -78,7 +79,8 @@ export const handler: Handler = async (event) => {
           branch,
           status: branchResponse.status
         });
-        if (branchResponse.status === 404) {
+
+        if (attempt < RETRY_DELAYS_MS.length - 1) {
           continue;
         }
       }

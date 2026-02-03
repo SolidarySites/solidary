@@ -238,14 +238,6 @@ export default function App() {
       const repo = repoResponse.repo;
       const siteUrl = `https://${repo.owner.login}.github.io/${repo.name}`;
 
-      setProvisionStep("Enabling GitHub Pages...");
-      await githubRequest("/.netlify/functions/github-enable-pages", {
-        token: providerToken,
-        owner: repo.owner.login,
-        repo: repo.name,
-        branch: repo.default_branch
-      });
-
       const draft: SiteDraft = {
         id: siteId,
         title: normalizedTitle,
@@ -289,6 +281,25 @@ export default function App() {
         solidaryContent,
         repo.default_branch
       );
+
+      setProvisionStep("Enabling GitHub Pages...");
+      try {
+        await githubRequest("/.netlify/functions/github-enable-pages", {
+          token: providerToken,
+          owner: repo.owner.login,
+          repo: repo.name,
+          branch: repo.default_branch
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to enable GitHub Pages.";
+        const isBranchPending = message.toLowerCase().includes("branch must exist");
+        setNotice(
+          isBranchPending
+            ? "GitHub Pages is still provisioning. We'll keep going, but you may need to retry in a minute."
+            : `GitHub Pages couldn't be enabled yet: ${message}`
+        );
+        setNoticeKind(isBranchPending ? "notice" : "error");
+      }
 
       setProvisionStep("Fetching repo content...");
       const [indexFile, configFile, solidaryFile, readmeFile] = await Promise.all([
