@@ -1,7 +1,7 @@
 {
   "protocol_version": "1.0",
   "site_id": "{{SITE_ID}}",
-  "site_url": "",
+  "site_url": "{{SITE_URL}}",
   "title": "{{TITLE}}",
   "image_url": "{{IMAGE_URL}}",
   "description": "{{DESCRIPTION}}"

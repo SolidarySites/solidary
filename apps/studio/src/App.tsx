@@ -1,18 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import JSZip from "jszip";
-import MDEditor from "@uiw/react-md-editor";
-import "@uiw/react-md-editor/markdown-editor.css";
-import "@uiw/react-markdown-preview/markdown.css";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import "./App.css";
 import templateIndex from "./templates/jekyll/index.md?raw";
-import templateLayout from "./templates/jekyll/_layouts/default.html?raw";
-import templateStyle from "./templates/jekyll/assets/css/style.css?raw";
 import templateConfig from "./templates/jekyll/_config.yml?raw";
 import templateSolidary from "./templates/jekyll/.well-known/solidary-links.json?raw";
 
-type Flow = "choose" | "site" | "index" | "editor";
+type Flow = "choose" | "site" | "index" | "provisioning" | "editor";
 
 type NoticeKind = "error" | "notice" | null;
 
@@ -23,6 +17,17 @@ type SiteDraft = {
   imagePath: string;
   description: string;
   slug: string;
+  repoFullName: string;
+  repoHtmlUrl: string;
+  defaultBranch: string;
+  siteUrl: string;
+};
+
+type RepoFileSet = {
+  index: string;
+  config: string;
+  solidary: string;
+  readme: string;
 };
 
 function slugify(value: string) {
@@ -34,11 +39,52 @@ function slugify(value: string) {
     .replace(/-+/g, "-");
 }
 
+function htmlFromIndexMarkdown(markdown: string) {
+  const split = markdown.split("---");
+  if (split.length < 3) return markdown;
+  return split.slice(2).join("---").trim();
+}
+
+function buildIndexMarkdown(html: string) {
+  return `---\nlayout: default\ntitle: Home\n---\n\n${html.trim()}\n`;
+}
+
+function toBase64(data: ArrayBuffer) {
+  let binary = "";
+  const bytes = new Uint8Array(data);
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function githubRequest<T>(
+  path: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "GitHub request failed.");
+  }
+
+  return payload as T;
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [flow, setFlow] = useState<Flow>("choose");
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
+  const [provisionStep, setProvisionStep] = useState("Preparing your site...");
 
   const [siteTitle, setSiteTitle] = useState("");
   const [siteImage, setSiteImage] = useState<File | null>(null);
@@ -46,8 +92,9 @@ export default function App() {
   const [siteDescription, setSiteDescription] = useState("");
   const [siteLoading, setSiteLoading] = useState(false);
   const [siteDraft, setSiteDraft] = useState<SiteDraft | null>(null);
-  const [siteContent, setSiteContent] = useState<string>("");
-  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [repoFiles, setRepoFiles] = useState<RepoFileSet | null>(null);
+  const [contentHtml, setContentHtml] = useState<string>("");
+  const editorRef = useRef<HTMLDivElement | null>(null);
 
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
 
@@ -90,7 +137,8 @@ export default function App() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: window.location.origin
+        redirectTo: window.location.origin,
+        scopes: "repo"
       }
     });
 
@@ -124,6 +172,13 @@ export default function App() {
       return;
     }
 
+    const providerToken = (session as { provider_token?: string }).provider_token;
+    if (!providerToken) {
+      setNotice("GitHub token missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
     if (!siteTitle.trim() || !siteImage || !siteDescription.trim()) {
       setNotice("Title, image, and description are required.");
       setNoticeKind("error");
@@ -138,46 +193,148 @@ export default function App() {
 
     const normalizedTitle = siteTitle.trim();
     const normalizedDescription = siteDescription.trim();
-    const slug = computedSlug || "site";
+    const slug = computedSlug || `site-${Date.now()}`;
     const imagePath = `assets/images/sl-image-${slug}.jpg`;
     const imageUrl = `/${imagePath}`;
     const siteId = crypto.randomUUID();
 
     setSiteLoading(true);
+    setFlow("provisioning");
 
-    const { error } = await supabase.from("sites").insert({
-      id: siteId,
-      canonical_url: null,
-      title: normalizedTitle,
-      description: normalizedDescription,
-      image_url: imageUrl,
-      meta: {
-        completion: "complete",
-        source: "studio"
+    try {
+      setProvisionStep("Saving site metadata...");
+      const { error } = await supabase.from("sites").insert({
+        id: siteId,
+        canonical_url: null,
+        title: normalizedTitle,
+        description: normalizedDescription,
+        image_url: imageUrl,
+        meta: {
+          completion: "complete",
+          source: "studio"
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-    });
 
-    if (error) {
-      setNotice(error.message);
+      setProvisionStep("Creating your GitHub repository...");
+      const repoResponse = await githubRequest<{
+        repo: {
+          full_name: string;
+          name: string;
+          owner: { login: string };
+          html_url: string;
+          default_branch: string;
+        };
+      }>("/.netlify/functions/github-create-repo", {
+        token: providerToken,
+        name: slug,
+        description: normalizedDescription,
+        private: false
+      });
+
+      const repo = repoResponse.repo;
+      const siteUrl = `https://${repo.owner.login}.github.io/${repo.name}`;
+
+      setProvisionStep("Enabling GitHub Pages...");
+      await githubRequest("/.netlify/functions/github-enable-pages", {
+        token: providerToken,
+        owner: repo.owner.login,
+        repo: repo.name,
+        branch: repo.default_branch
+      });
+
+      const draft: SiteDraft = {
+        id: siteId,
+        title: normalizedTitle,
+        description: normalizedDescription,
+        imagePath,
+        imageUrl,
+        slug,
+        repoFullName: repo.full_name,
+        repoHtmlUrl: repo.html_url,
+        defaultBranch: repo.default_branch,
+        siteUrl
+      };
+
+      setProvisionStep("Uploading starter files...");
+      const imageBase64 = toBase64(await siteImage.arrayBuffer());
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        token: providerToken,
+        owner: repo.owner.login,
+        repo: repo.name,
+        path: imagePath,
+        message: "Add site header image",
+        content: imageBase64,
+        branch: repo.default_branch
+      });
+
+      const indexHtml = renderTemplate(templateIndex, draft);
+      const indexMarkdown = buildIndexMarkdown(indexHtml);
+      const configContent = renderTemplate(templateConfig, draft);
+      const solidaryContent = renderTemplate(templateSolidary, {
+        ...draft,
+        siteUrl
+      });
+
+      await writeTextFile(providerToken, repo.owner.login, repo.name, "index.md", indexMarkdown, repo.default_branch);
+      await writeTextFile(providerToken, repo.owner.login, repo.name, "_config.yml", configContent, repo.default_branch);
+      await writeTextFile(
+        providerToken,
+        repo.owner.login,
+        repo.name,
+        ".well-known/solidary-links.json",
+        solidaryContent,
+        repo.default_branch
+      );
+
+      setProvisionStep("Fetching repo content...");
+      const [indexFile, configFile, solidaryFile, readmeFile] = await Promise.all([
+        readTextFile(providerToken, repo.owner.login, repo.name, "index.md", repo.default_branch),
+        readTextFile(providerToken, repo.owner.login, repo.name, "_config.yml", repo.default_branch),
+        readTextFile(providerToken, repo.owner.login, repo.name, ".well-known/solidary-links.json", repo.default_branch),
+        readTextFile(providerToken, repo.owner.login, repo.name, "README.md", repo.default_branch, true)
+      ]);
+
+      const files: RepoFileSet = {
+        index: indexFile ?? indexMarkdown,
+        config: configFile ?? configContent,
+        solidary: solidaryFile ?? solidaryContent,
+        readme: readmeFile ?? ""
+      };
+
+      const branchInfo = await githubRequest<{ sha: string }>("/.netlify/functions/github-branch", {
+        token: providerToken,
+        owner: repo.owner.login,
+        repo: repo.name,
+        branch: repo.default_branch
+      });
+
+      await supabase.from("site_drafts").upsert(
+        {
+          owner_user_id: session.user.id,
+          repo_full_name: repo.full_name,
+          branch: repo.default_branch,
+          commit_sha: branchInfo.sha,
+          files
+        },
+        { onConflict: "owner_user_id,repo_full_name" }
+      );
+
+      setSiteDraft(draft);
+      setRepoFiles(files);
+      setContentHtml(htmlFromIndexMarkdown(files.index));
+      setFlow("editor");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Something went wrong.";
+      setNotice(message);
       setNoticeKind("error");
+      setFlow("site");
+    } finally {
       setSiteLoading(false);
-      return;
     }
-
-    const draft: SiteDraft = {
-      id: siteId,
-      title: normalizedTitle,
-      description: normalizedDescription,
-      imagePath,
-      imageUrl,
-      slug
-    };
-
-    const initialContent = renderTemplate(templateIndex, draft);
-    setSiteDraft(draft);
-    setSiteContent(initialContent);
-    setFlow("editor");
-    setSiteLoading(false);
   };
 
   const renderTemplate = (template: string, site: SiteDraft) =>
@@ -186,28 +343,71 @@ export default function App() {
       .replaceAll("{{TITLE}}", site.title)
       .replaceAll("{{IMAGE_URL}}", site.imageUrl)
       .replaceAll("{{IMAGE_PATH}}", site.imagePath)
-      .replaceAll("{{DESCRIPTION}}", site.description);
+      .replaceAll("{{DESCRIPTION}}", site.description)
+      .replaceAll("{{SITE_URL}}", site.siteUrl);
 
-  const handleDownloadStarter = async () => {
-    if (!siteDraft || !siteImage) return;
+  const readTextFile = async (
+    token: string,
+    owner: string,
+    repo: string,
+    path: string,
+    branch: string,
+    allowMissing = false
+  ) => {
+    try {
+      const result = await githubRequest<{ content: string; encoding: string }>(
+        "/.netlify/functions/github-contents-read",
+        { token, owner, repo, path, branch }
+      );
+      if (result?.encoding === "base64") {
+        return atob(result.content.replace(/\n/g, ""));
+      }
+      return result.content ?? "";
+    } catch (error) {
+      if (allowMissing) return null;
+      throw error;
+    }
+  };
 
-    setDownloadLoading(true);
-    const zip = new JSZip();
-    zip.file("index.md", siteContent || renderTemplate(templateIndex, siteDraft));
-    zip.file("_config.yml", renderTemplate(templateConfig, siteDraft));
-    zip.file("_layouts/default.html", templateLayout);
-    zip.file("assets/css/style.css", templateStyle);
-    zip.file(".well-known/solidary-links.json", renderTemplate(templateSolidary, siteDraft));
-    zip.file(siteDraft.imagePath, await siteImage.arrayBuffer());
+  const writeTextFile = async (
+    token: string,
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    branch: string
+  ) => {
+    let sha: string | undefined;
+    try {
+      const existing = await githubRequest<{ sha: string }>(
+        "/.netlify/functions/github-contents-read",
+        { token, owner, repo, path, branch }
+      );
+      sha = existing.sha;
+    } catch {
+      sha = undefined;
+    }
 
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `solidary-site-${siteDraft.slug || "starter"}.zip`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setDownloadLoading(false);
+    await githubRequest("/.netlify/functions/github-contents-write", {
+      token,
+      owner,
+      repo,
+      path,
+      message: `Update ${path}`,
+      content: toBase64(new TextEncoder().encode(content).buffer),
+      sha,
+      branch
+    });
+  };
+
+  const handleEditorInput = () => {
+    if (!editorRef.current) return;
+    setContentHtml(editorRef.current.innerHTML);
+  };
+
+  const execCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    handleEditorInput();
   };
 
   return (
@@ -305,43 +505,71 @@ export default function App() {
           </section>
         )}
 
+        {flow === "provisioning" && (
+          <section className="provisioning">
+            <div className="spinner" />
+            <h2>Setting up your site</h2>
+            <p>{provisionStep}</p>
+          </section>
+        )}
+
         {flow === "editor" && siteDraft && (
           <section className="editor">
             <div className="section-header">
               <h2>Site editor</h2>
-              <p>Preview and edit your site before pushing to GitHub.</p>
+              <p>Editing {siteDraft.repoFullName}</p>
             </div>
-            <div className="editor-grid">
-              <div className="editor-panel">
-                <h3>Content</h3>
-                <MDEditor value={siteContent} onChange={(value) => setSiteContent(value ?? "")} />
-                <div className="editor-actions">
-                  <button className="primary" onClick={handleDownloadStarter} disabled={downloadLoading}>
-                    {downloadLoading ? "Preparing..." : "Download Jekyll bundle"}
-                  </button>
-                  <button className="ghost" disabled>
-                    Push to GitHub (coming soon)
-                  </button>
-                </div>
-              </div>
-              <div className="editor-panel">
-                <h3>Live preview</h3>
-                <div className="preview-shell">
-                  <MDEditor.Markdown source={siteContent} />
-                </div>
-                <div className="settings-grid">
-                  <button className="ghost" disabled>
-                    Solidary Links settings
-                  </button>
-                  <button className="ghost" disabled>
-                    Theme
-                  </button>
-                  <button className="ghost" disabled>
-                    README
-                  </button>
-                </div>
-              </div>
+            <div className="editor-toolbar">
+              <button type="button" className="ghost" onClick={() => execCommand("bold")}>
+                Bold
+              </button>
+              <button type="button" className="ghost" onClick={() => execCommand("italic")}>
+                Italic
+              </button>
+              <button type="button" className="ghost" onClick={() => execCommand("insertUnorderedList")}>
+                List
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  const url = window.prompt("Link URL");
+                  if (url) execCommand("createLink", url);
+                }}
+              >
+                Link
+              </button>
             </div>
+            <div className="editor-shell">
+              <div
+                ref={editorRef}
+                className="editor-canvas"
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleEditorInput}
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
+              />
+            </div>
+            <div className="editor-actions">
+              <button className="primary" disabled>
+                Push changes (coming soon)
+              </button>
+              <button className="ghost" disabled>
+                Solidary Links settings
+              </button>
+              <button className="ghost" disabled>
+                Theme
+              </button>
+              <button className="ghost" disabled>
+                README
+              </button>
+            </div>
+            {repoFiles && (
+              <div className="editor-meta">
+                <div>Config: {repoFiles.config.length} chars</div>
+                <div>Solidary link: {repoFiles.solidary.length} chars</div>
+              </div>
+            )}
           </section>
         )}
       </main>

@@ -45,9 +45,13 @@
   gap: 2.5rem;
 }
 
-.choice {
+.choice,
+.site-form,
+.placeholder,
+.editor,
+.provisioning {
   border: 1px solid rgba(31, 34, 28, 0.15);
-  padding: 2.5rem;
+  padding: 2rem;
   background: rgba(255, 255, 255, 0.9);
   display: grid;
   gap: 1.5rem;
@@ -57,16 +61,6 @@
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
-}
-
-.site-form,
-.placeholder,
-.editor {
-  border: 1px solid rgba(31, 34, 28, 0.15);
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
-  display: grid;
-  gap: 1.5rem;
 }
 
 .section-header h2 {
@@ -108,34 +102,60 @@ textarea {
   flex-wrap: wrap;
 }
 
-.editor-grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+.provisioning {
+  justify-items: center;
+  text-align: center;
 }
 
-.editor-panel {
-  display: grid;
-  gap: 1rem;
+.spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(31, 34, 28, 0.15);
+  border-top-color: rgba(31, 34, 28, 0.6);
+  animation: spin 0.8s linear infinite;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.editor-toolbar,
 .editor-actions {
   display: flex;
-  gap: 0.8rem;
   flex-wrap: wrap;
-}
-
-.preview-shell {
-  border: 1px dashed rgba(31, 34, 28, 0.2);
-  padding: 1rem;
-  background: #fff;
-  min-height: 280px;
-}
-
-.settings-grid {
-  display: grid;
   gap: 0.6rem;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.editor-shell {
+  border: 1px dashed rgba(31, 34, 28, 0.25);
+  background: #fff;
+  padding: 1.5rem;
+  min-height: 320px;
+}
+
+.editor-canvas {
+  min-height: 240px;
+  outline: none;
+  font-family: "Georgia", "Times New Roman", serif;
+  line-height: 1.6;
+}
+
+.editor-canvas img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5rem 0;
+}
+
+.editor-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: rgba(31, 34, 28, 0.65);
 }
 
 button {
