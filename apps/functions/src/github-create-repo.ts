@@ -53,6 +53,12 @@ export const handler: Handler = async (event) => {
     });
 
     const payload = await response.json().catch(() => ({}));
+    console.log("[github-create-repo] github response", {
+      status: response.status,
+      statusText: response.statusText,
+      message: payload?.message,
+      documentation_url: payload?.documentation_url
+    });
     if (!response.ok) {
       return {
         statusCode: response.status,
