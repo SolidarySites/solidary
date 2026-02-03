@@ -37,7 +37,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const response = await fetch(`${GITHUB_API}/repos/${templateOwner}/${templateRepo}/generate`, {
+    const response = await fetch(`${GITHUB_API}/repos/${templateOwner}/${templateRepo}/templates/default-theme`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
