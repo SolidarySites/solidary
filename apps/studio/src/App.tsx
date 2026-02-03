@@ -204,23 +204,6 @@ export default function App() {
     setFlow("provisioning");
 
     try {
-      setProvisionStep("Saving site metadata...");
-      const { error } = await supabase.from("sites").insert({
-        id: siteId,
-        canonical_url: null,
-        title: normalizedTitle,
-        description: normalizedDescription,
-        image_url: imageUrl,
-        meta: {
-          completion: "complete",
-          source: "studio"
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
       setProvisionStep("Creating your GitHub repository...");
       const repoResponse = await githubRequest<{
         repo: {
@@ -307,13 +290,21 @@ export default function App() {
         setNoticeKind(isBranchPending ? "notice" : "error");
       }
 
-      setProvisionStep("Saving site URL...");
-      const { error: canonicalError } = await supabase
-        .from("sites")
-        .update({ canonical_url: siteUrl })
-        .eq("id", siteId);
-      if (canonicalError) {
-        console.warn("[studio] Failed to save site URL", canonicalError);
+      setProvisionStep("Saving site metadata...");
+      const { error: siteInsertError } = await supabase.from("sites").insert({
+        id: siteId,
+        canonical_url: siteUrl,
+        title: normalizedTitle,
+        description: normalizedDescription,
+        image_url: imageUrl,
+        meta: {
+          completion: "complete",
+          source: "studio"
+        }
+      });
+
+      if (siteInsertError) {
+        throw new Error(siteInsertError.message);
       }
 
       const finalizedDraft: SiteDraft = {
