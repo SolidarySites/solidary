@@ -273,7 +273,10 @@ export default function App() {
 
       const indexHtml = renderTemplate(templateIndex, draft);
       const indexMarkdown = buildIndexMarkdown(indexHtml);
-      const configContent = renderTemplate(templateConfig, draft);
+      const rawConfigContent = renderTemplate(templateConfig, draft);
+      const configContent = rawConfigContent
+        .replace(/^baseurl:.*$/m, `baseurl: "${draft.baseUrl}"`)
+        .replace(/^url:.*$/m, `url: "${draft.siteUrlRoot}"`);
 
       await writeTextFile(providerToken, ownerLogin, repo.name, "index.md", indexMarkdown, repo.default_branch);
       await writeTextFile(providerToken, ownerLogin, repo.name, "_config.yml", configContent, repo.default_branch);
