@@ -133,7 +133,7 @@ export default function StudioPage() {
       provider: "github",
       options: {
         redirectTo: window.location.origin,
-        scopes: "repo"
+        scopes: "repo delete_repo"
       }
     });
 
