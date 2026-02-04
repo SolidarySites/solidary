@@ -12,6 +12,7 @@ import SiteFormSection from "../components/studio/SiteFormSection";
 import ProvisioningSection from "../components/studio/ProvisioningSection";
 import EditorSection from "../components/studio/EditorSection";
 import SitesListSection from "../components/studio/SitesListSection";
+import DeleteSiteDialog from "../components/studio/DeleteSiteDialog";
 import type { Flow, NoticeKind, RepoFileSet, SiteDraft } from "../studio/types";
 import {
   buildIndexMarkdown,
@@ -48,6 +49,14 @@ export default function StudioPage() {
     }>
   >([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    repoFullName: string;
+    title: string;
+  } | null>(null);
+  const [deleteMode, setDeleteMode] = useState<"builder" | "github" | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
@@ -430,28 +439,15 @@ export default function StudioPage() {
     setFlow("editor");
   };
 
-  const handleDeleteDraft = async (item: {
-    id: string;
-    repoFullName: string;
-  }) => {
+  const handleDeleteDraft = async (
+    item: {
+      id: string;
+      repoFullName: string;
+    },
+    mode: "builder" | "github"
+  ) => {
     if (!session) return;
-
-    const choice = window
-      .prompt(
-        "Type 'builder' to remove from Studio only, or 'github' to remove from Studio and delete the GitHub repo."
-      )
-      ?.trim()
-      .toLowerCase();
-
-    if (!choice) return;
-
-    if (choice !== "builder" && choice !== "github") {
-      setNotice("Deletion cancelled. Please type 'builder' or 'github'.");
-      setNoticeKind("notice");
-      return;
-    }
-
-    if (choice === "builder") {
+    if (mode === "builder") {
       const { error } = await supabase.from("site_drafts").delete().eq("id", item.id);
       if (error) {
         setNotice(error.message);
@@ -466,15 +462,6 @@ export default function StudioPage() {
     if (!providerToken) {
       setNotice("GitHub token missing. Please sign in again.");
       setNoticeKind("error");
-      return;
-    }
-
-    const confirmName = window.prompt(
-      `Type "${item.repoFullName}" to confirm deleting this GitHub repo.`
-    );
-    if (!confirmName || confirmName.trim() !== item.repoFullName) {
-      setNotice("GitHub deletion cancelled. Repo name did not match.");
-      setNoticeKind("notice");
       return;
     }
 
@@ -535,7 +522,15 @@ export default function StudioPage() {
             items={listItems}
             loading={draftsLoading}
             onEdit={handleEditDraft}
-            onDelete={handleDeleteDraft}
+            onDelete={(item) => {
+              setDeleteTarget({
+                id: item.id,
+                repoFullName: item.repoFullName,
+                title: item.title
+              });
+              setDeleteMode(null);
+              setDeleteConfirmText("");
+            }}
           />
         )}
 
@@ -572,6 +567,43 @@ export default function StudioPage() {
       </main>
 
       <SiteFooter notice={notice} noticeKind={noticeKind} />
+
+      <DeleteSiteDialog
+        open={Boolean(deleteTarget)}
+        title={deleteTarget?.title ?? ""}
+        repoFullName={deleteTarget?.repoFullName ?? ""}
+        mode={deleteMode}
+        confirmText={deleteConfirmText}
+        busy={deleteBusy}
+        onModeChange={setDeleteMode}
+        onConfirmTextChange={setDeleteConfirmText}
+        onCancel={() => {
+          if (deleteBusy) return;
+          setDeleteTarget(null);
+          setDeleteMode(null);
+          setDeleteConfirmText("");
+        }}
+        onConfirm={async () => {
+          if (!deleteTarget || !deleteMode) return;
+          if (deleteMode === "github" && deleteConfirmText.trim() !== deleteTarget.repoFullName) {
+            setNotice("Repo name did not match. Deletion cancelled.");
+            setNoticeKind("notice");
+            return;
+          }
+          setDeleteBusy(true);
+          try {
+            await handleDeleteDraft(
+              { id: deleteTarget.id, repoFullName: deleteTarget.repoFullName },
+              deleteMode
+            );
+            setDeleteTarget(null);
+            setDeleteMode(null);
+            setDeleteConfirmText("");
+          } finally {
+            setDeleteBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }
