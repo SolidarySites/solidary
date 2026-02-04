@@ -3,11 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const SUPABASE_DELETE_REPO_SECRET_KEY = process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? "";
 
 function requireEnv() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.";
+  if (!SUPABASE_URL || !SUPABASE_DELETE_REPO_SECRET_KEY) {
+    return "Missing SUPABASE_URL or SUPABASE_DELETE_REPO_SECRET_KEY.";
   }
   return null;
 }
@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     }
 
     const repoFullName = `${owner}/${repo}`;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_DELETE_REPO_SECRET_KEY, {
       auth: { persistSession: false }
     });
 
