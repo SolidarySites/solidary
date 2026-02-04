@@ -3,11 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "";
 
 function requireEnv() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.";
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return "Missing SUPABASE_URL or SUPABASE_ANON_KEY.";
   }
   return null;
 }
@@ -28,22 +28,15 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false },
+      global: { headers: { Authorization: `Bearer ${supabase_access_token}` } }
     });
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(
-      supabase_access_token
-    );
-    if (userError || !userData?.user) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Invalid Supabase session." }) };
-    }
 
     const repoFullName = `${owner}/${repo}`;
     const { data: draftRow, error: draftError } = await supabase
       .from("site_drafts")
       .select("id")
-      .eq("owner_user_id", userData.user.id)
       .eq("repo_full_name", repoFullName)
       .maybeSingle();
 
