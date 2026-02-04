@@ -80,12 +80,13 @@ export default function StudioPage() {
     }
 
     let mounted = true;
-    setDraftsLoading(true);
-    supabase
-      .from("site_drafts")
-      .select("id, repo_full_name, branch, files, updated_at")
-      .order("updated_at", { ascending: false })
-      .then(({ data, error }) => {
+    const loadDrafts = async () => {
+      setDraftsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("site_drafts")
+          .select("id, repo_full_name, branch, files, updated_at")
+          .order("updated_at", { ascending: false });
         if (!mounted) return;
         if (error) {
           setNotice(error.message);
@@ -101,10 +102,12 @@ export default function StudioPage() {
             updated_at: row.updated_at
           }))
         );
-      })
-      .finally(() => {
+      } finally {
         if (mounted) setDraftsLoading(false);
-      });
+      }
+    };
+
+    loadDrafts();
 
     return () => {
       mounted = false;
