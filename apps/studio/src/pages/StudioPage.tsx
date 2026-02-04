@@ -489,7 +489,8 @@ export default function StudioPage() {
       await githubRequest("/.netlify/functions/github-delete-repo", {
         token: providerToken,
         owner,
-        repo
+        repo,
+        supabase_access_token: session.access_token
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete GitHub repo.";

@@ -1,6 +1,16 @@
 import type { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
 
 const GITHUB_API = "https://api.github.com";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+
+function requireEnv() {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.";
+  }
+  return null;
+}
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -8,9 +18,44 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { token, owner, repo } = JSON.parse(event.body ?? "{}");
-    if (!token || !owner || !repo) {
+    const envError = requireEnv();
+    if (envError) {
+      return { statusCode: 500, body: JSON.stringify({ error: envError }) };
+    }
+
+    const { token, owner, repo, supabase_access_token } = JSON.parse(event.body ?? "{}");
+    if (!token || !owner || !repo || !supabase_access_token) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false }
+    });
+
+    const { data: userData, error: userError } = await supabase.auth.getUser(
+      supabase_access_token
+    );
+    if (userError || !userData?.user) {
+      return { statusCode: 401, body: JSON.stringify({ error: "Invalid Supabase session." }) };
+    }
+
+    const repoFullName = `${owner}/${repo}`;
+    const { data: draftRow, error: draftError } = await supabase
+      .from("site_drafts")
+      .select("id")
+      .eq("owner_user_id", userData.user.id)
+      .eq("repo_full_name", repoFullName)
+      .maybeSingle();
+
+    if (draftError) {
+      return { statusCode: 500, body: JSON.stringify({ error: draftError.message }) };
+    }
+
+    if (!draftRow) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Repo not linked to this user." })
+      };
     }
 
     const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, {
