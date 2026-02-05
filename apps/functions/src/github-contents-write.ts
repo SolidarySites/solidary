@@ -76,6 +76,19 @@ export const handler: Handler = async (event) => {
       }
     }
 
+    if (
+      !response.ok &&
+      response.status === 409 &&
+      typeof payload?.message === "string" &&
+      payload.message.includes("repository is empty")
+    ) {
+      for (let attempt = 0; attempt < 3 && !response.ok; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+        response = await writeOnce();
+        payload = await response.json().catch(() => ({}));
+      }
+    }
+
     if (!response.ok) {
       return {
         statusCode: response.status,

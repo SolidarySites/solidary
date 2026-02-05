@@ -51,17 +51,6 @@ export async function writeTextFile(
   content: string,
   branch: string
 ) {
-  let sha: string | undefined;
-  try {
-    const existing = await githubRequest<{ sha: string }>(
-      "/.netlify/functions/github-contents-read",
-      { token, owner, repo, path, branch }
-    );
-    sha = existing.sha;
-  } catch {
-    sha = undefined;
-  }
-
   await githubRequest("/.netlify/functions/github-contents-write", {
     token,
     owner,
@@ -69,7 +58,6 @@ export async function writeTextFile(
     path,
     message: `Update ${path}`,
     content: toBase64(new TextEncoder().encode(content).buffer),
-    sha,
     branch
   });
 }
