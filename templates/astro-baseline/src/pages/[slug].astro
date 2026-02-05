@@ -1,0 +1,26 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../content/site";
+import { getCollection } from "astro:content";
+
+export async function getStaticPaths() {
+  const pages = await getCollection("pages");
+  return pages.map((entry) => ({
+    params: { slug: entry.slug },
+    props: { entry }
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await entry.render();
+const title = entry.data.title;
+const description = entry.data.description ?? site.description;
+const canonicalPath = `/${entry.slug}`;
+---
+
+<Base title={title} description={description} canonicalPath={canonicalPath}>
+  <article class="prose">
+    <h1>{title}</h1>
+    <Content />
+  </article>
+</Base>

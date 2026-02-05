@@ -1,0 +1,41 @@
+---
+import { site } from "../content/site";
+import { getCollection } from "astro:content";
+
+const { brand = site.name } = Astro.props as { brand?: string };
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+
+const pages = await getCollection("pages", ({ data }) => data.showInNav !== false);
+const pageLinks = pages.map((entry) => ({
+  label: entry.data.navLabel ?? entry.data.title,
+  href: `/${entry.slug}`
+}));
+
+const combinedNav = [{ label: "Home", href: "/" }, ...pageLinks];
+const seen = new Set<string>();
+const finalNav = combinedNav.filter((item) => {
+  if (seen.has(item.href)) return false;
+  seen.add(item.href);
+  return true;
+});
+---
+
+<header class="header">
+  <div class="header__inner">
+    <a class="header__brand" href="/">{brand}</a>
+
+    <nav class="header__nav" aria-label="Primary">
+      <ul class="nav">
+        {finalNav.map((item) => (
+          <li class="nav__item">
+            <a class={`nav__link ${isActive(item.href) ? "is-active" : ""}`} href={item.href}>
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  </div>
+</header>
