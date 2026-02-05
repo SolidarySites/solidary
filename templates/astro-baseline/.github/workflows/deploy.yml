@@ -1,0 +1,57 @@
+name: Deploy Astro to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compute SITE_URL
+        id: site_url
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          if [ "${REPO_NAME,,}" = "${OWNER,,}.github.io" ]; then
+            URL="https://${OWNER}.github.io"
+          else
+            URL="https://${OWNER}.github.io/${REPO_NAME}"
+          fi
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        env:
+          SITE_URL: ${{ steps.site_url.outputs.url }}
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
