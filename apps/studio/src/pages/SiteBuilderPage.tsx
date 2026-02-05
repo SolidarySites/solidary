@@ -318,10 +318,9 @@ export default function SiteBuilderPage() {
       }
 
       setProvisionStep("Writing content files...");
-      const writePromises = Object.entries(files).map(([path, content]) =>
-        writeTextFile(providerToken, ownerLogin, repo.name, path, content, repo.default_branch)
-      );
-      await Promise.all(writePromises);
+      for (const [path, content] of Object.entries(files)) {
+        await writeTextFile(providerToken, ownerLogin, repo.name, path, content, repo.default_branch);
+      }
 
       setProvisionStep("Enabling GitHub Pages...");
       try {
