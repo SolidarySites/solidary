@@ -79,6 +79,7 @@ export default function StudioPage() {
         const { data, error } = await supabase
           .from("site_drafts")
           .select("id, repo_full_name, branch, files, updated_at")
+          .eq("owner_user_id", session.user.id)
           .order("updated_at", { ascending: false });
         if (!mounted) return;
         if (error) {
