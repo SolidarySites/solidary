@@ -38,23 +38,44 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message,
-        content,
-        sha: resolvedSha,
-        branch
-      })
-    });
+    const writeOnce = async (shaOverride?: string) =>
+      fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message,
+          content,
+          sha: shaOverride ?? resolvedSha,
+          branch
+        })
+      });
 
-    const payload = await response.json().catch(() => ({}));
+    let response = await writeOnce();
+    let payload = await response.json().catch(() => ({}));
+    if (!response.ok && (response.status === 409 || response.status === 422)) {
+      const url = new URL(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`);
+      if (branch) {
+        url.searchParams.set("ref", branch);
+      }
+      const readResponse = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28"
+        }
+      });
+      if (readResponse.ok) {
+        const readPayload = await readResponse.json().catch(() => ({}));
+        response = await writeOnce(readPayload?.sha);
+        payload = await response.json().catch(() => ({}));
+      }
+    }
+
     if (!response.ok) {
       return {
         statusCode: response.status,
