@@ -6,13 +6,13 @@ import templateSolidary from "../templates/jekyll/.well-known/solidary-links.jso
 import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
-import ChoiceSection from "../components/studio/ChoiceSection";
 import IndexPlaceholderSection from "../components/studio/IndexPlaceholderSection";
 import SiteFormSection from "../components/studio/SiteFormSection";
 import ProvisioningSection from "../components/studio/ProvisioningSection";
 import EditorSection from "../components/studio/EditorSection";
 import SitesListSection from "../components/studio/SitesListSection";
 import DeleteSiteDialog from "../components/studio/DeleteSiteDialog";
+import IndexesListSection from "../components/studio/IndexesListSection";
 import type { Flow, NoticeKind, RepoFileSet, SiteDraft } from "../studio/types";
 import {
   buildIndexMarkdown,
@@ -159,11 +159,6 @@ export default function StudioPage() {
   const resetNotices = () => {
     setNotice(null);
     setNoticeKind(null);
-  };
-
-  const handleChoose = (nextFlow: Flow) => {
-    resetNotices();
-    setFlow(nextFlow);
   };
 
   const handleCreateSite = async (event: React.FormEvent) => {
@@ -522,6 +517,7 @@ export default function StudioPage() {
             items={listItems}
             loading={draftsLoading}
             onEdit={handleEditDraft}
+            onCreate={() => setFlow("site")}
             onDelete={(item) => {
               setDeleteTarget({
                 id: item.id,
@@ -534,7 +530,7 @@ export default function StudioPage() {
           />
         )}
 
-        {flow === "choose" && <ChoiceSection onChoose={handleChoose} />}
+        {session && <IndexesListSection onCreate={() => setFlow("index")} />}
 
         {flow === "index" && <IndexPlaceholderSection onBack={() => setFlow("choose")} />}
 

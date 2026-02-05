@@ -15,13 +15,25 @@ type SitesListSectionProps = {
   loading: boolean;
   onEdit: (id: string) => void;
   onDelete: (item: SiteListItem) => void;
+  onCreate: () => void;
 };
 
-export default function SitesListSection({ items, loading, onEdit, onDelete }: SitesListSectionProps) {
+export default function SitesListSection({
+  items,
+  loading,
+  onEdit,
+  onDelete,
+  onCreate
+}: SitesListSectionProps) {
   if (loading) {
     return (
       <section className="site-list">
-        <h2>Your sites</h2>
+        <div className="section-heading">
+          <h2>Your sites</h2>
+          <button className="primary" onClick={onCreate}>
+            Create new site
+          </button>
+        </div>
         <p>Loading your saved sites…</p>
       </section>
     );
@@ -30,7 +42,12 @@ export default function SitesListSection({ items, loading, onEdit, onDelete }: S
   if (!items.length) {
     return (
       <section className="site-list">
-        <h2>Your sites</h2>
+        <div className="section-heading">
+          <h2>Your sites</h2>
+          <button className="primary" onClick={onCreate}>
+            Create new site
+          </button>
+        </div>
         <p>No saved sites yet. Create one to see it here.</p>
       </section>
     );
@@ -38,7 +55,12 @@ export default function SitesListSection({ items, loading, onEdit, onDelete }: S
 
   return (
     <section className="site-list">
-      <h2>Your sites</h2>
+      <div className="section-heading">
+        <h2>Your sites</h2>
+        <button className="primary" onClick={onCreate}>
+          Create new site
+        </button>
+      </div>
       <div className="site-list-grid">
         {items.map((item) => (
           <article key={item.id} className="site-card">

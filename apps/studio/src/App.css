@@ -179,6 +179,14 @@
   gap: 1rem;
 }
 
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .site-card {
   display: flex;
   justify-content: space-between;
