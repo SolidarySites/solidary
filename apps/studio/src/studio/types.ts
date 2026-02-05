@@ -17,9 +17,4 @@ export type SiteDraft = {
   baseUrl: string;
 };
 
-export type RepoFileSet = {
-  index: string;
-  config: string;
-  solidary: string;
-  readme: string;
-};
+export type RepoFileSet = Record<string, string>;

@@ -232,6 +232,82 @@
   min-width: 130px;
 }
 
+.builder-shell {
+  gap: 1.5rem;
+}
+
+.builder-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.builder-sidebar {
+  display: grid;
+  gap: 0.6rem;
+  align-self: start;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.builder-panel {
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 1.5rem;
+}
+
+.builder-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.builder-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.builder-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.builder-page-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.builder-page-card {
+  border: 1px dashed rgba(31, 34, 28, 0.2);
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+  background: rgba(248, 245, 239, 0.6);
+}
+
+.builder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.code-block {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.checkbox {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -457,5 +533,15 @@ button:disabled {
   .site-card-actions {
     flex-direction: row;
     justify-content: flex-start;
+  }
+
+  .builder-body {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-sidebar {
+    position: static;
+    grid-auto-flow: column;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 }

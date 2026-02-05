@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
 import LandingPage from "./pages/LandingPage";
 import StudioPage from "./pages/StudioPage";
+import SiteBuilderPage from "./pages/SiteBuilderPage";
 
 export default function App() {
   return (
@@ -9,6 +10,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/studio" element={<StudioPage />} />
+        <Route path="/site-builder" element={<SiteBuilderPage />} />
       </Routes>
     </BrowserRouter>
   );
