@@ -13,6 +13,8 @@ export const handler: Handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
     }
 
+    const logPrefix = `[github-contents-write] ${owner}/${repo}:${path}`;
+
     let resolvedSha = sha;
     if (!resolvedSha) {
       const url = new URL(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`);
@@ -29,12 +31,20 @@ export const handler: Handler = async (event) => {
       if (readResponse.ok) {
         const readPayload = await readResponse.json().catch(() => ({}));
         resolvedSha = readPayload?.sha;
+        console.log(`${logPrefix} read sha`, { sha: resolvedSha, branch });
       } else if (readResponse.status !== 404) {
         const readPayload = await readResponse.json().catch(() => ({}));
+        console.log(`${logPrefix} read failed`, {
+          status: readResponse.status,
+          message: readPayload?.message,
+          branch
+        });
         return {
           statusCode: readResponse.status,
           body: JSON.stringify({ error: readPayload?.message ?? "Failed to read file for sha." })
         };
+      } else {
+        console.log(`${logPrefix} read missing`, { branch });
       }
     }
 
@@ -57,6 +67,12 @@ export const handler: Handler = async (event) => {
 
     let response = await writeOnce();
     let payload = await response.json().catch(() => ({}));
+    console.log(`${logPrefix} write attempt`, {
+      status: response.status,
+      message: payload?.message,
+      sha: resolvedSha,
+      branch
+    });
     if (!response.ok && (response.status === 409 || response.status === 422)) {
       const url = new URL(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`);
       if (branch) {
@@ -71,8 +87,17 @@ export const handler: Handler = async (event) => {
       });
       if (readResponse.ok) {
         const readPayload = await readResponse.json().catch(() => ({}));
+        console.log(`${logPrefix} retry read sha`, {
+          sha: readPayload?.sha,
+          branch
+        });
         response = await writeOnce(readPayload?.sha);
         payload = await response.json().catch(() => ({}));
+        console.log(`${logPrefix} retry write`, {
+          status: response.status,
+          message: payload?.message,
+          branch
+        });
       }
     }
 
@@ -86,10 +111,22 @@ export const handler: Handler = async (event) => {
         await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
         response = await writeOnce();
         payload = await response.json().catch(() => ({}));
+        console.log(`${logPrefix} empty-repo retry`, {
+          attempt: attempt + 1,
+          status: response.status,
+          message: payload?.message,
+          branch
+        });
       }
     }
 
     if (!response.ok) {
+      console.log(`${logPrefix} write failed`, {
+        status: response.status,
+        message: payload?.message,
+        sha: resolvedSha,
+        branch
+      });
       return {
         statusCode: response.status,
         body: JSON.stringify({ error: payload?.message ?? "Failed to write file." })
