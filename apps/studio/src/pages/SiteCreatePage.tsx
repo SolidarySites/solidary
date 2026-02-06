@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
-import { buildPageMarkdown, buildSiteTs, type AstroPageDraft } from "../studio/astro";
+import { buildSiteTs, type AstroPageDraft } from "../studio/astro";
 import { githubRequest, writeTextFile } from "../studio/github";
 import { slugify, toBase64 } from "../studio/utils";
 
@@ -146,14 +146,6 @@ export default function SiteCreatePage() {
       [FILE_KEYS.tokens]: tokensCss,
       [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
     };
-
-    pages.forEach((page) => {
-      const safeSlug = slugify(page.slug || page.title) || `page-${Date.now()}`;
-      files[`src/content/pages/${safeSlug}.md`] = buildPageMarkdown({
-        ...page,
-        slug: safeSlug
-      });
-    });
 
     return files;
   };
