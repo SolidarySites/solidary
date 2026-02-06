@@ -10,11 +10,10 @@ const jsonLd = {
   url: site.url,
   inLanguage: site.locale
 };
----
 
 const homeEntry = await getEntry("pages", "home");
 const { Content: HomeContent } = homeEntry ? await homeEntry.render() : { Content: null };
-
+---
 <Base title={site.name} description={site.description} canonicalPath="/" jsonLd={jsonLd}>
   <article class="prose">
     <h1>{site.tagline}</h1>
