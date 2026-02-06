@@ -42,11 +42,7 @@ export default function SiteCreatePage() {
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
 
-  const [pages] = useState<AstroPageDraft[]>([
-    { title: "About", slug: "about", body: "Write about your project here.", showInNav: true },
-    { title: "Contact", slug: "contact", body: "Add contact details here.", showInNav: true },
-    { title: "Legal", slug: "legal", body: "Add legal or policy details here.", showInNav: true }
-  ]);
+  const [pages] = useState<AstroPageDraft[]>([]);
 
   const [tokensCss] = useState(tokensTemplate);
 
