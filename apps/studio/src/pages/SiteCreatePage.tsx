@@ -195,7 +195,7 @@ export default function SiteCreatePage() {
         token: providerToken,
         name: slug,
         description: siteDescription.trim(),
-        private: true
+        private: false
       });
 
       const repo = repoResponse.repo;

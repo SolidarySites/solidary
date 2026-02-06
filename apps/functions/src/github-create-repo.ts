@@ -48,7 +48,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         name,
         description,
-        private: isPrivate === undefined ? true : Boolean(isPrivate)
+        private: isPrivate === undefined ? false : Boolean(isPrivate)
       })
     });
 
