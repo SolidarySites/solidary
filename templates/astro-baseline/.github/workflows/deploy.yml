@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -25,33 +25,43 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Compute SITE_URL
-        id: site_url
+      - name: Compute site URL
+        id: site
         run: |
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          OWNER="${GITHUB_REPOSITORY_OWNER}"
-          if [ "${REPO_NAME,,}" = "${OWNER,,}.github.io" ]; then
-            URL="https://${OWNER}.github.io"
+          REPO_NAME="${{ github.event.repository.name }}"
+          OWNER="${{ github.repository_owner }}"
+          if [ "${REPO_NAME}" = "${OWNER}.github.io" ]; then
+            SITE_URL="https://${OWNER}.github.io"
           else
-            URL="https://${OWNER}.github.io/${REPO_NAME}"
+            SITE_URL="https://${OWNER}.github.io/${REPO_NAME}"
           fi
-          echo "url=${URL}" >> $GITHUB_OUTPUT
+          echo "site_url=${SITE_URL}" >> "$GITHUB_OUTPUT"
 
       - name: Build
         env:
-          SITE_URL: ${{ steps.site_url.outputs.url }}
-        run: npm run build
+          SITE_URL: ${{ steps.site.outputs.site_url }}
+        run: pnpm run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

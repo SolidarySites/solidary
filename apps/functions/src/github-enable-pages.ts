@@ -23,6 +23,14 @@ export const handler: Handler = async (event) => {
       "Content-Type": "application/json"
     };
 
+    const pagesPayload = {
+      build_type: "workflow",
+      source: {
+        branch,
+        path: "/"
+      }
+    };
+
     const fetchPages = async () => {
       const pagesResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
         headers: {
@@ -42,6 +50,23 @@ export const handler: Handler = async (event) => {
       return pagesPayload as Record<string, unknown>;
     };
 
+    const updatePages = async () => {
+      const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(pagesPayload)
+      });
+      const payload = await response.json().catch(() => ({}));
+      console.log("[github-enable-pages] pages update", {
+        status: response.status,
+        statusText: response.statusText,
+        message: (payload as { message?: string })?.message,
+        documentation_url: (payload as { documentation_url?: string })?.documentation_url,
+        errors: (payload as { errors?: unknown })?.errors
+      });
+      return { response, payload };
+    };
+
     let lastStatus = 0;
     let lastPayload: Record<string, unknown> = {};
 
@@ -53,12 +78,7 @@ export const handler: Handler = async (event) => {
       const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          source: {
-            branch,
-            path: "/"
-          }
-        })
+        body: JSON.stringify(pagesPayload)
       });
 
       const payload = await response.json().catch(() => ({}));
@@ -71,6 +91,7 @@ export const handler: Handler = async (event) => {
       });
 
       if (response.status === 409) {
+        await updatePages();
         const pages = await fetchPages();
         return {
           statusCode: 200,
@@ -84,6 +105,7 @@ export const handler: Handler = async (event) => {
       }
 
       if (response.ok) {
+        await updatePages();
         const pages = (payload as { html_url?: string })?.html_url ? payload : await fetchPages();
         const pagesData = pages ?? payload;
         return {
