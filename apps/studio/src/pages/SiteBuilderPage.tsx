@@ -6,9 +6,10 @@ import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
+import homeTemplate from "../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { buildPageMarkdown, buildSiteTs, type AstroPageDraft } from "../studio/astro";
-import { githubRequest, writeTextFile } from "../studio/github";
+import { deleteTextFile, githubRequest, listDirectory, writeTextFile } from "../studio/github";
 import { parseSolidaryJson, slugify, toBase64 } from "../studio/utils";
 
 const FILE_KEYS = {
@@ -16,6 +17,23 @@ const FILE_KEYS = {
   tokens: "src/styles/partials/tokens.css",
   solidary: "public/.well-known/solidary-links.json"
 };
+
+const PAGE_PATH_PREFIX = "src/content/pages/";
+const PAGE_PATH_SUFFIX = ".md";
+
+type BuilderPage = AstroPageDraft & {
+  id?: string;
+  position?: number | null;
+  isHome?: boolean;
+};
+
+const stripFrontmatter = (content: string) => {
+  const match = content.match(/^---\s*[\r\n]+([\s\S]*?)\r?\n---\s*[\r\n]*([\s\S]*)$/);
+  if (!match) return content.trim();
+  return (match[2] ?? "").trim();
+};
+
+const defaultHomeContent = stripFrontmatter(homeTemplate);
 
 type BuilderSection = "content" | "pages" | "styles" | "settings";
 
@@ -36,7 +54,7 @@ export default function SiteBuilderPage() {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [activeSection, setActiveSection] = useState<BuilderSection>("content");
   const [isProvisioning, setIsProvisioning] = useState(false);
-  const [provisionStep, setProvisionStep] = useState("Preparing your site...");
+  const [provisionStep, setProvisionStep] = useState("Preparing your updates...");
 
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
   const [siteTagline, setSiteTagline] = useState("A calm, static home on the web.");
@@ -54,12 +72,10 @@ export default function SiteBuilderPage() {
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
+  const [draftImageUrl, setDraftImageUrl] = useState<string | null>(null);
 
-  const [pages, setPages] = useState<AstroPageDraft[]>([
-    { title: "About", slug: "about", body: "Write about your project here.", showInNav: true },
-    { title: "Contact", slug: "contact", body: "Add contact details here.", showInNav: true },
-    { title: "Legal", slug: "legal", body: "Add legal or policy details here.", showInNav: true }
-  ]);
+  const [pages, setPages] = useState<BuilderPage[]>([]);
+  const [draftPageSlugs, setDraftPageSlugs] = useState<string[]>([]);
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
@@ -107,35 +123,79 @@ export default function SiteBuilderPage() {
     if (!draftId || !session) return;
 
     let mounted = true;
-    supabase
-      .from("site_drafts")
-      .select("id, repo_full_name, branch, files")
-      .eq("id", draftId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!mounted || error || !data) return;
-        const files = data.files as RepoFileSet;
-        const siteRaw = files[FILE_KEYS.site] ?? "";
-        const solidaryRaw = files[FILE_KEYS.solidary] ?? files[".well-known/solidary-links.json"] ?? "";
-        const solidary = parseSolidaryJson(solidaryRaw);
+    (async () => {
+      const { data, error } = await supabase
+        .from("site_drafts")
+        .select("id, repo_full_name, branch, files")
+        .eq("id", draftId)
+        .maybeSingle();
 
-        setDraftState({
-          id: data.id,
-          repoFullName: data.repo_full_name,
-          branch: data.branch,
-          files
-        });
+      if (!mounted || error || !data) return;
 
-        if (solidary?.title) setSiteTitle(solidary.title);
-        if (solidary?.description) setSiteDescription(solidary.description);
-        if (solidary?.site_url) setSiteUrl(solidary.site_url);
-        if (solidary?.image_url) setSiteImagePreview(solidary.image_url);
+      const files = data.files as RepoFileSet;
+      const solidaryRaw = files[FILE_KEYS.solidary] ?? files[".well-known/solidary-links.json"] ?? "";
+      const solidary = parseSolidaryJson(solidaryRaw);
 
-        if (siteRaw.includes("tagline:")) {
-          const match = siteRaw.match(/tagline:\s*"([^"]*)"/);
-          if (match) setSiteTagline(match[1]);
-        }
+      setDraftState({
+        id: data.id,
+        repoFullName: data.repo_full_name,
+        branch: data.branch,
+        files
       });
+
+      const [{ data: pagesData }, { data: settingsData }] = await Promise.all([
+        supabase
+          .from("site_draft_pages")
+          .select("id, slug, title, content, show_in_nav, position, is_home")
+          .eq("draft_id", data.id)
+          .order("position", { ascending: true }),
+        supabase.from("site_draft_settings").select("settings, styles").eq("draft_id", data.id).maybeSingle()
+      ]);
+
+      const draftPages = (pagesData ?? []).map((page) => ({
+        id: page.id,
+        slug: page.slug,
+        title: page.title,
+        body: page.content ?? "",
+        showInNav: page.show_in_nav ?? true,
+        position: page.position,
+        isHome: page.is_home ?? false
+      }));
+      setPages(draftPages);
+      setDraftPageSlugs(draftPages.map((page) => page.slug));
+
+      const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
+      const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
+
+      if (typeof settings.title === "string") setSiteTitle(settings.title);
+      else if (solidary?.title) setSiteTitle(solidary.title);
+
+      if (typeof settings.tagline === "string") setSiteTagline(settings.tagline);
+
+      if (typeof settings.description === "string") setSiteDescription(settings.description);
+      else if (solidary?.description) setSiteDescription(solidary.description);
+
+      if (typeof settings.siteUrl === "string") setSiteUrl(settings.siteUrl);
+      else if (solidary?.site_url) setSiteUrl(solidary.site_url);
+
+      if (typeof settings.locale === "string") setSiteLocale(settings.locale);
+      if (typeof settings.themeColor === "string") setThemeColor(settings.themeColor);
+
+      const author = settings.author as Record<string, unknown> | undefined;
+      if (author?.name && typeof author.name === "string") setAuthorName(author.name);
+      if (author?.email && typeof author.email === "string") setAuthorEmail(author.email);
+      if (author?.url && typeof author.url === "string") setAuthorUrl(author.url);
+      if (author?.github && typeof author.github === "string") setAuthorGithub(author.github);
+      if (author?.x && typeof author.x === "string") setAuthorX(author.x);
+      if (author?.linkedin && typeof author.linkedin === "string") setAuthorLinkedin(author.linkedin);
+
+      if (typeof styles.tokensCss === "string") setTokensCss(styles.tokensCss);
+
+      if (solidary?.image_url) {
+        setSiteImagePreview(solidary.image_url);
+        setDraftImageUrl(solidary.image_url);
+      }
+    })();
 
     return () => {
       mounted = false;
@@ -172,62 +232,76 @@ export default function SiteBuilderPage() {
     const slug = slugify("new-page") || `page-${Date.now()}`;
     setPages((items) => [
       ...items,
-      { title: "New page", slug, body: "Write your page content here.", showInNav: true }
+      {
+        title: "New page",
+        slug,
+        body: "Write your page content here.",
+        showInNav: true,
+        position: items.length
+      }
     ]);
     setActiveSection("pages");
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };
 
-  const updatePage = (index: number, updates: Partial<AstroPageDraft>) => {
+  const updatePage = (index: number, updates: Partial<BuilderPage>) => {
     setPages((items) => items.map((item, idx) => (idx === index ? { ...item, ...updates } : item)));
   };
 
   const removePage = (index: number) => {
-    setPages((items) => items.filter((_, idx) => idx !== index));
+    setPages((items) => items.filter((_, idx) => idx !== index || items[idx]?.isHome));
+  };
+
+  const buildSettingsPayload = (imageUrl: string, urlOverride?: string) => ({
+    title: siteTitle.trim(),
+    tagline: siteTagline.trim(),
+    description: siteDescription.trim(),
+    siteUrl: (urlOverride ?? siteUrl).trim(),
+    locale: siteLocale.trim() || "en",
+    author: {
+      name: authorName.trim() || "",
+      email: authorEmail.trim() || "",
+      url: authorUrl.trim() || "",
+      github: authorGithub.trim() || "",
+      x: authorX.trim() || "",
+      linkedin: authorLinkedin.trim() || ""
+    },
+    themeColor: themeColor.trim() || "#fbfbf9",
+    ogImage: imageUrl
+  });
+
+  const buildSolidaryFile = (siteId: string, imageUrl: string, urlOverride?: string) => {
+    const settings = buildSettingsPayload(imageUrl, urlOverride);
+    return templateSolidary
+      .replaceAll("{{SITE_ID}}", siteId)
+      .replaceAll("{{TITLE}}", settings.title)
+      .replaceAll("{{DESCRIPTION}}", settings.description)
+      .replaceAll("{{SITE_URL}}", settings.siteUrl)
+      .replaceAll("{{IMAGE_URL}}", imageUrl);
   };
 
   const buildFiles = (siteId: string, imageUrl: string, urlOverride?: string) => {
-    const settings = {
-      title: siteTitle.trim(),
-      tagline: siteTagline.trim(),
-      description: siteDescription.trim(),
-      siteUrl: (urlOverride ?? siteUrl).trim(),
-      locale: siteLocale.trim() || "en",
-      author: {
-        name: authorName.trim() || "",
-        email: authorEmail.trim() || "",
-        url: authorUrl.trim() || "",
-        github: authorGithub.trim() || "",
-        x: authorX.trim() || "",
-        linkedin: authorLinkedin.trim() || ""
-      },
-      themeColor: themeColor.trim() || "#fbfbf9",
-      ogImage: imageUrl
-    };
-
+    const settings = buildSettingsPayload(imageUrl, urlOverride);
     const files: RepoFileSet = {
       [FILE_KEYS.site]: buildSiteTs(settings),
       [FILE_KEYS.tokens]: tokensCss,
-      [FILE_KEYS.solidary]: templateSolidary
-        .replaceAll("{{SITE_ID}}", siteId)
-        .replaceAll("{{TITLE}}", settings.title)
-        .replaceAll("{{DESCRIPTION}}", settings.description)
-        .replaceAll("{{SITE_URL}}", settings.siteUrl)
-        .replaceAll("{{IMAGE_URL}}", imageUrl)
+      [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
     };
 
-    pages.forEach((page) => {
-      const safeSlug = slugify(page.slug || page.title) || `page-${Date.now()}`;
+    pages.forEach((page, index) => {
+      const safeSlug = slugify(page.slug || page.title) || `page-${index + 1}`;
+      const body = page.isHome && !page.body?.trim() ? defaultHomeContent : page.body ?? "";
       files[`src/content/pages/${safeSlug}.md`] = buildPageMarkdown({
         ...page,
-        slug: safeSlug
+        slug: safeSlug,
+        body
       });
     });
 
     return files;
   };
 
-  const saveDraftFiles = async (files: RepoFileSet, repoInfo: DraftState) => {
+  const saveDraftState = async (repoInfo: DraftState, solidaryFile: string, imageUrl: string) => {
     const { error } = await supabase.from("site_drafts").upsert(
       {
         id: repoInfo.id,
@@ -235,7 +309,9 @@ export default function SiteBuilderPage() {
         repo_full_name: repoInfo.repoFullName,
         branch: repoInfo.branch,
         commit_sha: "",
-        files
+        files: {
+          [FILE_KEYS.solidary]: solidaryFile
+        }
       },
       { onConflict: "owner_user_id,repo_full_name" }
     );
@@ -243,9 +319,55 @@ export default function SiteBuilderPage() {
     if (error) {
       throw new Error(error.message);
     }
+
+    const { error: settingsError } = await supabase.from("site_draft_settings").upsert({
+      draft_id: repoInfo.id,
+      settings: buildSettingsPayload(imageUrl),
+      styles: {
+        tokensCss
+      }
+    });
+
+    if (settingsError) {
+      throw new Error(settingsError.message);
+    }
+
+    const pageRows = pages.map((page, index) => ({
+      draft_id: repoInfo.id,
+      slug: slugify(page.slug || page.title) || `page-${index + 1}`,
+      title: page.title.trim() || page.slug || `Page ${index + 1}`,
+      content: page.body ?? "",
+      show_in_nav: page.showInNav ?? true,
+      position: index,
+      is_home: Boolean(page.isHome)
+    }));
+    const currentSlugs = pageRows.map((page) => page.slug);
+    const deletedSlugs = draftPageSlugs.filter((slug) => !currentSlugs.includes(slug));
+
+    if (deletedSlugs.length) {
+      const { error: deleteError } = await supabase
+        .from("site_draft_pages")
+        .delete()
+        .eq("draft_id", repoInfo.id)
+        .in("slug", deletedSlugs);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+    }
+
+    const { error: pagesError } = await supabase
+      .from("site_draft_pages")
+      .upsert(pageRows, { onConflict: "draft_id,slug" });
+
+    if (pagesError) {
+      throw new Error(pagesError.message);
+    }
+
+    setDraftPageSlugs(pageRows.map((page) => page.slug));
   };
 
-  const handleProvision = async () => {
+  const handlePublish = async () => {
     resetNotices();
 
     if (!session) {
@@ -267,79 +389,81 @@ export default function SiteBuilderPage() {
       return;
     }
 
-    const normalizedTitle = siteTitle.trim();
-    const slug = computedSlug || `site-${Date.now()}`;
-    const imagePath = siteImage ? `public/images/site-image-${slug}.jpg` : "public/images/og/og-default.jpg";
-    const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : "/images/og/og-default.jpg";
-    const siteId = crypto.randomUUID();
-
     setIsProvisioning(true);
 
     try {
-      setProvisionStep("Creating your GitHub repository...");
-      const repoResponse = await githubRequest<{
-        repo: {
-          full_name: string;
-          name: string;
-          owner: { login: string };
-          html_url: string;
-          default_branch: string;
-        };
-      }>("/.netlify/functions/github-create-repo", {
-        token: providerToken,
-        name: slug,
-        description: siteDescription.trim(),
-        private: false
+      if (!draftState) {
+        throw new Error("Missing site draft. Create a site first.");
+      }
+
+      const normalizedTitle = siteTitle.trim();
+      const [ownerLogin, repoName] = draftState.repoFullName.split("/");
+      if (!ownerLogin || !repoName) {
+        throw new Error("Invalid repository name.");
+      }
+
+      const slug = computedSlug || `site-${Date.now()}`;
+      const imagePath = siteImage ? `public/images/site-image-${slug}.jpg` : "public/images/og/og-default.jpg";
+      const imageUrl = siteImage
+        ? `/${imagePath.replace(/^public\//, "")}`
+        : draftImageUrl || siteImagePreview || "/images/og/og-default.jpg";
+      const solidaryFile = buildSolidaryFile(draftState.id, imageUrl, siteUrl);
+
+      setProvisionStep("Saving draft...");
+      await saveDraftState(draftState, solidaryFile, imageUrl);
+      setDraftState({
+        ...draftState,
+        files: {
+          [FILE_KEYS.solidary]: solidaryFile
+        }
       });
 
-      const repo = repoResponse.repo;
-      const ownerLogin = repo.owner.login;
-      const pagesRootUrl = `https://${ownerLogin}.github.io`;
-      const isUserSite = repo.name.toLowerCase() === `${ownerLogin.toLowerCase()}.github.io`;
-      const baseUrl = isUserSite ? "" : `/${repo.name}`;
-      const siteUrlResolved = isUserSite ? pagesRootUrl : `${pagesRootUrl}${baseUrl}`;
-
-      setSiteUrl(siteUrlResolved);
-
-      const files = buildFiles(siteId, imageUrl, siteUrlResolved);
-
-      setProvisionStep("Uploading site image...");
       if (siteImage) {
+        setProvisionStep("Uploading site image...");
         const imageBase64 = toBase64(await siteImage.arrayBuffer());
         await githubRequest("/.netlify/functions/github-contents-write", {
           token: providerToken,
           owner: ownerLogin,
-          repo: repo.name,
+          repo: repoName,
           path: imagePath,
-          message: "Add site image",
+          message: "Update site image",
           content: imageBase64,
-          branch: repo.default_branch
+          branch: draftState.branch
         });
       }
 
-      setProvisionStep("Writing content files...");
+      const files = buildFiles(draftState.id, imageUrl, siteUrl);
+
+      setProvisionStep("Removing deleted pages...");
+      const repoEntries = await listDirectory(
+        providerToken,
+        ownerLogin,
+        repoName,
+        PAGE_PATH_PREFIX.replace(/\/$/, ""),
+        draftState.branch
+      ).catch(() => []);
+      const desiredPagePaths = new Set(
+        pages.map((page, index) => {
+          const safeSlug = slugify(page.slug || page.title) || `page-${index + 1}`;
+          return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
+        })
+      );
+      for (const entry of repoEntries) {
+        if (entry.type !== "file" || !entry.path?.endsWith(PAGE_PATH_SUFFIX)) continue;
+        if (!desiredPagePaths.has(entry.path)) {
+          await deleteTextFile(providerToken, ownerLogin, repoName, entry.path, draftState.branch);
+        }
+      }
+
+      setProvisionStep("Publishing content files...");
       for (const [path, content] of Object.entries(files)) {
-        await writeTextFile(providerToken, ownerLogin, repo.name, path, content, repo.default_branch);
+        await writeTextFile(providerToken, ownerLogin, repoName, path, content, draftState.branch);
       }
 
-      setProvisionStep("Enabling GitHub Pages...");
-      try {
-        await githubRequest("/.netlify/functions/github-enable-pages", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repo.name,
-          branch: repo.default_branch
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to enable GitHub Pages.";
-        setNotice(`GitHub Pages couldn't be enabled yet: ${message}`);
-        setNoticeKind("notice");
-      }
-
-      setProvisionStep("Saving site metadata...");
-      await supabase.from("sites").insert({
-        id: siteId,
-        canonical_url: siteUrlResolved,
+      setProvisionStep("Updating site metadata...");
+      await supabase.from("sites").upsert({
+        id: draftState.id,
+        canonical_url: siteUrl.trim(),
         title: normalizedTitle,
         description: siteDescription.trim(),
         image_url: imageUrl,
@@ -349,30 +473,9 @@ export default function SiteBuilderPage() {
         }
       });
 
-      const { error: draftError } = await supabase.from("site_drafts").upsert(
-        {
-          id: siteId,
-          owner_user_id: session.user.id,
-          repo_full_name: repo.full_name,
-          branch: repo.default_branch,
-          commit_sha: "",
-          files
-        },
-        { onConflict: "owner_user_id,repo_full_name" }
-      );
+      setDraftImageUrl(imageUrl);
 
-      if (draftError) {
-        throw new Error(draftError.message);
-      }
-
-      setDraftState({
-        id: siteId,
-        repoFullName: repo.full_name,
-        branch: repo.default_branch,
-        files
-      });
-
-      setNotice("Site created. You can keep editing before publishing changes.");
+      setNotice("Site published. Your GitHub Pages site will update shortly.");
       setNoticeKind("notice");
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
@@ -387,10 +490,15 @@ export default function SiteBuilderPage() {
     if (!draftState || savingDraft) return;
     setSavingDraft(true);
     try {
-      const imageUrl = siteImagePreview || "/images/og/og-default.jpg";
-      const files = buildFiles(draftState.id, imageUrl, siteUrl);
-      await saveDraftFiles(files, draftState);
-      setDraftState({ ...draftState, files });
+      const imageUrl = siteImage ? draftImageUrl || "/images/og/og-default.jpg" : siteImagePreview || draftImageUrl || "/images/og/og-default.jpg";
+      const solidaryFile = buildSolidaryFile(draftState.id, imageUrl, siteUrl);
+      await saveDraftState(draftState, solidaryFile, imageUrl);
+      setDraftState({
+        ...draftState,
+        files: {
+          [FILE_KEYS.solidary]: solidaryFile
+        }
+      });
       setNotice("Draft saved locally.");
       setNoticeKind("notice");
     } catch (error) {
@@ -450,8 +558,8 @@ export default function SiteBuilderPage() {
               <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
                 {savingDraft ? "Saving..." : "Save draft"}
               </button>
-              <button className="primary" onClick={handleProvision} disabled={isProvisioning}>
-                {isProvisioning ? "Creating..." : "Create site"}
+              <button className="primary" onClick={handlePublish} disabled={isProvisioning || !draftState}>
+                {isProvisioning ? "Publishing..." : "Publish"}
               </button>
             </div>
           </header>
@@ -459,7 +567,7 @@ export default function SiteBuilderPage() {
           {isProvisioning && (
             <div className="provisioning">
               <div className="spinner" />
-              <h2>Setting up your site</h2>
+              <h2>Publishing your site</h2>
               <p>{provisionStep}</p>
             </div>
           )}
@@ -509,7 +617,7 @@ export default function SiteBuilderPage() {
               </button>
               <div className="builder-page-list">
                 {pages.map((page, index) => (
-                  <div key={page.slug} className="builder-page-card">
+                  <div key={page.id ?? page.slug} className="builder-page-card">
                     <label>
                       Title
                       <input
@@ -521,6 +629,7 @@ export default function SiteBuilderPage() {
                             slug: slugify(event.target.value || page.slug)
                           })
                         }
+                        disabled={page.isHome}
                       />
                     </label>
                     <label>
@@ -528,6 +637,7 @@ export default function SiteBuilderPage() {
                       <input
                         value={page.slug}
                         onChange={(event) => updatePage(index, { slug: slugify(event.target.value) })}
+                        disabled={page.isHome}
                       />
                     </label>
                     <label>
@@ -538,17 +648,21 @@ export default function SiteBuilderPage() {
                         rows={4}
                       />
                     </label>
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={page.showInNav}
-                        onChange={(event) => updatePage(index, { showInNav: event.target.checked })}
-                      />
-                      Show in navigation
-                    </label>
-                    <button className="ghost" type="button" onClick={() => removePage(index)}>
-                      Remove page
-                    </button>
+                    {!page.isHome && (
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={page.showInNav}
+                          onChange={(event) => updatePage(index, { showInNav: event.target.checked })}
+                        />
+                        Show in navigation
+                      </label>
+                    )}
+                    {!page.isHome && (
+                      <button className="ghost" type="button" onClick={() => removePage(index)}>
+                        Remove page
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

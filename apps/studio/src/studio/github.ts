@@ -43,6 +43,20 @@ export async function readTextFile(
   }
 }
 
+export async function listDirectory(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  branch: string
+) {
+  const result = await githubRequest<{ entries: { name: string; path: string; type: string }[] }>(
+    "/.netlify/functions/github-contents-list",
+    { token, owner, repo, path, branch }
+  );
+  return result.entries ?? [];
+}
+
 export async function writeTextFile(
   token: string,
   owner: string,
@@ -58,6 +72,23 @@ export async function writeTextFile(
     path,
     message: `Update ${path}`,
     content: toBase64(new TextEncoder().encode(content).buffer),
+    branch
+  });
+}
+
+export async function deleteTextFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  branch: string
+) {
+  await githubRequest("/.netlify/functions/github-contents-delete", {
+    token,
+    owner,
+    repo,
+    path,
+    message: `Delete ${path}`,
     branch
   });
 }

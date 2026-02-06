@@ -17,6 +17,7 @@ const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
 };
 
+
 export default function SiteCreatePage() {
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
@@ -42,7 +43,14 @@ export default function SiteCreatePage() {
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
 
-  const [pages] = useState<AstroPageDraft[]>([]);
+  const [pages] = useState<AstroPageDraft[]>([
+    {
+      title: "Home",
+      slug: "home",
+      body: "",
+      showInNav: false
+    }
+  ]);
 
   const [tokensCss] = useState(tokensTemplate);
 
@@ -102,35 +110,41 @@ export default function SiteCreatePage() {
     await supabase.auth.signOut();
   };
 
+  const buildSettingsPayload = (imageUrl: string, urlOverride?: string) => ({
+    title: siteTitle.trim(),
+    tagline: siteTagline.trim(),
+    description: siteDescription.trim(),
+    siteUrl: urlOverride || siteUrl,
+    locale: siteLocale,
+    author: {
+      name: authorName.trim() || "",
+      email: authorEmail.trim() || "",
+      url: authorUrl.trim() || "",
+      github: authorGithub.trim() || "",
+      x: authorX.trim() || "",
+      linkedin: authorLinkedin.trim() || ""
+    },
+    themeColor: themeColor.trim() || "#fbfbf9",
+    ogImage: imageUrl
+  });
+
+  const buildSolidaryFile = (siteId: string, imageUrl: string, urlOverride?: string) => {
+    const settings = buildSettingsPayload(imageUrl, urlOverride);
+    return templateSolidary
+      .replaceAll("{{SITE_ID}}", siteId)
+      .replaceAll("{{TITLE}}", settings.title)
+      .replaceAll("{{DESCRIPTION}}", settings.description)
+      .replaceAll("{{SITE_URL}}", settings.siteUrl)
+      .replaceAll("{{IMAGE_URL}}", imageUrl);
+  };
+
   const buildFiles = (siteId: string, imageUrl: string, urlOverride?: string) => {
-    const settings = {
-      id: siteId,
-      title: siteTitle.trim(),
-      tagline: siteTagline.trim(),
-      description: siteDescription.trim(),
-      siteUrl: urlOverride || siteUrl,
-      locale: siteLocale,
-      author: {
-        name: authorName.trim() || "",
-        email: authorEmail.trim() || "",
-        url: authorUrl.trim() || "",
-        github: authorGithub.trim() || "",
-        x: authorX.trim() || "",
-        linkedin: authorLinkedin.trim() || ""
-      },
-      themeColor: themeColor.trim() || "#fbfbf9",
-      ogImage: imageUrl
-    };
+    const settings = buildSettingsPayload(imageUrl, urlOverride);
 
     const files: RepoFileSet = {
       [FILE_KEYS.site]: buildSiteTs(settings),
       [FILE_KEYS.tokens]: tokensCss,
-      [FILE_KEYS.solidary]: templateSolidary
-        .replaceAll("{{SITE_ID}}", siteId)
-        .replaceAll("{{TITLE}}", settings.title)
-        .replaceAll("{{DESCRIPTION}}", settings.description)
-        .replaceAll("{{SITE_URL}}", settings.siteUrl)
-        .replaceAll("{{IMAGE_URL}}", imageUrl)
+      [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
     };
 
     pages.forEach((page) => {
@@ -202,6 +216,7 @@ export default function SiteCreatePage() {
       setSiteUrl(siteUrlResolved);
 
       const files = buildFiles(siteId, imageUrl, siteUrlResolved);
+      const solidaryFile = buildSolidaryFile(siteId, imageUrl, siteUrlResolved);
 
       setProvisionStep("Uploading site image...");
       if (siteImage) {
@@ -256,13 +271,58 @@ export default function SiteCreatePage() {
           repo_full_name: repo.full_name,
           branch: repo.default_branch,
           commit_sha: "",
-          files
+          files: {
+            [FILE_KEYS.solidary]: solidaryFile
+          }
         },
         { onConflict: "owner_user_id,repo_full_name" }
       );
 
       if (draftError) {
         throw new Error(draftError.message);
+      }
+
+      const { error: settingsError } = await supabase.from("site_draft_settings").upsert({
+        draft_id: siteId,
+        settings: {
+          title: siteTitle.trim(),
+          tagline: siteTagline.trim(),
+          description: siteDescription.trim(),
+          siteUrl: siteUrlResolved,
+          locale: siteLocale,
+          themeColor: themeColor.trim() || "#fbfbf9",
+          author: {
+            name: authorName.trim() || "",
+            email: authorEmail.trim() || "",
+            url: authorUrl.trim() || "",
+            github: authorGithub.trim() || "",
+            x: authorX.trim() || "",
+            linkedin: authorLinkedin.trim() || ""
+          }
+        },
+        styles: {
+          tokensCss
+        }
+      });
+
+      if (settingsError) {
+        throw new Error(settingsError.message);
+      }
+
+      const { error: pagesError } = await supabase.from("site_draft_pages").insert(
+        pages.map((page, index) => ({
+          draft_id: siteId,
+          slug: page.slug,
+          title: page.title,
+          content: page.body,
+          show_in_nav: page.showInNav,
+          position: index,
+          is_home: page.slug === "home"
+        }))
+      );
+
+      if (pagesError) {
+        throw new Error(pagesError.message);
       }
 
       navigate(`/site-builder?draftId=${siteId}`);
