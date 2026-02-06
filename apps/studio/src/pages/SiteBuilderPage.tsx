@@ -351,6 +351,7 @@ export default function SiteBuilderPage() {
 
       const { error: draftError } = await supabase.from("site_drafts").upsert(
         {
+          id: siteId,
           owner_user_id: session.user.id,
           repo_full_name: repo.full_name,
           branch: repo.default_branch,
@@ -416,7 +417,7 @@ export default function SiteBuilderPage() {
             className={activeSection === "content" ? "primary" : "ghost"}
             onClick={() => setActiveSection("content")}
           >
-            Content
+            Solidary Metadata
           </button>
           <button
             className={activeSection === "pages" ? "primary" : "ghost"}
@@ -466,7 +467,7 @@ export default function SiteBuilderPage() {
           {!isProvisioning && activeSection === "content" && (
             <div className="builder-section">
               <div className="section-header">
-                <h2>Content</h2>
+                <h2>Solidary Metadata</h2>
                 <p>Update the main site metadata and hero text.</p>
               </div>
               <label>

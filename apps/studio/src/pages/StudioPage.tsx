@@ -220,7 +220,7 @@ export default function StudioPage() {
             items={listItems}
             loading={draftsLoading}
             onEdit={(id) => navigate(`/site-builder?draftId=${id}`)}
-            onCreate={() => navigate("/site-builder")}
+            onCreate={() => navigate("/site-create")}
             onDelete={(item) => {
               setDeleteTarget({
                 id: item.id,
@@ -233,7 +233,7 @@ export default function StudioPage() {
           />
         )}
 
-        {session && <IndexesListSection onCreate={() => navigate("/site-builder")} />}
+        {session && <IndexesListSection onCreate={() => navigate("/site-create")} />}
       </main>
 
       <SiteFooter notice={notice} noticeKind={noticeKind} />
