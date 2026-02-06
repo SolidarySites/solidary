@@ -21,6 +21,30 @@ const FILE_KEYS = {
 const PAGE_PATH_PREFIX = "src/content/pages/";
 const PAGE_PATH_SUFFIX = ".md";
 
+const resolveImagePreviewUrl = (imageUrl: string, canonicalUrl: string) => {
+  const trimmedImageUrl = imageUrl.trim();
+  if (!trimmedImageUrl) return imageUrl;
+
+  const lower = trimmedImageUrl.toLowerCase();
+  if (
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    lower.startsWith("data:") ||
+    lower.startsWith("blob:") ||
+    trimmedImageUrl.startsWith("//")
+  ) {
+    return imageUrl;
+  }
+
+  const base = canonicalUrl.trim().replace(/\/$/, "");
+  if (!base) return imageUrl;
+  if (trimmedImageUrl.startsWith("/")) {
+    return `${base}${trimmedImageUrl}`;
+  }
+
+  return `${base}/${trimmedImageUrl}`;
+};
+
 type BuilderPage = AstroPageDraft & {
   id?: string;
   position?: number | null;
@@ -192,7 +216,9 @@ export default function SiteBuilderPage() {
       if (typeof styles.tokensCss === "string") setTokensCss(styles.tokensCss);
 
       if (solidary?.image_url) {
-        setSiteImagePreview(solidary.image_url);
+        const canonicalUrl = solidary.site_url ?? "";
+        const resolvedImageUrl = resolveImagePreviewUrl(solidary.image_url, canonicalUrl);
+        setSiteImagePreview(resolvedImageUrl);
         setDraftImageUrl(solidary.image_url);
       }
     })();
