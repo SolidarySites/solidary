@@ -6,7 +6,7 @@ import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
-import homeTemplate from "../../../templates/astro-baseline/src/content/pages/home.md?raw";
+import homeTemplate from "../../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { buildPageMarkdown, buildSiteTs, type AstroPageDraft } from "../studio/astro";
 import { deleteTextFile, githubRequest, listDirectory, writeTextFile } from "../studio/github";
