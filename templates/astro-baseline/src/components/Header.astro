@@ -4,16 +4,25 @@ import { getCollection } from "astro:content";
 
 const { brand = site.name } = Astro.props as { brand?: string };
 
+const basePath = (() => {
+  try {
+    return new URL(site.url).pathname.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+})();
+const withBase = (href: string) => `${basePath}${href}`;
+
 const path = Astro.url.pathname;
-const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+const isActive = (href: string) => (href === "/" ? path === withBase("/") : path.startsWith(href));
 
 const pages = await getCollection("pages", ({ data }) => data.showInNav !== false);
 const pageLinks = pages.map((entry) => ({
   label: entry.data.navLabel ?? entry.data.title,
-  href: `/${entry.slug}`
+  href: withBase(`/${entry.slug}`)
 }));
 
-const combinedNav = [{ label: "Home", href: "/" }, ...pageLinks];
+const combinedNav = [{ label: "Home", href: withBase("/") }, ...pageLinks];
 const seen = new Set<string>();
 const finalNav = combinedNav.filter((item) => {
   if (seen.has(item.href)) return false;
@@ -24,7 +33,7 @@ const finalNav = combinedNav.filter((item) => {
 
 <header class="header">
   <div class="header__inner">
-    <a class="header__brand" href="/">{brand}</a>
+    <a class="header__brand" href={withBase("/")}>{brand}</a>
 
     <nav class="header__nav" aria-label="Primary">
       <ul class="nav">
