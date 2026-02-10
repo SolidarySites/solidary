@@ -85,6 +85,7 @@ export default function SiteBuilderPage() {
   const [activeSection, setActiveSection] = useState<BuilderSection>("content");
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionStep, setProvisionStep] = useState("Preparing your updates...");
+  const [sessionResolved, setSessionResolved] = useState(false);
 
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
@@ -110,13 +111,24 @@ export default function SiteBuilderPage() {
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
+  const [isDraftLoading, setIsDraftLoading] = useState(() => {
+    const initialDraftId =
+      searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId;
+    return Boolean(initialDraftId);
+  });
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
   const hasInitializedPreviewBrand = useRef(false);
 
+  const draftId = useMemo(
+    () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
+    [location.state, searchParams]
+  );
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
+  const shouldLoadDraft = Boolean(draftId);
 
   useEffect(() => {
     let mounted = true;
@@ -124,12 +136,14 @@ export default function SiteBuilderPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
         setSession(data.session);
+        setSessionResolved(true);
       }
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) {
         setSession(nextSession);
+        setSessionResolved(true);
       }
     });
 
@@ -152,101 +166,134 @@ export default function SiteBuilderPage() {
   }, [siteImage]);
 
   useEffect(() => {
-    const draftId = searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId;
-    if (!draftId || !session) return;
+    if (!draftId) {
+      setIsDraftLoading(false);
+      setDraftLoadError(null);
+      return;
+    }
+
+    if (!sessionResolved) {
+      setIsDraftLoading(true);
+      setDraftLoadError(null);
+      return;
+    }
+
+    if (!session) {
+      setIsDraftLoading(false);
+      setDraftLoadError("Sign in to load this draft.");
+      return;
+    }
 
     let mounted = true;
+    setIsDraftLoading(true);
+    setDraftLoadError(null);
     (async () => {
-      const { data, error } = await supabase
-        .from("site_drafts")
-        .select("id, repo_full_name, branch, files")
-        .eq("id", draftId)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("site_drafts")
+          .select("id, repo_full_name, branch, files")
+          .eq("id", draftId)
+          .maybeSingle();
 
-      if (!mounted || error || !data) return;
+        if (!mounted) return;
+        if (error) throw new Error(error.message);
+        if (!data) throw new Error("Draft not found.");
 
-      const files = data.files as RepoFileSet;
-      const solidaryRaw = files[FILE_KEYS.solidary] ?? files[".well-known/solidary-links.json"] ?? "";
-      const solidary = parseSolidaryJson(solidaryRaw);
+        const files = data.files as RepoFileSet;
+        const solidaryRaw = files[FILE_KEYS.solidary] ?? files[".well-known/solidary-links.json"] ?? "";
+        const solidary = parseSolidaryJson(solidaryRaw);
 
-      setDraftState({
-        id: data.id,
-        repoFullName: data.repo_full_name,
-        branch: data.branch,
-        files
-      });
+        setDraftState({
+          id: data.id,
+          repoFullName: data.repo_full_name,
+          branch: data.branch,
+          files
+        });
 
-      const [{ data: pagesData }, { data: settingsData }] = await Promise.all([
-        supabase
-          .from("site_draft_pages")
-          .select("id, slug, title, content, show_in_nav, position, is_home")
-          .eq("draft_id", data.id)
-          .order("position", { ascending: true }),
-        supabase.from("site_draft_settings").select("settings, styles").eq("draft_id", data.id).maybeSingle()
-      ]);
+        const [{ data: pagesData }, { data: settingsData }] = await Promise.all([
+          supabase
+            .from("site_draft_pages")
+            .select("id, slug, title, content, show_in_nav, position, is_home")
+            .eq("draft_id", data.id)
+            .order("position", { ascending: true }),
+          supabase
+            .from("site_draft_settings")
+            .select("settings, styles")
+            .eq("draft_id", data.id)
+            .maybeSingle()
+        ]);
 
-      const draftPages = (pagesData ?? []).map((page) => ({
-        id: page.id,
-        slug: page.slug,
-        title: page.title,
-        body: page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
-        showInNav: page.show_in_nav ?? true,
-        position: page.position,
-        isHome: page.is_home ?? false
-      }));
-      setPages(draftPages);
-      setDraftPageSlugs(draftPages.map((page) => page.slug));
-      const initialPage = draftPages.find((page) => page.isHome) ?? draftPages[0];
-      if (initialPage) {
-        const initialIndex = draftPages.indexOf(initialPage);
-        setActivePreviewSlug(getPageSafeSlug(initialPage, initialIndex));
-      }
+        const draftPages = (pagesData ?? []).map((page) => ({
+          id: page.id,
+          slug: page.slug,
+          title: page.title,
+          body: page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
+          showInNav: page.show_in_nav ?? true,
+          position: page.position,
+          isHome: page.is_home ?? false
+        }));
+        setPages(draftPages);
+        setDraftPageSlugs(draftPages.map((page) => page.slug));
+        const initialPage = draftPages.find((page) => page.isHome) ?? draftPages[0];
+        if (initialPage) {
+          const initialIndex = draftPages.indexOf(initialPage);
+          setActivePreviewSlug(getPageSafeSlug(initialPage, initialIndex));
+        }
 
-      const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
-      const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
+        const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
+        const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
 
-      const initialSiteTitle =
-        typeof settings.title === "string" ? settings.title : (solidary?.title ?? "");
-      if (initialSiteTitle) {
-        setSiteTitle(initialSiteTitle);
-      }
-      if (!hasInitializedPreviewBrand.current) {
-        const resolvedBrand = initialSiteTitle.trim() || "New Astro Site";
-        setPreviewBrand(resolvedBrand);
-        hasInitializedPreviewBrand.current = true;
-      }
+        const initialSiteTitle =
+          typeof settings.title === "string" ? settings.title : (solidary?.title ?? "");
+        if (initialSiteTitle) {
+          setSiteTitle(initialSiteTitle);
+        }
+        if (!hasInitializedPreviewBrand.current) {
+          const resolvedBrand = initialSiteTitle.trim() || "New Astro Site";
+          setPreviewBrand(resolvedBrand);
+          hasInitializedPreviewBrand.current = true;
+        }
 
-      if (typeof settings.description === "string") setSiteDescription(settings.description);
-      else if (solidary?.description) setSiteDescription(solidary.description);
+        if (typeof settings.description === "string") setSiteDescription(settings.description);
+        else if (solidary?.description) setSiteDescription(solidary.description);
 
-      if (typeof settings.siteUrl === "string") setSiteUrl(settings.siteUrl);
-      else if (solidary?.site_url) setSiteUrl(solidary.site_url);
+        if (typeof settings.siteUrl === "string") setSiteUrl(settings.siteUrl);
+        else if (solidary?.site_url) setSiteUrl(solidary.site_url);
 
-      if (typeof settings.locale === "string") setSiteLocale(settings.locale);
-      if (typeof settings.themeColor === "string") setThemeColor(settings.themeColor);
+        if (typeof settings.locale === "string") setSiteLocale(settings.locale);
+        if (typeof settings.themeColor === "string") setThemeColor(settings.themeColor);
 
-      const author = settings.author as Record<string, unknown> | undefined;
-      if (author?.name && typeof author.name === "string") setAuthorName(author.name);
-      if (author?.email && typeof author.email === "string") setAuthorEmail(author.email);
-      if (author?.url && typeof author.url === "string") setAuthorUrl(author.url);
-      if (author?.github && typeof author.github === "string") setAuthorGithub(author.github);
-      if (author?.x && typeof author.x === "string") setAuthorX(author.x);
-      if (author?.linkedin && typeof author.linkedin === "string") setAuthorLinkedin(author.linkedin);
+        const author = settings.author as Record<string, unknown> | undefined;
+        if (author?.name && typeof author.name === "string") setAuthorName(author.name);
+        if (author?.email && typeof author.email === "string") setAuthorEmail(author.email);
+        if (author?.url && typeof author.url === "string") setAuthorUrl(author.url);
+        if (author?.github && typeof author.github === "string") setAuthorGithub(author.github);
+        if (author?.x && typeof author.x === "string") setAuthorX(author.x);
+        if (author?.linkedin && typeof author.linkedin === "string") setAuthorLinkedin(author.linkedin);
 
-      if (typeof styles.tokensCss === "string") setTokensCss(styles.tokensCss);
+        if (typeof styles.tokensCss === "string") setTokensCss(styles.tokensCss);
 
-      if (solidary?.image_url) {
-        const canonicalUrl = solidary.site_url ?? "";
-        const resolvedImageUrl = resolveImagePreviewUrl(solidary.image_url, canonicalUrl);
-        setSiteImagePreview(resolvedImageUrl);
-        setDraftImageUrl(solidary.image_url);
+        if (solidary?.image_url) {
+          const canonicalUrl = solidary.site_url ?? "";
+          const resolvedImageUrl = resolveImagePreviewUrl(solidary.image_url, canonicalUrl);
+          setSiteImagePreview(resolvedImageUrl);
+          setDraftImageUrl(solidary.image_url);
+        }
+      } catch (caught) {
+        if (!mounted) return;
+        const message = caught instanceof Error ? caught.message : "Failed to load draft.";
+        setDraftLoadError(message);
+      } finally {
+        if (mounted) {
+          setIsDraftLoading(false);
+        }
       }
     })();
 
     return () => {
       mounted = false;
     };
-  }, [location.state, searchParams, session]);
+  }, [draftId, session, sessionResolved]);
 
   const handleGitHubLogin = async () => {
     setNotice(null);
@@ -610,7 +657,7 @@ export default function SiteBuilderPage() {
         <div className="builder-topbar-main">
           <h1>Site Builder</h1>
           <p>Live Astro template preview</p>
-          {!isProvisioning && (
+          {!isProvisioning && !(shouldLoadDraft && isDraftLoading) && !draftLoadError && (
             <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
               <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "p")}>
                 P
@@ -878,7 +925,22 @@ export default function SiteBuilderPage() {
             </div>
           )}
 
-          {!isProvisioning && (
+          {!isProvisioning && shouldLoadDraft && isDraftLoading && (
+            <div className="provisioning">
+              <div className="spinner" />
+              <h2>Loading draft preview</h2>
+              <p>Preparing your saved site content...</p>
+            </div>
+          )}
+
+          {!isProvisioning && !isDraftLoading && draftLoadError && (
+            <div className="provisioning">
+              <h2>Unable to load draft</h2>
+              <p>{draftLoadError}</p>
+            </div>
+          )}
+
+          {!isProvisioning && !isDraftLoading && !draftLoadError && (
             <AstroTemplatePreview
               ref={previewRef}
               previewBrand={previewBrand}
