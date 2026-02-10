@@ -17,12 +17,10 @@ const path = Astro.url.pathname;
 const isActive = (href: string) => (href === "/" ? path === withBase("/") : path.startsWith(href));
 
 const pages = await getCollection("pages", ({ data }) => data.showInNav !== false);
-const pageLinks = pages.map((entry) => ({
+const combinedNav = pages.map((entry) => ({
   label: entry.data.navLabel ?? entry.data.title,
-  href: withBase(`/${entry.slug}`)
+  href: withBase(entry.slug === "home" ? "/" : `/${entry.slug}`)
 }));
-
-const combinedNav = [{ label: "Home", href: withBase("/") }, ...pageLinks];
 const seen = new Set<string>();
 const finalNav = combinedNav.filter((item) => {
   if (seen.has(item.href)) return false;

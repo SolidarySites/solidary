@@ -201,16 +201,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   );
 
   const navItems = useMemo(() => {
-    const combined = [
-      { label: "Home", slug: homePage.safeSlug, href: "/" },
-      ...parsedPages
-        .filter((page) => !page.isHome && page.showInNav !== false)
-        .map((page) => ({
-          label: page.title.trim() || "Untitled page",
-          slug: page.safeSlug,
-          href: `/${page.safeSlug}`
-        }))
-    ];
+    const combined = parsedPages
+      .filter((page) => page.showInNav !== false)
+      .map((page) => ({
+        label: page.title.trim() || "Untitled page",
+        slug: page.safeSlug,
+        href: page.safeSlug === homePage.safeSlug ? "/" : `/${page.safeSlug}`
+      }));
 
     const seen = new Set<string>();
     return combined.filter((item) => {
