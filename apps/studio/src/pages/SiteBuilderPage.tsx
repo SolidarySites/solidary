@@ -928,16 +928,18 @@ export default function SiteBuilderPage() {
           )}
         </div>
         <div className="builder-actions">
-          <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
-            {savingDraft ? "Saving..." : "Save draft"}
-          </button>
-          <button
-            className="primary"
-            onClick={handlePublish}
-            disabled={isProvisioning || !draftState || publishFeedback?.kind === "progress"}
-          >
-            {isProvisioning ? "Publishing..." : publishFeedback?.kind === "progress" ? "Building..." : "Publish"}
-          </button>
+          <div className="builder-actions-buttons">
+            <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
+              {savingDraft ? "Saving..." : "Save draft"}
+            </button>
+            <button
+              className="primary"
+              onClick={handlePublish}
+              disabled={isProvisioning || !draftState || publishFeedback?.kind === "progress"}
+            >
+              {isProvisioning ? "Publishing..." : publishFeedback?.kind === "progress" ? "Building..." : "Publish"}
+            </button>
+          </div>
           {publishFeedback && (
             <div className="builder-actions-feedback">
               <div

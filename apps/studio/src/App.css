@@ -345,13 +345,23 @@
 }
 
 .builder-actions {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: end;
+  align-content: start;
+}
+
+.builder-actions-buttons {
   display: flex;
   gap: 0.8rem;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.builder-actions-buttons button {
+  min-width: 112px;
 }
 
 .builder-actions-feedback {
-  width: 100%;
   display: flex;
   justify-content: flex-end;
 }
@@ -875,6 +885,12 @@ button:disabled {
 
   .builder-actions {
     width: 100%;
+    justify-items: start;
+  }
+
+  .builder-actions-buttons {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .builder-actions-feedback {
