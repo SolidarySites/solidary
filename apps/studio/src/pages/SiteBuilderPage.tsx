@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
+import AstroTemplatePreview, { type AstroTemplatePreviewHandle } from "../components/studio/AstroTemplatePreview";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../templates/astro-baseline/src/content/pages/home.md?raw";
@@ -51,6 +52,9 @@ type BuilderPage = AstroPageDraft & {
   isHome?: boolean;
 };
 
+const getPageSafeSlug = (page: BuilderPage, index: number) =>
+  page.isHome ? "home" : slugify(page.slug || page.title) || `page-${index + 1}`;
+
 const stripFrontmatter = (content: string) => {
   const match = content.match(/^---\s*[\r\n]+([\s\S]*?)\r?\n---\s*[\r\n]*([\s\S]*)$/);
   if (!match) return content.trim();
@@ -81,7 +85,6 @@ export default function SiteBuilderPage() {
   const [provisionStep, setProvisionStep] = useState("Preparing your updates...");
 
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
-  const [siteTagline, setSiteTagline] = useState("A calm, static home on the web.");
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
   const [siteLocale, setSiteLocale] = useState("en");
@@ -100,12 +103,16 @@ export default function SiteBuilderPage() {
 
   const [pages, setPages] = useState<BuilderPage[]>([]);
   const [draftPageSlugs, setDraftPageSlugs] = useState<string[]>([]);
+  const [activePreviewSlug, setActivePreviewSlug] = useState("home");
+  const [previewBrand, setPreviewBrand] = useState("New Astro Site");
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
+  const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
+  const hasInitializedPreviewBrand = useRef(false);
 
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
 
@@ -180,21 +187,32 @@ export default function SiteBuilderPage() {
         id: page.id,
         slug: page.slug,
         title: page.title,
-        body: page.content ?? "",
+        body: page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
         showInNav: page.show_in_nav ?? true,
         position: page.position,
         isHome: page.is_home ?? false
       }));
       setPages(draftPages);
       setDraftPageSlugs(draftPages.map((page) => page.slug));
+      const initialPage = draftPages.find((page) => page.isHome) ?? draftPages[0];
+      if (initialPage) {
+        const initialIndex = draftPages.indexOf(initialPage);
+        setActivePreviewSlug(getPageSafeSlug(initialPage, initialIndex));
+      }
 
       const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
       const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
 
-      if (typeof settings.title === "string") setSiteTitle(settings.title);
-      else if (solidary?.title) setSiteTitle(solidary.title);
-
-      if (typeof settings.tagline === "string") setSiteTagline(settings.tagline);
+      const initialSiteTitle =
+        typeof settings.title === "string" ? settings.title : (solidary?.title ?? "");
+      if (initialSiteTitle) {
+        setSiteTitle(initialSiteTitle);
+      }
+      if (!hasInitializedPreviewBrand.current) {
+        const resolvedBrand = initialSiteTitle.trim() || "New Astro Site";
+        setPreviewBrand(resolvedBrand);
+        hasInitializedPreviewBrand.current = true;
+      }
 
       if (typeof settings.description === "string") setSiteDescription(settings.description);
       else if (solidary?.description) setSiteDescription(solidary.description);
@@ -261,26 +279,50 @@ export default function SiteBuilderPage() {
       {
         title: "New page",
         slug,
-        body: "Write your page content here.",
+        body: "<p>Write your page content here.</p>",
         showInNav: true,
         position: items.length
       }
     ]);
+    setActivePreviewSlug(slug);
     setActiveSection("pages");
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };
 
   const updatePage = (index: number, updates: Partial<BuilderPage>) => {
+    const existing = pages[index];
+    if (existing && !existing.isHome) {
+      const previousSlug = getPageSafeSlug(existing, index);
+      const nextSlug = getPageSafeSlug({ ...existing, ...updates }, index);
+      if (previousSlug !== nextSlug && activePreviewSlug === previousSlug) {
+        setActivePreviewSlug(nextSlug);
+      }
+    }
     setPages((items) => items.map((item, idx) => (idx === index ? { ...item, ...updates } : item)));
   };
 
   const removePage = (index: number) => {
+    const page = pages[index];
+    if (!page || page.isHome) return;
+
+    const removedSlug = getPageSafeSlug(page, index);
     setPages((items) => items.filter((_, idx) => idx !== index || items[idx]?.isHome));
+    if (activePreviewSlug === removedSlug) {
+      setActivePreviewSlug("home");
+    }
+  };
+
+  const updatePageBody = (safeSlug: string, body: string) => {
+    setPages((items) =>
+      items.map((item, index) =>
+        getPageSafeSlug(item, index) === safeSlug ? { ...item, body } : item
+      )
+    );
   };
 
   const buildSettingsPayload = (imageUrl: string, urlOverride?: string) => ({
     title: siteTitle.trim(),
-    tagline: siteTagline.trim(),
+    tagline: siteTitle.trim(),
     description: siteDescription.trim(),
     siteUrl: (urlOverride ?? siteUrl).trim(),
     locale: siteLocale.trim() || "en",
@@ -315,7 +357,7 @@ export default function SiteBuilderPage() {
     };
 
     pages.forEach((page, index) => {
-      const safeSlug = slugify(page.slug || page.title) || `page-${index + 1}`;
+      const safeSlug = getPageSafeSlug(page, index);
       const body = page.isHome && !page.body?.trim() ? defaultHomeContent : page.body ?? "";
       files[`src/content/pages/${safeSlug}.md`] = buildPageMarkdown({
         ...page,
@@ -360,7 +402,7 @@ export default function SiteBuilderPage() {
 
     const pageRows = pages.map((page, index) => ({
       draft_id: repoInfo.id,
-      slug: slugify(page.slug || page.title) || `page-${index + 1}`,
+      slug: getPageSafeSlug(page, index),
       title: page.title.trim() || page.slug || `Page ${index + 1}`,
       content: page.body ?? "",
       show_in_nav: page.showInNav ?? true,
@@ -470,7 +512,7 @@ export default function SiteBuilderPage() {
       ).catch(() => []);
       const desiredPagePaths = new Set(
         pages.map((page, index) => {
-          const safeSlug = slugify(page.slug || page.title) || `page-${index + 1}`;
+          const safeSlug = getPageSafeSlug(page, index);
           return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
         })
       );
@@ -536,6 +578,22 @@ export default function SiteBuilderPage() {
     }
   };
 
+  const runPreviewCommand = (
+    event: MouseEvent<HTMLButtonElement>,
+    command: string,
+    value?: string
+  ) => {
+    event.preventDefault();
+    previewRef.current?.execCommand(command, value);
+  };
+
+  const runPreviewLink = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const url = window.prompt("Link URL");
+    if (!url) return;
+    previewRef.current?.execCommand("createLink", url);
+  };
+
   return (
     <div className="app-shell builder-shell">
       <SiteHeader
@@ -545,58 +603,111 @@ export default function SiteBuilderPage() {
         onSignOut={handleLogout}
       />
 
-      <div className="builder-body">
-        <aside className="builder-sidebar">
-          <button
-            className={activeSection === "content" ? "primary" : "ghost"}
-            onClick={() => setActiveSection("content")}
-          >
-            Solidary Metadata
-          </button>
-          <button
-            className={activeSection === "pages" ? "primary" : "ghost"}
-            onClick={() => setActiveSection("pages")}
-          >
-            Pages
-          </button>
-          <button
-            className={activeSection === "styles" ? "primary" : "ghost"}
-            onClick={() => setActiveSection("styles")}
-          >
-            Styles
-          </button>
-          <button
-            className={activeSection === "settings" ? "primary" : "ghost"}
-            onClick={() => setActiveSection("settings")}
-          >
-            Settings
-          </button>
-          <button className="ghost" onClick={() => navigate("/studio")}>Back to Studio</button>
-        </aside>
-
-        <section className="builder-panel">
-          <header className="builder-panel-header">
-            <div>
-              <h1>Site Builder</h1>
-              <p>Astro template editor</p>
-            </div>
-            <div className="builder-actions">
-              <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
-                {savingDraft ? "Saving..." : "Save draft"}
+      <div className="builder-topbar">
+        <div className="builder-topbar-main">
+          <h1>Site Builder</h1>
+          <p>Live Astro template preview</p>
+          {!isProvisioning && (
+            <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "p")}>
+                P
               </button>
-              <button className="primary" onClick={handlePublish} disabled={isProvisioning || !draftState}>
-                {isProvisioning ? "Publishing..." : "Publish"}
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "h1")}>
+                H1
               </button>
-            </div>
-          </header>
-
-          {isProvisioning && (
-            <div className="provisioning">
-              <div className="spinner" />
-              <h2>Publishing your site</h2>
-              <p>{provisionStep}</p>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "h2")}>
+                H2
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "h3")}>
+                H3
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "bold")}>
+                Bold
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "italic")}>
+                Italic
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "underline")}>
+                Underline
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "justifyLeft")}>
+                Left
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "justifyCenter")}>
+                Center
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "justifyRight")}>
+                Right
+              </button>
+              <button
+                type="button"
+                onMouseDown={(event) => runPreviewCommand(event, "insertUnorderedList")}
+              >
+                Bullets
+              </button>
+              <button type="button" onMouseDown={(event) => runPreviewCommand(event, "insertOrderedList")}>
+                Numbered
+              </button>
+              <button
+                type="button"
+                onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "blockquote")}
+              >
+                Quote
+              </button>
+              <button type="button" onMouseDown={runPreviewLink}>
+                Link
+              </button>
+              <button
+                type="button"
+                onMouseDown={(event) => runPreviewCommand(event, "clearAllFormatting")}
+              >
+                Clear
+              </button>
             </div>
           )}
+        </div>
+        <div className="builder-actions">
+          <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
+            {savingDraft ? "Saving..." : "Save draft"}
+          </button>
+          <button className="primary" onClick={handlePublish} disabled={isProvisioning || !draftState}>
+            {isProvisioning ? "Publishing..." : "Publish"}
+          </button>
+        </div>
+      </div>
+
+      <div className="builder-body">
+        <aside className="builder-sidebar">
+          <button className="ghost" type="button" onClick={() => navigate("/studio")}>
+            BACK
+          </button>
+
+          <div className="builder-sidebar-nav">
+            <button
+              className={activeSection === "content" ? "primary" : "ghost"}
+              onClick={() => setActiveSection("content")}
+            >
+              Solidary Metadata
+            </button>
+            <button
+              className={activeSection === "pages" ? "primary" : "ghost"}
+              onClick={() => setActiveSection("pages")}
+            >
+              Pages
+            </button>
+            <button
+              className={activeSection === "styles" ? "primary" : "ghost"}
+              onClick={() => setActiveSection("styles")}
+            >
+              Styles
+            </button>
+            <button
+              className={activeSection === "settings" ? "primary" : "ghost"}
+              onClick={() => setActiveSection("settings")}
+            >
+              Settings
+            </button>
+          </div>
 
           {!isProvisioning && activeSection === "content" && (
             <div className="builder-section">
@@ -607,10 +718,6 @@ export default function SiteBuilderPage() {
               <label>
                 Site title
                 <input value={siteTitle} onChange={(event) => setSiteTitle(event.target.value)} />
-              </label>
-              <label>
-                Tagline
-                <input value={siteTagline} onChange={(event) => setSiteTagline(event.target.value)} />
               </label>
               <label>
                 Description
@@ -636,14 +743,23 @@ export default function SiteBuilderPage() {
             <div className="builder-section">
               <div className="section-header">
                 <h2>Pages</h2>
-                <p>Add pages that will show up in the navigation.</p>
+                <p>Add pages and choose which page is active in the builder panel editor.</p>
               </div>
               <button className="primary" type="button" onClick={addPage}>
                 Add page
               </button>
               <div className="builder-page-list">
                 {pages.map((page, index) => (
-                  <div key={page.id ?? page.slug} className="builder-page-card">
+                  <div key={`${page.id ?? "new"}-${page.slug}-${index}`} className="builder-page-card">
+                    <button
+                      type="button"
+                      className={activePreviewSlug === getPageSafeSlug(page, index) ? "primary" : "ghost"}
+                      onClick={() => setActivePreviewSlug(getPageSafeSlug(page, index))}
+                    >
+                      {activePreviewSlug === getPageSafeSlug(page, index)
+                        ? "Editing in panel"
+                        : "Edit in panel"}
+                    </button>
                     <label>
                       Title
                       <input
@@ -664,14 +780,6 @@ export default function SiteBuilderPage() {
                         value={page.slug}
                         onChange={(event) => updatePage(index, { slug: slugify(event.target.value) })}
                         disabled={page.isHome}
-                      />
-                    </label>
-                    <label>
-                      Content
-                      <textarea
-                        value={page.body}
-                        onChange={(event) => updatePage(index, { body: event.target.value })}
-                        rows={4}
                       />
                     </label>
                     {!page.isHome && (
@@ -705,7 +813,7 @@ export default function SiteBuilderPage() {
                 className="code-block"
                 value={tokensCss}
                 onChange={(event) => setTokensCss(event.target.value)}
-                rows={16}
+                rows={20}
               />
             </div>
           )}
@@ -755,6 +863,37 @@ export default function SiteBuilderPage() {
                 </label>
               </div>
             </div>
+          )}
+        </aside>
+
+        <section className="builder-panel">
+          {isProvisioning && (
+            <div className="provisioning">
+              <div className="spinner" />
+              <h2>Publishing your site</h2>
+              <p>{provisionStep}</p>
+            </div>
+          )}
+
+          {!isProvisioning && (
+            <AstroTemplatePreview
+              ref={previewRef}
+              previewBrand={previewBrand}
+              pages={pages}
+              author={{
+                name: authorName,
+                email: authorEmail,
+                url: authorUrl,
+                github: authorGithub,
+                x: authorX,
+                linkedin: authorLinkedin
+              }}
+              tokensCss={tokensCss}
+              homeFallbackBody={defaultHomeContent}
+              activePageSlug={activePreviewSlug}
+              onActivePageChange={setActivePreviewSlug}
+              onPageBodyChange={updatePageBody}
+            />
           )}
         </section>
       </div>
