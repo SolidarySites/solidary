@@ -6,6 +6,7 @@ import SiteFooter from "../components/SiteFooter";
 import { supabase } from "../lib/supabase";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
+import indexTemplate from "../../../../templates/astro-baseline/src/pages/index.astro?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { buildSiteTs, type AstroPageDraft } from "../studio/astro";
 import { githubRequest, writeTextFile } from "../studio/github";
@@ -14,6 +15,7 @@ import { slugify, toBase64 } from "../studio/utils";
 const FILE_KEYS = {
   site: "src/content/site.ts",
   tokens: "src/styles/partials/tokens.css",
+  index: "src/pages/index.astro",
   solidary: "public/.well-known/solidary-links.json"
 };
 
@@ -144,6 +146,7 @@ export default function SiteCreatePage() {
     const files: RepoFileSet = {
       [FILE_KEYS.site]: buildSiteTs(settings),
       [FILE_KEYS.tokens]: tokensCss,
+      [FILE_KEYS.index]: indexTemplate,
       [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
     };
 

@@ -16,8 +16,6 @@ const { Content: HomeContent } = homeEntry ? await homeEntry.render() : { Conten
 ---
 <Base title={site.name} description={site.description} canonicalPath="/" jsonLd={jsonLd}>
   <article class="prose">
-    <h1>{site.tagline}</h1>
-    <p class="lead">{site.description}</p>
     {HomeContent ? <HomeContent /> : null}
   </article>
 </Base>
