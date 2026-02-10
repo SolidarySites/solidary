@@ -15,9 +15,6 @@ const year = new Date().getFullYear();
 
     <div class="footer__links">
       {author.email && <a class="footer__link" href={`mailto:${author.email}`}>Email</a>}
-      {author.socials?.github && <a class="footer__link" href={author.socials.github} target="_blank" rel="noopener">GitHub</a>}
-      {author.socials?.x && <a class="footer__link" href={author.socials.x} target="_blank" rel="noopener">X</a>}
-      {author.socials?.linkedin && <a class="footer__link" href={author.socials.linkedin} target="_blank" rel="noopener">LinkedIn</a>}
     </div>
   </div>
 </footer>

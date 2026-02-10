@@ -22,9 +22,6 @@ type PreviewAuthor = {
   name: string;
   email: string;
   url: string;
-  github: string;
-  x: string;
-  linkedin: string;
 };
 
 type AstroTemplatePreviewProps = {
@@ -235,12 +232,6 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       : (activePage.body || "").trim();
   const activeBodyHtml = useMemo(() => markdownToHtml(activeBodyRaw), [activeBodyRaw]);
 
-  const socialLinks = [
-    { label: "GitHub", href: author.github.trim() },
-    { label: "X", href: author.x.trim() },
-    { label: "LinkedIn", href: author.linkedin.trim() }
-  ].filter((item) => Boolean(item.href));
-
   const previewStyle = useMemo(
     () => extractCssVariables(tokensCss) as CSSProperties,
     [tokensCss]
@@ -380,17 +371,6 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
 
             <div className="footer__links">
               {authorEmail && <a className="footer__link" href={`mailto:${authorEmail}`}>Email</a>}
-              {socialLinks.map((link) => (
-                <a
-                  key={link.label}
-                  className="footer__link"
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {link.label}
-                </a>
-              ))}
             </div>
           </div>
         </footer>

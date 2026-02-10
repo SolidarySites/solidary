@@ -35,14 +35,10 @@ export default function SiteCreatePage() {
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
   const [siteLocale] = useState("en");
-  const [themeColor] = useState("#fbfbf9");
 
   const [authorName] = useState("");
   const [authorEmail] = useState("");
   const [authorUrl] = useState("");
-  const [authorGithub] = useState("");
-  const [authorX] = useState("");
-  const [authorLinkedin] = useState("");
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
@@ -123,12 +119,8 @@ export default function SiteCreatePage() {
     author: {
       name: authorName.trim() || "",
       email: authorEmail.trim() || "",
-      url: authorUrl.trim() || "",
-      github: authorGithub.trim() || "",
-      x: authorX.trim() || "",
-      linkedin: authorLinkedin.trim() || ""
+      url: authorUrl.trim() || ""
     },
-    themeColor: themeColor.trim() || "#fbfbf9",
     ogImage: imageUrl
   });
 
@@ -288,14 +280,10 @@ export default function SiteCreatePage() {
           description: siteDescription.trim(),
           siteUrl: siteUrlResolved,
           locale: siteLocale,
-          themeColor: themeColor.trim() || "#fbfbf9",
           author: {
             name: authorName.trim() || "",
             email: authorEmail.trim() || "",
-            url: authorUrl.trim() || "",
-            github: authorGithub.trim() || "",
-            x: authorX.trim() || "",
-            linkedin: authorLinkedin.trim() || ""
+            url: authorUrl.trim() || ""
           }
         },
         styles: {

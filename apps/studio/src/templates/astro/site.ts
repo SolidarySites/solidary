@@ -9,16 +9,10 @@ export type SiteConfig = {
     name: string;
     email?: string;
     url?: string;
-    socials?: {
-      x?: string;
-      github?: string;
-      linkedin?: string;
-    };
   };
   seo: {
     ogImage?: string;
     robots: string;
-    themeColor: string;
   };
 };
 
@@ -31,16 +25,10 @@ export const site: SiteConfig = {
   author: {
     name: "{{AUTHOR_NAME}}",
     email: "{{AUTHOR_EMAIL}}",
-    url: "{{AUTHOR_URL}}",
-    socials: {
-      x: "{{AUTHOR_X}}",
-      github: "{{AUTHOR_GITHUB}}",
-      linkedin: "{{AUTHOR_LINKEDIN}}"
-    }
+    url: "{{AUTHOR_URL}}"
   },
   seo: {
     ogImage: "{{OG_IMAGE}}",
-    robots: "index,follow",
-    themeColor: "{{THEME_COLOR}}"
+    robots: "index,follow"
   }
 };

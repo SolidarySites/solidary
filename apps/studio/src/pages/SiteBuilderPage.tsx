@@ -122,14 +122,10 @@ export default function SiteBuilderPage() {
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
   const [siteLocale, setSiteLocale] = useState("en");
-  const [themeColor, setThemeColor] = useState("#fbfbf9");
 
   const [authorName, setAuthorName] = useState("");
   const [authorEmail, setAuthorEmail] = useState("");
   const [authorUrl, setAuthorUrl] = useState("");
-  const [authorGithub, setAuthorGithub] = useState("");
-  const [authorX, setAuthorX] = useState("");
-  const [authorLinkedin, setAuthorLinkedin] = useState("");
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
@@ -292,15 +288,11 @@ export default function SiteBuilderPage() {
         else if (solidary?.site_url) setSiteUrl(solidary.site_url);
 
         if (typeof settings.locale === "string") setSiteLocale(settings.locale);
-        if (typeof settings.themeColor === "string") setThemeColor(settings.themeColor);
 
         const author = settings.author as Record<string, unknown> | undefined;
         if (author?.name && typeof author.name === "string") setAuthorName(author.name);
         if (author?.email && typeof author.email === "string") setAuthorEmail(author.email);
         if (author?.url && typeof author.url === "string") setAuthorUrl(author.url);
-        if (author?.github && typeof author.github === "string") setAuthorGithub(author.github);
-        if (author?.x && typeof author.x === "string") setAuthorX(author.x);
-        if (author?.linkedin && typeof author.linkedin === "string") setAuthorLinkedin(author.linkedin);
 
         if (typeof styles.tokensCss === "string") setTokensCss(styles.tokensCss);
 
@@ -410,12 +402,8 @@ export default function SiteBuilderPage() {
     author: {
       name: authorName.trim() || "",
       email: authorEmail.trim() || "",
-      url: authorUrl.trim() || "",
-      github: authorGithub.trim() || "",
-      x: authorX.trim() || "",
-      linkedin: authorLinkedin.trim() || ""
+      url: authorUrl.trim() || ""
     },
-    themeColor: themeColor.trim() || "#fbfbf9",
     ogImage: imageUrl
   });
 
@@ -915,7 +903,7 @@ export default function SiteBuilderPage() {
             <div className="builder-section">
               <div className="section-header">
                 <h2>Settings</h2>
-                <p>Configure your canonical URL, locale, author, and SEO settings.</p>
+                <p>Configure your canonical URL, locale, and author settings.</p>
               </div>
               <label>
                 Site URL
@@ -924,10 +912,6 @@ export default function SiteBuilderPage() {
               <label>
                 Locale
                 <input value={siteLocale} onChange={(event) => setSiteLocale(event.target.value)} />
-              </label>
-              <label>
-                Theme color
-                <input value={themeColor} onChange={(event) => setThemeColor(event.target.value)} />
               </label>
               <div className="builder-grid">
                 <label>
@@ -941,18 +925,6 @@ export default function SiteBuilderPage() {
                 <label>
                   Author URL
                   <input value={authorUrl} onChange={(event) => setAuthorUrl(event.target.value)} />
-                </label>
-                <label>
-                  GitHub
-                  <input value={authorGithub} onChange={(event) => setAuthorGithub(event.target.value)} />
-                </label>
-                <label>
-                  X
-                  <input value={authorX} onChange={(event) => setAuthorX(event.target.value)} />
-                </label>
-                <label>
-                  LinkedIn
-                  <input value={authorLinkedin} onChange={(event) => setAuthorLinkedin(event.target.value)} />
                 </label>
               </div>
             </div>
@@ -991,10 +963,7 @@ export default function SiteBuilderPage() {
               author={{
                 name: authorName,
                 email: authorEmail,
-                url: authorUrl,
-                github: authorGithub,
-                x: authorX,
-                linkedin: authorLinkedin
+                url: authorUrl
               }}
               tokensCss={tokensCss}
               homeFallbackBody={defaultHomeContent}

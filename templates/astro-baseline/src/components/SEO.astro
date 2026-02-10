@@ -12,8 +12,7 @@ const {
   ogImageAlt = "",
   robots = site.seo.robots ?? "index,follow",
   jsonLd,
-  ogType,
-  themeColor = site.seo.themeColor ?? "#fbfbf9"
+  ogType
 } = Astro.props as {
   title: string;
   description: string;
@@ -24,7 +23,6 @@ const {
   robots?: string;
   jsonLd?: JsonLd | JsonLd[];
   ogType?: "website" | "article";
-  themeColor?: string;
 };
 
 const jsonLdArray = Array.isArray(jsonLd) ? jsonLd : (jsonLd ? [jsonLd] : []);
@@ -41,8 +39,6 @@ const computedOgType: "website" | "article" = ogType ?? (canonical.includes("/bl
 <meta name="description" content={description} />
 <link rel="canonical" href={canonical} />
 <meta name="robots" content={robots} />
-
-<meta name="theme-color" content={themeColor} />
 
 <meta property="og:type" content={computedOgType} />
 <meta property="og:title" content={title} />

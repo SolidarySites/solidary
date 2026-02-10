@@ -5,9 +5,6 @@ export type AstroAuthor = {
   name: string;
   email?: string;
   url?: string;
-  x?: string;
-  github?: string;
-  linkedin?: string;
 };
 
 export type AstroSettings = {
@@ -17,7 +14,6 @@ export type AstroSettings = {
   siteUrl: string;
   locale: string;
   author: AstroAuthor;
-  themeColor: string;
   ogImage: string;
 };
 
@@ -40,11 +36,7 @@ export function buildSiteTs(settings: AstroSettings) {
     .replaceAll("{{AUTHOR_NAME}}", escape(settings.author.name))
     .replaceAll("{{AUTHOR_EMAIL}}", escape(settings.author.email ?? ""))
     .replaceAll("{{AUTHOR_URL}}", escape(settings.author.url ?? ""))
-    .replaceAll("{{AUTHOR_X}}", escape(settings.author.x ?? ""))
-    .replaceAll("{{AUTHOR_GITHUB}}", escape(settings.author.github ?? ""))
-    .replaceAll("{{AUTHOR_LINKEDIN}}", escape(settings.author.linkedin ?? ""))
-    .replaceAll("{{OG_IMAGE}}", escape(settings.ogImage))
-    .replaceAll("{{THEME_COLOR}}", escape(settings.themeColor));
+    .replaceAll("{{OG_IMAGE}}", escape(settings.ogImage));
 }
 
 export function buildPageMarkdown(page: AstroPageDraft) {
