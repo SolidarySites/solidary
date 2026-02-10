@@ -105,6 +105,33 @@ type DraftState = {
   files: RepoFileSet;
 };
 
+type GitHubPublishPhase = "pending" | "queued" | "in_progress" | "deployed" | "failed";
+
+type GitHubPublishStatusResponse = {
+  phase: GitHubPublishPhase;
+  message?: string;
+  runUrl?: string;
+  pagesUrl?: string;
+  runStatus?: string;
+  runConclusion?: string | null;
+};
+
+type PublishFeedback = {
+  kind: "progress" | "success" | "error";
+  text: string;
+  runUrl?: string;
+  pagesUrl?: string;
+};
+
+const getPublishPollDelayMs = (attempt: number) => {
+  // Start slow, then accelerate, then slow down again for long-running deploys.
+  if (attempt < 3) return 15000;
+  if (attempt < 15) return 5000;
+  if (attempt < 35) return 12000;
+  if (attempt < 50) return 20000;
+  return null;
+};
+
 export default function SiteBuilderPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -145,10 +172,13 @@ export default function SiteBuilderPage() {
   });
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
   const hasInitializedPreviewBrand = useRef(false);
+  const publishPollTimeoutRef = useRef<number | null>(null);
+  const publishPollTokenRef = useRef(0);
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -156,6 +186,23 @@ export default function SiteBuilderPage() {
   );
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
+
+  const clearPublishPollTimeout = () => {
+    if (publishPollTimeoutRef.current === null) return;
+    window.clearTimeout(publishPollTimeoutRef.current);
+    publishPollTimeoutRef.current = null;
+  };
+
+  useEffect(
+    () => () => {
+      publishPollTokenRef.current += 1;
+      if (publishPollTimeoutRef.current !== null) {
+        window.clearTimeout(publishPollTimeoutRef.current);
+        publishPollTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -344,6 +391,148 @@ export default function SiteBuilderPage() {
     setNoticeKind(null);
   };
 
+  const startPublishStatusTracking = ({
+    token,
+    owner,
+    repo,
+    headSha,
+    branch
+  }: {
+    token: string;
+    owner: string;
+    repo: string;
+    headSha: string;
+    branch: string;
+  }) => {
+    publishPollTokenRef.current += 1;
+    const pollToken = publishPollTokenRef.current;
+    clearPublishPollTimeout();
+
+    const branchLabel = `${owner}/${repo}@${branch}`;
+    setPublishFeedback({
+      kind: "progress",
+      text: `Tracking deployment for ${branchLabel}...`
+    });
+    let latestRunUrl: string | undefined;
+    let latestPagesUrl: string | undefined;
+
+    const poll = async (attempt: number) => {
+      if (publishPollTokenRef.current !== pollToken) return;
+
+      let status: GitHubPublishStatusResponse;
+      try {
+        status = await githubRequest<GitHubPublishStatusResponse>(
+          "/.netlify/functions/github-publish-status",
+          {
+            token,
+            owner,
+            repo,
+            headSha,
+            workflow: "deploy.yml"
+          }
+        );
+      } catch (error) {
+        if (publishPollTokenRef.current !== pollToken) return;
+        const delay = getPublishPollDelayMs(attempt + 1);
+        if (delay === null) {
+          const fallbackMessage =
+            error instanceof Error
+              ? `${error.message} Open the GitHub Actions run to confirm deployment.`
+              : "Unable to confirm deployment status. Open GitHub Actions for details.";
+          setPublishFeedback({
+            kind: "error",
+            text: fallbackMessage,
+            runUrl: latestRunUrl,
+            pagesUrl: latestPagesUrl
+          });
+          setNotice(fallbackMessage);
+          setNoticeKind("error");
+          clearPublishPollTimeout();
+          return;
+        }
+
+        setPublishFeedback({
+          kind: "progress",
+          text: `Checking deployment status for ${branchLabel}...`,
+          runUrl: latestRunUrl,
+          pagesUrl: latestPagesUrl
+        });
+        publishPollTimeoutRef.current = window.setTimeout(() => {
+          void poll(attempt + 1);
+        }, delay);
+        return;
+      }
+
+      if (publishPollTokenRef.current !== pollToken) return;
+
+      const runUrl = status.runUrl?.trim() || undefined;
+      const pagesUrl = status.pagesUrl?.trim() || undefined;
+      if (runUrl) latestRunUrl = runUrl;
+      if (pagesUrl) latestPagesUrl = pagesUrl;
+      const fallbackMessage = "Checking deployment status...";
+
+      if (status.phase === "failed") {
+        const message = status.message?.trim() || "GitHub Actions deployment failed.";
+        setPublishFeedback({
+          kind: "error",
+          text: message,
+          runUrl: latestRunUrl,
+          pagesUrl: latestPagesUrl
+        });
+        setNotice(message);
+        setNoticeKind("error");
+        clearPublishPollTimeout();
+        return;
+      }
+
+      if (status.phase === "deployed") {
+        const message = "Site is live.";
+        setPublishFeedback({
+          kind: "success",
+          text: message,
+          runUrl: latestRunUrl,
+          pagesUrl: latestPagesUrl
+        });
+        setNotice(message);
+        setNoticeKind("notice");
+        clearPublishPollTimeout();
+        return;
+      }
+
+      const progressMessage = status.message?.trim() || fallbackMessage;
+      setPublishFeedback({
+        kind: "progress",
+        text: progressMessage,
+        runUrl: latestRunUrl,
+        pagesUrl: latestPagesUrl
+      });
+      setNotice(progressMessage);
+      setNoticeKind("notice");
+
+      const delay = getPublishPollDelayMs(attempt + 1);
+      if (delay === null) {
+        const timeoutMessage =
+          "Deployment is still in progress. Open GitHub Actions to monitor completion.";
+        setPublishFeedback({
+          kind: "progress",
+          text: timeoutMessage,
+          runUrl: latestRunUrl,
+          pagesUrl: latestPagesUrl
+        });
+        setNotice(timeoutMessage);
+        setNoticeKind("notice");
+        clearPublishPollTimeout();
+        return;
+      }
+
+      publishPollTimeoutRef.current = window.setTimeout(() => {
+        void poll(attempt + 1);
+      }, delay);
+    };
+
+    void poll(0);
+  };
+
   const addPage = () => {
     const slug = makeUniquePageSlug("new-page", pages);
     setPages((items) => [
@@ -508,6 +697,9 @@ export default function SiteBuilderPage() {
 
   const handlePublish = async () => {
     resetNotices();
+    setPublishFeedback(null);
+    publishPollTokenRef.current += 1;
+    clearPublishPollTimeout();
 
     if (!session) {
       setNotice("Sign in with GitHub to continue.");
@@ -613,9 +805,46 @@ export default function SiteBuilderPage() {
       });
 
       setDraftImageUrl(imageUrl);
-
-      setNotice("Site published. Your GitHub Pages site will update shortly.");
-      setNoticeKind("notice");
+      setProvisionStep("Starting deployment status checks...");
+      try {
+        const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+          token: providerToken,
+          owner: ownerLogin,
+          repo: repoName,
+          branch: draftState.branch
+        });
+        const headSha = branchResult.sha?.trim();
+        if (headSha) {
+          startPublishStatusTracking({
+            token: providerToken,
+            owner: ownerLogin,
+            repo: repoName,
+            headSha,
+            branch: draftState.branch
+          });
+          setNotice("Publish completed. Monitoring GitHub deployment status.");
+          setNoticeKind("notice");
+        } else {
+          const message = "Site published. Could not determine commit SHA for deployment tracking.";
+          setPublishFeedback({
+            kind: "progress",
+            text: message
+          });
+          setNotice(message);
+          setNoticeKind("notice");
+        }
+      } catch (trackingError) {
+        const message =
+          trackingError instanceof Error
+            ? `Site published. Deployment tracking failed: ${trackingError.message}`
+            : "Site published. Deployment tracking failed.";
+        setPublishFeedback({
+          kind: "progress",
+          text: message
+        });
+        setNotice(message);
+        setNoticeKind("notice");
+      }
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
@@ -678,6 +907,29 @@ export default function SiteBuilderPage() {
         <div className="builder-topbar-main">
           <h1>Site Builder</h1>
           <p>Live Astro template preview</p>
+          {publishFeedback && (
+            <div
+              className={`builder-publish-feedback ${
+                publishFeedback.kind === "error"
+                  ? "is-error"
+                  : publishFeedback.kind === "success"
+                    ? "is-success"
+                    : ""
+              }`}
+            >
+              <span>{publishFeedback.text}</span>
+              {publishFeedback.runUrl && (
+                <a href={publishFeedback.runUrl} target="_blank" rel="noopener noreferrer">
+                  View build
+                </a>
+              )}
+              {publishFeedback.pagesUrl && publishFeedback.kind === "success" && (
+                <a href={publishFeedback.pagesUrl} target="_blank" rel="noopener noreferrer">
+                  Open site
+                </a>
+              )}
+            </div>
+          )}
           {!isProvisioning && !(shouldLoadDraft && isDraftLoading) && !draftLoadError && (
             <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
               <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "p")}>
