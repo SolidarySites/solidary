@@ -940,28 +940,33 @@ export default function SiteBuilderPage() {
               {isProvisioning ? "Publishing..." : publishFeedback?.kind === "progress" ? "Building..." : "Publish"}
             </button>
           </div>
-          {publishFeedback && (
+          {(isProvisioning || publishFeedback) && (
             <div className="builder-actions-feedback">
               <div
                 className={`builder-publish-feedback ${
-                  publishFeedback.kind === "error"
+                  isProvisioning
+                    ? ""
+                    : publishFeedback?.kind === "error"
                     ? "is-error"
-                    : publishFeedback.kind === "success"
+                    : publishFeedback?.kind === "success"
                       ? "is-success"
                       : ""
                 }`}
               >
-                <span>{publishFeedback.text}</span>
-                {publishFeedback.runUrl && (
+                <span>{isProvisioning ? "Publishing your site..." : publishFeedback?.text}</span>
+                {isProvisioning && <span>{provisionStep}</span>}
+                {!isProvisioning && publishFeedback?.runUrl && (
                   <a href={publishFeedback.runUrl} target="_blank" rel="noopener noreferrer">
                     {publishFeedback.kind === "progress" ? "View actions" : "View build"}
                   </a>
                 )}
-                {publishFeedback.pagesUrl && publishFeedback.kind === "success" && (
+                {!isProvisioning &&
+                  publishFeedback?.pagesUrl &&
+                  publishFeedback.kind === "success" && (
                   <a href={publishFeedback.pagesUrl} target="_blank" rel="noopener noreferrer">
                     Open site
                   </a>
-                )}
+                  )}
               </div>
             </div>
           )}
@@ -1153,15 +1158,7 @@ export default function SiteBuilderPage() {
         </aside>
 
         <section className="builder-panel">
-          {isProvisioning && (
-            <div className="provisioning">
-              <div className="spinner" />
-              <h2>Publishing your site</h2>
-              <p>{provisionStep}</p>
-            </div>
-          )}
-
-          {!isProvisioning && shouldLoadDraft && isDraftLoading && (
+          {shouldLoadDraft && isDraftLoading && (
             <div className="provisioning">
               <div className="spinner" />
               <h2>Loading draft preview</h2>
@@ -1169,14 +1166,14 @@ export default function SiteBuilderPage() {
             </div>
           )}
 
-          {!isProvisioning && !isDraftLoading && draftLoadError && (
+          {!isDraftLoading && draftLoadError && (
             <div className="provisioning">
               <h2>Unable to load draft</h2>
               <p>{draftLoadError}</p>
             </div>
           )}
 
-          {!isProvisioning && !isDraftLoading && !draftLoadError && (
+          {!isDraftLoading && !draftLoadError && (
             <AstroTemplatePreview
               ref={previewRef}
               previewBrand={previewBrand}
