@@ -350,6 +350,12 @@
   flex-wrap: wrap;
 }
 
+.builder-actions-feedback {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .builder-section {
   display: grid;
   gap: 1rem;
@@ -869,6 +875,10 @@ button:disabled {
 
   .builder-actions {
     width: 100%;
+  }
+
+  .builder-actions-feedback {
+    justify-content: flex-start;
   }
 
   .builder-sidebar-nav {

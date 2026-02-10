@@ -408,10 +408,11 @@ export default function SiteBuilderPage() {
     const pollToken = publishPollTokenRef.current;
     clearPublishPollTimeout();
 
-    const branchLabel = `${owner}/${repo}@${branch}`;
+    const actionsUrl = `https://github.com/${owner}/${repo}/actions/workflows/deploy.yml`;
     setPublishFeedback({
       kind: "progress",
-      text: `Tracking deployment for ${branchLabel}...`
+      text: "GitHub is building your page.",
+      runUrl: actionsUrl
     });
     let latestRunUrl: string | undefined;
     let latestPagesUrl: string | undefined;
@@ -438,12 +439,12 @@ export default function SiteBuilderPage() {
         if (delay === null) {
           const fallbackMessage =
             error instanceof Error
-              ? `${error.message} Open the GitHub Actions run to confirm deployment.`
+              ? `${error.message} Open GitHub Actions to confirm deployment.`
               : "Unable to confirm deployment status. Open GitHub Actions for details.";
           setPublishFeedback({
             kind: "error",
             text: fallbackMessage,
-            runUrl: latestRunUrl,
+            runUrl: latestRunUrl ?? actionsUrl,
             pagesUrl: latestPagesUrl
           });
           setNotice(fallbackMessage);
@@ -451,13 +452,6 @@ export default function SiteBuilderPage() {
           clearPublishPollTimeout();
           return;
         }
-
-        setPublishFeedback({
-          kind: "progress",
-          text: `Checking deployment status for ${branchLabel}...`,
-          runUrl: latestRunUrl,
-          pagesUrl: latestPagesUrl
-        });
         publishPollTimeoutRef.current = window.setTimeout(() => {
           void poll(attempt + 1);
         }, delay);
@@ -470,14 +464,13 @@ export default function SiteBuilderPage() {
       const pagesUrl = status.pagesUrl?.trim() || undefined;
       if (runUrl) latestRunUrl = runUrl;
       if (pagesUrl) latestPagesUrl = pagesUrl;
-      const fallbackMessage = "Checking deployment status...";
 
       if (status.phase === "failed") {
         const message = status.message?.trim() || "GitHub Actions deployment failed.";
         setPublishFeedback({
           kind: "error",
           text: message,
-          runUrl: latestRunUrl,
+          runUrl: latestRunUrl ?? actionsUrl,
           pagesUrl: latestPagesUrl
         });
         setNotice(message);
@@ -491,7 +484,7 @@ export default function SiteBuilderPage() {
         setPublishFeedback({
           kind: "success",
           text: message,
-          runUrl: latestRunUrl,
+          runUrl: latestRunUrl ?? actionsUrl,
           pagesUrl: latestPagesUrl
         });
         setNotice(message);
@@ -500,28 +493,24 @@ export default function SiteBuilderPage() {
         return;
       }
 
-      const progressMessage = status.message?.trim() || fallbackMessage;
       setPublishFeedback({
         kind: "progress",
-        text: progressMessage,
-        runUrl: latestRunUrl,
+        text: "GitHub is building your page.",
+        runUrl: actionsUrl,
         pagesUrl: latestPagesUrl
       });
-      setNotice(progressMessage);
-      setNoticeKind("notice");
 
       const delay = getPublishPollDelayMs(attempt + 1);
       if (delay === null) {
-        const timeoutMessage =
-          "Deployment is still in progress. Open GitHub Actions to monitor completion.";
+        const timeoutMessage = "Could not confirm deployment completion yet. Open GitHub Actions.";
         setPublishFeedback({
-          kind: "progress",
+          kind: "error",
           text: timeoutMessage,
-          runUrl: latestRunUrl,
+          runUrl: latestRunUrl ?? actionsUrl,
           pagesUrl: latestPagesUrl
         });
         setNotice(timeoutMessage);
-        setNoticeKind("notice");
+        setNoticeKind("error");
         clearPublishPollTimeout();
         return;
       }
@@ -815,8 +804,8 @@ export default function SiteBuilderPage() {
         branch: draftState.branch,
         publishStartedAt
       });
-      setNotice("Publish completed. Monitoring GitHub deployment status.");
-      setNoticeKind("notice");
+      setNotice(null);
+      setNoticeKind(null);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
@@ -879,29 +868,6 @@ export default function SiteBuilderPage() {
         <div className="builder-topbar-main">
           <h1>Site Builder</h1>
           <p>Live Astro template preview</p>
-          {publishFeedback && (
-            <div
-              className={`builder-publish-feedback ${
-                publishFeedback.kind === "error"
-                  ? "is-error"
-                  : publishFeedback.kind === "success"
-                    ? "is-success"
-                    : ""
-              }`}
-            >
-              <span>{publishFeedback.text}</span>
-              {publishFeedback.runUrl && (
-                <a href={publishFeedback.runUrl} target="_blank" rel="noopener noreferrer">
-                  View build
-                </a>
-              )}
-              {publishFeedback.pagesUrl && publishFeedback.kind === "success" && (
-                <a href={publishFeedback.pagesUrl} target="_blank" rel="noopener noreferrer">
-                  Open site
-                </a>
-              )}
-            </div>
-          )}
           {!isProvisioning && !(shouldLoadDraft && isDraftLoading) && !draftLoadError && (
             <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
               <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "p")}>
@@ -965,9 +931,38 @@ export default function SiteBuilderPage() {
           <button className="ghost" onClick={handleSaveDraft} disabled={!draftState || savingDraft}>
             {savingDraft ? "Saving..." : "Save draft"}
           </button>
-          <button className="primary" onClick={handlePublish} disabled={isProvisioning || !draftState}>
-            {isProvisioning ? "Publishing..." : "Publish"}
+          <button
+            className="primary"
+            onClick={handlePublish}
+            disabled={isProvisioning || !draftState || publishFeedback?.kind === "progress"}
+          >
+            {isProvisioning ? "Publishing..." : publishFeedback?.kind === "progress" ? "Building..." : "Publish"}
           </button>
+          {publishFeedback && (
+            <div className="builder-actions-feedback">
+              <div
+                className={`builder-publish-feedback ${
+                  publishFeedback.kind === "error"
+                    ? "is-error"
+                    : publishFeedback.kind === "success"
+                      ? "is-success"
+                      : ""
+                }`}
+              >
+                <span>{publishFeedback.text}</span>
+                {publishFeedback.runUrl && (
+                  <a href={publishFeedback.runUrl} target="_blank" rel="noopener noreferrer">
+                    {publishFeedback.kind === "progress" ? "View actions" : "View build"}
+                  </a>
+                )}
+                {publishFeedback.pagesUrl && publishFeedback.kind === "success" && (
+                  <a href={publishFeedback.pagesUrl} target="_blank" rel="noopener noreferrer">
+                    Open site
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
