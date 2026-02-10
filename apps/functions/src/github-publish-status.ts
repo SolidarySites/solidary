@@ -1,14 +1,16 @@
 import type { Handler } from "@netlify/functions";
 
 const GITHUB_API = "https://api.github.com";
+const SESSION_LOOKBACK_BUFFER_MS = 30_000;
 
 type GitHubWorkflowRun = {
   id: number;
   html_url?: string;
   status?: string;
   conclusion?: string | null;
-  head_sha?: string;
   path?: string;
+  created_at?: string;
+  head_branch?: string;
 };
 
 type GitHubErrorPayload = {
@@ -24,7 +26,7 @@ const githubHeaders = (token: string) => ({
 const parseFailureMessage = (conclusion: string | null | undefined) => {
   switch (conclusion) {
     case "cancelled":
-      return "GitHub Actions deployment was cancelled.";
+      return "Latest GitHub Actions run was cancelled.";
     case "timed_out":
       return "GitHub Actions deployment timed out.";
     case "action_required":
@@ -36,19 +38,19 @@ const parseFailureMessage = (conclusion: string | null | undefined) => {
   }
 };
 
-const findWorkflowRun = async (
+const findWorkflowRuns = async (
   token: string,
   owner: string,
   repo: string,
-  headSha: string,
+  branch: string,
   workflow: string
 ) => {
   const workflowRunsUrl = new URL(
     `${GITHUB_API}/repos/${owner}/${repo}/actions/workflows/${encodeURIComponent(workflow)}/runs`
   );
   workflowRunsUrl.searchParams.set("event", "push");
-  workflowRunsUrl.searchParams.set("head_sha", headSha);
-  workflowRunsUrl.searchParams.set("per_page", "1");
+  workflowRunsUrl.searchParams.set("branch", branch);
+  workflowRunsUrl.searchParams.set("per_page", "30");
 
   const workflowResponse = await fetch(workflowRunsUrl.toString(), {
     headers: githubHeaders(token)
@@ -59,7 +61,7 @@ const findWorkflowRun = async (
     const workflowRuns = Array.isArray((workflowPayload as { workflow_runs?: unknown[] }).workflow_runs)
       ? ((workflowPayload as { workflow_runs: GitHubWorkflowRun[] }).workflow_runs ?? [])
       : [];
-    return workflowRuns[0] ?? null;
+    return workflowRuns;
   }
 
   if (workflowResponse.status !== 404) {
@@ -72,8 +74,8 @@ const findWorkflowRun = async (
   // Fallback for repos where the workflow filename differs from deploy.yml.
   const allRunsUrl = new URL(`${GITHUB_API}/repos/${owner}/${repo}/actions/runs`);
   allRunsUrl.searchParams.set("event", "push");
-  allRunsUrl.searchParams.set("head_sha", headSha);
-  allRunsUrl.searchParams.set("per_page", "20");
+  allRunsUrl.searchParams.set("branch", branch);
+  allRunsUrl.searchParams.set("per_page", "50");
 
   const allRunsResponse = await fetch(allRunsUrl.toString(), {
     headers: githubHeaders(token)
@@ -96,7 +98,7 @@ const findWorkflowRun = async (
     return path.endsWith(workflowSuffix);
   });
 
-  return matchingRun ?? allRuns[0] ?? null;
+  return matchingRun ? [matchingRun] : allRuns;
 };
 
 const fetchPagesMetadata = async (token: string, owner: string, repo: string) => {
@@ -120,39 +122,60 @@ export const handler: Handler = async (event) => {
       token,
       owner,
       repo,
-      headSha,
+      branch,
+      publishStartedAt,
       workflow = "deploy.yml"
     } = JSON.parse(event.body ?? "{}");
 
-    if (!token || !owner || !repo || !headSha) {
+    if (!token || !owner || !repo || !branch || !publishStartedAt) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Missing parameters." })
       };
     }
 
-    const [run, pages] = await Promise.all([
-      findWorkflowRun(token, owner, repo, headSha, workflow),
+    const publishStartedAtMs = Date.parse(publishStartedAt);
+    if (Number.isNaN(publishStartedAtMs)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid publishStartedAt value." })
+      };
+    }
+
+    const [runs, pages] = await Promise.all([
+      findWorkflowRuns(token, owner, repo, branch, workflow),
       fetchPagesMetadata(token, owner, repo)
     ]);
 
     const pagesUrl = pages?.html_url;
     const pagesStatus = pages?.status;
+    const sessionThresholdMs = publishStartedAtMs - SESSION_LOOKBACK_BUFFER_MS;
 
-    if (!run) {
+    const sessionRuns = runs
+      .filter((run) => {
+        const createdAtMs = Date.parse(run.created_at ?? "");
+        if (Number.isNaN(createdAtMs)) return false;
+        return createdAtMs >= sessionThresholdMs;
+      })
+      .sort((a, b) => Date.parse(b.created_at ?? "") - Date.parse(a.created_at ?? ""));
+
+    if (!sessionRuns.length) {
       return {
         statusCode: 200,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           phase: "pending",
           message: "Waiting for GitHub Actions to start deployment.",
-          headSha,
+          publishStartedAt,
+          branch,
           pagesUrl,
           pagesStatus
         })
       };
     }
 
+    const activeRun = sessionRuns.find((run) => (run.status ?? "queued") !== "completed");
+    const run = activeRun ?? sessionRuns[0];
     const runStatus = run.status ?? "queued";
     const runConclusion = run.conclusion ?? null;
 
@@ -169,7 +192,8 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           phase,
           message,
-          headSha,
+          publishStartedAt,
+          branch,
           runId: run.id,
           runUrl: run.html_url,
           runStatus,
@@ -181,13 +205,33 @@ export const handler: Handler = async (event) => {
     }
 
     if (runConclusion !== "success") {
+      if (runConclusion === "cancelled") {
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            phase: "queued",
+            message: "Latest run was cancelled. Waiting for the next deployment run.",
+            publishStartedAt,
+            branch,
+            runId: run.id,
+            runUrl: run.html_url,
+            runStatus,
+            runConclusion,
+            pagesUrl,
+            pagesStatus
+          })
+        };
+      }
+
       return {
         statusCode: 200,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           phase: "failed",
           message: parseFailureMessage(runConclusion),
-          headSha,
+          publishStartedAt,
+          branch,
           runId: run.id,
           runUrl: run.html_url,
           runStatus,
@@ -204,7 +248,8 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         phase: "deployed",
         message: "GitHub Pages deployment completed.",
-        headSha,
+        publishStartedAt,
+        branch,
         runId: run.id,
         runUrl: run.html_url,
         runStatus,

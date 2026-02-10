@@ -395,14 +395,14 @@ export default function SiteBuilderPage() {
     token,
     owner,
     repo,
-    headSha,
-    branch
+    branch,
+    publishStartedAt
   }: {
     token: string;
     owner: string;
     repo: string;
-    headSha: string;
     branch: string;
+    publishStartedAt: string;
   }) => {
     publishPollTokenRef.current += 1;
     const pollToken = publishPollTokenRef.current;
@@ -427,7 +427,8 @@ export default function SiteBuilderPage() {
             token,
             owner,
             repo,
-            headSha,
+            branch,
+            publishStartedAt,
             workflow: "deploy.yml"
           }
         );
@@ -721,6 +722,7 @@ export default function SiteBuilderPage() {
     }
 
     setIsProvisioning(true);
+    const publishStartedAt = new Date().toISOString();
 
     try {
       if (!draftState) {
@@ -806,45 +808,15 @@ export default function SiteBuilderPage() {
 
       setDraftImageUrl(imageUrl);
       setProvisionStep("Starting deployment status checks...");
-      try {
-        const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repoName,
-          branch: draftState.branch
-        });
-        const headSha = branchResult.sha?.trim();
-        if (headSha) {
-          startPublishStatusTracking({
-            token: providerToken,
-            owner: ownerLogin,
-            repo: repoName,
-            headSha,
-            branch: draftState.branch
-          });
-          setNotice("Publish completed. Monitoring GitHub deployment status.");
-          setNoticeKind("notice");
-        } else {
-          const message = "Site published. Could not determine commit SHA for deployment tracking.";
-          setPublishFeedback({
-            kind: "progress",
-            text: message
-          });
-          setNotice(message);
-          setNoticeKind("notice");
-        }
-      } catch (trackingError) {
-        const message =
-          trackingError instanceof Error
-            ? `Site published. Deployment tracking failed: ${trackingError.message}`
-            : "Site published. Deployment tracking failed.";
-        setPublishFeedback({
-          kind: "progress",
-          text: message
-        });
-        setNotice(message);
-        setNoticeKind("notice");
-      }
+      startPublishStatusTracking({
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: draftState.branch,
+        publishStartedAt
+      });
+      setNotice("Publish completed. Monitoring GitHub deployment status.");
+      setNoticeKind("notice");
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
