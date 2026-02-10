@@ -54,8 +54,37 @@ type BuilderPage = AstroPageDraft & {
   isHome?: boolean;
 };
 
+const normalizePageSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s_-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/_+/g, "_")
+    .replace(/^[-_]+|[-_]+$/g, "");
+
 const getPageSafeSlug = (page: BuilderPage, index: number) =>
-  page.isHome ? "home" : slugify(page.slug || page.title) || `page-${index + 1}`;
+  page.isHome ? "home" : normalizePageSlug(page.slug || page.title) || `page-${index + 1}`;
+
+const makeUniquePageSlug = (value: string, pages: BuilderPage[], currentIndex?: number) => {
+  const base = normalizePageSlug(value) || "page";
+  const existing = new Set(
+    pages.flatMap((page, index) => {
+      if (index === currentIndex) return [];
+      return [getPageSafeSlug(page, index)];
+    })
+  );
+  if (!existing.has(base)) return base;
+
+  let suffix = 1;
+  let candidate = `${base}_${suffix}`;
+  while (existing.has(candidate)) {
+    suffix += 1;
+    candidate = `${base}_${suffix}`;
+  }
+  return candidate;
+};
 
 const stripFrontmatter = (content: string) => {
   const match = content.match(/^---\s*[\r\n]+([\s\S]*?)\r?\n---\s*[\r\n]*([\s\S]*)$/);
@@ -322,10 +351,11 @@ export default function SiteBuilderPage() {
   };
 
   const addPage = () => {
-    const slug = slugify("new-page") || `page-${Date.now()}`;
+    const slug = makeUniquePageSlug("new-page", pages);
     setPages((items) => [
       ...items,
       {
+        id: `new-${crypto.randomUUID()}`,
         title: "New page",
         slug,
         body: "<p>Write your page content here.</p>",
@@ -800,7 +830,7 @@ export default function SiteBuilderPage() {
               </button>
               <div className="builder-page-list">
                 {pages.map((page, index) => (
-                  <div key={`${page.id ?? "new"}-${page.slug}-${index}`} className="builder-page-card">
+                  <div key={page.id ?? `new-${index}`} className="builder-page-card">
                     <button
                       type="button"
                       className={activePreviewSlug === getPageSafeSlug(page, index) ? "primary" : "ghost"}
@@ -815,12 +845,18 @@ export default function SiteBuilderPage() {
                       <input
                         ref={index === pages.length - 1 ? pageTitleRef : null}
                         value={page.title}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const nextTitle = event.target.value;
+                          if (page.isHome) {
+                            updatePage(index, { title: nextTitle });
+                            return;
+                          }
+
                           updatePage(index, {
-                            title: event.target.value,
-                            slug: slugify(event.target.value || page.slug)
-                          })
-                        }
+                            title: nextTitle,
+                            slug: makeUniquePageSlug(nextTitle || page.slug || "page", pages, index)
+                          });
+                        }}
                         disabled={page.isHome}
                       />
                     </label>
@@ -828,7 +864,11 @@ export default function SiteBuilderPage() {
                       Slug
                       <input
                         value={page.slug}
-                        onChange={(event) => updatePage(index, { slug: slugify(event.target.value) })}
+                        onChange={(event) =>
+                          updatePage(index, {
+                            slug: makeUniquePageSlug(event.target.value || "page", pages, index)
+                          })
+                        }
                         disabled={page.isHome}
                       />
                     </label>
