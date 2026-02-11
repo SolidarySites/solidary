@@ -1006,7 +1006,7 @@ export default function SiteBuilderPage() {
             </button>
           </div>
 
-          {!isProvisioning && activeSection === "content" && (
+          {activeSection === "content" && (
             <div className="builder-section">
               <div className="section-header">
                 <h2>Solidary Metadata</h2>
@@ -1036,7 +1036,7 @@ export default function SiteBuilderPage() {
             </div>
           )}
 
-          {!isProvisioning && activeSection === "pages" && (
+          {activeSection === "pages" && (
             <div className="builder-section">
               <div className="section-header">
                 <h2>Pages</h2>
@@ -1110,7 +1110,7 @@ export default function SiteBuilderPage() {
             </div>
           )}
 
-          {!isProvisioning && activeSection === "styles" && (
+          {activeSection === "styles" && (
             <div className="builder-section">
               <div className="section-header">
                 <h2>Styles</h2>
@@ -1125,7 +1125,7 @@ export default function SiteBuilderPage() {
             </div>
           )}
 
-          {!isProvisioning && activeSection === "settings" && (
+          {activeSection === "settings" && (
             <div className="builder-section">
               <div className="section-header">
                 <h2>Settings</h2>
