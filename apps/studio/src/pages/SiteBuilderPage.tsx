@@ -867,7 +867,6 @@ export default function SiteBuilderPage() {
       <div className="builder-topbar">
         <div className="builder-topbar-main">
           <h1>Site Builder</h1>
-          <p>Live Astro template preview</p>
           {!(shouldLoadDraft && isDraftLoading) && !draftLoadError && (
             <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
               <button type="button" onMouseDown={(event) => runPreviewCommand(event, "formatBlock", "p")}>
