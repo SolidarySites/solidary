@@ -3,16 +3,27 @@ export type SiteConfig = {
   name: string;
   tagline: string;
   description: string;
-  url: string;            
-  locale: string;
-  author: {
-    name: string;
-    email?: string;
-    url?: string;
-  };
+  url: string;
   seo: {
     ogImage?: string;
     robots: string;
+  };
+  header: {
+    disabled: boolean;
+    fixed: boolean;
+    brandText: string;
+    disableBrand: boolean;
+  };
+  footer: {
+    disabled: boolean;
+    fixed: boolean;
+    disableCopyright: boolean;
+    copyrightName: string;
+    customText: string;
+    customLinks: Array<{
+      label: string;
+      url: string;
+    }>;
   };
 };
 
@@ -22,14 +33,22 @@ export const site: SiteConfig = {
   description:
     "Astro Baseline is a minimal HTML-first starter with senior defaults: SEO, JSON-LD, a11y basics, and clean structure.",
   url: import.meta.env.SITE_URL ?? "https://example.com",
-  locale: "en",
-  author: {
-    name: "Your Name",
-    email: "hello@example.com",
-    url: "https://example.com"
-  },
   seo: {
     ogImage: "/images/og/og-default.jpg",
     robots: "index,follow"
+  },
+  header: {
+    disabled: false,
+    fixed: false,
+    brandText: "Astro Baseline",
+    disableBrand: false
+  },
+  footer: {
+    disabled: false,
+    fixed: false,
+    disableCopyright: false,
+    copyrightName: "Your Name",
+    customText: "",
+    customLinks: []
   }
 };

@@ -22,19 +22,23 @@ import { loadDraftById } from "../components/studio/site-builder/load-draft";
 import type {
   BuilderPage,
   BuilderSection,
+  BuilderSettingsSection,
   DraftState,
   PublishFeedback
 } from "../components/studio/site-builder/types";
 import { usePublishStatusTracking } from "../components/studio/site-builder/usePublishStatusTracking";
 import {
   getPageSafeSlug,
+  formatFooterCustomLinks,
   makeUniquePageSlug,
+  parseFooterCustomLinks,
   stripFrontmatter
 } from "../components/studio/site-builder/utils";
 import type { NoticeKind } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import headerTemplate from "../../../../templates/astro-baseline/src/components/Header.astro?raw";
+import footerTemplate from "../../../../templates/astro-baseline/src/components/Footer.astro?raw";
 import indexTemplate from "../../../../templates/astro-baseline/src/pages/index.astro?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { deleteTextFile, githubRequest, listDirectory, writeTextFile } from "../studio/github";
@@ -50,7 +54,8 @@ export default function SiteBuilderPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
-  const [activeSection, setActiveSection] = useState<BuilderSection>("content");
+  const [activeSection, setActiveSection] = useState<BuilderSection>("menu");
+  const [activeSettingsSection, setActiveSettingsSection] = useState<BuilderSettingsSection>("pages");
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionStep, setProvisionStep] = useState("Preparing your updates...");
   const [sessionResolved, setSessionResolved] = useState(false);
@@ -58,11 +63,6 @@ export default function SiteBuilderPage() {
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
-  const [siteLocale, setSiteLocale] = useState("en");
-
-  const [authorName, setAuthorName] = useState("");
-  const [authorEmail, setAuthorEmail] = useState("");
-  const [authorUrl, setAuthorUrl] = useState("");
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
@@ -71,7 +71,17 @@ export default function SiteBuilderPage() {
   const [pages, setPages] = useState<BuilderPage[]>([]);
   const [draftPageSlugs, setDraftPageSlugs] = useState<string[]>([]);
   const [activePreviewSlug, setActivePreviewSlug] = useState("home");
-  const [previewBrand, setPreviewBrand] = useState("New Astro Site");
+  const [headerDisabled, setHeaderDisabled] = useState(false);
+  const [headerFixed, setHeaderFixed] = useState(false);
+  const [headerBrandText, setHeaderBrandText] = useState("New Astro Site");
+  const [headerBrandDisabled, setHeaderBrandDisabled] = useState(false);
+
+  const [footerDisabled, setFooterDisabled] = useState(false);
+  const [footerFixed, setFooterFixed] = useState(false);
+  const [footerCopyrightDisabled, setFooterCopyrightDisabled] = useState(false);
+  const [footerCopyrightName, setFooterCopyrightName] = useState("New Astro Site");
+  const [footerCustomText, setFooterCustomText] = useState("");
+  const [footerCustomLinksInput, setFooterCustomLinksInput] = useState("");
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
@@ -86,7 +96,7 @@ export default function SiteBuilderPage() {
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
-  const hasInitializedPreviewBrand = useRef(false);
+  const hasInitializedHeaderBrand = useRef(false);
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -94,6 +104,10 @@ export default function SiteBuilderPage() {
   );
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
+  const footerCustomLinks = useMemo(
+    () => parseFooterCustomLinks(footerCustomLinksInput),
+    [footerCustomLinksInput]
+  );
 
   const { startPublishStatusTracking, cancelPublishStatusTracking } = usePublishStatusTracking({
     onPublishFeedback: setPublishFeedback,
@@ -183,21 +197,36 @@ export default function SiteBuilderPage() {
         if (loaded.siteTitle) {
           setSiteTitle(loaded.siteTitle);
         }
-        if (!hasInitializedPreviewBrand.current) {
-          const resolvedBrand = loaded.siteTitle?.trim() || "New Astro Site";
-          setPreviewBrand(resolvedBrand);
-          hasInitializedPreviewBrand.current = true;
+        if (loaded.header) {
+          setHeaderDisabled(loaded.header.disabled);
+          setHeaderFixed(loaded.header.fixed);
+          setHeaderBrandDisabled(loaded.header.disableBrand);
+          setHeaderBrandText(
+            loaded.header.brandText?.trim() || loaded.siteTitle?.trim() || "New Astro Site"
+          );
+          hasInitializedHeaderBrand.current = true;
+        } else if (!hasInitializedHeaderBrand.current) {
+          setHeaderBrandText(loaded.siteTitle?.trim() || "New Astro Site");
+          hasInitializedHeaderBrand.current = true;
         }
 
         if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
         if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
-        if (typeof loaded.siteLocale === "string") setSiteLocale(loaded.siteLocale);
-        if (typeof loaded.authorName === "string") setAuthorName(loaded.authorName);
-        if (typeof loaded.authorEmail === "string") setAuthorEmail(loaded.authorEmail);
-        if (typeof loaded.authorUrl === "string") setAuthorUrl(loaded.authorUrl);
         if (typeof loaded.tokensCss === "string") setTokensCss(loaded.tokensCss);
         if (typeof loaded.siteImagePreview === "string") setSiteImagePreview(loaded.siteImagePreview);
         if (typeof loaded.draftImageUrl === "string") setDraftImageUrl(loaded.draftImageUrl);
+        if (loaded.footer) {
+          setFooterDisabled(loaded.footer.disabled);
+          setFooterFixed(loaded.footer.fixed);
+          setFooterCopyrightDisabled(loaded.footer.disableCopyright);
+          setFooterCopyrightName(
+            loaded.footer.copyrightName?.trim() || loaded.siteTitle?.trim() || "New Astro Site"
+          );
+          setFooterCustomText(loaded.footer.customText);
+          setFooterCustomLinksInput(formatFooterCustomLinks(loaded.footer.customLinks));
+        } else {
+          setFooterCopyrightName(loaded.siteTitle?.trim() || "New Astro Site");
+        }
       } catch (caught) {
         if (!mounted) return;
         const message = caught instanceof Error ? caught.message : "Failed to load draft.";
@@ -254,7 +283,8 @@ export default function SiteBuilderPage() {
       }
     ]);
     setActivePreviewSlug(slug);
-    setActiveSection("pages");
+    setActiveSection("settings");
+    setActiveSettingsSection("pages");
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };
 
@@ -293,10 +323,20 @@ export default function SiteBuilderPage() {
     siteTitle,
     siteDescription,
     siteUrl,
-    siteLocale,
-    authorName,
-    authorEmail,
-    authorUrl
+    header: {
+      disabled: headerDisabled,
+      fixed: headerFixed,
+      brandText: headerBrandText,
+      disableBrand: headerBrandDisabled
+    },
+    footer: {
+      disabled: footerDisabled,
+      fixed: footerFixed,
+      disableCopyright: footerCopyrightDisabled,
+      copyrightName: footerCopyrightName,
+      customText: footerCustomText,
+      customLinks: footerCustomLinks
+    }
   };
 
   const updateDraftSolidaryFile = (baseDraft: DraftState, solidaryFile: string) => {
@@ -449,6 +489,7 @@ export default function SiteBuilderPage() {
         settingsInput: siteSettingsInput,
         tokensCss,
         headerTemplate,
+        footerTemplate,
         indexTemplate,
         templateSolidary,
         pages,
@@ -577,9 +618,54 @@ export default function SiteBuilderPage() {
     });
   };
 
-  const showToolbar = !(shouldLoadDraft && isDraftLoading) && !draftLoadError;
+  const headerNavItems = useMemo(
+    () =>
+      pages
+        .map((page, index) => ({
+          page,
+          safeSlug: getPageSafeSlug(page, index)
+        }))
+        .filter(({ page }) => page.showInNav !== false)
+        .map(({ page, safeSlug }) => ({
+          slug: safeSlug,
+          label: page.title.trim() || "Untitled page"
+        })),
+    [pages]
+  );
+
+  const moveHeaderNavItem = (slug: string, direction: -1 | 1) => {
+    setPages((items) => {
+      const navIndices = items
+        .map((page, index) => ({
+          index,
+          slug: getPageSafeSlug(page, index),
+          showInNav: page.showInNav !== false
+        }))
+        .filter((item) => item.showInNav);
+      const currentNavIndex = navIndices.findIndex((item) => item.slug === slug);
+      if (currentNavIndex === -1) return items;
+      const targetNavIndex = currentNavIndex + direction;
+      if (targetNavIndex < 0 || targetNavIndex >= navIndices.length) return items;
+
+      const fromIndex = navIndices[currentNavIndex].index;
+      const toIndex = navIndices[targetNavIndex].index;
+      const next = [...items];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  };
+
+  const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError;
   const canSaveDraft = Boolean(draftState) && !savingDraft;
   const canPublish = !isProvisioning && Boolean(draftState) && publishFeedback?.kind !== "progress";
+
+  const handleSidebarBack = () => {
+    if (activeSection !== "menu") {
+      setActiveSection("menu");
+      return;
+    }
+    navigate("/studio");
+  };
 
   return (
     <div className="app-shell builder-shell">
@@ -591,7 +677,6 @@ export default function SiteBuilderPage() {
       />
 
       <BuilderTopbar
-        showToolbar={showToolbar}
         savingDraft={savingDraft}
         isProvisioning={isProvisioning}
         provisionStep={provisionStep}
@@ -600,13 +685,12 @@ export default function SiteBuilderPage() {
         publishFeedback={publishFeedback}
         onSaveDraft={handleSaveDraft}
         onPublish={handlePublish}
-        onRunCommand={runPreviewCommand}
-        onRunLink={runPreviewLink}
       />
 
       <div className="builder-body">
         <BuilderSidebar
           activeSection={activeSection}
+          activeSettingsSection={activeSettingsSection}
           siteTitle={siteTitle}
           siteDescription={siteDescription}
           siteImagePreview={siteImagePreview}
@@ -615,12 +699,20 @@ export default function SiteBuilderPage() {
           pageTitleRef={pageTitleRef}
           tokensCss={tokensCss}
           siteUrl={siteUrl}
-          siteLocale={siteLocale}
-          authorName={authorName}
-          authorEmail={authorEmail}
-          authorUrl={authorUrl}
-          onBack={() => navigate("/studio")}
+          headerDisabled={headerDisabled}
+          headerFixed={headerFixed}
+          headerBrandText={headerBrandText}
+          headerBrandDisabled={headerBrandDisabled}
+          headerNavItems={headerNavItems}
+          footerDisabled={footerDisabled}
+          footerFixed={footerFixed}
+          footerCopyrightDisabled={footerCopyrightDisabled}
+          footerCopyrightName={footerCopyrightName}
+          footerCustomText={footerCustomText}
+          footerCustomLinksInput={footerCustomLinksInput}
+          onBack={handleSidebarBack}
           onSectionChange={setActiveSection}
+          onSettingsSectionChange={setActiveSettingsSection}
           onSiteTitleChange={setSiteTitle}
           onSiteDescriptionChange={setSiteDescription}
           onSiteImageChange={setSiteImage}
@@ -632,10 +724,21 @@ export default function SiteBuilderPage() {
           onRemovePage={removePage}
           onTokensCssChange={setTokensCss}
           onSiteUrlChange={setSiteUrl}
-          onSiteLocaleChange={setSiteLocale}
-          onAuthorNameChange={setAuthorName}
-          onAuthorEmailChange={setAuthorEmail}
-          onAuthorUrlChange={setAuthorUrl}
+          onHeaderDisabledChange={setHeaderDisabled}
+          onHeaderFixedChange={setHeaderFixed}
+          onHeaderBrandTextChange={setHeaderBrandText}
+          onHeaderBrandDisabledChange={setHeaderBrandDisabled}
+          onMoveHeaderNavItemUp={(slug) => moveHeaderNavItem(slug, -1)}
+          onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
+          onFooterDisabledChange={setFooterDisabled}
+          onFooterFixedChange={setFooterFixed}
+          onFooterCopyrightDisabledChange={setFooterCopyrightDisabled}
+          onFooterCopyrightNameChange={setFooterCopyrightName}
+          onFooterCustomTextChange={setFooterCustomText}
+          onFooterCustomLinksInputChange={setFooterCustomLinksInput}
+          canFormatText={canFormatText}
+          onRunFormatCommand={runPreviewCommand}
+          onRunFormatLink={runPreviewLink}
         />
 
         <BuilderPreviewPanel
@@ -643,14 +746,25 @@ export default function SiteBuilderPage() {
           isDraftLoading={isDraftLoading}
           draftLoadError={draftLoadError}
           previewRef={previewRef}
-          previewBrand={previewBrand}
+          previewBrand={siteTitle}
           pages={pages}
-          authorName={authorName}
-          authorEmail={authorEmail}
-          authorUrl={authorUrl}
           tokensCss={tokensCss}
           homeFallbackBody={defaultHomeContent}
           activePreviewSlug={activePreviewSlug}
+          header={{
+            disabled: headerDisabled,
+            fixed: headerFixed,
+            brandText: headerBrandText,
+            disableBrand: headerBrandDisabled
+          }}
+          footer={{
+            disabled: footerDisabled,
+            fixed: footerFixed,
+            disableCopyright: footerCopyrightDisabled,
+            copyrightName: footerCopyrightName,
+            customText: footerCustomText,
+            customLinks: footerCustomLinks
+          }}
           onActivePreviewSlugChange={setActivePreviewSlug}
           onPageBodyChange={updatePageBody}
         />

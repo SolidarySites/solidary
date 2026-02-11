@@ -1,17 +1,15 @@
 import { buildPageMarkdown, buildSiteTs } from "../../../studio/astro";
 import type { RepoFileSet } from "../../../studio/types";
 import { FILE_KEYS, PAGE_PATH_PREFIX } from "./constants";
-import type { BuilderPage } from "./types";
+import type { BuilderPage, FooterOptions, HeaderOptions } from "./types";
 import { getPageSafeSlug } from "./utils";
 
 type SiteSettingsInput = {
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
-  siteLocale: string;
-  authorName: string;
-  authorEmail: string;
-  authorUrl: string;
+  header: HeaderOptions;
+  footer: FooterOptions;
 };
 
 export const buildSettingsPayload = (
@@ -23,13 +21,24 @@ export const buildSettingsPayload = (
   tagline: input.siteTitle.trim(),
   description: input.siteDescription.trim(),
   siteUrl: (urlOverride ?? input.siteUrl).trim(),
-  locale: input.siteLocale.trim() || "en",
-  author: {
-    name: input.authorName.trim() || "",
-    email: input.authorEmail.trim() || "",
-    url: input.authorUrl.trim() || ""
+  ogImage: imageUrl,
+  header: {
+    disabled: input.header.disabled,
+    fixed: input.header.fixed,
+    brandText: input.header.brandText.trim() || input.siteTitle.trim(),
+    disableBrand: input.header.disableBrand
   },
-  ogImage: imageUrl
+  footer: {
+    disabled: input.footer.disabled,
+    fixed: input.footer.fixed,
+    disableCopyright: input.footer.disableCopyright,
+    copyrightName: input.footer.copyrightName.trim(),
+    customText: input.footer.customText.trim(),
+    customLinks: input.footer.customLinks.map((link) => ({
+      label: link.label.trim(),
+      url: link.url.trim()
+    }))
+  }
 });
 
 type BuildSolidaryFileInput = {
@@ -62,6 +71,7 @@ type BuildFilesInput = {
   settingsInput: SiteSettingsInput;
   tokensCss: string;
   headerTemplate: string;
+  footerTemplate: string;
   indexTemplate: string;
   templateSolidary: string;
   pages: BuilderPage[];
@@ -75,6 +85,7 @@ export const buildFiles = ({
   settingsInput,
   tokensCss,
   headerTemplate,
+  footerTemplate,
   indexTemplate,
   templateSolidary,
   pages,
@@ -86,6 +97,7 @@ export const buildFiles = ({
     [FILE_KEYS.site]: buildSiteTs(settings),
     [FILE_KEYS.tokens]: tokensCss,
     [FILE_KEYS.header]: headerTemplate,
+    [FILE_KEYS.footer]: footerTemplate,
     [FILE_KEYS.index]: indexTemplate,
     [FILE_KEYS.solidary]: buildSolidaryFile({
       templateSolidary,
@@ -102,6 +114,7 @@ export const buildFiles = ({
     files[`${PAGE_PATH_PREFIX}${safeSlug}.md`] = buildPageMarkdown({
       ...page,
       slug: safeSlug,
+      navOrder: index,
       body
     });
   });

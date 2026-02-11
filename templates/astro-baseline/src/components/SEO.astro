@@ -47,7 +47,7 @@ const computedOgType: "website" | "article" = ogType ?? (canonical.includes("/bl
 {hasOg && <meta property="og:image" content={ogImage} />}
 {hasOg && ogImageAlt && <meta property="og:image:alt" content={ogImageAlt} />}
 <meta property="og:site_name" content={site.name} />
-<meta property="og:locale" content={site.locale} />
+<meta property="og:locale" content="en_US" />
 
 
 <meta name="twitter:card" content={hasOg ? "summary_large_image" : "summary"} />

@@ -1,20 +1,30 @@
 ---
-import { site, type SiteConfig } from "../content/site";
-
-type Author = SiteConfig["author"];
-
-const { author = site.author } = Astro.props as { author?: Author };
+import { site } from "../content/site";
 const year = new Date().getFullYear();
+
+const footerStyle =
+  site.footer.disabled || site.footer.fixed
+    ? [
+        site.footer.disabled ? "display:none;" : "",
+        site.footer.fixed ? "position:fixed;left:0;right:0;bottom:0;z-index:40;" : ""
+      ].join("")
+    : undefined;
+const footerMetaStyle = site.footer.disableCopyright ? "display:none;" : undefined;
 ---
 
-<footer class="footer">
+<footer class="footer" style={footerStyle}>
   <div class="footer__inner">
-    <p class="footer__meta">
-      © {year} {author.url ? <a href={author.url}>{author.name}</a> : author.name}
+    <p class="footer__meta" style={footerMetaStyle}>
+      © {year} {site.footer.copyrightName || site.name}
     </p>
 
     <div class="footer__links">
-      {author.email && <a class="footer__link" href={`mailto:${author.email}`}>Email</a>}
+      {site.footer.customLinks.map((item) => (
+        <a class="footer__link" href={item.url} target="_blank" rel="noopener noreferrer">
+          {item.label}
+        </a>
+      ))}
     </div>
+    {site.footer.customText && <p class="footer__meta">{site.footer.customText}</p>}
   </div>
 </footer>

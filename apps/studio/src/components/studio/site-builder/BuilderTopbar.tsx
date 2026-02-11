@@ -1,9 +1,7 @@
 import BuilderActions from "./BuilderActions";
-import BuilderEditorToolbar from "./BuilderEditorToolbar";
 import type { PublishFeedback } from "./types";
 
 type BuilderTopbarProps = {
-  showToolbar: boolean;
   savingDraft: boolean;
   isProvisioning: boolean;
   provisionStep: string;
@@ -12,12 +10,9 @@ type BuilderTopbarProps = {
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
   onPublish: () => void;
-  onRunCommand: (command: string, value?: string) => void;
-  onRunLink: () => void;
 };
 
 const BuilderTopbar = ({
-  showToolbar,
   savingDraft,
   isProvisioning,
   provisionStep,
@@ -25,14 +20,11 @@ const BuilderTopbar = ({
   canPublish,
   publishFeedback,
   onSaveDraft,
-  onPublish,
-  onRunCommand,
-  onRunLink
+  onPublish
 }: BuilderTopbarProps) => (
   <div className="builder-topbar">
     <div className="builder-topbar-main">
       <h1>Site Builder</h1>
-      {showToolbar && <BuilderEditorToolbar onRunCommand={onRunCommand} onRunLink={onRunLink} />}
     </div>
     <BuilderActions
       savingDraft={savingDraft}

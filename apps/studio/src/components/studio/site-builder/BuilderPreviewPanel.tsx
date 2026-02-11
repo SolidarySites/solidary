@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import AstroTemplatePreview, { type AstroTemplatePreviewHandle } from "../AstroTemplatePreview";
-import type { BuilderPage } from "./types";
+import type { BuilderPage, FooterOptions, HeaderOptions } from "./types";
 
 type BuilderPreviewPanelProps = {
   shouldLoadDraft: boolean;
@@ -9,12 +9,11 @@ type BuilderPreviewPanelProps = {
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
   previewBrand: string;
   pages: BuilderPage[];
-  authorName: string;
-  authorEmail: string;
-  authorUrl: string;
   tokensCss: string;
   homeFallbackBody: string;
   activePreviewSlug: string;
+  header: HeaderOptions;
+  footer: FooterOptions;
   onActivePreviewSlugChange: (slug: string) => void;
   onPageBodyChange: (safeSlug: string, body: string) => void;
 };
@@ -26,12 +25,11 @@ const BuilderPreviewPanel = ({
   previewRef,
   previewBrand,
   pages,
-  authorName,
-  authorEmail,
-  authorUrl,
   tokensCss,
   homeFallbackBody,
   activePreviewSlug,
+  header,
+  footer,
   onActivePreviewSlugChange,
   onPageBodyChange
 }: BuilderPreviewPanelProps) => (
@@ -56,14 +54,11 @@ const BuilderPreviewPanel = ({
         ref={previewRef}
         previewBrand={previewBrand}
         pages={pages}
-        author={{
-          name: authorName,
-          email: authorEmail,
-          url: authorUrl
-        }}
         tokensCss={tokensCss}
         homeFallbackBody={homeFallbackBody}
         activePageSlug={activePreviewSlug}
+        header={header}
+        footer={footer}
         onActivePageChange={onActivePreviewSlugChange}
         onPageBodyChange={onPageBodyChange}
       />

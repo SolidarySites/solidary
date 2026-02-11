@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import headerTemplate from "../../../../templates/astro-baseline/src/components/Header.astro?raw";
+import footerTemplate from "../../../../templates/astro-baseline/src/components/Footer.astro?raw";
 import indexTemplate from "../../../../templates/astro-baseline/src/pages/index.astro?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { buildSiteTs, type AstroPageDraft } from "../studio/astro";
@@ -17,6 +18,7 @@ const FILE_KEYS = {
   site: "src/content/site.ts",
   tokens: "src/styles/partials/tokens.css",
   header: "src/components/Header.astro",
+  footer: "src/components/Footer.astro",
   index: "src/pages/index.astro",
   solidary: "public/.well-known/solidary-links.json"
 };
@@ -34,11 +36,6 @@ export default function SiteCreatePage() {
   const [siteTagline, setSiteTagline] = useState("A calm, static home on the web.");
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
-  const [siteLocale] = useState("en");
-
-  const [authorName] = useState("");
-  const [authorEmail] = useState("");
-  const [authorUrl] = useState("");
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
@@ -115,13 +112,21 @@ export default function SiteCreatePage() {
     tagline: siteTagline.trim(),
     description: siteDescription.trim(),
     siteUrl: urlOverride || siteUrl,
-    locale: siteLocale,
-    author: {
-      name: authorName.trim() || "",
-      email: authorEmail.trim() || "",
-      url: authorUrl.trim() || ""
+    ogImage: imageUrl,
+    header: {
+      disabled: false,
+      fixed: false,
+      brandText: siteTitle.trim(),
+      disableBrand: false
     },
-    ogImage: imageUrl
+    footer: {
+      disabled: false,
+      fixed: false,
+      disableCopyright: false,
+      copyrightName: siteTitle.trim(),
+      customText: "",
+      customLinks: []
+    }
   });
 
   const buildSolidaryFile = (siteId: string, imageUrl: string, urlOverride?: string) => {
@@ -141,6 +146,7 @@ export default function SiteCreatePage() {
       [FILE_KEYS.site]: buildSiteTs(settings),
       [FILE_KEYS.tokens]: tokensCss,
       [FILE_KEYS.header]: headerTemplate,
+      [FILE_KEYS.footer]: footerTemplate,
       [FILE_KEYS.index]: indexTemplate,
       [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
     };
@@ -282,11 +288,19 @@ export default function SiteCreatePage() {
           tagline: siteTagline.trim(),
           description: siteDescription.trim(),
           siteUrl: siteUrlResolved,
-          locale: siteLocale,
-          author: {
-            name: authorName.trim() || "",
-            email: authorEmail.trim() || "",
-            url: authorUrl.trim() || ""
+          header: {
+            disabled: false,
+            fixed: false,
+            brandText: siteTitle.trim(),
+            disableBrand: false
+          },
+          footer: {
+            disabled: false,
+            fixed: false,
+            disableCopyright: false,
+            copyrightName: siteTitle.trim(),
+            customText: "",
+            customLinks: []
           }
         },
         styles: {

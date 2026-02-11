@@ -8,6 +8,7 @@ import {
   type CSSProperties
 } from "react";
 import { slugify } from "../../studio/utils";
+import type { FooterOptions, HeaderOptions } from "./site-builder/types";
 
 type PreviewPage = {
   id?: string;
@@ -18,19 +19,14 @@ type PreviewPage = {
   isHome?: boolean;
 };
 
-type PreviewAuthor = {
-  name: string;
-  email: string;
-  url: string;
-};
-
 type AstroTemplatePreviewProps = {
   previewBrand: string;
   pages: PreviewPage[];
-  author: PreviewAuthor;
   tokensCss: string;
   homeFallbackBody: string;
   activePageSlug: string;
+  header: HeaderOptions;
+  footer: FooterOptions;
   onActivePageChange: (slug: string) => void;
   onPageBodyChange: (slug: string, body: string) => void;
 };
@@ -161,10 +157,11 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     {
       previewBrand,
       pages,
-      author,
       tokensCss,
       homeFallbackBody,
       activePageSlug,
+      header,
+      footer,
       onActivePageChange,
       onPageBodyChange
     },
@@ -238,9 +235,8 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   );
 
   const currentYear = new Date().getFullYear();
-  const authorName = author.name.trim() || "Site author";
-  const authorUrl = author.url.trim();
-  const authorEmail = author.email.trim();
+  const copyrightName = footer.copyrightName.trim() || previewBrand.trim() || "Site";
+  const footerCustomText = footer.customText.trim();
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -311,17 +307,27 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           Skip to content
         </a>
 
-        <header className="header">
+        <header
+          className="header"
+          style={
+            header.disabled
+              ? { display: "none" }
+              : header.fixed
+                ? { position: "sticky", top: 0, zIndex: 40, background: "var(--bg)" }
+                : undefined
+          }
+        >
           <div className="header__inner">
             <a
               className="header__brand"
               href="/"
+              style={header.disableBrand ? { display: "none" } : undefined}
               onClick={(event) => {
                 event.preventDefault();
                 onActivePageChange(homePage.safeSlug);
               }}
             >
-              {previewBrand.trim() || "New Astro Site"}
+              {header.brandText.trim() || previewBrand.trim() || "New Astro Site"}
             </a>
 
             <nav className="header__nav" aria-label="Primary">
@@ -357,21 +363,38 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           </article>
         </main>
 
-        <footer className="footer">
+        <footer
+          className="footer"
+          style={
+            footer.disabled
+              ? { display: "none" }
+              : footer.fixed
+                ? { position: "sticky", bottom: 0, zIndex: 40, background: "var(--bg)" }
+                : undefined
+          }
+        >
           <div className="footer__inner">
-            <p className="footer__meta">
-              {authorUrl ? (
-                <a href={authorUrl} target="_blank" rel="noopener noreferrer">
-                  © {currentYear} {authorName}
-                </a>
-              ) : (
-                `© ${currentYear} ${authorName}`
-              )}
+            <p
+              className="footer__meta"
+              style={footer.disableCopyright ? { display: "none" } : undefined}
+            >
+              {`© ${currentYear} ${copyrightName}`}
             </p>
 
             <div className="footer__links">
-              {authorEmail && <a className="footer__link" href={`mailto:${authorEmail}`}>Email</a>}
+              {footer.customLinks.map((link) => (
+                <a
+                  key={`${link.label}-${link.url}`}
+                  className="footer__link"
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {link.label}
+                </a>
+              ))}
             </div>
+            {footerCustomText && <p className="footer__meta">{footerCustomText}</p>}
           </div>
         </footer>
       </div>

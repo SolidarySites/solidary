@@ -2,7 +2,13 @@ import { supabase } from "../../../lib/supabase";
 import type { RepoFileSet } from "../../../studio/types";
 import { parseSolidaryJson } from "../../../studio/utils";
 import { FILE_KEYS } from "./constants";
-import type { BuilderPage, DraftState } from "./types";
+import type {
+  BuilderPage,
+  DraftState,
+  FooterCustomLink,
+  FooterOptions,
+  HeaderOptions
+} from "./types";
 import { getPageSafeSlug, resolveImagePreviewUrl } from "./utils";
 
 export type LoadedDraftResult = {
@@ -13,13 +19,11 @@ export type LoadedDraftResult = {
   siteTitle?: string;
   siteDescription?: string;
   siteUrl?: string;
-  siteLocale?: string;
-  authorName?: string;
-  authorEmail?: string;
-  authorUrl?: string;
   tokensCss?: string;
   siteImagePreview?: string;
   draftImageUrl?: string;
+  header?: HeaderOptions;
+  footer?: FooterOptions;
 };
 
 export const loadDraftById = async ({
@@ -80,7 +84,6 @@ export const loadDraftById = async ({
 
   const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
   const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
-  const author = settings.author as Record<string, unknown> | undefined;
 
   const result: LoadedDraftResult = {
     draftState,
@@ -98,11 +101,42 @@ export const loadDraftById = async ({
   if (typeof settings.siteUrl === "string") result.siteUrl = settings.siteUrl;
   else if (solidary?.site_url) result.siteUrl = solidary.site_url;
 
-  if (typeof settings.locale === "string") result.siteLocale = settings.locale;
-  if (typeof author?.name === "string") result.authorName = author.name;
-  if (typeof author?.email === "string") result.authorEmail = author.email;
-  if (typeof author?.url === "string") result.authorUrl = author.url;
   if (typeof styles.tokensCss === "string") result.tokensCss = styles.tokensCss;
+
+  const header = settings.header as Record<string, unknown> | undefined;
+  if (header) {
+    result.header = {
+      disabled: Boolean(header.disabled),
+      fixed: Boolean(header.fixed),
+      brandText: typeof header.brandText === "string" ? header.brandText : (result.siteTitle ?? ""),
+      disableBrand: Boolean(header.disableBrand)
+    };
+  }
+
+  const footer = settings.footer as Record<string, unknown> | undefined;
+  if (footer) {
+    const customLinksRaw = Array.isArray(footer.customLinks)
+      ? (footer.customLinks as Record<string, unknown>[])
+      : [];
+    const customLinks: FooterCustomLink[] = customLinksRaw
+      .map((item) => ({
+        label: typeof item.label === "string" ? item.label.trim() : "",
+        url: typeof item.url === "string" ? item.url.trim() : ""
+      }))
+      .filter((item) => item.label && item.url);
+
+    result.footer = {
+      disabled: Boolean(footer.disabled),
+      fixed: Boolean(footer.fixed),
+      disableCopyright: Boolean(footer.disableCopyright),
+      copyrightName:
+        typeof footer.copyrightName === "string"
+          ? footer.copyrightName
+          : (result.siteTitle ?? ""),
+      customText: typeof footer.customText === "string" ? footer.customText : "",
+      customLinks
+    };
+  }
 
   if (solidary?.image_url) {
     const canonicalUrl = solidary.site_url ?? "";

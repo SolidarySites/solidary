@@ -6,7 +6,8 @@ const pages = defineCollection({
     title: z.string(),
     navLabel: z.string().optional(),
     description: z.string().optional(),
-    showInNav: z.boolean().default(true)
+    showInNav: z.boolean().default(true),
+    navOrder: z.number().int().optional()
   })
 });
 

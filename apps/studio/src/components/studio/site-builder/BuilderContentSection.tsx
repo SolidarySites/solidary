@@ -1,18 +1,22 @@
 type BuilderContentSectionProps = {
   siteTitle: string;
   siteDescription: string;
+  siteUrl: string;
   siteImagePreview: string | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
+  onSiteUrlChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
 };
 
 const BuilderContentSection = ({
   siteTitle,
   siteDescription,
+  siteUrl,
   siteImagePreview,
   onSiteTitleChange,
   onSiteDescriptionChange,
+  onSiteUrlChange,
   onSiteImageChange
 }: BuilderContentSectionProps) => (
   <div className="builder-section">
@@ -31,6 +35,10 @@ const BuilderContentSection = ({
         onChange={(event) => onSiteDescriptionChange(event.target.value)}
         rows={4}
       />
+    </label>
+    <label>
+      Site URL
+      <input value={siteUrl} onChange={(event) => onSiteUrlChange(event.target.value)} />
     </label>
     <label>
       Site image (JPEG)

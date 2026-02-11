@@ -7,7 +7,30 @@ export type BuilderPage = AstroPageDraft & {
   isHome?: boolean;
 };
 
-export type BuilderSection = "content" | "pages" | "styles" | "settings";
+export type FooterCustomLink = {
+  label: string;
+  url: string;
+};
+
+export type HeaderOptions = {
+  disabled: boolean;
+  fixed: boolean;
+  brandText: string;
+  disableBrand: boolean;
+};
+
+export type FooterOptions = {
+  disabled: boolean;
+  fixed: boolean;
+  disableCopyright: boolean;
+  copyrightName: string;
+  customText: string;
+  customLinks: FooterCustomLink[];
+};
+
+export type BuilderSection = "menu" | "content" | "settings" | "format_text";
+
+export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
 
 export type DraftState = {
   id: string;
