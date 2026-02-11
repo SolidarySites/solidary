@@ -483,7 +483,7 @@ export default function SiteBuilderPage() {
       }
 
       setProvisionStep("Updating site metadata...");
-      await supabase.from("sites").upsert({
+      const { error: siteError } = await supabase.from("sites").upsert({
         id: draftState.id,
         canonical_url: siteUrl.trim(),
         title: normalizedTitle,
@@ -494,6 +494,9 @@ export default function SiteBuilderPage() {
           source: "studio"
         }
       });
+      if (siteError) {
+        throw new Error(siteError.message);
+      }
 
       setDraftImageUrl(imageUrl);
       setProvisionStep("Starting deployment status checks...");

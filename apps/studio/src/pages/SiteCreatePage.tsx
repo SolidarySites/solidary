@@ -242,7 +242,7 @@ export default function SiteCreatePage() {
       }
 
       setProvisionStep("Saving site metadata...");
-      await supabase.from("sites").insert({
+      const { error: siteError } = await supabase.from("sites").insert({
         id: siteId,
         canonical_url: siteUrlResolved,
         title: normalizedTitle,
@@ -253,6 +253,9 @@ export default function SiteCreatePage() {
           source: "studio"
         }
       });
+      if (siteError) {
+        throw new Error(siteError.message);
+      }
 
       const { error: draftError } = await supabase.from("site_drafts").upsert(
         {
