@@ -4,6 +4,7 @@ import { parseSolidaryJson } from "../../../studio/utils";
 import { FILE_KEYS } from "./constants";
 import type {
   BuilderPage,
+  DraftImageAsset,
   DraftState,
   FooterCustomLink,
   FooterOptions,
@@ -22,8 +23,28 @@ export type LoadedDraftResult = {
   tokensCss?: string;
   siteImagePreview?: string;
   draftImageUrl?: string;
+  draftImages?: DraftImageAsset[];
   header?: HeaderOptions;
   footer?: FooterOptions;
+};
+
+const getSitePathFromStoragePath = (storagePath: string) => {
+  const normalized = storagePath.trim();
+  if (!normalized) return "";
+  const filename = normalized.split("/").pop()?.trim();
+  if (!filename) return "";
+  return `/images/uploads/${filename}`;
+};
+
+const replaceDraftImageUrls = (body: string, draftImages: DraftImageAsset[]) => {
+  let nextBody = body;
+  draftImages.forEach((image) => {
+    const publicUrl = image.publicUrl.trim();
+    const sitePath = image.sitePath.trim();
+    if (!publicUrl || !sitePath) return;
+    nextBody = nextBody.replaceAll(publicUrl, sitePath);
+  });
+  return nextBody;
 };
 
 export const loadDraftById = async ({
@@ -53,7 +74,7 @@ export const loadDraftById = async ({
     files
   };
 
-  const [{ data: pagesData }, { data: settingsData }] = await Promise.all([
+  const [{ data: pagesData }, { data: settingsData }, { data: draftImagesData }] = await Promise.all([
     supabase
       .from("site_draft_pages")
       .select("id, slug, title, content, show_in_nav, position, is_home")
@@ -63,14 +84,37 @@ export const loadDraftById = async ({
       .from("site_draft_settings")
       .select("settings, styles")
       .eq("draft_id", data.id)
-      .maybeSingle()
+      .maybeSingle(),
+    supabase
+      .from("site_draft_images")
+      .select("id, storage_path, public_url, site_path, uploaded_at")
+      .eq("draft_id", data.id)
+      .order("uploaded_at", { ascending: true })
   ]);
+
+  const draftImages: DraftImageAsset[] = (draftImagesData ?? [])
+    .map((image) => {
+      const storagePath = typeof image.storage_path === "string" ? image.storage_path : "";
+      const sitePathCandidate =
+        typeof image.site_path === "string" ? image.site_path.trim() : getSitePathFromStoragePath(storagePath);
+      return {
+        id: typeof image.id === "string" ? image.id : undefined,
+        storagePath,
+        publicUrl: typeof image.public_url === "string" ? image.public_url : "",
+        sitePath: sitePathCandidate || getSitePathFromStoragePath(storagePath),
+        uploadedAt: typeof image.uploaded_at === "string" ? image.uploaded_at : undefined
+      };
+    })
+    .filter((image) => image.storagePath && image.publicUrl && image.sitePath);
 
   const pages = (pagesData ?? []).map((page) => ({
     id: page.id,
     slug: page.slug,
     title: page.title,
-    body: page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
+    body: replaceDraftImageUrls(
+      page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
+      draftImages
+    ),
     showInNav: page.show_in_nav ?? true,
     position: page.position,
     isHome: page.is_home ?? false
@@ -89,7 +133,8 @@ export const loadDraftById = async ({
     draftState,
     pages,
     draftPageSlugs,
-    initialActivePreviewSlug
+    initialActivePreviewSlug,
+    draftImages
   };
 
   if (typeof settings.title === "string") result.siteTitle = settings.title;

@@ -4,7 +4,10 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
-import type { AstroTemplatePreviewHandle } from "../components/studio/AstroTemplatePreview";
+import type {
+  AstroTemplatePreviewHandle,
+  PreviewSelectedImage
+} from "../components/studio/AstroTemplatePreview";
 import BuilderPreviewPanel from "../components/studio/site-builder/BuilderPreviewPanel";
 import BuilderSidebar from "../components/studio/site-builder/BuilderSidebar";
 import BuilderTopbar from "../components/studio/site-builder/BuilderTopbar";
@@ -23,6 +26,7 @@ import type {
   BuilderPage,
   BuilderSection,
   BuilderSettingsSection,
+  DraftImageAsset,
   DraftState,
   PublishFeedback
 } from "../components/studio/site-builder/types";
@@ -45,6 +49,47 @@ import { deleteTextFile, githubRequest, listDirectory, writeTextFile } from "../
 import { slugify, toBase64 } from "../studio/utils";
 
 const defaultHomeContent = stripFrontmatter(homeTemplate);
+const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
+const IMAGE_EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+  "image/avif": "avif"
+};
+
+const getImageExtension = (file: File) => {
+  const extensionFromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (extensionFromName) return extensionFromName;
+  return IMAGE_EXTENSION_BY_MIME[file.type] ?? "png";
+};
+
+const normalizeSitePath = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+};
+
+const getSitePathFromStoragePath = (storagePath: string) => {
+  const normalized = storagePath.trim();
+  if (!normalized) return "";
+  const filename = normalized.split("/").pop()?.trim();
+  if (!filename) return "";
+  return `/images/uploads/${filename}`;
+};
+
+const replaceDraftImageUrlsWithSitePaths = (body: string, draftImages: DraftImageAsset[]) => {
+  let nextBody = body;
+  draftImages.forEach((image) => {
+    const publicUrl = image.publicUrl.trim();
+    const sitePath = normalizeSitePath(image.sitePath);
+    if (!publicUrl || !sitePath) return;
+    nextBody = nextBody.replaceAll(publicUrl, sitePath);
+  });
+  return nextBody;
+};
 
 export default function SiteBuilderPage() {
   const navigate = useNavigate();
@@ -69,6 +114,7 @@ export default function SiteBuilderPage() {
   const [draftImageUrl, setDraftImageUrl] = useState<string | null>(null);
 
   const [pages, setPages] = useState<BuilderPage[]>([]);
+  const [draftImages, setDraftImages] = useState<DraftImageAsset[]>([]);
   const [draftPageSlugs, setDraftPageSlugs] = useState<string[]>([]);
   const [activePreviewSlug, setActivePreviewSlug] = useState("home");
   const [headerDisabled, setHeaderDisabled] = useState(false);
@@ -92,11 +138,14 @@ export default function SiteBuilderPage() {
   });
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [uploadingInlineImage, setUploadingInlineImage] = useState(false);
   const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
+  const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
   const hasInitializedHeaderBrand = useRef(false);
+  const cleanedPublishedDraftIdRef = useRef<string | null>(null);
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -108,6 +157,11 @@ export default function SiteBuilderPage() {
     () => parseFooterCustomLinks(footerCustomLinksInput),
     [footerCustomLinksInput]
   );
+  const publishedSiteBaseUrl = useMemo(() => {
+    if (publishFeedback?.kind !== "success") return null;
+    const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
+    return candidate || null;
+  }, [publishFeedback, siteUrl]);
 
   const { startPublishStatusTracking, cancelPublishStatusTracking } = usePublishStatusTracking({
     onPublishFeedback: setPublishFeedback,
@@ -120,6 +174,30 @@ export default function SiteBuilderPage() {
       setNoticeKind("notice");
     }
   });
+
+  useEffect(() => {
+    if (publishFeedback?.kind !== "success") return;
+    if (!draftState?.id) return;
+    if (cleanedPublishedDraftIdRef.current === draftState.id) return;
+
+    cleanedPublishedDraftIdRef.current = draftState.id;
+
+    (async () => {
+      const { error } = await supabase.functions.invoke("cleanup-draft-images", {
+        body: {
+          draftId: draftState.id
+        }
+      });
+
+      if (error) {
+        setNotice(`Site is live, but image cleanup failed: ${error.message}`);
+        setNoticeKind("error");
+        return;
+      }
+
+      setDraftImages([]);
+    })();
+  }, [draftState?.id, publishFeedback?.kind]);
 
   useEffect(() => {
     let mounted = true;
@@ -160,6 +238,8 @@ export default function SiteBuilderPage() {
     if (!draftId) {
       setIsDraftLoading(false);
       setDraftLoadError(null);
+      setDraftImages([]);
+      cleanedPublishedDraftIdRef.current = null;
       return;
     }
 
@@ -187,8 +267,15 @@ export default function SiteBuilderPage() {
 
         if (!mounted) return;
 
+        const loadedDraftImages = loaded.draftImages ?? [];
         setDraftState(loaded.draftState);
-        setPages(loaded.pages);
+        setDraftImages(loadedDraftImages);
+        setPages(
+          loaded.pages.map((page) => ({
+            ...page,
+            body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
+          }))
+        );
         setDraftPageSlugs(loaded.draftPageSlugs);
         if (loaded.initialActivePreviewSlug) {
           setActivePreviewSlug(loaded.initialActivePreviewSlug);
@@ -348,7 +435,12 @@ export default function SiteBuilderPage() {
     });
   };
 
-  const saveDraftState = async (repoInfo: DraftState, solidaryFile: string, imageUrl: string) => {
+  const saveDraftState = async (
+    repoInfo: DraftState,
+    solidaryFile: string,
+    imageUrl: string,
+    pagesSnapshot: BuilderPage[] = pages
+  ) => {
     const { error } = await supabase.from("site_drafts").upsert(
       {
         id: repoInfo.id,
@@ -379,7 +471,7 @@ export default function SiteBuilderPage() {
       throw new Error(settingsError.message);
     }
 
-    const pageRows = pages.map((page, index) => ({
+    const pageRows = pagesSnapshot.map((page, index) => ({
       draft_id: repoInfo.id,
       slug: getPageSafeSlug(page, index),
       title: page.title.trim() || page.slug || `Page ${index + 1}`,
@@ -414,10 +506,80 @@ export default function SiteBuilderPage() {
     setDraftPageSlugs(pageRows.map((page) => page.slug));
   };
 
+  const loadDraftImagesForDraft = async (targetDraftId: string): Promise<DraftImageAsset[]> => {
+    const { data, error } = await supabase
+      .from("site_draft_images")
+      .select("id, storage_path, public_url, site_path, uploaded_at")
+      .eq("draft_id", targetDraftId)
+      .order("uploaded_at", { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? [])
+      .map((image) => {
+        const storagePath = typeof image.storage_path === "string" ? image.storage_path : "";
+        const fallbackSitePath = getSitePathFromStoragePath(storagePath);
+        const sitePath =
+          typeof image.site_path === "string" && image.site_path.trim()
+            ? normalizeSitePath(image.site_path)
+            : fallbackSitePath;
+
+        return {
+          id: typeof image.id === "string" ? image.id : undefined,
+          storagePath,
+          publicUrl: typeof image.public_url === "string" ? image.public_url : "",
+          sitePath,
+          uploadedAt: typeof image.uploaded_at === "string" ? image.uploaded_at : undefined
+        };
+      })
+      .filter((image) => image.storagePath && image.publicUrl && image.sitePath);
+  };
+
+  const uploadDraftImagesToGitHub = async ({
+    providerToken,
+    ownerLogin,
+    repoName,
+    branch,
+    images
+  }: {
+    providerToken: string;
+    ownerLogin: string;
+    repoName: string;
+    branch: string;
+    images: DraftImageAsset[];
+  }) => {
+    for (const image of images) {
+      const sitePath = normalizeSitePath(image.sitePath);
+      if (!sitePath || !image.storagePath.trim()) continue;
+      const repoPath = `public${sitePath}`;
+
+      const { data: downloadData, error: downloadError } = await supabase.storage
+        .from(SITE_DRAFT_IMAGES_BUCKET)
+        .download(image.storagePath);
+      if (downloadError) {
+        throw new Error(downloadError.message);
+      }
+
+      const content = toBase64(await downloadData.arrayBuffer());
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        path: repoPath,
+        message: `Upload draft image ${sitePath}`,
+        content,
+        branch
+      });
+    }
+  };
+
   const handlePublish = async () => {
     resetNotices();
     setPublishFeedback(null);
     cancelPublishStatusTracking();
+    cleanedPublishedDraftIdRef.current = null;
 
     if (!session) {
       setNotice("Sign in with GitHub to continue.");
@@ -457,6 +619,10 @@ export default function SiteBuilderPage() {
       const imageUrl = siteImage
         ? `/${imagePath.replace(/^public\//, "")}`
         : draftImageUrl || siteImagePreview || "/images/og/og-default.jpg";
+      const normalizedPages = pages.map((page) => ({
+        ...page,
+        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
+      }));
       const solidaryFile = buildSolidaryFile({
         templateSolidary,
         siteId: draftState.id,
@@ -466,8 +632,9 @@ export default function SiteBuilderPage() {
       });
 
       setProvisionStep("Saving draft...");
-      await saveDraftState(draftState, solidaryFile, imageUrl);
+      await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
       updateDraftSolidaryFile(draftState, solidaryFile);
+      setPages(normalizedPages);
 
       if (siteImage) {
         setProvisionStep("Uploading site image...");
@@ -483,6 +650,25 @@ export default function SiteBuilderPage() {
         });
       }
 
+      setProvisionStep("Loading draft images...");
+      const draftImagesForPublish = await loadDraftImagesForDraft(draftState.id);
+      setDraftImages(draftImagesForPublish);
+      const publishPages = normalizedPages.map((page) => ({
+        ...page,
+        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImagesForPublish)
+      }));
+      setPages(publishPages);
+      if (draftImagesForPublish.length) {
+        setProvisionStep("Uploading draft images...");
+        await uploadDraftImagesToGitHub({
+          providerToken,
+          ownerLogin,
+          repoName,
+          branch: draftState.branch,
+          images: draftImagesForPublish
+        });
+      }
+
       const files = buildFiles({
         siteId: draftState.id,
         imageUrl,
@@ -492,7 +678,7 @@ export default function SiteBuilderPage() {
         footerTemplate,
         indexTemplate,
         templateSolidary,
-        pages,
+        pages: publishPages,
         defaultHomeContent,
         urlOverride: siteUrl
       });
@@ -506,7 +692,7 @@ export default function SiteBuilderPage() {
         draftState.branch
       ).catch(() => []);
       const desiredPagePaths = new Set(
-        pages.map((page, index) => {
+        publishPages.map((page, index) => {
           const safeSlug = getPageSafeSlug(page, index);
           return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
         })
@@ -563,6 +749,10 @@ export default function SiteBuilderPage() {
     if (!draftState || savingDraft) return;
     setSavingDraft(true);
     try {
+      const normalizedPages = pages.map((page) => ({
+        ...page,
+        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
+      }));
       const imageUrl = siteImage
         ? draftImageUrl || "/images/og/og-default.jpg"
         : siteImagePreview || draftImageUrl || "/images/og/og-default.jpg";
@@ -573,8 +763,9 @@ export default function SiteBuilderPage() {
         settingsInput: siteSettingsInput,
         urlOverride: siteUrl
       });
-      await saveDraftState(draftState, solidaryFile, imageUrl);
+      await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
       updateDraftSolidaryFile(draftState, solidaryFile);
+      setPages(normalizedPages);
       setNotice("Draft saved locally.");
       setNoticeKind("notice");
     } catch (error) {
@@ -594,6 +785,120 @@ export default function SiteBuilderPage() {
     const url = window.prompt("Link URL");
     if (!url) return;
     previewRef.current?.execCommand("createLink", url);
+  };
+
+  const capturePreviewSelection = () => {
+    previewRef.current?.captureSelection();
+  };
+
+  const handleSelectedEditorImageAltChange = (value: string) => {
+    setSelectedEditorImage((current) => (current ? { ...current, alt: value } : current));
+    previewRef.current?.updateSelectedImageAlt(value);
+  };
+
+  const handleSelectedEditorImageCaptionChange = (value: string) => {
+    setSelectedEditorImage((current) => (current ? { ...current, caption: value } : current));
+    previewRef.current?.updateSelectedImageCaption(value);
+  };
+
+  const handleSelectedEditorImageSizeChange = (value: number) => {
+    const clamped = Math.min(100, Math.max(1, Number.isNaN(value) ? 100 : Math.round(value)));
+    setSelectedEditorImage((current) =>
+      current ? { ...current, sizePercent: clamped } : current
+    );
+    previewRef.current?.updateSelectedImageSize(clamped);
+  };
+
+  const handleInlineImageUpload = async (file: File): Promise<void> => {
+    resetNotices();
+
+    if (!file.type.startsWith("image/")) {
+      const message = "Select an image file to insert.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    }
+
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+      const message = "Image is too large. Max upload size is 5 MB.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    }
+
+    if (!session) {
+      const message = "Sign in with GitHub to upload images.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    }
+
+    if (!draftState) {
+      const message = "Create or load a draft before uploading images.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    }
+
+    const fileBaseName = slugify(file.name.replace(/\.[^/.]+$/, "")) || "image";
+    const fileExtension = getImageExtension(file);
+    const filename = `${Date.now()}-${fileBaseName}-${crypto.randomUUID().slice(0, 8)}.${fileExtension}`;
+    const storagePath = `drafts/${draftState.id}/${filename}`;
+    const sitePath = `/images/uploads/${filename}`;
+
+    try {
+      setUploadingInlineImage(true);
+      const { error: uploadError } = await supabase.storage
+        .from(SITE_DRAFT_IMAGES_BUCKET)
+        .upload(storagePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined
+        });
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(SITE_DRAFT_IMAGES_BUCKET)
+        .getPublicUrl(storagePath);
+
+      const imageUrl = publicUrlData.publicUrl?.trim();
+      if (!imageUrl) {
+        throw new Error("Failed to generate a public image URL.");
+      }
+
+      const { error: metadataError } = await supabase.from("site_draft_images").insert({
+        draft_id: draftState.id,
+        storage_path: storagePath,
+        public_url: imageUrl,
+        site_path: sitePath
+      });
+      if (metadataError) {
+        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([storagePath]);
+        throw new Error(metadataError.message);
+      }
+
+      setDraftImages((items) => [
+        ...items,
+        {
+          storagePath,
+          publicUrl: imageUrl,
+          sitePath,
+          uploadedAt: new Date().toISOString()
+        }
+      ]);
+      previewRef.current?.execCommand("insertImage", sitePath);
+      setNotice("Image uploaded and inserted.");
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to upload image.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    } finally {
+      setUploadingInlineImage(false);
+    }
   };
 
   const handlePageTitleChange = (index: number, nextTitle: string) => {
@@ -739,6 +1044,14 @@ export default function SiteBuilderPage() {
           canFormatText={canFormatText}
           onRunFormatCommand={runPreviewCommand}
           onRunFormatLink={runPreviewLink}
+          onUploadFormatImage={handleInlineImageUpload}
+          onCaptureFormatSelection={capturePreviewSelection}
+          isFormatImageUploading={uploadingInlineImage}
+          maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
+          selectedEditorImage={selectedEditorImage}
+          onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
+          onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}
+          onSelectedEditorImageSizeChange={handleSelectedEditorImageSizeChange}
         />
 
         <BuilderPreviewPanel
@@ -748,9 +1061,11 @@ export default function SiteBuilderPage() {
           previewRef={previewRef}
           previewBrand={siteTitle}
           pages={pages}
+          draftImages={draftImages}
           tokensCss={tokensCss}
           homeFallbackBody={defaultHomeContent}
           activePreviewSlug={activePreviewSlug}
+          publishedSiteBaseUrl={publishedSiteBaseUrl}
           header={{
             disabled: headerDisabled,
             fixed: headerFixed,
@@ -767,6 +1082,7 @@ export default function SiteBuilderPage() {
           }}
           onActivePreviewSlugChange={setActivePreviewSlug}
           onPageBodyChange={updatePageBody}
+          onSelectedImageChange={setSelectedEditorImage}
         />
       </div>
 

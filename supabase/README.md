@@ -13,3 +13,7 @@
 - Apply migrations with the Supabase CLI:
   `supabase db push`
 - Optional seed: `supabase db seed --file supabase/seed.sql`
+
+## Edge functions
+- Deploy draft-image cleanup function:
+  `supabase functions deploy cleanup-draft-images`

@@ -7,6 +7,14 @@ export type BuilderPage = AstroPageDraft & {
   isHome?: boolean;
 };
 
+export type DraftImageAsset = {
+  id?: string;
+  storagePath: string;
+  publicUrl: string;
+  sitePath: string;
+  uploadedAt?: string;
+};
+
 export type FooterCustomLink = {
   label: string;
   url: string;
@@ -28,7 +36,7 @@ export type FooterOptions = {
   customLinks: FooterCustomLink[];
 };
 
-export type BuilderSection = "menu" | "content" | "settings" | "format_text";
+export type BuilderSection = "menu" | "content" | "settings";
 
 export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
 

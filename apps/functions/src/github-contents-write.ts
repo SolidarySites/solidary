@@ -1,6 +1,14 @@
 import type { Handler } from "@netlify/functions";
 
 const GITHUB_API = "https://api.github.com";
+const GITHUB_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+
+const getBase64ByteLength = (base64Content: string) => {
+  const normalized = base64Content.replace(/\s/g, "");
+  if (!normalized) return 0;
+  const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
+  return Math.floor((normalized.length * 3) / 4) - padding;
+};
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -11,6 +19,14 @@ export const handler: Handler = async (event) => {
     const { token, owner, repo, path, message, content, sha, branch } = JSON.parse(event.body ?? "{}");
     if (!token || !owner || !repo || !path || !message || !content) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
+    }
+
+    const byteLength = getBase64ByteLength(String(content));
+    if (byteLength > GITHUB_MAX_FILE_SIZE_BYTES) {
+      return {
+        statusCode: 413,
+        body: JSON.stringify({ error: "File is larger than GitHub's 100 MB per-file limit." })
+      };
     }
 
     const logPrefix = `[github-contents-write] ${owner}/${repo}:${path}`;

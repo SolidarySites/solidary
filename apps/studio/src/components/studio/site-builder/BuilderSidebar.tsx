@@ -1,10 +1,12 @@
 import type { RefObject } from "react";
 import BuilderContentSection from "./BuilderContentSection";
+import BuilderEditorToolbar from "./BuilderEditorToolbar";
 import BuilderFooterSection from "./BuilderFooterSection";
-import BuilderFormatTextSection from "./BuilderFormatTextSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
+import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
 import BuilderPagesSection from "./BuilderPagesSection";
 import BuilderStylesSection from "./BuilderStylesSection";
+import type { PreviewSelectedImage } from "../AstroTemplatePreview";
 import type { BuilderPage, BuilderSection, BuilderSettingsSection } from "./types";
 
 type BuilderSidebarProps = {
@@ -61,6 +63,14 @@ type BuilderSidebarProps = {
   canFormatText: boolean;
   onRunFormatCommand: (command: string, value?: string) => void;
   onRunFormatLink: () => void;
+  onUploadFormatImage: (file: File) => Promise<void>;
+  onCaptureFormatSelection: () => void;
+  isFormatImageUploading: boolean;
+  maxFormatImageUploadBytes: number;
+  selectedEditorImage: PreviewSelectedImage | null;
+  onSelectedEditorImageAltChange: (value: string) => void;
+  onSelectedEditorImageCaptionChange: (value: string) => void;
+  onSelectedEditorImageSizeChange: (value: number) => void;
 };
 
 const BuilderSidebar = ({
@@ -113,7 +123,15 @@ const BuilderSidebar = ({
   onFooterCustomLinksInputChange,
   canFormatText,
   onRunFormatCommand,
-  onRunFormatLink
+  onRunFormatLink,
+  onUploadFormatImage,
+  onCaptureFormatSelection,
+  isFormatImageUploading,
+  maxFormatImageUploadBytes,
+  selectedEditorImage,
+  onSelectedEditorImageAltChange,
+  onSelectedEditorImageCaptionChange,
+  onSelectedEditorImageSizeChange
 }: BuilderSidebarProps) => (
   <aside className="builder-sidebar">
     <button className="ghost" type="button" onClick={onBack}>
@@ -121,17 +139,38 @@ const BuilderSidebar = ({
     </button>
 
     {activeSection === "menu" && (
-      <div className="builder-sidebar-nav">
-        <button className="ghost" onClick={() => onSectionChange("content")}>
-          Solidary Metadata
-        </button>
-        <button className="ghost" onClick={() => onSectionChange("settings")}>
-          Settings
-        </button>
-        <button className="ghost" onClick={() => onSectionChange("format_text")}>
-          Format Text
-        </button>
-      </div>
+      <>
+        <div className="builder-sidebar-nav">
+          <button className="ghost" onClick={() => onSectionChange("content")}>
+            Solidary Metadata
+          </button>
+          <button className="ghost" onClick={() => onSectionChange("settings")}>
+            Settings
+          </button>
+        </div>
+        <div className="builder-section builder-format-toolbar">
+          {canFormatText ? (
+            <BuilderEditorToolbar
+              onRunCommand={onRunFormatCommand}
+              onRunLink={onRunFormatLink}
+              onUploadImage={onUploadFormatImage}
+              onCaptureSelection={onCaptureFormatSelection}
+              uploadingImage={isFormatImageUploading}
+              maxImageUploadBytes={maxFormatImageUploadBytes}
+            />
+          ) : (
+            <p className="builder-format-toolbar-note">
+              Formatting tools are available once the preview has loaded.
+            </p>
+          )}
+        </div>
+        <BuilderImageSettingsPanel
+          image={selectedEditorImage}
+          onAltChange={onSelectedEditorImageAltChange}
+          onCaptionChange={onSelectedEditorImageCaptionChange}
+          onSizeChange={onSelectedEditorImageSizeChange}
+        />
+      </>
     )}
 
     {activeSection === "content" && (
@@ -227,14 +266,6 @@ const BuilderSidebar = ({
           <BuilderStylesSection tokensCss={tokensCss} onTokensCssChange={onTokensCssChange} />
         )}
       </>
-    )}
-
-    {activeSection === "format_text" && (
-      <BuilderFormatTextSection
-        canFormatText={canFormatText}
-        onRunCommand={onRunFormatCommand}
-        onRunLink={onRunFormatLink}
-      />
     )}
   </aside>
 );
