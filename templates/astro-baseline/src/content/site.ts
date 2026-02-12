@@ -16,12 +16,9 @@ export type SiteConfig = {
   footer: {
     disabled: boolean;
     fixed: boolean;
-    disableCopyright: boolean;
-    copyrightName: string;
-    customText: string;
-    customLinks: Array<{
-      label: string;
-      url: string;
+    modules: Array<{
+      content: string;
+      alignment: "left" | "center" | "right";
     }>;
   };
 };
@@ -44,9 +41,10 @@ export const site: SiteConfig = {
   footer: {
     disabled: false,
     fixed: false,
-    disableCopyright: false,
-    copyrightName: "Your Name",
-    customText: "",
-    customLinks: []
+    modules: [
+      { content: "%copyright%", alignment: "left" },
+      { content: "", alignment: "center" },
+      { content: "", alignment: "right" }
+    ]
   }
 };

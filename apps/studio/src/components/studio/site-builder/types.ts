@@ -15,11 +15,6 @@ export type DraftImageAsset = {
   uploadedAt?: string;
 };
 
-export type FooterCustomLink = {
-  label: string;
-  url: string;
-};
-
 export type HeaderOptions = {
   disabled: boolean;
   fixed: boolean;
@@ -27,13 +22,17 @@ export type HeaderOptions = {
   disableBrand: boolean;
 };
 
+export type FooterModuleAlignment = "left" | "center" | "right";
+
+export type FooterModule = {
+  content: string;
+  alignment: FooterModuleAlignment;
+};
+
 export type FooterOptions = {
   disabled: boolean;
   fixed: boolean;
-  disableCopyright: boolean;
-  copyrightName: string;
-  customText: string;
-  customLinks: FooterCustomLink[];
+  modules: FooterModule[];
 };
 
 export type BuilderSection = "menu" | "content" | "settings";

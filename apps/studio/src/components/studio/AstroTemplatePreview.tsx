@@ -69,6 +69,12 @@ type SelectedImageState = {
   sizePercent: number;
 };
 
+type FooterSegment = {
+  type: "text" | "link";
+  text: string;
+  href?: string;
+};
+
 const extractCssVariables = (tokensCss: string) => {
   const variables: Record<string, string> = {};
   const rootMatch = tokensCss.match(/:root\s*{([\s\S]*?)}/);
@@ -201,6 +207,78 @@ const toPublishedUrl = (baseUrl: string, sitePath: string) => {
 const clampImageSizePercent = (value: number) => {
   if (Number.isNaN(value)) return 100;
   return Math.min(100, Math.max(1, Math.round(value)));
+};
+
+const footerMarkdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/;
+const footerBareUrlPattern = /https?:\/\/[^\s)]+/;
+const footerPipeLinkPattern = /^\s*([^|\n]+?)\s*\|\s*(https?:\/\/[^\s)]+)\s*$/;
+
+const parseFooterLineSegments = (line: string): FooterSegment[] => {
+  const pipeLinkMatch = line.match(footerPipeLinkPattern);
+  if (pipeLinkMatch) {
+    return [
+      {
+        type: "link",
+        text: pipeLinkMatch[1].trim() || pipeLinkMatch[2],
+        href: pipeLinkMatch[2]
+      }
+    ];
+  }
+
+  const segments: FooterSegment[] = [];
+  let remaining = line;
+
+  while (remaining.length) {
+    const markdownMatch = remaining.match(footerMarkdownLinkPattern);
+    const bareUrlMatch = remaining.match(footerBareUrlPattern);
+
+    const markdownIndex = markdownMatch?.index ?? -1;
+    const bareUrlIndex = bareUrlMatch?.index ?? -1;
+
+    const useMarkdown =
+      markdownIndex !== -1 && (bareUrlIndex === -1 || markdownIndex <= bareUrlIndex);
+    const useBareUrl = !useMarkdown && bareUrlIndex !== -1;
+
+    if (!useMarkdown && !useBareUrl) {
+      segments.push({ type: "text", text: remaining });
+      remaining = "";
+      break;
+    }
+
+    const matchIndex = useMarkdown ? markdownIndex : bareUrlIndex;
+    if (matchIndex > 0) {
+      segments.push({
+        type: "text",
+        text: remaining.slice(0, matchIndex)
+      });
+    }
+
+    if (useMarkdown && markdownMatch) {
+      segments.push({
+        type: "link",
+        text: markdownMatch[1],
+        href: markdownMatch[2]
+      });
+      remaining = remaining.slice(matchIndex + markdownMatch[0].length);
+      continue;
+    }
+
+    if (useBareUrl && bareUrlMatch) {
+      segments.push({
+        type: "link",
+        text: bareUrlMatch[0],
+        href: bareUrlMatch[0]
+      });
+      remaining = remaining.slice(matchIndex + bareUrlMatch[0].length);
+      continue;
+    }
+  }
+
+  if (!segments.length) {
+    segments.push({ type: "text", text: "" });
+  }
+
+  return segments;
 };
 
 const IMAGE_ALIGN_WRAPPER_ATTR = "data-builder-image-align-wrapper";
@@ -435,8 +513,53 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   );
 
   const currentYear = new Date().getFullYear();
-  const copyrightName = footer.copyrightName.trim() || previewBrand.trim() || "Site";
-  const footerCustomText = footer.customText.trim();
+  const footerCopyright = `© ${currentYear}`;
+  const footerModules = useMemo(() => {
+    const footerAlignmentFallback: Array<"left" | "center" | "right"> = [
+      "left",
+      "center",
+      "right"
+    ];
+    const normalized = Array.isArray(footer.modules)
+      ? footer.modules
+          .slice(0, 3)
+          .map((module, index) => {
+            const fallbackAlignment = footerAlignmentFallback[index] ?? "left";
+            if (!module || typeof module !== "object") {
+              return {
+                content: "",
+                alignment: fallbackAlignment
+              };
+            }
+            const record = module as Record<string, unknown>;
+            const alignment =
+              record.alignment === "left" ||
+              record.alignment === "center" ||
+              record.alignment === "right"
+                ? record.alignment
+                : fallbackAlignment;
+            return {
+              content: typeof record.content === "string" ? record.content : "",
+              alignment
+            };
+          })
+      : [];
+    while (normalized.length < 3) {
+      const fallbackAlignment = footerAlignmentFallback[normalized.length] ?? "left";
+      normalized.push({
+        content: "",
+        alignment: fallbackAlignment
+      });
+    }
+    return normalized;
+  }, [footer.modules]);
+  const visibleFooterModuleCount = footerModules.filter((module) => module.content.trim().length > 0).length;
+  const footerInnerStyle =
+    visibleFooterModuleCount > 0
+      ? ({
+          gridTemplateColumns: `repeat(${Math.min(3, visibleFooterModuleCount)}, minmax(0, 1fr))`
+        } as CSSProperties)
+      : undefined;
 
   const findImageById = useCallback((imageId: string) => {
     const editor = editorRef.current;
@@ -1181,28 +1304,45 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
                 : undefined
           }
         >
-          <div className="footer__inner">
-            <p
-              className="footer__meta"
-              style={footer.disableCopyright ? { display: "none" } : undefined}
-            >
-              {`© ${currentYear} ${copyrightName}`}
-            </p>
-
-            <div className="footer__links">
-              {footer.customLinks.map((link) => (
-                <a
-                  key={`${link.label}-${link.url}`}
-                  className="footer__link"
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+          <div className="footer__inner" style={footerInnerStyle}>
+            {footerModules.map((module, moduleIndex) => {
+              const resolvedModule = module.content
+                .replaceAll("%copyright%", footerCopyright)
+                .replace(/\r/g, "");
+              const lines = resolvedModule.split("\n");
+              const alignmentClass = `footer__module--${module.alignment}`;
+              const isEmptyModule = module.content.trim().length === 0;
+              return (
+                <p
+                  key={`footer-module-${moduleIndex}`}
+                  className={`footer__module ${alignmentClass}`}
+                  style={isEmptyModule ? { display: "none" } : undefined}
                 >
-                  {link.label}
-                </a>
-              ))}
-            </div>
-            {footerCustomText && <p className="footer__meta">{footerCustomText}</p>}
+                  {lines.map((line, lineIndex) => (
+                    <span key={`footer-module-${moduleIndex}-line-${lineIndex}`}>
+                      {parseFooterLineSegments(line).map((segment, segmentIndex) =>
+                        segment.type === "link" ? (
+                          <a
+                            key={`footer-module-${moduleIndex}-line-${lineIndex}-segment-${segmentIndex}`}
+                            className="footer__link"
+                            href={segment.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {segment.text}
+                          </a>
+                        ) : (
+                          <span key={`footer-module-${moduleIndex}-line-${lineIndex}-segment-${segmentIndex}`}>
+                            {segment.text}
+                          </span>
+                        )
+                      )}
+                      {lineIndex < lines.length - 1 && <br />}
+                    </span>
+                  ))}
+                </p>
+              );
+            })}
           </div>
         </footer>
       </div>

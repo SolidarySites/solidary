@@ -10,7 +10,7 @@ import headerTemplate from "../../../../templates/astro-baseline/src/components/
 import footerTemplate from "../../../../templates/astro-baseline/src/components/Footer.astro?raw";
 import indexTemplate from "../../../../templates/astro-baseline/src/pages/index.astro?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
-import { buildSiteTs, type AstroPageDraft } from "../studio/astro";
+import { buildSiteTs, type AstroPageDraft, type AstroSettings } from "../studio/astro";
 import { githubRequest, writeTextFile } from "../studio/github";
 import { slugify, toBase64 } from "../studio/utils";
 
@@ -106,7 +106,7 @@ export default function SiteCreatePage() {
     await supabase.auth.signOut();
   };
 
-  const buildSettingsPayload = (imageUrl: string, urlOverride?: string) => ({
+  const buildSettingsPayload = (imageUrl: string, urlOverride?: string): AstroSettings => ({
     title: siteTitle.trim(),
     description: siteDescription.trim(),
     siteUrl: urlOverride || siteUrl,
@@ -120,10 +120,11 @@ export default function SiteCreatePage() {
     footer: {
       disabled: false,
       fixed: false,
-      disableCopyright: false,
-      copyrightName: siteTitle.trim(),
-      customText: "",
-      customLinks: []
+      modules: [
+        { content: "%copyright%", alignment: "left" },
+        { content: "", alignment: "center" },
+        { content: "", alignment: "right" }
+      ]
     }
   });
 
@@ -294,10 +295,11 @@ export default function SiteCreatePage() {
           footer: {
             disabled: false,
             fixed: false,
-            disableCopyright: false,
-            copyrightName: siteTitle.trim(),
-            customText: "",
-            customLinks: []
+            modules: [
+              { content: "%copyright%", alignment: "left" },
+              { content: "", alignment: "center" },
+              { content: "", alignment: "right" }
+            ]
           }
         },
         styles: {

@@ -47,23 +47,26 @@ const brandStyle = site.header.disableBrand ? "display:none;" : undefined;
 ---
 
 <header class="header" style={headerStyle}>
+  
   <div class="header__inner">
-  <div>
-    <a class="header__brand" href={withBase("/")} style={brandStyle}>
-      {site.header.brandText || brand}
-    </a>
-  </div>
+    <div class="header__a">
+      <a class="header__brand" href={withBase("/")} style={brandStyle}>
+        {site.header.brandText || brand}
+      </a>
+    </div>
 
-    <nav class="header__nav" aria-label="Primary">
-      <ul class="nav">
-        {finalNav.map((item) => (
-          <li class="nav__item">
-            <a class={`nav__link ${isActive(item.href) ? "is-active" : ""}`} href={item.href}>
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div class="header__b">
+      <nav class="header__nav" aria-label="Primary">
+        <ul class="nav">
+          {finalNav.map((item) => (
+            <li class="nav__item">
+              <a class={`nav__link ${isActive(item.href) ? "is-active" : ""}`} href={item.href}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
   </div>
 </header>

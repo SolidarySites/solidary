@@ -16,12 +16,9 @@ export type SiteConfig = {
   footer: {
     disabled: boolean;
     fixed: boolean;
-    disableCopyright: boolean;
-    copyrightName: string;
-    customText: string;
-    customLinks: Array<{
-      label: string;
-      url: string;
+    modules: Array<{
+      content: string;
+      alignment: "left" | "center" | "right";
     }>;
   };
 };
@@ -45,9 +42,6 @@ export const site: SiteConfig = {
   footer: {
     disabled: parseTemplateBoolean("{{FOOTER_DISABLED}}"),
     fixed: parseTemplateBoolean("{{FOOTER_FIXED}}"),
-    disableCopyright: parseTemplateBoolean("{{FOOTER_DISABLE_COPYRIGHT}}"),
-    copyrightName: "{{FOOTER_COPYRIGHT_NAME}}",
-    customText: "{{FOOTER_CUSTOM_TEXT}}",
-    customLinks: JSON.parse("{{FOOTER_CUSTOM_LINKS}}")
+    modules: JSON.parse("{{FOOTER_MODULES}}")
   }
 };

@@ -1,4 +1,4 @@
-import type { BuilderPage, FooterCustomLink } from "./types";
+import type { BuilderPage } from "./types";
 
 export const resolveImagePreviewUrl = (imageUrl: string, canonicalUrl: string) => {
   const trimmedImageUrl = imageUrl.trim();
@@ -70,27 +70,3 @@ export const getPublishPollDelayMs = (attempt: number) => {
   if (attempt < 50) return 20000;
   return null;
 };
-
-export const parseFooterCustomLinks = (value: string): FooterCustomLink[] =>
-  value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .flatMap((line) => {
-      const [rawLabel, ...rest] = line.split("|");
-      const rawUrl = rest.join("|").trim();
-      const label = rawLabel?.trim() ?? "";
-      if (!label || !rawUrl) return [];
-      return [{ label, url: rawUrl }];
-    });
-
-export const formatFooterCustomLinks = (links: FooterCustomLink[]) =>
-  links
-    .map((link) => {
-      const label = link.label.trim();
-      const url = link.url.trim();
-      if (!label || !url) return "";
-      return `${label} | ${url}`;
-    })
-    .filter(Boolean)
-    .join("\n");

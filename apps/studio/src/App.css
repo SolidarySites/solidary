@@ -308,6 +308,10 @@
   background: rgba(31, 34, 28, 0.06);
 }
 
+.builder-toolbar-button.is-active {
+  background: rgba(31, 34, 28, 0.12);
+}
+
 .builder-toolbar-button svg {
   width: 1rem;
   height: 1rem;
@@ -356,6 +360,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.builder-footer-module-align {
+  display: flex;
+  gap: 0.35rem;
 }
 
 .builder-image-settings-empty {
@@ -776,26 +785,36 @@
   max-width: var(--maxw);
   margin: 0 auto;
   padding: var(--space-4);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: var(--space-3);
   font-size: 13px;
 }
 
-.astro-preview .footer__meta {
+.astro-preview .footer__module {
   margin: 0;
   color: var(--muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.astro-preview .footer__links {
-  display: flex;
-  gap: var(--space-3);
+.astro-preview .footer__module--left {
+  text-align: left;
+}
+
+.astro-preview .footer__module--center {
+  text-align: center;
+}
+
+.astro-preview .footer__module--right {
+  text-align: right;
 }
 
 .astro-preview .footer__link {
   color: var(--muted);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .astro-preview .footer__link:hover {
@@ -1084,10 +1103,5 @@ button:disabled {
 
   .astro-preview .page__main {
     padding: var(--space-4) var(--space-3);
-  }
-
-  .astro-preview .footer__inner {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }

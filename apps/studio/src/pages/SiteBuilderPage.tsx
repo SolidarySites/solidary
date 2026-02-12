@@ -28,14 +28,14 @@ import type {
   BuilderSettingsSection,
   DraftImageAsset,
   DraftState,
+  FooterModule,
+  FooterModuleAlignment,
   PublishFeedback
 } from "../components/studio/site-builder/types";
 import { usePublishStatusTracking } from "../components/studio/site-builder/usePublishStatusTracking";
 import {
   getPageSafeSlug,
-  formatFooterCustomLinks,
   makeUniquePageSlug,
-  parseFooterCustomLinks,
   stripFrontmatter
 } from "../components/studio/site-builder/utils";
 import type { NoticeKind } from "../studio/types";
@@ -51,6 +51,11 @@ import { slugify, toBase64 } from "../studio/utils";
 const defaultHomeContent = stripFrontmatter(homeTemplate);
 const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
+const DEFAULT_FOOTER_MODULES: FooterModule[] = [
+  { content: "%copyright%", alignment: "left" },
+  { content: "", alignment: "center" },
+  { content: "", alignment: "right" }
+];
 const IMAGE_EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -70,6 +75,28 @@ const normalizeSitePath = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return "";
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+};
+
+const footerModuleAlignmentFallback: FooterModuleAlignment[] = ["left", "center", "right"];
+
+const normalizeFooterModules = (modules: FooterModule[]) => {
+  const normalized = modules
+    .slice(0, 3)
+    .map((module, index) => ({
+      content: typeof module?.content === "string" ? module.content : "",
+      alignment:
+        module?.alignment === "left" || module?.alignment === "center" || module?.alignment === "right"
+          ? module.alignment
+          : (footerModuleAlignmentFallback[index] ?? "left")
+    }));
+  while (normalized.length < 3) {
+    const alignment = footerModuleAlignmentFallback[normalized.length] ?? "left";
+    normalized.push({
+      content: "",
+      alignment
+    });
+  }
+  return normalized;
 };
 
 const getSitePathFromStoragePath = (storagePath: string) => {
@@ -124,10 +151,9 @@ export default function SiteBuilderPage() {
 
   const [footerDisabled, setFooterDisabled] = useState(false);
   const [footerFixed, setFooterFixed] = useState(false);
-  const [footerCopyrightDisabled, setFooterCopyrightDisabled] = useState(false);
-  const [footerCopyrightName, setFooterCopyrightName] = useState("New Astro Site");
-  const [footerCustomText, setFooterCustomText] = useState("");
-  const [footerCustomLinksInput, setFooterCustomLinksInput] = useState("");
+  const [footerModules, setFooterModules] = useState<FooterModule[]>(
+    normalizeFooterModules(DEFAULT_FOOTER_MODULES)
+  );
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
@@ -153,10 +179,6 @@ export default function SiteBuilderPage() {
   );
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
-  const footerCustomLinks = useMemo(
-    () => parseFooterCustomLinks(footerCustomLinksInput),
-    [footerCustomLinksInput]
-  );
   const publishedSiteBaseUrl = useMemo(() => {
     if (publishFeedback?.kind !== "success") return null;
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
@@ -352,14 +374,9 @@ export default function SiteBuilderPage() {
         if (loaded.footer) {
           setFooterDisabled(loaded.footer.disabled);
           setFooterFixed(loaded.footer.fixed);
-          setFooterCopyrightDisabled(loaded.footer.disableCopyright);
-          setFooterCopyrightName(
-            loaded.footer.copyrightName?.trim() || loaded.siteTitle?.trim() || "New Astro Site"
-          );
-          setFooterCustomText(loaded.footer.customText);
-          setFooterCustomLinksInput(formatFooterCustomLinks(loaded.footer.customLinks));
+          setFooterModules(normalizeFooterModules(loaded.footer.modules));
         } else {
-          setFooterCopyrightName(loaded.siteTitle?.trim() || "New Astro Site");
+          setFooterModules([...DEFAULT_FOOTER_MODULES]);
         }
       } catch (caught) {
         if (!mounted) return;
@@ -466,10 +483,7 @@ export default function SiteBuilderPage() {
     footer: {
       disabled: footerDisabled,
       fixed: footerFixed,
-      disableCopyright: footerCopyrightDisabled,
-      copyrightName: footerCopyrightName,
-      customText: footerCustomText,
-      customLinks: footerCustomLinks
+      modules: normalizeFooterModules(footerModules)
     }
   };
 
@@ -1007,6 +1021,42 @@ export default function SiteBuilderPage() {
     });
   };
 
+  const updateFooterModuleContent = (index: number, value: string) => {
+    setFooterModules((items) => {
+      const next = normalizeFooterModules(items);
+      if (index < 0 || index >= next.length) return next;
+      next[index] = {
+        ...next[index],
+        content: value
+      };
+      return next;
+    });
+  };
+
+  const updateFooterModuleAlignment = (index: number, alignment: FooterModuleAlignment) => {
+    setFooterModules((items) => {
+      const next = normalizeFooterModules(items);
+      if (index < 0 || index >= next.length) return next;
+      next[index] = {
+        ...next[index],
+        alignment
+      };
+      return next;
+    });
+  };
+
+  const moveFooterModule = (index: number, direction: -1 | 1) => {
+    setFooterModules((items) => {
+      const next = normalizeFooterModules(items);
+      const target = index + direction;
+      if (index < 0 || index >= next.length || target < 0 || target >= next.length) {
+        return next;
+      }
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError;
   const canSaveDraft = Boolean(draftState) && !savingDraft;
   const canPublish = !isProvisioning && Boolean(draftState) && publishFeedback?.kind !== "progress";
@@ -1058,10 +1108,7 @@ export default function SiteBuilderPage() {
           headerNavItems={headerNavItems}
           footerDisabled={footerDisabled}
           footerFixed={footerFixed}
-          footerCopyrightDisabled={footerCopyrightDisabled}
-          footerCopyrightName={footerCopyrightName}
-          footerCustomText={footerCustomText}
-          footerCustomLinksInput={footerCustomLinksInput}
+          footerModules={footerModules}
           onBack={handleSidebarBack}
           onSectionChange={setActiveSection}
           onSettingsSectionChange={setActiveSettingsSection}
@@ -1084,10 +1131,10 @@ export default function SiteBuilderPage() {
           onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
           onFooterDisabledChange={setFooterDisabled}
           onFooterFixedChange={setFooterFixed}
-          onFooterCopyrightDisabledChange={setFooterCopyrightDisabled}
-          onFooterCopyrightNameChange={setFooterCopyrightName}
-          onFooterCustomTextChange={setFooterCustomText}
-          onFooterCustomLinksInputChange={setFooterCustomLinksInput}
+          onFooterModuleContentChange={updateFooterModuleContent}
+          onFooterModuleAlignmentChange={updateFooterModuleAlignment}
+          onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
+          onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
           canFormatText={canFormatText}
           onRunFormatCommand={runPreviewCommand}
           onRunFormatLink={runPreviewLink}
@@ -1122,10 +1169,7 @@ export default function SiteBuilderPage() {
           footer={{
             disabled: footerDisabled,
             fixed: footerFixed,
-            disableCopyright: footerCopyrightDisabled,
-            copyrightName: footerCopyrightName,
-            customText: footerCustomText,
-            customLinks: footerCustomLinks
+            modules: footerModules
           }}
           onActivePreviewSlugChange={setActivePreviewSlug}
           onPageBodyChange={updatePageBody}

@@ -12,6 +12,32 @@ type SiteSettingsInput = {
   footer: FooterOptions;
 };
 
+const footerModuleAlignmentFallback: Array<"left" | "center" | "right"> = [
+  "left",
+  "center",
+  "right"
+];
+
+const normalizeFooterModules = (modules: FooterOptions["modules"]) => {
+  const normalized = modules
+    .slice(0, 3)
+    .map((module, index) => ({
+      content: typeof module?.content === "string" ? module.content : "",
+      alignment:
+        module?.alignment === "left" || module?.alignment === "center" || module?.alignment === "right"
+          ? module.alignment
+          : (footerModuleAlignmentFallback[index] ?? "left")
+    }));
+  while (normalized.length < 3) {
+    const alignment = footerModuleAlignmentFallback[normalized.length] ?? "left";
+    normalized.push({
+      content: "",
+      alignment
+    });
+  }
+  return normalized;
+};
+
 export const buildSettingsPayload = (
   input: SiteSettingsInput,
   imageUrl: string,
@@ -30,13 +56,7 @@ export const buildSettingsPayload = (
   footer: {
     disabled: input.footer.disabled,
     fixed: input.footer.fixed,
-    disableCopyright: input.footer.disableCopyright,
-    copyrightName: input.footer.copyrightName.trim(),
-    customText: input.footer.customText.trim(),
-    customLinks: input.footer.customLinks.map((link) => ({
-      label: link.label.trim(),
-      url: link.url.trim()
-    }))
+    modules: normalizeFooterModules(input.footer.modules)
   }
 });
 

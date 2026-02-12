@@ -6,7 +6,7 @@ import type {
   BuilderPage,
   DraftImageAsset,
   DraftState,
-  FooterCustomLink,
+  FooterModuleAlignment,
   FooterOptions,
   HeaderOptions
 } from "./types";
@@ -47,6 +47,41 @@ const replaceDraftImageUrls = (body: string, draftImages: DraftImageAsset[]) => 
   return nextBody;
 };
 
+const footerModuleAlignmentFallback: FooterModuleAlignment[] = ["left", "center", "right"];
+
+const normalizeFooterModules = (modules: unknown): FooterOptions["modules"] => {
+  const normalized = Array.isArray(modules)
+    ? modules
+        .slice(0, 3)
+        .map((item, index) => {
+          const fallbackAlignment = footerModuleAlignmentFallback[index] ?? "left";
+          if (!item || typeof item !== "object") {
+            return {
+              content: "",
+              alignment: fallbackAlignment
+            };
+          }
+          const record = item as Record<string, unknown>;
+          const alignment =
+            record.alignment === "left" || record.alignment === "center" || record.alignment === "right"
+              ? record.alignment
+              : fallbackAlignment;
+          return {
+            content: typeof record.content === "string" ? record.content : "",
+            alignment
+          };
+        })
+    : [];
+  while (normalized.length < 3) {
+    const fallbackAlignment = footerModuleAlignmentFallback[normalized.length] ?? "left";
+    normalized.push({
+      content: "",
+      alignment: fallbackAlignment
+    });
+  }
+  return normalized;
+};
+
 export const loadDraftById = async ({
   draftId,
   defaultHomeContent
@@ -64,7 +99,7 @@ export const loadDraftById = async ({
   if (!data) throw new Error("Draft not found.");
 
   const files = data.files as RepoFileSet;
-  const solidaryRaw = files[FILE_KEYS.solidary] ?? files[".well-known/solidary-links.json"] ?? "";
+  const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
   const solidary = parseSolidaryJson(solidaryRaw);
 
   const draftState: DraftState = {
@@ -160,26 +195,14 @@ export const loadDraftById = async ({
 
   const footer = settings.footer as Record<string, unknown> | undefined;
   if (footer) {
-    const customLinksRaw = Array.isArray(footer.customLinks)
-      ? (footer.customLinks as Record<string, unknown>[])
-      : [];
-    const customLinks: FooterCustomLink[] = customLinksRaw
-      .map((item) => ({
-        label: typeof item.label === "string" ? item.label.trim() : "",
-        url: typeof item.url === "string" ? item.url.trim() : ""
-      }))
-      .filter((item) => item.label && item.url);
-
+    const footerModules =
+      footer && typeof footer === "object" && "modules" in footer
+        ? (footer as { modules?: unknown }).modules
+        : undefined;
     result.footer = {
       disabled: Boolean(footer.disabled),
       fixed: Boolean(footer.fixed),
-      disableCopyright: Boolean(footer.disableCopyright),
-      copyrightName:
-        typeof footer.copyrightName === "string"
-          ? footer.copyrightName
-          : (result.siteTitle ?? ""),
-      customText: typeof footer.customText === "string" ? footer.customText : "",
-      customLinks
+      modules: normalizeFooterModules(footerModules)
     };
   }
 

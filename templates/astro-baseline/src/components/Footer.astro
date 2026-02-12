@@ -1,6 +1,128 @@
 ---
 import { site } from "../content/site";
 const year = new Date().getFullYear();
+const footerCopyright = `© ${year}`;
+
+type FooterSegment = {
+  type: "text" | "link";
+  text: string;
+  href?: string;
+};
+
+type FooterModule = {
+  content: string;
+  alignment: "left" | "center" | "right";
+};
+
+const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/;
+const bareUrlPattern = /https?:\/\/[^\s)]+/;
+const pipeLinkPattern = /^\s*([^|\n]+?)\s*\|\s*(https?:\/\/[^\s)]+)\s*$/;
+
+const parseFooterLineSegments = (line: string): FooterSegment[] => {
+  const pipeLinkMatch = line.match(pipeLinkPattern);
+  if (pipeLinkMatch) {
+    return [
+      {
+        type: "link",
+        text: pipeLinkMatch[1].trim() || pipeLinkMatch[2],
+        href: pipeLinkMatch[2]
+      }
+    ];
+  }
+
+  const segments: FooterSegment[] = [];
+  let remaining = line;
+
+  while (remaining.length) {
+    const markdownMatch = remaining.match(markdownLinkPattern);
+    const bareUrlMatch = remaining.match(bareUrlPattern);
+
+    const markdownIndex = markdownMatch?.index ?? -1;
+    const bareUrlIndex = bareUrlMatch?.index ?? -1;
+
+    const useMarkdown =
+      markdownIndex !== -1 && (bareUrlIndex === -1 || markdownIndex <= bareUrlIndex);
+    const useBareUrl = !useMarkdown && bareUrlIndex !== -1;
+
+    if (!useMarkdown && !useBareUrl) {
+      segments.push({ type: "text", text: remaining });
+      remaining = "";
+      break;
+    }
+
+    const matchIndex = useMarkdown ? markdownIndex : bareUrlIndex;
+    if (matchIndex > 0) {
+      segments.push({
+        type: "text",
+        text: remaining.slice(0, matchIndex)
+      });
+    }
+
+    if (useMarkdown && markdownMatch) {
+      segments.push({
+        type: "link",
+        text: markdownMatch[1],
+        href: markdownMatch[2]
+      });
+      remaining = remaining.slice(matchIndex + markdownMatch[0].length);
+      continue;
+    }
+
+    if (useBareUrl && bareUrlMatch) {
+      segments.push({
+        type: "link",
+        text: bareUrlMatch[0],
+        href: bareUrlMatch[0]
+      });
+      remaining = remaining.slice(matchIndex + bareUrlMatch[0].length);
+      continue;
+    }
+  }
+
+  if (!segments.length) {
+    segments.push({ type: "text", text: "" });
+  }
+
+  return segments;
+};
+
+const footerAlignmentFallback = ["left", "center", "right"] as const;
+const footerModules: FooterModule[] = Array.isArray(site.footer.modules)
+  ? site.footer.modules
+      .slice(0, 3)
+      .map((module, index) => {
+        const fallbackAlignment = footerAlignmentFallback[index] ?? "left";
+        if (!module || typeof module !== "object") {
+          return {
+            content: "",
+            alignment: fallbackAlignment
+          };
+        }
+
+        const record = module as Record<string, unknown>;
+        const alignment =
+          record.alignment === "left" || record.alignment === "center" || record.alignment === "right"
+            ? record.alignment
+            : fallbackAlignment;
+        return {
+          content: typeof record.content === "string" ? record.content : "",
+          alignment
+        };
+      })
+  : [];
+while (footerModules.length < 3) {
+  const fallbackAlignment = footerAlignmentFallback[footerModules.length] ?? "left";
+  footerModules.push({
+    content: "",
+    alignment: fallbackAlignment
+  });
+}
+
+const visibleFooterModuleCount = footerModules.filter((module) => module.content.trim().length > 0).length;
+const footerInnerStyle =
+  visibleFooterModuleCount > 0
+    ? `grid-template-columns:repeat(${Math.min(3, visibleFooterModuleCount)},minmax(0,1fr));`
+    : undefined;
 
 const footerStyle =
   site.footer.disabled || site.footer.fixed
@@ -9,22 +131,33 @@ const footerStyle =
         site.footer.fixed ? "position:fixed;left:0;right:0;bottom:0;z-index:40;" : ""
       ].join("")
     : undefined;
-const footerMetaStyle = site.footer.disableCopyright ? "display:none;" : undefined;
 ---
 
 <footer class="footer" style={footerStyle}>
-  <div class="footer__inner">
-    <p class="footer__meta" style={footerMetaStyle}>
-      © {year} {site.footer.copyrightName || site.name}
-    </p>
-
-    <div class="footer__links">
-      {site.footer.customLinks.map((item) => (
-        <a class="footer__link" href={item.url} target="_blank" rel="noopener noreferrer">
-          {item.label}
-        </a>
-      ))}
-    </div>
-    {site.footer.customText && <p class="footer__meta">{site.footer.customText}</p>}
+  <div class="footer__inner" style={footerInnerStyle}>
+    {footerModules.map((module) => {
+      const resolvedModule = module.content.replaceAll("%copyright%", footerCopyright).replace(/\r/g, "");
+      const lines = resolvedModule.split("\n");
+      const alignmentClass = `footer__module--${module.alignment}`;
+      const moduleStyle = module.content.trim().length === 0 ? "display:none;" : undefined;
+      return (
+        <p class={`footer__module ${alignmentClass}`} style={moduleStyle}>
+          {lines.map((line, lineIndex) => (
+            <span>
+              {parseFooterLineSegments(line).map((segment) =>
+                segment.type === "link" ? (
+                  <a class="footer__link" href={segment.href} target="_blank" rel="noopener noreferrer">
+                    {segment.text}
+                  </a>
+                ) : (
+                  <span>{segment.text}</span>
+                )
+              )}
+              {lineIndex < lines.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      );
+    })}
   </div>
 </footer>

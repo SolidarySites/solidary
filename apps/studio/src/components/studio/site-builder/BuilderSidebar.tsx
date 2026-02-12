@@ -7,7 +7,7 @@ import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
 import BuilderPagesSection from "./BuilderPagesSection";
 import BuilderStylesSection from "./BuilderStylesSection";
 import type { PreviewSelectedImage } from "../AstroTemplatePreview";
-import type { BuilderPage, BuilderSection, BuilderSettingsSection } from "./types";
+import type { BuilderPage, BuilderSection, BuilderSettingsSection, FooterModule } from "./types";
 
 type BuilderSidebarProps = {
   activeSection: BuilderSection;
@@ -30,10 +30,7 @@ type BuilderSidebarProps = {
   }>;
   footerDisabled: boolean;
   footerFixed: boolean;
-  footerCopyrightDisabled: boolean;
-  footerCopyrightName: string;
-  footerCustomText: string;
-  footerCustomLinksInput: string;
+  footerModules: FooterModule[];
   onBack: () => void;
   onSectionChange: (section: BuilderSection) => void;
   onSettingsSectionChange: (section: BuilderSettingsSection) => void;
@@ -56,10 +53,10 @@ type BuilderSidebarProps = {
   onMoveHeaderNavItemDown: (slug: string) => void;
   onFooterDisabledChange: (value: boolean) => void;
   onFooterFixedChange: (value: boolean) => void;
-  onFooterCopyrightDisabledChange: (value: boolean) => void;
-  onFooterCopyrightNameChange: (value: string) => void;
-  onFooterCustomTextChange: (value: string) => void;
-  onFooterCustomLinksInputChange: (value: string) => void;
+  onFooterModuleContentChange: (index: number, value: string) => void;
+  onFooterModuleAlignmentChange: (index: number, value: "left" | "center" | "right") => void;
+  onMoveFooterModuleUp: (index: number) => void;
+  onMoveFooterModuleDown: (index: number) => void;
   canFormatText: boolean;
   onRunFormatCommand: (command: string, value?: string) => void;
   onRunFormatLink: () => void;
@@ -91,10 +88,7 @@ const BuilderSidebar = ({
   headerNavItems,
   footerDisabled,
   footerFixed,
-  footerCopyrightDisabled,
-  footerCopyrightName,
-  footerCustomText,
-  footerCustomLinksInput,
+  footerModules,
   onBack,
   onSectionChange,
   onSettingsSectionChange,
@@ -117,10 +111,10 @@ const BuilderSidebar = ({
   onMoveHeaderNavItemDown,
   onFooterDisabledChange,
   onFooterFixedChange,
-  onFooterCopyrightDisabledChange,
-  onFooterCopyrightNameChange,
-  onFooterCustomTextChange,
-  onFooterCustomLinksInputChange,
+  onFooterModuleContentChange,
+  onFooterModuleAlignmentChange,
+  onMoveFooterModuleUp,
+  onMoveFooterModuleDown,
   canFormatText,
   onRunFormatCommand,
   onRunFormatLink,
@@ -249,16 +243,13 @@ const BuilderSidebar = ({
           <BuilderFooterSection
             disabled={footerDisabled}
             fixed={footerFixed}
-            disableCopyright={footerCopyrightDisabled}
-            copyrightName={footerCopyrightName}
-            customText={footerCustomText}
-            customLinksInput={footerCustomLinksInput}
+            modules={footerModules}
             onDisabledChange={onFooterDisabledChange}
             onFixedChange={onFooterFixedChange}
-            onDisableCopyrightChange={onFooterCopyrightDisabledChange}
-            onCopyrightNameChange={onFooterCopyrightNameChange}
-            onCustomTextChange={onFooterCustomTextChange}
-            onCustomLinksInputChange={onFooterCustomLinksInputChange}
+            onModuleContentChange={onFooterModuleContentChange}
+            onModuleAlignmentChange={onFooterModuleAlignmentChange}
+            onMoveModuleUp={onMoveFooterModuleUp}
+            onMoveModuleDown={onMoveFooterModuleDown}
           />
         )}
 

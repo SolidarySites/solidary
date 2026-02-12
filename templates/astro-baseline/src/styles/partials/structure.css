@@ -80,15 +80,28 @@ main {
   max-width: var(--maxw);
   margin: 0 auto;
   padding: var(--space-4) var(--space-4);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items:start;
   gap: var(--space-3);
   font-size: 13px;
 }
-.footer__meta{ margin:0; color: var(--muted); }
-.footer__links{ display:flex; gap: var(--space-3); }
-.footer__link{ color: var(--muted); text-decoration:none; }
+.footer__module{
+  margin:0;
+  color: var(--muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.footer__module--left{
+  text-align: left;
+}
+.footer__module--center{
+  text-align: center;
+}
+.footer__module--right{
+  text-align: right;
+}
+.footer__link{ color: var(--muted); text-decoration:underline; text-underline-offset: 2px; }
 .footer__link:hover{ color: var(--link); }
 
 
