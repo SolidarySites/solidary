@@ -15,5 +15,4 @@
 - Optional seed: `supabase db seed --file supabase/seed.sql`
 
 ## Edge functions
-- Deploy draft-image cleanup function:
-  `supabase functions deploy cleanup-draft-images`
+- No Supabase Edge functions are required for the studio publish flow at this time.

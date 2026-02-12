@@ -180,26 +180,71 @@ export default function SiteBuilderPage() {
     if (!draftState?.id) return;
     if (cleanedPublishedDraftIdRef.current === draftState.id) return;
 
-    cleanedPublishedDraftIdRef.current = draftState.id;
-
     (async () => {
-      const accessToken = session?.access_token?.trim() ?? "";
-      const { error } = await supabase.functions.invoke("cleanup-draft-images", {
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-        body: {
-          draftId: draftState.id
-        }
-      });
-
-      if (error) {
-        setNotice(`Site is live, but image cleanup failed: ${error.message}`);
+      const normalizedPublishedBaseUrl = (publishedSiteBaseUrl ?? "").trim().replace(/\/+$/, "");
+      if (!normalizedPublishedBaseUrl) {
+        setNotice("Site is live, but image cleanup skipped: missing published site URL.");
         setNoticeKind("error");
         return;
       }
 
-      setDraftImages([]);
+      const accessToken = session?.access_token?.trim() ?? "";
+      const response = await fetch("/.netlify/functions/cleanup-draft-images", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({
+          draftId: draftState.id,
+          publishedSiteBaseUrl: normalizedPublishedBaseUrl
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof payload?.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Cleanup request failed.";
+        setNotice(`Site is live, but image cleanup failed: ${errorMessage}`);
+        setNoticeKind("error");
+        return;
+      }
+
+      cleanedPublishedDraftIdRef.current = draftState.id;
+
+      const updatedRows = Array.isArray(payload?.updated) ? payload.updated : [];
+      if (!updatedRows.length) return;
+
+      const byId = new Map<string, { publicUrl: string; sitePath: string }>();
+      updatedRows.forEach((row: unknown) => {
+        if (!row || typeof row !== "object") return;
+        const record = row as Record<string, unknown>;
+        const id = typeof record.id === "string" ? record.id : "";
+        const publicUrl = typeof record.publicUrl === "string" ? record.publicUrl.trim() : "";
+        const sitePath =
+          typeof record.sitePath === "string" ? normalizeSitePath(record.sitePath) : "";
+        if (!id || !publicUrl || !sitePath) return;
+        byId.set(id, { publicUrl, sitePath });
+      });
+
+      if (!byId.size) return;
+
+      setDraftImages((current) =>
+        current.map((image) => {
+          const imageId = typeof image.id === "string" ? image.id : "";
+          const updated = imageId ? byId.get(imageId) : null;
+          if (!updated) return image;
+          return {
+            ...image,
+            publicUrl: updated.publicUrl,
+            sitePath: updated.sitePath
+          };
+        })
+      );
     })();
-  }, [draftState?.id, publishFeedback?.kind, session?.access_token]);
+  }, [draftState?.id, publishFeedback?.kind, publishedSiteBaseUrl, session?.access_token]);
 
   useEffect(() => {
     let mounted = true;
