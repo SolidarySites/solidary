@@ -14,6 +14,14 @@ type BuilderPagesSectionProps = {
   onRemovePage: (index: number) => void;
 };
 
+const getPageItemKey = (page: BuilderPage, index: number) => page.id ?? `page-${index}`;
+
+const getPageKeyFromActiveSlug = (pages: BuilderPage[], activePreviewSlug: string) => {
+  const matchedIndex = pages.findIndex((page, index) => getPageSafeSlug(page, index) === activePreviewSlug);
+  if (matchedIndex === -1) return null;
+  return getPageItemKey(pages[matchedIndex], matchedIndex);
+};
+
 const BuilderPagesSection = ({
   pages,
   activePreviewSlug,
@@ -25,11 +33,13 @@ const BuilderPagesSection = ({
   onPageShowInNavChange,
   onRemovePage
 }: BuilderPagesSectionProps) => {
-  const [expandedSlug, setExpandedSlug] = useState<string | null>(activePreviewSlug);
+  const [expandedPageKey, setExpandedPageKey] = useState<string | null>(() =>
+    getPageKeyFromActiveSlug(pages, activePreviewSlug)
+  );
 
   useEffect(() => {
-    setExpandedSlug(activePreviewSlug);
-  }, [activePreviewSlug]);
+    setExpandedPageKey(getPageKeyFromActiveSlug(pages, activePreviewSlug));
+  }, [activePreviewSlug, pages]);
 
   return (
     <div className="builder-section">
@@ -43,11 +53,12 @@ const BuilderPagesSection = ({
       <div className="builder-page-list">
         {pages.map((page, index) => {
           const safeSlug = getPageSafeSlug(page, index);
-          const isExpanded = expandedSlug === safeSlug;
+          const pageKey = getPageItemKey(page, index);
+          const isExpanded = expandedPageKey === pageKey;
           const pageLabel = page.title.trim() || (page.isHome ? "Home" : "Untitled page");
 
           return (
-            <div key={page.id ?? `new-${index}`} className="builder-page-item">
+            <div key={pageKey} className="builder-page-item">
               <div className="builder-page-row">
                 <span className="builder-page-row-label">{pageLabel}</span>
                 <button
@@ -55,7 +66,7 @@ const BuilderPagesSection = ({
                   className={`builder-page-edit-link ${isExpanded ? "is-active" : ""}`}
                   onClick={() => {
                     onActivePreviewSlugChange(safeSlug);
-                    setExpandedSlug((current) => (current === safeSlug ? null : safeSlug));
+                    setExpandedPageKey((current) => (current === pageKey ? null : pageKey));
                   }}
                 >
                   {isExpanded ? "Close" : "Edit"}

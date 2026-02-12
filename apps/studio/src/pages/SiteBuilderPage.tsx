@@ -179,6 +179,7 @@ export default function SiteBuilderPage() {
   );
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
+  const sessionUserId = session?.user.id ?? null;
   const publishedSiteBaseUrl = useMemo(() => {
     if (publishFeedback?.kind !== "success") return null;
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
@@ -318,7 +319,7 @@ export default function SiteBuilderPage() {
       return;
     }
 
-    if (!session) {
+    if (!sessionUserId) {
       setIsDraftLoading(false);
       setDraftLoadError("Sign in to load this draft.");
       return;
@@ -392,7 +393,7 @@ export default function SiteBuilderPage() {
     return () => {
       mounted = false;
     };
-  }, [draftId, session, sessionResolved]);
+  }, [draftId, sessionResolved, sessionUserId]);
 
   const handleGitHubLogin = async () => {
     setNotice(null);
