@@ -118,6 +118,63 @@ const replaceDraftImageUrlsWithSitePaths = (body: string, draftImages: DraftImag
   return nextBody;
 };
 
+type DraftSaveSettingsInput = Parameters<typeof buildSettingsPayload>[0];
+
+type DraftPageRow = {
+  draft_id: string;
+  slug: string;
+  title: string;
+  content: string;
+  show_in_nav: boolean;
+  position: number;
+  is_home: boolean;
+};
+
+const buildDraftPageRows = (
+  draftId: string,
+  pagesSnapshot: BuilderPage[],
+  draftImages: DraftImageAsset[]
+): DraftPageRow[] =>
+  pagesSnapshot.map((page, index) => ({
+    draft_id: draftId,
+    slug: getPageSafeSlug(page, index),
+    title: page.title.trim() || page.slug || `Page ${index + 1}`,
+    content: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages),
+    show_in_nav: page.showInNav ?? true,
+    position: index,
+    is_home: Boolean(page.isHome)
+  }));
+
+const buildDraftSaveSignature = ({
+  draftId,
+  settingsInput,
+  imageUrl,
+  tokensCss,
+  pagesSnapshot,
+  draftImages
+}: {
+  draftId: string;
+  settingsInput: DraftSaveSettingsInput;
+  imageUrl: string;
+  tokensCss: string;
+  pagesSnapshot: BuilderPage[];
+  draftImages: DraftImageAsset[];
+}) =>
+  JSON.stringify({
+    settings: buildSettingsPayload(settingsInput, imageUrl),
+    styles: {
+      tokensCss
+    },
+    pages: buildDraftPageRows(draftId, pagesSnapshot, draftImages).map((row) => ({
+      slug: row.slug,
+      title: row.title,
+      content: row.content,
+      show_in_nav: row.show_in_nav,
+      position: row.position,
+      is_home: row.is_home
+    }))
+  });
+
 export default function SiteBuilderPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -167,11 +224,13 @@ export default function SiteBuilderPage() {
   const [uploadingInlineImage, setUploadingInlineImage] = useState(false);
   const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
   const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
+  const [lastSavedDraftSignature, setLastSavedDraftSignature] = useState("");
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
   const hasInitializedHeaderBrand = useRef(false);
   const cleanedPublishedDraftIdRef = useRef<string | null>(null);
+  const shouldCaptureLoadedDraftSignature = useRef(false);
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -185,6 +244,53 @@ export default function SiteBuilderPage() {
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
     return candidate || null;
   }, [publishFeedback, siteUrl]);
+  const siteSettingsInput = useMemo(
+    () => ({
+      siteTitle,
+      siteDescription,
+      siteUrl,
+      header: {
+        disabled: headerDisabled,
+        fixed: headerFixed,
+        brandText: headerBrandText,
+        disableBrand: headerBrandDisabled
+      },
+      footer: {
+        disabled: footerDisabled,
+        fixed: footerFixed,
+        modules: normalizeFooterModules(footerModules)
+      }
+    }),
+    [
+      siteTitle,
+      siteDescription,
+      siteUrl,
+      headerDisabled,
+      headerFixed,
+      headerBrandText,
+      headerBrandDisabled,
+      footerDisabled,
+      footerFixed,
+      footerModules
+    ]
+  );
+  const draftSaveImageUrl = useMemo(() => {
+    if (siteImage) return draftImageUrl || "/images/og/og-default.jpg";
+    return siteImagePreview || draftImageUrl || "/images/og/og-default.jpg";
+  }, [siteImage, siteImagePreview, draftImageUrl]);
+  const currentDraftSignature = useMemo(() => {
+    if (!draftState) return "";
+    return buildDraftSaveSignature({
+      draftId: draftState.id,
+      settingsInput: siteSettingsInput,
+      imageUrl: draftSaveImageUrl,
+      tokensCss,
+      pagesSnapshot: pages,
+      draftImages
+    });
+  }, [draftImages, draftSaveImageUrl, draftState, pages, siteSettingsInput, tokensCss]);
+  const hasUnsavedChanges =
+    Boolean(draftState) && !isDraftLoading && currentDraftSignature !== lastSavedDraftSignature;
 
   const { startPublishStatusTracking, cancelPublishStatusTracking } = usePublishStatusTracking({
     onPublishFeedback: setPublishFeedback,
@@ -309,7 +415,9 @@ export default function SiteBuilderPage() {
       setIsDraftLoading(false);
       setDraftLoadError(null);
       setDraftImages([]);
+      setLastSavedDraftSignature("");
       cleanedPublishedDraftIdRef.current = null;
+      shouldCaptureLoadedDraftSignature.current = false;
       return;
     }
 
@@ -326,6 +434,7 @@ export default function SiteBuilderPage() {
     }
 
     let mounted = true;
+    shouldCaptureLoadedDraftSignature.current = false;
     setIsDraftLoading(true);
     setDraftLoadError(null);
     (async () => {
@@ -379,6 +488,7 @@ export default function SiteBuilderPage() {
         } else {
           setFooterModules([...DEFAULT_FOOTER_MODULES]);
         }
+        shouldCaptureLoadedDraftSignature.current = true;
       } catch (caught) {
         if (!mounted) return;
         const message = caught instanceof Error ? caught.message : "Failed to load draft.";
@@ -394,6 +504,27 @@ export default function SiteBuilderPage() {
       mounted = false;
     };
   }, [draftId, sessionResolved, sessionUserId]);
+
+  useEffect(() => {
+    if (!shouldCaptureLoadedDraftSignature.current) return;
+    if (isDraftLoading || !draftState) return;
+    setLastSavedDraftSignature(currentDraftSignature);
+    shouldCaptureLoadedDraftSignature.current = false;
+  }, [currentDraftSignature, draftState, isDraftLoading]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   const handleGitHubLogin = async () => {
     setNotice(null);
@@ -471,23 +602,6 @@ export default function SiteBuilderPage() {
     );
   };
 
-  const siteSettingsInput = {
-    siteTitle,
-    siteDescription,
-    siteUrl,
-    header: {
-      disabled: headerDisabled,
-      fixed: headerFixed,
-      brandText: headerBrandText,
-      disableBrand: headerBrandDisabled
-    },
-    footer: {
-      disabled: footerDisabled,
-      fixed: footerFixed,
-      modules: normalizeFooterModules(footerModules)
-    }
-  };
-
   const updateDraftSolidaryFile = (baseDraft: DraftState, solidaryFile: string) => {
     setDraftState({
       ...baseDraft,
@@ -533,15 +647,7 @@ export default function SiteBuilderPage() {
       throw new Error(settingsError.message);
     }
 
-    const pageRows = pagesSnapshot.map((page, index) => ({
-      draft_id: repoInfo.id,
-      slug: getPageSafeSlug(page, index),
-      title: page.title.trim() || page.slug || `Page ${index + 1}`,
-      content: page.body ?? "",
-      show_in_nav: page.showInNav ?? true,
-      position: index,
-      is_home: Boolean(page.isHome)
-    }));
+    const pageRows = buildDraftPageRows(repoInfo.id, pagesSnapshot, draftImages);
     const currentSlugs = pageRows.map((page) => page.slug);
     const deletedSlugs = draftPageSlugs.filter((slug) => !currentSlugs.includes(slug));
 
@@ -692,11 +798,20 @@ export default function SiteBuilderPage() {
         settingsInput: siteSettingsInput,
         urlOverride: siteUrl
       });
+      const draftSignatureAfterSave = buildDraftSaveSignature({
+        draftId: draftState.id,
+        settingsInput: siteSettingsInput,
+        imageUrl,
+        tokensCss,
+        pagesSnapshot: normalizedPages,
+        draftImages
+      });
 
       setProvisionStep("Saving draft...");
       await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
       updateDraftSolidaryFile(draftState, solidaryFile);
       setPages(normalizedPages);
+      setLastSavedDraftSignature(draftSignatureAfterSave);
 
       if (siteImage) {
         setProvisionStep("Uploading site image...");
@@ -825,9 +940,18 @@ export default function SiteBuilderPage() {
         settingsInput: siteSettingsInput,
         urlOverride: siteUrl
       });
+      const draftSignatureAfterSave = buildDraftSaveSignature({
+        draftId: draftState.id,
+        settingsInput: siteSettingsInput,
+        imageUrl,
+        tokensCss,
+        pagesSnapshot: normalizedPages,
+        draftImages
+      });
       await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
       updateDraftSolidaryFile(draftState, solidaryFile);
       setPages(normalizedPages);
+      setLastSavedDraftSignature(draftSignatureAfterSave);
       setNotice("Draft saved locally.");
       setNoticeKind("notice");
     } catch (error) {
@@ -950,7 +1074,7 @@ export default function SiteBuilderPage() {
           uploadedAt: new Date().toISOString()
         }
       ]);
-      previewRef.current?.execCommand("insertImage", sitePath);
+      previewRef.current?.execCommand("insertImage", imageUrl);
       setNotice("Image uploaded and inserted.");
       setNoticeKind("notice");
     } catch (caught) {
@@ -1059,7 +1183,7 @@ export default function SiteBuilderPage() {
   };
 
   const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError;
-  const canSaveDraft = Boolean(draftState) && !savingDraft;
+  const canSaveDraft = Boolean(draftState) && !savingDraft && hasUnsavedChanges;
   const canPublish = !isProvisioning && Boolean(draftState) && publishFeedback?.kind !== "progress";
 
   const handleSidebarBack = () => {

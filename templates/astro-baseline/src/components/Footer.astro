@@ -2,6 +2,12 @@
 import { site } from "../content/site";
 const year = new Date().getFullYear();
 const footerCopyright = `© ${year}`;
+const footerConfig = ((site as { footer?: Record<string, unknown> }).footer ?? {}) as Record<
+  string,
+  unknown
+>;
+const footerDisabled = footerConfig.disabled === true;
+const footerFixed = footerConfig.fixed === true;
 
 type FooterSegment = {
   type: "text" | "link";
@@ -87,8 +93,8 @@ const parseFooterLineSegments = (line: string): FooterSegment[] => {
 };
 
 const footerAlignmentFallback = ["left", "center", "right"] as const;
-const footerModules: FooterModule[] = Array.isArray(site.footer.modules)
-  ? site.footer.modules
+const footerModules: FooterModule[] = Array.isArray(footerConfig.modules)
+  ? footerConfig.modules
       .slice(0, 3)
       .map((module, index) => {
         const fallbackAlignment = footerAlignmentFallback[index] ?? "left";
@@ -117,6 +123,9 @@ while (footerModules.length < 3) {
     alignment: fallbackAlignment
   });
 }
+if (!footerModules.some((module) => module.content.trim())) {
+  footerModules[0].content = "%copyright%";
+}
 
 const visibleFooterModuleCount = footerModules.filter((module) => module.content.trim().length > 0).length;
 const footerInnerStyle =
@@ -125,10 +134,10 @@ const footerInnerStyle =
     : undefined;
 
 const footerStyle =
-  site.footer.disabled || site.footer.fixed
+  footerDisabled || footerFixed
     ? [
-        site.footer.disabled ? "display:none;" : "",
-        site.footer.fixed ? "position:fixed;left:0;right:0;bottom:0;z-index:40;" : ""
+        footerDisabled ? "display:none;" : "",
+        footerFixed ? "position:fixed;left:0;right:0;bottom:0;z-index:40;" : ""
       ].join("")
     : undefined;
 ---

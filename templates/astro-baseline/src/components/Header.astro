@@ -3,6 +3,14 @@ import { site } from "../content/site";
 import { getCollection } from "astro:content";
 
 const { brand = site.name } = Astro.props as { brand?: string };
+const headerConfig = ((site as { header?: Record<string, unknown> }).header ?? {}) as Record<
+  string,
+  unknown
+>;
+const headerDisabled = headerConfig.disabled === true;
+const headerFixed = headerConfig.fixed === true;
+const headerBrandDisabled = headerConfig.disableBrand === true;
+const headerBrandText = typeof headerConfig.brandText === "string" ? headerConfig.brandText : brand;
 
 const basePath = (() => {
   try {
@@ -36,14 +44,14 @@ const finalNav = combinedNav.filter((item) => {
 });
 
 const headerStyle =
-  site.header.disabled || site.header.fixed
+  headerDisabled || headerFixed
     ? [
-        site.header.disabled ? "display:none;" : "",
-        site.header.fixed ? "position:fixed;top:0;left:0;right:0;z-index:40;" : ""
+        headerDisabled ? "display:none;" : "",
+        headerFixed ? "position:fixed;top:0;left:0;right:0;z-index:40;" : ""
       ].join("")
     : undefined;
 
-const brandStyle = site.header.disableBrand ? "display:none;" : undefined;
+const brandStyle = headerBrandDisabled ? "display:none;" : undefined;
 ---
 
 <header class="header" style={headerStyle}>
@@ -51,7 +59,7 @@ const brandStyle = site.header.disableBrand ? "display:none;" : undefined;
   <div class="header__inner">
     <div class="header__a">
       <a class="header__brand" href={withBase("/")} style={brandStyle}>
-        {site.header.brandText || brand}
+        {headerBrandText}
       </a>
     </div>
 
