@@ -183,7 +183,9 @@ export default function SiteBuilderPage() {
     cleanedPublishedDraftIdRef.current = draftState.id;
 
     (async () => {
+      const accessToken = session?.access_token?.trim() ?? "";
       const { error } = await supabase.functions.invoke("cleanup-draft-images", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         body: {
           draftId: draftState.id
         }
@@ -197,7 +199,7 @@ export default function SiteBuilderPage() {
 
       setDraftImages([]);
     })();
-  }, [draftState?.id, publishFeedback?.kind]);
+  }, [draftState?.id, publishFeedback?.kind, session?.access_token]);
 
   useEffect(() => {
     let mounted = true;

@@ -26,19 +26,28 @@ Deno.serve(async (request) => {
     });
   }
 
-  const authHeader = request.headers.get("Authorization") ?? "";
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: authHeader
-      }
+  const authHeader =
+    request.headers.get("authorization") ?? request.headers.get("Authorization") ?? "";
+  const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+  const accessToken = bearerMatch?.[1]?.trim() ?? "";
+  if (!accessToken) {
+    return new Response(JSON.stringify({ error: "Unauthorized." }), {
+      status: 401,
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
     }
   });
 
   const {
     data: { user },
     error: userError
-  } = await supabase.auth.getUser();
+  } = await authClient.auth.getUser(accessToken);
 
   if (userError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized." }), {
@@ -47,11 +56,43 @@ Deno.serve(async (request) => {
     });
   }
 
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+
   const payload = await request.json().catch(() => ({}));
   const draftId = typeof payload?.draftId === "string" ? payload.draftId.trim() : "";
   if (!draftId) {
     return new Response(JSON.stringify({ error: "Missing draftId." }), {
       status: 400,
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  const { data: draftAccess, error: draftAccessError } = await supabase
+    .from("site_drafts")
+    .select("id")
+    .eq("id", draftId)
+    .maybeSingle();
+
+  if (draftAccessError) {
+    return new Response(JSON.stringify({ error: draftAccessError.message }), {
+      status: 403,
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
+  }
+
+  if (!draftAccess) {
+    return new Response(JSON.stringify({ error: "Draft not found or inaccessible." }), {
+      status: 404,
       headers: { ...corsHeaders, "content-type": "application/json" }
     });
   }
