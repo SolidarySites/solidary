@@ -1,7 +1,6 @@
 // src/content/site.ts
 export type SiteConfig = {
   name: string;
-  tagline: string;
   description: string;
   url: string;
   seo: {
@@ -31,7 +30,6 @@ const parseTemplateBoolean = (value: string) => value === "true";
 
 export const site: SiteConfig = {
   name: "{{TITLE}}",
-  tagline: "{{TAGLINE}}",
   description: "{{DESCRIPTION}}",
   url: "{{SITE_URL}}",
   seo: {

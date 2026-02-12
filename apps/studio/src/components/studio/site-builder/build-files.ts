@@ -18,7 +18,6 @@ export const buildSettingsPayload = (
   urlOverride?: string
 ) => ({
   title: input.siteTitle.trim(),
-  tagline: input.siteTitle.trim(),
   description: input.siteDescription.trim(),
   siteUrl: (urlOverride ?? input.siteUrl).trim(),
   ogImage: imageUrl,

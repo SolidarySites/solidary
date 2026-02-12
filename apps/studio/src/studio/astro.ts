@@ -24,7 +24,6 @@ export type AstroFooter = {
 
 export type AstroSettings = {
   title: string;
-  tagline: string;
   description: string;
   siteUrl: string;
   ogImage: string;
@@ -45,7 +44,6 @@ const escape = (value: string) => value.replace(/"/g, "\\\"");
 export function buildSiteTs(settings: AstroSettings) {
   return siteTemplate
     .replaceAll("{{TITLE}}", escape(settings.title))
-    .replaceAll("{{TAGLINE}}", escape(settings.tagline))
     .replaceAll("{{DESCRIPTION}}", escape(settings.description))
     .replaceAll("{{SITE_URL}}", escape(settings.siteUrl))
     .replaceAll("{{OG_IMAGE}}", escape(settings.ogImage))

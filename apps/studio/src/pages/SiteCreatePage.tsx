@@ -33,7 +33,6 @@ export default function SiteCreatePage() {
   const [provisionStep, setProvisionStep] = useState("Preparing your site...");
 
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
-  const [siteTagline, setSiteTagline] = useState("A calm, static home on the web.");
   const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
   const [siteUrl, setSiteUrl] = useState("");
 
@@ -109,7 +108,6 @@ export default function SiteCreatePage() {
 
   const buildSettingsPayload = (imageUrl: string, urlOverride?: string) => ({
     title: siteTitle.trim(),
-    tagline: siteTagline.trim(),
     description: siteDescription.trim(),
     siteUrl: urlOverride || siteUrl,
     ogImage: imageUrl,
@@ -285,7 +283,6 @@ export default function SiteCreatePage() {
         draft_id: siteId,
         settings: {
           title: siteTitle.trim(),
-          tagline: siteTagline.trim(),
           description: siteDescription.trim(),
           siteUrl: siteUrlResolved,
           header: {
@@ -358,16 +355,12 @@ export default function SiteCreatePage() {
           <section className="site-form">
             <div className="section-header">
               <h2>Create a site</h2>
-              <p>Enter the main site metadata and hero text.</p>
+              <p>Enter the main site metadata.</p>
             </div>
             <div className="form-grid">
               <label>
                 Site title
                 <input value={siteTitle} onChange={(event) => setSiteTitle(event.target.value)} />
-              </label>
-              <label>
-                Tagline
-                <input value={siteTagline} onChange={(event) => setSiteTagline(event.target.value)} />
               </label>
               <label>
                 Description

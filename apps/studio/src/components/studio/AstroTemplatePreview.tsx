@@ -420,6 +420,14 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     () => mapHtmlImageSources(activeBodyHtml, draftImages, publishedSiteBaseUrl, "display"),
     [activeBodyHtml, draftImages, publishedSiteBaseUrl]
   );
+  const displayImageSignature = useMemo(() => {
+    if (!displayBodyHtml.trim()) return "";
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = displayBodyHtml;
+    return Array.from(wrapper.querySelectorAll("img"))
+      .map((image, index) => `${index}:${(image.getAttribute("src") ?? "").trim()}`)
+      .join("|");
+  }, [displayBodyHtml]);
 
   const previewStyle = useMemo(
     () => extractCssVariables(tokensCss) as CSSProperties,
@@ -540,6 +548,47 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     getPersistableEditorHtml,
     normalizeEditorImages,
     publishedSiteBaseUrl
+  ]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    let frameId: number | null = window.requestAnimationFrame(() => {
+      frameId = null;
+      if (editorRef.current !== editor) return;
+      normalizeEditorImages(editor);
+    });
+
+    const removeLoadListeners: Array<() => void> = [];
+    editor.querySelectorAll("img").forEach((image) => {
+      const syncImageLayout = () => {
+        if (!editor.contains(image)) return;
+        ensureImageFigure(image);
+        syncFigureCaptionLayout(image);
+      };
+
+      if (image.complete && image.naturalWidth > 0) {
+        syncImageLayout();
+        return;
+      }
+
+      image.addEventListener("load", syncImageLayout, { once: true });
+      removeLoadListeners.push(() => image.removeEventListener("load", syncImageLayout));
+    });
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      removeLoadListeners.forEach((remove) => remove());
+    };
+  }, [
+    activeSlug,
+    displayImageSignature,
+    ensureImageFigure,
+    normalizeEditorImages,
+    syncFigureCaptionLayout
   ]);
 
   const normalizeTypedLineDivToParagraph = useCallback(() => {

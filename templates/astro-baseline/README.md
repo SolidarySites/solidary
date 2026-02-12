@@ -83,7 +83,6 @@ All site metadata lives in one place:
 // src/content/site.ts
 export const site = {
   name,
-  tagline,
   description,
   url,
   locale,

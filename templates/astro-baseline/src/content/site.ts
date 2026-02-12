@@ -1,7 +1,6 @@
 // src/content/site.ts
 export type SiteConfig = {
   name: string;
-  tagline: string;
   description: string;
   url: string;
   seo: {
@@ -29,7 +28,6 @@ export type SiteConfig = {
 
 export const site: SiteConfig = {
   name: "Astro Baseline",
-  tagline: "A boring, production-ready Astro starter.",
   description:
     "Astro Baseline is a minimal HTML-first starter with senior defaults: SEO, JSON-LD, a11y basics, and clean structure.",
   url: import.meta.env.SITE_URL ?? "https://example.com",
