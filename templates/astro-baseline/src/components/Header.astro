@@ -48,9 +48,11 @@ const brandStyle = site.header.disableBrand ? "display:none;" : undefined;
 
 <header class="header" style={headerStyle}>
   <div class="header__inner">
+  <div>
     <a class="header__brand" href={withBase("/")} style={brandStyle}>
       {site.header.brandText || brand}
     </a>
+  </div>
 
     <nav class="header__nav" aria-label="Primary">
       <ul class="nav">

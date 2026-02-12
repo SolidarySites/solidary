@@ -376,6 +376,53 @@
   gap: 1rem;
 }
 
+.builder-page-item {
+  border-bottom: 1px dashed rgba(31, 34, 28, 0.2);
+  padding-bottom: 0.75rem;
+}
+
+.builder-page-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.builder-page-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.builder-page-row-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.builder-page-edit-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #0b3d91;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-family: inherit;
+}
+
+.builder-page-edit-link.is-active {
+  color: #1f221c;
+}
+
+.builder-page-details {
+  margin-top: 0.7rem;
+  border: 1px dashed rgba(31, 34, 28, 0.2);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.8rem;
+  background: rgba(248, 245, 239, 0.6);
+}
+
 .builder-page-card {
   border: 1px dashed rgba(31, 34, 28, 0.2);
   padding: 1rem;
