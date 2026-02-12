@@ -2,14 +2,12 @@ import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const SUPABASE_DELETE_REPO_SECRET_KEY = process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 const requireEnv = () => {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-    return "Missing SUPABASE_URL, SUPABASE_ANON_KEY, or SUPABASE_SERVICE_ROLE_KEY.";
+  if (!SUPABASE_URL || !SUPABASE_DELETE_REPO_SECRET_KEY) {
+    return "Missing SUPABASE_URL or SUPABASE_DELETE_REPO_SECRET_KEY.";
   }
   return null;
 };
@@ -88,17 +86,14 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_DELETE_REPO_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
   const {
     data: { user },
     error: userError
-  } = await authClient.auth.getUser(accessToken);
+  } = await supabase.auth.getUser(accessToken);
 
   if (userError || !user) {
     return {
@@ -108,7 +103,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const { data: draft, error: draftError } = await serviceClient
+  const { data: draft, error: draftError } = await supabase
     .from("site_drafts")
     .select("id, owner_user_id")
     .eq("id", draftId)
@@ -132,7 +127,7 @@ export const handler: Handler = async (event) => {
 
   let hasAccess = draft.owner_user_id === user.id;
   if (!hasAccess) {
-    const { data: adminAccess, error: adminAccessError } = await serviceClient
+    const { data: adminAccess, error: adminAccessError } = await supabase
       .from("site_admins")
       .select("site_id")
       .eq("site_id", draftId)
@@ -158,7 +153,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const { data: images, error: imagesError } = await serviceClient
+  const { data: images, error: imagesError } = await supabase
     .from("site_draft_images")
     .select("id, storage_path, site_path")
     .eq("draft_id", draftId);
@@ -176,7 +171,7 @@ export const handler: Handler = async (event) => {
     .filter(Boolean);
 
   if (storagePaths.length) {
-    const { error: storageError } = await serviceClient.storage
+    const { error: storageError } = await supabase.storage
       .from(SITE_DRAFT_IMAGES_BUCKET)
       .remove(storagePaths);
 
@@ -205,7 +200,7 @@ export const handler: Handler = async (event) => {
     .filter((row): row is { id: string; sitePath: string; publicUrl: string } => Boolean(row));
 
   for (const row of rowsToUpdate) {
-    const { error: updateError } = await serviceClient
+    const { error: updateError } = await supabase
       .from("site_draft_images")
       .update({
         public_url: row.publicUrl,
