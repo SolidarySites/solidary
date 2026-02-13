@@ -1,6 +1,5 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
-import { ASTRO_BASELINE_BUNDLED_TEMPLATE } from "./astro-baseline-bundled-template";
 import { existsSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -198,25 +197,12 @@ async function walkFiles(rootAbs: string): Promise<FileRecord[]> {
 }
 
 async function loadTemplateFiles(): Promise<FileRecord[]> {
-  try {
-    const templateRoot = findTemplateRoot();
-    const files = await walkFiles(templateRoot);
-    if (files.length === 0) {
-      throw new Error("Template directory is empty.");
-    }
-    return files.sort((a, b) => a.relPath.localeCompare(b.relPath));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown template discovery error";
-    console.log("[github-create-repo-worker] falling back to bundled templates", {
-      message
-    });
-
-    if (!ASTRO_BASELINE_BUNDLED_TEMPLATE.length) {
-      throw new Error("Template directory not found and bundled template fallback is empty.");
-    }
-
-    return [...ASTRO_BASELINE_BUNDLED_TEMPLATE].sort((a, b) => a.relPath.localeCompare(b.relPath));
+  const templateRoot = findTemplateRoot();
+  const files = await walkFiles(templateRoot);
+  if (files.length === 0) {
+    throw new Error("Template directory is empty.");
   }
+  return files.sort((a, b) => a.relPath.localeCompare(b.relPath));
 }
 
 function getGhErrorMessage(payload: unknown, fallback: string) {
@@ -569,7 +555,7 @@ export const handler: Handler = async (event) => {
     const isPrivate = payload.private === undefined ? false : Boolean(payload.private);
 
     await updateJob({
-      step: "Loading bundled template files..."
+      step: "Loading template files..."
     });
 
     const templateFiles = await loadTemplateFiles();
