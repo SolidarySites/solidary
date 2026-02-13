@@ -113,9 +113,6 @@ type BuildFilesInput = {
   imageUrl: string;
   settingsInput: SiteSettingsInput;
   tokensCss: string;
-  headerTemplate: string;
-  footerTemplate: string;
-  indexTemplate: string;
   templateSolidary: string;
   pages: BuilderPage[];
   defaultHomeContent: string;
@@ -127,9 +124,6 @@ export const buildFiles = ({
   imageUrl,
   settingsInput,
   tokensCss,
-  headerTemplate,
-  footerTemplate,
-  indexTemplate,
   templateSolidary,
   pages,
   defaultHomeContent,
@@ -140,9 +134,6 @@ export const buildFiles = ({
   const files: RepoFileSet = {
     [FILE_KEYS.site]: buildSiteTs(settings),
     [FILE_KEYS.tokens]: tokensCss,
-    [FILE_KEYS.header]: headerTemplate,
-    [FILE_KEYS.footer]: footerTemplate,
-    [FILE_KEYS.index]: indexTemplate,
     [FILE_KEYS.solidary]: buildSolidaryFile({
       templateSolidary,
       siteId,

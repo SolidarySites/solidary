@@ -41,11 +41,8 @@ import {
 import type { NoticeKind } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../templates/astro-baseline/src/content/pages/home.md?raw";
-import headerTemplate from "../../../../templates/astro-baseline/src/components/Header.astro?raw";
-import footerTemplate from "../../../../templates/astro-baseline/src/components/Footer.astro?raw";
-import indexTemplate from "../../../../templates/astro-baseline/src/pages/index.astro?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
-import { deleteTextFile, githubRequest, listDirectory, writeTextFile } from "../studio/github";
+import { githubRequest, listDirectory } from "../studio/github";
 import { slugify, toBase64 } from "../studio/utils";
 
 const defaultHomeContent = stripFrontmatter(homeTemplate);
@@ -128,6 +125,11 @@ type DraftPageRow = {
   show_in_nav: boolean;
   position: number;
   is_home: boolean;
+};
+
+type BatchCommitResponse = {
+  commitSha?: string;
+  noChanges?: boolean;
 };
 
 const buildDraftPageRows = (
@@ -851,16 +853,13 @@ export default function SiteBuilderPage() {
         imageUrl,
         settingsInput: siteSettingsInput,
         tokensCss,
-        headerTemplate,
-        footerTemplate,
-        indexTemplate,
         templateSolidary,
         pages: publishPages,
         defaultHomeContent,
         urlOverride: siteUrl
       });
 
-      setProvisionStep("Removing deleted pages...");
+      setProvisionStep("Preparing content changes...");
       const repoEntries = await listDirectory(
         providerToken,
         ownerLogin,
@@ -874,17 +873,28 @@ export default function SiteBuilderPage() {
           return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
         })
       );
+      const deletePaths: string[] = [];
       for (const entry of repoEntries) {
         if (entry.type !== "file" || !entry.path?.endsWith(PAGE_PATH_SUFFIX)) continue;
         if (!desiredPagePaths.has(entry.path)) {
-          await deleteTextFile(providerToken, ownerLogin, repoName, entry.path, draftState.branch);
+          deletePaths.push(entry.path);
         }
       }
 
       setProvisionStep("Publishing content files...");
-      for (const [path, content] of Object.entries(files)) {
-        await writeTextFile(providerToken, ownerLogin, repoName, path, content, draftState.branch);
-      }
+      await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: draftState.branch,
+        message: "Publish site content",
+        upserts: Object.entries(files).map(([path, content]) => ({
+          path,
+          mode: "100644",
+          content: toBase64(new TextEncoder().encode(content).buffer)
+        })),
+        deletes: deletePaths
+      });
 
       setProvisionStep("Updating site metadata...");
       const { error: siteError } = await supabase.from("sites").upsert({
@@ -904,11 +914,22 @@ export default function SiteBuilderPage() {
 
       setDraftImageUrl(imageUrl);
       setProvisionStep("Starting deployment status checks...");
+      const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: draftState.branch
+      });
+      const publishHeadSha = branchResult.sha?.trim() ?? "";
+      if (!publishHeadSha) {
+        throw new Error("Failed to resolve branch head after publish.");
+      }
       startPublishStatusTracking({
         token: providerToken,
         owner: ownerLogin,
         repo: repoName,
         branch: draftState.branch,
+        headSha: publishHeadSha,
         publishStartedAt
       });
       setNotice(null);

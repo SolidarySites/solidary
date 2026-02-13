@@ -8,6 +8,7 @@ type StartPublishTrackingParams = {
   owner: string;
   repo: string;
   branch: string;
+  headSha?: string;
   publishStartedAt: string;
 };
 
@@ -39,7 +40,7 @@ export const usePublishStatusTracking = ({
   useEffect(() => cancelPublishStatusTracking, [cancelPublishStatusTracking]);
 
   const startPublishStatusTracking = useCallback(
-    ({ token, owner, repo, branch, publishStartedAt }: StartPublishTrackingParams) => {
+    ({ token, owner, repo, branch, headSha, publishStartedAt }: StartPublishTrackingParams) => {
       publishPollTokenRef.current += 1;
       const pollToken = publishPollTokenRef.current;
       clearPublishPollTimeout();
@@ -65,6 +66,7 @@ export const usePublishStatusTracking = ({
               owner,
               repo,
               branch,
+              headSha,
               publishStartedAt,
               workflow: "deploy.yml"
             }
