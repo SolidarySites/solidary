@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const WORKER_PATH = "/.netlify/functions/github-create-repo-worker-background";
 
 type StartRepoProvisionBody = {
@@ -52,6 +53,12 @@ export const handler: Handler = async (event) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return safeJson(500, {
       error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY."
+    });
+  }
+
+  if (!CREATE_SITE_SUPABASE_API_KEY) {
+    return safeJson(500, {
+      error: "Missing CREATE_SITE_SUPABASE_API_KEY."
     });
   }
 
@@ -115,7 +122,7 @@ export const handler: Handler = async (event) => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-provision-internal-key": SUPABASE_SERVICE_ROLE_KEY
+          "x-provision-internal-key": CREATE_SITE_SUPABASE_API_KEY
         },
         body: JSON.stringify({
           jobId: job.id,
