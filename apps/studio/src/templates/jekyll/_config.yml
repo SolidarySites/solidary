@@ -1,9 +1,0 @@
-title: "{{TITLE}}"
-description: "{{DESCRIPTION}}"
-baseurl: "{{BASEURL}}"
-url: "{{SITE_URL_ROOT}}"
-markdown: kramdown
-theme: null
-include:
-  - ".well-known"
-  - "solidary-links"
