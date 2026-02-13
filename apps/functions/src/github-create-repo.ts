@@ -6,8 +6,8 @@ import { join, relative, sep } from "node:path";
 const GITHUB_API = "https://api.github.com";
 const TEMPLATE_DIR = "templates/astro-baseline";
 const TARGET_DEFAULT_BRANCH = "main";
-const BRANCH_READY_RETRY_DELAYS_MS = [0, 300, 900, 1800, 3600, 6400];
-const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 250, 700, 1400, 2600];
+const BRANCH_READY_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
+const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
 
 const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
@@ -19,6 +19,9 @@ type GhRepoPayload = {
   full_name?: string;
   name?: string;
   owner?: { login?: string };
+};
+type GhBranchPayload = {
+  commit?: { sha?: string };
 };
 
 type FileRecord = {
@@ -191,7 +194,11 @@ async function readFileAsGitBlob(absPath: string, mode: FileRecord["mode"]): Pro
 
 function getGhErrorMessage(payload: unknown, fallback: string) {
   const maybePayload = payload as GhErrorPayload;
-  return maybePayload?.message ?? fallback;
+  const message = typeof maybePayload?.message === "string" ? maybePayload.message.trim() : "";
+  const docs = typeof maybePayload?.documentation_url === "string" ? maybePayload.documentation_url.trim() : "";
+  if (!message && !docs) return fallback;
+  if (message && docs) return `${fallback} (${message}; ${docs})`;
+  return `${fallback} (${message || docs})`;
 }
 
 function assertOk(res: Response, payload: unknown, fallbackMessage: string) {
@@ -211,18 +218,18 @@ async function getBranchHeadSha({
   repo: string;
   branch: string;
 }) {
-  const refUrl = `${GITHUB_API}/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`;
-  const { res, data } = await ghUserWithRetry<any>({
+  const branchUrl = `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`;
+  const { res, data } = await ghUserWithRetry<GhBranchPayload | GhErrorPayload>({
     userToken,
-    url: refUrl,
+    url: branchUrl,
     delaysMs: BRANCH_READY_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
   });
-  assertOk(res, data, `Failed to read ${branch} branch ref.`);
+  assertOk(res, data, `Failed to read ${branch} branch for ${owner}/${repo}.`);
 
-  const sha = typeof data?.object?.sha === "string" ? data.object.sha : undefined;
+  const sha = typeof (data as GhBranchPayload)?.commit?.sha === "string" ? (data as GhBranchPayload).commit?.sha : undefined;
   if (!sha) {
-    throw new HttpError(500, `Branch ${branch} does not contain a head commit SHA.`);
+    throw new HttpError(500, `Branch ${branch} for ${owner}/${repo} does not contain a head commit SHA.`);
   }
   return sha;
 }
@@ -496,7 +503,9 @@ export const handler: Handler = async (event) => {
     createdOwner = owner;
     createdRepo = repo;
 
-    const initialDefaultBranch = newRepoData.default_branch || TARGET_DEFAULT_BRANCH;
+    const repoAfterCreate = await getRepo({ userToken, owner, repo });
+    const initialDefaultBranch =
+      repoAfterCreate.default_branch || newRepoData.default_branch || TARGET_DEFAULT_BRANCH;
     const baseSha = await getBranchHeadSha({
       userToken,
       owner,
@@ -539,9 +548,20 @@ export const handler: Handler = async (event) => {
     }
 
     if (error instanceof HttpError) {
+      console.log("[github-create-repo] failed", {
+        owner: createdOwner || null,
+        repo: createdRepo || null,
+        statusCode: error.statusCode,
+        message: error.message
+      });
       return safeJson(error.statusCode, { error: error.message });
     }
 
+    console.log("[github-create-repo] failed", {
+      owner: createdOwner || null,
+      repo: createdRepo || null,
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
     return safeJson(500, { error: error instanceof Error ? error.message : "Unknown error" });
   }
 };
