@@ -6,8 +6,8 @@ import { join, relative, sep } from "node:path";
 const GITHUB_API = "https://api.github.com";
 const TEMPLATE_DIR = "templates/astro-baseline";
 const TARGET_DEFAULT_BRANCH = "main";
-const BRANCH_READY_RETRY_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
-const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
+const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
+const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
 
 const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
@@ -106,6 +106,26 @@ async function ghUserWithRetry<T>({
   }
 
   return last as { res: Response; data: T };
+}
+
+async function mapLimit<T, U>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<U>
+): Promise<U[]> {
+  const results: U[] = new Array(items.length);
+  let i = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = i++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx], idx);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
 }
 
 function normalizeGitPath(pathValue: string) {
@@ -330,24 +350,20 @@ async function writeFileToBranch({
       shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
     });
 
-  let currentSha = await getFileSha({
-    userToken,
-    owner,
-    repo,
-    path: file.relPath,
-    branch
-  });
-
-  let { res, data } = await writeOnce(currentSha);
+  let { res, data } = await writeOnce(null);
   if (!res.ok && (res.status === 409 || res.status === 422)) {
-    currentSha = await getFileSha({
+    await sleep(120);
+    ({ res, data } = await writeOnce(null));
+  }
+  if (!res.ok && (res.status === 409 || res.status === 422)) {
+    const currentSha = await getFileSha({
       userToken,
       owner,
       repo,
       path: file.relPath,
       branch
     });
-    ({ res, data } = await writeOnce(currentSha));
+    ({ res, data } = await writeOnce(currentSha ?? null));
   }
 
   assertOk(res, data, `Failed writing template file ${file.relPath} to ${owner}/${repo}.`);
@@ -375,7 +391,7 @@ async function seedTemplateFiles({
   files: FileRecord[];
 }) {
   const sortedFiles = [...files].sort((a, b) => a.relPath.localeCompare(b.relPath));
-  for (const file of sortedFiles) {
+  await mapLimit(sortedFiles, 4, async (file) => {
     await writeFileToBranch({
       userToken,
       owner,
@@ -383,7 +399,7 @@ async function seedTemplateFiles({
       branch,
       file
     });
-  }
+  });
 }
 
 async function setDefaultBranch({
@@ -527,13 +543,6 @@ export const handler: Handler = async (event) => {
         fromSha: initialHeadSha
       });
     }
-
-    await getBranchHeadSha({
-      userToken,
-      owner,
-      repo,
-      branch: TARGET_DEFAULT_BRANCH
-    });
 
     await seedTemplateFiles({
       userToken,

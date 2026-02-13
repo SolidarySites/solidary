@@ -9,6 +9,7 @@
 
 [functions."github-create-repo"]
   included_files = ["templates/astro-baseline/**"]
+  timeout = 26
 
 [dev]
   command = "npm -w apps/studio run dev"
