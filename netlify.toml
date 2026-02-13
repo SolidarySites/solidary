@@ -7,19 +7,13 @@
   directory = "apps/functions/src"
   node_bundler = "esbuild"
 
-[functions."github-create-repo"]
-  included_files = ["templates/astro-baseline/**"]
-  timeout = 26
+[functions."github-create-repo-worker-background"]
+  included_files = ["templates/astro-baseline/**", "../../templates/astro-baseline/**"]
 
 [dev]
   command = "npm -w apps/studio run dev"
   functions = "apps/functions/src"
   port = 8888
-
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
 
 [[redirects]]
   from = "/*"

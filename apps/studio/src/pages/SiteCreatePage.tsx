@@ -36,6 +36,24 @@ type CreateRepoResponse = {
   };
 };
 
+type CreateRepoStartResponse = {
+  job?: {
+    id?: string;
+    status?: string;
+    step?: string;
+  };
+};
+
+type CreateRepoStatusResponse = {
+  job?: {
+    id?: string;
+    status?: string;
+    step?: string;
+    error?: string | null;
+    repo?: CreateRepoResponse["repo"];
+  };
+};
+
 type GitHubPublishStatusResponse = {
   phase: "pending" | "queued" | "in_progress" | "deployed" | "failed";
   message?: string;
@@ -59,6 +77,64 @@ const getPublishStep = (status: GitHubPublishStatusResponse) => {
   }
   return status.message?.trim() || "Checking GitHub Pages deployment...";
 };
+
+async function waitForRepoProvisioningJob({
+  jobId,
+  supabaseAccessToken,
+  onStep
+}: {
+  jobId: string;
+  supabaseAccessToken: string;
+  onStep: (value: string) => void;
+}): Promise<CreateRepoResponse["repo"]> {
+  let lastErrorMessage = "";
+
+  for (let attempt = 0; attempt < 180; attempt += 1) {
+    let statusPayload: CreateRepoStatusResponse | null = null;
+    try {
+      statusPayload = await githubRequest<CreateRepoStatusResponse>(
+        "/.netlify/functions/github-create-repo-status",
+        {
+          job_id: jobId,
+          supabase_access_token: supabaseAccessToken
+        }
+      );
+    } catch (error) {
+      lastErrorMessage = error instanceof Error ? error.message : "Failed to read provisioning status.";
+      onStep("Checking repository provisioning status...");
+      const delay = attempt < 6 ? 1000 : attempt < 30 ? 2000 : 4000;
+      await sleep(delay);
+      continue;
+    }
+
+    const job = statusPayload.job;
+    if (!job) {
+      lastErrorMessage = "Missing job status payload.";
+    } else {
+      const step = job.step?.trim();
+      if (step) {
+        onStep(step);
+      }
+
+      const status = job.status?.trim();
+      if (status === "succeeded") {
+        if (job.repo) return job.repo;
+        throw new Error("Repository provisioning completed without repo payload.");
+      }
+
+      if (status === "failed") {
+        throw new Error(job.error?.trim() || "Repository provisioning failed.");
+      }
+    }
+
+    const delay = attempt < 6 ? 1000 : attempt < 30 ? 2000 : 4000;
+    await sleep(delay);
+  }
+
+  throw new Error(
+    `Timed out while waiting for repository provisioning to finish${lastErrorMessage ? `: ${lastErrorMessage}` : "."}`
+  );
+}
 
 async function waitForBranchAvailability({
   token,
@@ -321,6 +397,13 @@ export default function SiteCreatePage() {
       return;
     }
 
+    const supabaseAccessToken = session.access_token?.trim();
+    if (!supabaseAccessToken) {
+      setNotice("Supabase session missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
     if (!siteTitle.trim() || !siteDescription.trim()) {
       setNotice("Title and description are required.");
       setNoticeKind("error");
@@ -336,15 +419,26 @@ export default function SiteCreatePage() {
     setIsProvisioning(true);
 
     try {
-      setProvisionStep("Creating your GitHub repository...");
-      const repoResponse = await githubRequest<CreateRepoResponse>("/.netlify/functions/github-create-repo", {
+      setProvisionStep("Queueing repository provisioning...");
+      const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
         token: providerToken,
         name: slug,
         description: siteDescription.trim(),
-        private: false
+        private: false,
+        supabase_access_token: supabaseAccessToken
       });
 
-      const repo = repoResponse.repo;
+      const jobId = startResponse.job?.id?.trim() ?? "";
+      if (!jobId) {
+        throw new Error("Failed to start repository provisioning job.");
+      }
+
+      const repo = await waitForRepoProvisioningJob({
+        jobId,
+        supabaseAccessToken,
+        onStep: setProvisionStep
+      });
+
       const ownerLogin = repo?.owner?.login?.trim() ?? "";
       const repoName = repo?.name?.trim() ?? "";
       const defaultBranch = repo?.default_branch?.trim() ?? "";
