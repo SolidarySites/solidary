@@ -1091,6 +1091,48 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     ]
   );
 
+  const removeSelectedImageFigure = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return false;
+
+    let image: HTMLImageElement | null = null;
+    const selectedImageElement = selectedImageElementRef.current;
+    if (selectedImageElement && editor.contains(selectedImageElement)) {
+      image = selectedImageElement;
+    }
+
+    if (!image && selectedImage?.pageSlug === activeSlug) {
+      image = findImageById(selectedImage.id);
+    }
+
+    if (!image) {
+      image = findImageFromSelection();
+    }
+
+    if (!image) return false;
+    const figure = image.closest(`figure[${IMAGE_FIGURE_ATTR}="true"]`);
+    if (!(figure instanceof HTMLElement)) return false;
+
+    const paragraph = document.createElement("p");
+    paragraph.appendChild(document.createElement("br"));
+    figure.insertAdjacentElement("afterend", paragraph);
+    figure.remove();
+    setCaretAtTextOffset(paragraph, 0);
+
+    selectedImageElementRef.current = null;
+    setSelectedImage(null);
+    persistEditorContent();
+    captureSelection();
+    return true;
+  }, [
+    activeSlug,
+    captureSelection,
+    findImageById,
+    findImageFromSelection,
+    persistEditorContent,
+    selectedImage
+  ]);
+
   const restoreSelection = useCallback(() => {
     const selection = window.getSelection();
     const editor = editorRef.current;
@@ -1196,7 +1238,18 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+      if (event.nativeEvent.isComposing) return;
+
+      if (event.key === "Backspace" || event.key === "Delete") {
+        const figcaption = findFigcaptionFromSelection();
+        if (figcaption) return;
+        if (removeSelectedImageFigure()) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (event.key !== "Enter") return;
 
       const figcaption = findFigcaptionFromSelection();
       if (!figcaption) return;
@@ -1216,7 +1269,12 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       persistEditorContent();
       captureSelection();
     },
-    [captureSelection, findFigcaptionFromSelection, persistEditorContent]
+    [
+      captureSelection,
+      findFigcaptionFromSelection,
+      persistEditorContent,
+      removeSelectedImageFigure
+    ]
   );
 
   useEffect(() => {
