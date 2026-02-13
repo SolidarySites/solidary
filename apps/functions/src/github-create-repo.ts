@@ -2,7 +2,6 @@ import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const WORKER_PATH = "/.netlify/functions/github-create-repo-worker-background";
 
@@ -50,15 +49,9 @@ const resolveOrigin = (event: Parameters<Handler>[0]) => {
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY."
-    });
-  }
-
-  if (!CREATE_SITE_SUPABASE_API_KEY) {
-    return safeJson(500, {
-      error: "Missing CREATE_SITE_SUPABASE_API_KEY."
+      error: "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY."
     });
   }
 
@@ -83,7 +76,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 

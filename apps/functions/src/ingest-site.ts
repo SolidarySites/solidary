@@ -3,12 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { sha256 } from "@solidary/protocol";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 
 const siteIdRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function normalizeUrl(value: string) {
+function normalizeUrl(value: string | undefined) {
+  if (!value) return null;
   try {
     return new URL(value).toString();
   } catch {
@@ -17,8 +18,8 @@ function normalizeUrl(value: string) {
 }
 
 function requireEnv() {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.";
+  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
+    return "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY.";
   }
   return null;
 }
@@ -86,7 +87,7 @@ export const handler: Handler = async (event) => {
     ? manifest.protocol_version
     : "1.0";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
     auth: { persistSession: false }
   });
 

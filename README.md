@@ -278,7 +278,7 @@ Protocol ingestion must remain GitHub-API-independent.
 
 2) Functions env
 - `cp apps/functions/.env.example apps/functions/.env`
-- Set `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+- Set `SUPABASE_URL` + `CREATE_SITE_SUPABASE_API_KEY`
 
 3) Install + run
 - `npm install`
