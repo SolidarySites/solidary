@@ -7,6 +7,9 @@
   directory = "apps/functions/src"
   node_bundler = "esbuild"
 
+[functions."github-create-repo"]
+  included_files = ["templates/astro-baseline/**"]
+
 [dev]
   command = "npm -w apps/studio run dev"
   functions = "apps/functions/src"

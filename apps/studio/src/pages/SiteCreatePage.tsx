@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
+import { getPublishPollDelayMs } from "../components/studio/site-builder/utils";
 import { supabase } from "../lib/supabase";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
@@ -23,6 +24,156 @@ const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
 };
 
+const BRANCH_READY_RETRY_DELAYS_MS = [0, 800, 1600, 3200, 6400, 10000];
+
+type CreateRepoResponse = {
+  repo?: {
+    full_name?: string;
+    name?: string;
+    owner?: { login?: string };
+    html_url?: string;
+    default_branch?: string;
+  };
+};
+
+type GitHubPublishStatusResponse = {
+  phase: "pending" | "queued" | "in_progress" | "deployed" | "failed";
+  message?: string;
+  runUrl?: string;
+  pagesUrl?: string;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const normalizeSiteUrl = (value: string) => value.trim().replace(/\/+$/, "");
+
+const getPublishStep = (status: GitHubPublishStatusResponse) => {
+  if (status.phase === "in_progress") {
+    return "GitHub Actions is building your site...";
+  }
+  if (status.phase === "queued") {
+    return "GitHub Actions queued your deployment...";
+  }
+  if (status.phase === "pending") {
+    return "Waiting for GitHub Actions to start deployment...";
+  }
+  return status.message?.trim() || "Checking GitHub Pages deployment...";
+};
+
+async function waitForBranchAvailability({
+  token,
+  owner,
+  repo,
+  branch,
+  onStep
+}: {
+  token: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  onStep: (value: string) => void;
+}) {
+  let lastErrorMessage = "";
+
+  for (let attempt = 0; attempt < BRANCH_READY_RETRY_DELAYS_MS.length; attempt += 1) {
+    const delay = BRANCH_READY_RETRY_DELAYS_MS[attempt];
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    onStep("Checking repository branch...");
+    try {
+      const branchPayload = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+        token,
+        owner,
+        repo,
+        branch
+      });
+      if (typeof branchPayload?.sha === "string" && branchPayload.sha.length > 0) {
+        return branchPayload.sha;
+      }
+      lastErrorMessage = "Branch did not return a commit SHA yet.";
+    } catch (error) {
+      lastErrorMessage =
+        error instanceof Error ? error.message : "Branch has not propagated yet.";
+    }
+  }
+
+  throw new Error(`Repository branch is not ready yet: ${lastErrorMessage || "unknown error"}`);
+}
+
+async function waitForInitialDeployment({
+  token,
+  owner,
+  repo,
+  branch,
+  publishStartedAt,
+  onStep
+}: {
+  token: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  publishStartedAt: string;
+  onStep: (value: string) => void;
+}) {
+  let lastRunUrl = "";
+
+  for (let attempt = 0; ; attempt += 1) {
+    let status: GitHubPublishStatusResponse | null = null;
+    let requestError: unknown = null;
+
+    try {
+      status = await githubRequest<GitHubPublishStatusResponse>("/.netlify/functions/github-publish-status", {
+        token,
+        owner,
+        repo,
+        branch,
+        publishStartedAt,
+        workflow: "deploy.yml"
+      });
+    } catch (error) {
+      requestError = error;
+    }
+
+    if (status) {
+      if (status.runUrl?.trim()) {
+        lastRunUrl = status.runUrl.trim();
+      }
+
+      if (status.phase === "failed") {
+        const failedMessage =
+          status.message?.trim() ||
+          "GitHub Actions deployment failed. Open GitHub Actions and inspect deploy.yml.";
+        throw new Error(failedMessage);
+      }
+
+      if (status.phase === "deployed") {
+        return status;
+      }
+
+      onStep(getPublishStep(status));
+    }
+
+    const delay = getPublishPollDelayMs(attempt + 1);
+    if (delay === null) {
+      if (requestError instanceof Error) {
+        throw new Error(
+          `${requestError.message} Open GitHub Actions to confirm deployment${lastRunUrl ? `: ${lastRunUrl}` : "."}`
+        );
+      }
+      throw new Error(
+        `Could not confirm deployment completion yet. Open GitHub Actions${lastRunUrl ? `: ${lastRunUrl}` : "."}`
+      );
+    }
+
+    if (!status && requestError instanceof Error) {
+      onStep("Retrying deployment status check...");
+    }
+
+    await sleep(delay);
+  }
+}
 
 export default function SiteCreatePage() {
   const navigate = useNavigate();
@@ -186,15 +337,7 @@ export default function SiteCreatePage() {
 
     try {
       setProvisionStep("Creating your GitHub repository...");
-      const repoResponse = await githubRequest<{
-        repo: {
-          full_name: string;
-          name: string;
-          owner: { login: string };
-          html_url: string;
-          default_branch: string;
-        };
-      }>("/.netlify/functions/github-create-repo", {
+      const repoResponse = await githubRequest<CreateRepoResponse>("/.netlify/functions/github-create-repo", {
         token: providerToken,
         name: slug,
         description: siteDescription.trim(),
@@ -202,16 +345,40 @@ export default function SiteCreatePage() {
       });
 
       const repo = repoResponse.repo;
-      const ownerLogin = repo.owner.login;
+      const ownerLogin = repo?.owner?.login?.trim() ?? "";
+      const repoName = repo?.name?.trim() ?? "";
+      const defaultBranch = repo?.default_branch?.trim() ?? "";
+      const repoFullName = repo?.full_name?.trim() ?? "";
+
+      if (!ownerLogin || !repoName || !defaultBranch || !repoFullName) {
+        throw new Error("GitHub returned an incomplete repository payload.");
+      }
+
       const pagesRootUrl = `https://${ownerLogin}.github.io`;
-      const isUserSite = repo.name.toLowerCase() === `${ownerLogin.toLowerCase()}.github.io`;
-      const baseUrl = isUserSite ? "" : `/${repo.name}`;
-      const siteUrlResolved = isUserSite ? pagesRootUrl : `${pagesRootUrl}${baseUrl}`;
+      const isUserSite = repoName.toLowerCase() === `${ownerLogin.toLowerCase()}.github.io`;
+      const baseUrl = isUserSite ? "" : `/${repoName}`;
+      const siteUrlResolved = normalizeSiteUrl(isUserSite ? pagesRootUrl : `${pagesRootUrl}${baseUrl}`);
 
       setSiteUrl(siteUrlResolved);
+      await waitForBranchAvailability({
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: defaultBranch,
+        onStep: setProvisionStep
+      });
+
+      setProvisionStep("Enabling GitHub Pages...");
+      await githubRequest("/.netlify/functions/github-enable-pages", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: defaultBranch
+      });
 
       const files = buildFiles(siteId, imageUrl, siteUrlResolved);
       const solidaryFile = buildSolidaryFile(siteId, imageUrl, siteUrlResolved);
+      const publishStartedAt = new Date().toISOString();
 
       setProvisionStep("Uploading site image...");
       if (siteImage) {
@@ -219,32 +386,28 @@ export default function SiteCreatePage() {
         await githubRequest("/.netlify/functions/github-contents-write", {
           token: providerToken,
           owner: ownerLogin,
-          repo: repo.name,
+          repo: repoName,
           path: imagePath,
           message: "Add site image",
           content: imageBase64,
-          branch: repo.default_branch
+          branch: defaultBranch
         });
       }
 
       setProvisionStep("Writing content files...");
       for (const [path, content] of Object.entries(files)) {
-        await writeTextFile(providerToken, ownerLogin, repo.name, path, content, repo.default_branch);
+        await writeTextFile(providerToken, ownerLogin, repoName, path, content, defaultBranch);
       }
 
-      setProvisionStep("Enabling GitHub Pages...");
-      try {
-        await githubRequest("/.netlify/functions/github-enable-pages", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repo.name,
-          branch: repo.default_branch
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to enable GitHub Pages.";
-        setNotice(`GitHub Pages couldn't be enabled yet: ${message}`);
-        setNoticeKind("notice");
-      }
+      setProvisionStep("Waiting for GitHub Pages deployment...");
+      await waitForInitialDeployment({
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        branch: defaultBranch,
+        publishStartedAt,
+        onStep: setProvisionStep
+      });
 
       setProvisionStep("Saving site metadata...");
       const { error: siteError } = await supabase.from("sites").insert({
@@ -266,8 +429,8 @@ export default function SiteCreatePage() {
         {
           id: siteId,
           owner_user_id: session.user.id,
-          repo_full_name: repo.full_name,
-          branch: repo.default_branch,
+          repo_full_name: repoFullName,
+          branch: defaultBranch,
           commit_sha: "",
           files: {
             [FILE_KEYS.solidary]: solidaryFile
@@ -327,6 +490,7 @@ export default function SiteCreatePage() {
         throw new Error(pagesError.message);
       }
 
+      setProvisionStep("Opening your site builder...");
       navigate(`/site-builder?draftId=${siteId}`);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
