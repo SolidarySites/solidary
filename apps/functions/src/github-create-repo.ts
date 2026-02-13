@@ -23,6 +23,10 @@ type GhRepoPayload = {
 type GhBranchPayload = {
   commit?: { sha?: string };
 };
+type GhContentReadPayload = {
+  sha?: string;
+  type?: string;
+};
 
 type FileRecord = {
   absPath: string;
@@ -102,26 +106,6 @@ async function ghUserWithRetry<T>({
   }
 
   return last as { res: Response; data: T };
-}
-
-async function mapLimit<T, U>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<U>
-): Promise<U[]> {
-  const results: U[] = new Array(items.length);
-  let i = 0;
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (true) {
-      const idx = i++;
-      if (idx >= items.length) return;
-      results[idx] = await fn(items[idx], idx);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
 }
 
 function normalizeGitPath(pathValue: string) {
@@ -234,151 +218,172 @@ async function getBranchHeadSha({
   return sha;
 }
 
-async function createBlobsTreeAndCommit({
+async function createBranchIfMissing({
   userToken,
   owner,
   repo,
-  files,
-  parentSha
+  branch,
+  fromSha
 }: {
   userToken: string;
   owner: string;
   repo: string;
-  files: FileRecord[];
-  parentSha: string;
+  branch: string;
+  fromSha: string;
 }) {
-  const treeItems = await mapLimit(files, 10, async (file) => {
-    const { contentB64 } = await readFileAsGitBlob(file.absPath, file.mode);
-
-    const { res: blobRes, data: blobData } = await ghUserWithRetry<any>({
-      userToken,
-      url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs`,
-      init: {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: contentB64,
-          encoding: "base64"
-        })
-      },
-      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
-    });
-    assertOk(blobRes, blobData, `Failed creating blob for ${file.relPath}.`);
-
-    return {
-      path: file.relPath,
-      mode: file.mode,
-      type: "blob",
-      sha: blobData.sha as string
-    };
-  });
-
-  const { res: treeRes, data: treeData } = await ghUserWithRetry<any>({
-    userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tree: treeItems })
-    },
-    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
-  });
-  assertOk(treeRes, treeData, "Failed creating tree.");
-
-  const { res: commitRes, data: commitData } = await ghUserWithRetry<any>({
-    userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: "Initialize repository from bundled template",
-        tree: treeData.sha,
-        parents: [parentSha]
-      })
-    },
-    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
-  });
-  assertOk(commitRes, commitData, "Failed creating commit.");
-
-  const commitSha = typeof commitData?.sha === "string" ? commitData.sha : undefined;
-  if (!commitSha) {
-    throw new HttpError(500, "Missing commit SHA from GitHub.");
-  }
-  return commitSha;
-}
-
-async function ensureMainBranchPointsToCommit({
-  userToken,
-  owner,
-  repo,
-  sourceDefaultBranch,
-  commitSha
-}: {
-  userToken: string;
-  owner: string;
-  repo: string;
-  sourceDefaultBranch: string;
-  commitSha: string;
-}) {
-  if (sourceDefaultBranch === TARGET_DEFAULT_BRANCH) {
-    const { res, data } = await ghUserWithRetry<any>({
-      userToken,
-      url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${TARGET_DEFAULT_BRANCH}`,
-      init: {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sha: commitSha,
-          force: false
-        })
-      },
-      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
-    });
-    assertOk(res, data, `Failed updating ${TARGET_DEFAULT_BRANCH} branch.`);
-    return;
-  }
-
-  const mainRef = `refs/heads/${TARGET_DEFAULT_BRANCH}`;
-  const { res: createRes, data: createData } = await ghUserWithRetry<any>({
+  const ref = `refs/heads/${branch}`;
+  const { res, data } = await ghUserWithRetry<any>({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs`,
     init: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ref: mainRef,
-        sha: commitSha
+        ref,
+        sha: fromSha
       })
     },
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
   });
 
-  if (createRes.ok) return;
-  if (createRes.status !== 422) {
-    assertOk(createRes, createData, `Failed creating ${TARGET_DEFAULT_BRANCH} branch.`);
+  if (res.ok || res.status === 422) return;
+  assertOk(res, data, `Failed creating ${branch} branch for ${owner}/${repo}.`);
+}
+
+async function getFileSha({
+  userToken,
+  owner,
+  repo,
+  path,
+  branch
+}: {
+  userToken: string;
+  owner: string;
+  repo: string;
+  path: string;
+  branch: string;
+}) {
+  const url = new URL(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`);
+  url.searchParams.set("ref", branch);
+
+  const { res, data } = await ghUserWithRetry<GhContentReadPayload | GhErrorPayload>({
+    userToken,
+    url: url.toString(),
+    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+  });
+
+  if (res.status === 404) {
+    return null;
+  }
+  assertOk(res, data, `Failed reading ${path} in ${owner}/${repo}.`);
+
+  const payload = data as GhContentReadPayload;
+  if (payload.type && payload.type !== "file") {
+    throw new HttpError(
+      422,
+      `Path ${path} in ${owner}/${repo} is not a regular file (${payload.type}).`
+    );
   }
 
-  const { res: patchRes, data: patchData } = await ghUserWithRetry<any>({
+  return typeof payload.sha === "string" ? payload.sha : null;
+}
+
+async function writeFileToBranch({
+  userToken,
+  owner,
+  repo,
+  branch,
+  file
+}: {
+  userToken: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  file: FileRecord;
+}) {
+  if (file.mode === "120000") {
+    throw new HttpError(
+      500,
+      `Template file ${file.relPath} is a symlink and cannot be written through the GitHub contents API.`
+    );
+  }
+
+  const { contentB64 } = await readFileAsGitBlob(file.absPath, file.mode);
+
+  const writeOnce = async (sha?: string | null) =>
+    ghUserWithRetry<any>({
+      userToken,
+      url: `${GITHUB_API}/repos/${owner}/${repo}/contents/${file.relPath}`,
+      init: {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Seed ${file.relPath}`,
+          content: contentB64,
+          branch,
+          sha: sha ?? undefined
+        })
+      },
+      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+    });
+
+  let currentSha = await getFileSha({
     userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${TARGET_DEFAULT_BRANCH}`,
-    init: {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sha: commitSha,
-        force: false
-      })
-    },
-    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+    owner,
+    repo,
+    path: file.relPath,
+    branch
   });
-  assertOk(patchRes, patchData, `Failed updating ${TARGET_DEFAULT_BRANCH} branch.`);
+
+  let { res, data } = await writeOnce(currentSha);
+  if (!res.ok && (res.status === 409 || res.status === 422)) {
+    currentSha = await getFileSha({
+      userToken,
+      owner,
+      repo,
+      path: file.relPath,
+      branch
+    });
+    ({ res, data } = await writeOnce(currentSha));
+  }
+
+  assertOk(res, data, `Failed writing template file ${file.relPath} to ${owner}/${repo}.`);
+
+  if (file.mode === "100755") {
+    console.log("[github-create-repo] executable bit not preserved by contents API", {
+      owner,
+      repo,
+      path: file.relPath
+    });
+  }
+}
+
+async function seedTemplateFiles({
+  userToken,
+  owner,
+  repo,
+  branch,
+  files
+}: {
+  userToken: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  files: FileRecord[];
+}) {
+  const sortedFiles = [...files].sort((a, b) => a.relPath.localeCompare(b.relPath));
+  for (const file of sortedFiles) {
+    await writeFileToBranch({
+      userToken,
+      owner,
+      repo,
+      branch,
+      file
+    });
+  }
 }
 
 async function setDefaultBranch({
@@ -506,27 +511,36 @@ export const handler: Handler = async (event) => {
     const repoAfterCreate = await getRepo({ userToken, owner, repo });
     const initialDefaultBranch =
       repoAfterCreate.default_branch || newRepoData.default_branch || TARGET_DEFAULT_BRANCH;
-    const baseSha = await getBranchHeadSha({
+    const initialHeadSha = await getBranchHeadSha({
       userToken,
       owner,
       repo,
       branch: initialDefaultBranch
     });
 
-    const commitSha = await createBlobsTreeAndCommit({
+    if (initialDefaultBranch !== TARGET_DEFAULT_BRANCH) {
+      await createBranchIfMissing({
+        userToken,
+        owner,
+        repo,
+        branch: TARGET_DEFAULT_BRANCH,
+        fromSha: initialHeadSha
+      });
+    }
+
+    await getBranchHeadSha({
       userToken,
       owner,
       repo,
-      files: templateFiles,
-      parentSha: baseSha
+      branch: TARGET_DEFAULT_BRANCH
     });
 
-    await ensureMainBranchPointsToCommit({
+    await seedTemplateFiles({
       userToken,
       owner,
       repo,
-      sourceDefaultBranch: initialDefaultBranch,
-      commitSha
+      branch: TARGET_DEFAULT_BRANCH,
+      files: templateFiles
     });
 
     await setDefaultBranch({
