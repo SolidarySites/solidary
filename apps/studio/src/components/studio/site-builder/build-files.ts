@@ -38,6 +38,30 @@ const normalizeFooterModules = (modules: FooterOptions["modules"]) => {
   return normalized;
 };
 
+const getBasePathFromSiteUrl = (siteUrl: string) => {
+  const trimmed = siteUrl.trim();
+  if (!trimmed) return "";
+
+  try {
+    const pathname = new URL(trimmed).pathname.trim();
+    if (!pathname || pathname === "/") return "";
+    return `/${pathname.replace(/^\/+|\/+$/g, "")}`;
+  } catch {
+    return "";
+  }
+};
+
+const rewriteUploadsForBasePath = (body: string, basePath: string) => {
+  if (!basePath || !body.includes("/images/uploads/")) return body;
+
+  return body.replace(/((?:src|href)\s*=\s*["'])([^"']+)(["'])/gi, (_match, prefix, value, suffix) => {
+    if (typeof value !== "string") return `${prefix}${value}${suffix}`;
+    if (value.startsWith(`${basePath}/images/uploads/`)) return `${prefix}${value}${suffix}`;
+    if (!value.startsWith("/images/uploads/")) return `${prefix}${value}${suffix}`;
+    return `${prefix}${basePath}${value}${suffix}`;
+  });
+};
+
 export const buildSettingsPayload = (
   input: SiteSettingsInput,
   imageUrl: string,
@@ -112,6 +136,7 @@ export const buildFiles = ({
   urlOverride
 }: BuildFilesInput) => {
   const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
+  const publishBasePath = getBasePathFromSiteUrl(settings.siteUrl);
   const files: RepoFileSet = {
     [FILE_KEYS.site]: buildSiteTs(settings),
     [FILE_KEYS.tokens]: tokensCss,
@@ -129,7 +154,8 @@ export const buildFiles = ({
 
   pages.forEach((page, index) => {
     const safeSlug = getPageSafeSlug(page, index);
-    const body = page.isHome && !page.body?.trim() ? defaultHomeContent : page.body ?? "";
+    const baseBody = page.isHome && !page.body?.trim() ? defaultHomeContent : page.body ?? "";
+    const body = rewriteUploadsForBasePath(baseBody, publishBasePath);
     files[`${PAGE_PATH_PREFIX}${safeSlug}.md`] = buildPageMarkdown({
       ...page,
       slug: safeSlug,
