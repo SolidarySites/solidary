@@ -115,7 +115,7 @@ export default function StudioPage() {
       provider: "github",
       options: {
         redirectTo: window.location.origin,
-        scopes: "repo delete_repo"
+        scopes: "repo delete_repo workflow"
       }
     });
 

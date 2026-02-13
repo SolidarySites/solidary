@@ -366,6 +366,13 @@ async function writeFileToBranch({
     ({ res, data } = await writeOnce(currentSha ?? null));
   }
 
+  if (!res.ok && file.relPath.startsWith(".github/workflows/")) {
+    throw new HttpError(
+      403,
+      "GitHub token is missing permission to write workflow files. Sign out and sign in again so GitHub grants the 'workflow' scope."
+    );
+  }
+
   assertOk(res, data, `Failed writing template file ${file.relPath} to ${owner}/${repo}.`);
 
   if (file.mode === "100755") {

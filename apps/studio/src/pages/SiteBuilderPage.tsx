@@ -533,7 +533,7 @@ export default function SiteBuilderPage() {
       provider: "github",
       options: {
         redirectTo: window.location.origin,
-        scopes: "repo delete_repo"
+        scopes: "repo delete_repo workflow"
       }
     });
 
