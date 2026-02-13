@@ -1,1 +1,0 @@
-{"edge_id":"00000000-0000-0000-0000-000000000000","kind":"reference","source":{"site_id":"00000000-0000-0000-0000-000000000000","doc_id":"example-doc"},"target":{"type":"external","url":"https://example.com"},"asserted_at":"2026-02-02T00:00:00Z","evidence_url":"https://example.com/solidary-links/links.ndjson","evidence_hash":"","edge_hash":""}

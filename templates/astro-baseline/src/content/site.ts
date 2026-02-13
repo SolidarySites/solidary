@@ -24,10 +24,9 @@ export type SiteConfig = {
 };
 
 export const site: SiteConfig = {
-  name: "Astro Baseline",
-  description:
-    "Astro Baseline is a minimal HTML-first starter with senior defaults: SEO, JSON-LD, a11y basics, and clean structure.",
-  url: import.meta.env.SITE_URL ?? "https://example.com",
+  name: "Solidary Site",
+  description: "Solidary Site Description.",
+  url: "https://example.com",
   seo: {
     ogImage: "/images/og/og-default.jpg",
     robots: "index,follow"
@@ -35,7 +34,7 @@ export const site: SiteConfig = {
   header: {
     disabled: false,
     fixed: false,
-    brandText: "Astro Baseline",
+    brandText: "Solidary",
     disableBrand: false
   },
   footer: {
