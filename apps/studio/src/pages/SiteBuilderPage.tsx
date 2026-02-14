@@ -77,6 +77,12 @@ const normalizeSitePath = (value: string) => {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 };
 
+const toExternalUrl = (value: string | null | undefined) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+};
+
 const footerModuleAlignmentFallback: FooterModuleAlignment[] = ["left", "center", "right"];
 
 const normalizeFooterModules = (modules: FooterModule[]) => {
@@ -260,6 +266,9 @@ export default function SiteBuilderPage() {
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
     return candidate || null;
   }, [publishFeedback, siteUrl]);
+  const liveSiteUrl = toExternalUrl(publishedSiteBaseUrl ?? siteUrl);
+  const githubRepoFullName = draftState?.repoFullName?.trim() ?? "";
+  const githubRepoUrl = githubRepoFullName ? `https://github.com/${githubRepoFullName}` : null;
   const siteSettingsInput = useMemo(
     () => ({
       siteTitle,
@@ -1247,6 +1256,8 @@ export default function SiteBuilderPage() {
         provisionStep={provisionStep}
         canSaveDraft={canSaveDraft}
         canPublish={canPublish}
+        liveSiteUrl={liveSiteUrl}
+        githubRepoUrl={githubRepoUrl}
         publishFeedback={publishFeedback}
         onSaveDraft={handleSaveDraft}
         onPublish={handlePublish}

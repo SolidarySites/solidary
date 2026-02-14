@@ -7,6 +7,8 @@ type BuilderTopbarProps = {
   provisionStep: string;
   canSaveDraft: boolean;
   canPublish: boolean;
+  liveSiteUrl: string | null;
+  githubRepoUrl: string | null;
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
   onPublish: () => void;
@@ -18,13 +20,26 @@ const BuilderTopbar = ({
   provisionStep,
   canSaveDraft,
   canPublish,
+  liveSiteUrl,
+  githubRepoUrl,
   publishFeedback,
   onSaveDraft,
   onPublish
 }: BuilderTopbarProps) => (
   <div className="builder-topbar">
     <div className="builder-topbar-main">
-      <h1>Site Builder</h1>
+      <div className="builder-topbar-links">
+        {liveSiteUrl && (
+          <a href={liveSiteUrl} target="_blank" rel="noopener noreferrer">
+            Live site
+          </a>
+        )}
+        {githubRepoUrl && (
+          <a href={githubRepoUrl} target="_blank" rel="noopener noreferrer">
+            GitHub repo
+          </a>
+        )}
+      </div>
     </div>
     <BuilderActions
       savingDraft={savingDraft}
