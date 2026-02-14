@@ -15,6 +15,7 @@ type StartRepoProvisionBody = {
   site_title?: string;
   site_description?: string;
   site_image_path?: string;
+  site_image_content_b64?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -77,6 +78,7 @@ export const handler: Handler = async (event) => {
   const siteTitle = body.site_title?.trim();
   const siteDescription = body.site_description?.trim();
   const siteImagePath = body.site_image_path?.trim();
+  const siteImageContentB64 = body.site_image_content_b64?.trim();
 
   if (!userToken || !name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -135,7 +137,8 @@ export const handler: Handler = async (event) => {
           siteId,
           siteTitle,
           siteDescription,
-          siteImagePath
+          siteImagePath,
+          siteImageContentB64
         })
       });
     } catch (error) {

@@ -15,6 +15,9 @@ import { slugify, toBase64 } from "../studio/utils";
 const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
 };
+const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images";
+const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-default.jpg`;
+const DEFAULT_OG_IMAGE_URL = `/${DEFAULT_OG_IMAGE_PATH.replace(/^public\//, "")}`;
 
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 800, 1600, 3200, 6400, 10000];
 
@@ -389,8 +392,10 @@ export default function SiteCreatePage() {
 
     const normalizedTitle = siteTitle.trim();
     const slug = computedSlug || `site-${Date.now()}`;
-    const imagePath = siteImage ? `public/images/site-image-${slug}.jpg` : "public/images/og/og-default.jpg";
-    const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : "/images/og/og-default.jpg";
+    const imagePath = siteImage
+      ? `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image-${slug}.jpg`
+      : DEFAULT_OG_IMAGE_PATH;
+    const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
     const siteId = crypto.randomUUID();
 
     setIsProvisioning(true);
@@ -408,7 +413,8 @@ export default function SiteCreatePage() {
         site_id: siteId,
         site_title: normalizedTitle,
         site_description: siteDescription.trim(),
-        site_image_path: siteImage ? imagePath : undefined
+        site_image_path: siteImage ? imagePath : undefined,
+        site_image_content_b64: siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined
       });
 
       const jobId = startResponse.job?.id?.trim() ?? "";
@@ -454,19 +460,6 @@ export default function SiteCreatePage() {
       });
 
       const solidaryFile = buildSolidaryFile(siteId, imageUrl, siteUrlResolved);
-
-      if (siteImage) {
-        setProvisionStep("Uploading site image...");
-        await githubRequest("/.netlify/functions/github-contents-write", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repoName,
-          path: imagePath,
-          message: "Add site image",
-          content: toBase64(await siteImage.arrayBuffer()),
-          branch: defaultBranch
-        });
-      }
 
       setProvisionStep("Waiting for GitHub Pages deployment...");
       await waitForInitialDeployment({

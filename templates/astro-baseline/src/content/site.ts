@@ -28,7 +28,7 @@ export const site: SiteConfig = {
   description: "Solidary Site Description.",
   url: "https://example.com",
   seo: {
-    ogImage: "/images/og/og-default.jpg",
+    ogImage: "/solidary-media/images/og/og-default.jpg",
     robots: "index,follow"
   },
   header: {

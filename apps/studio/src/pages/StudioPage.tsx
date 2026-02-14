@@ -133,7 +133,7 @@ export default function StudioPage() {
     if (!session) return;
 
     if (mode === "builder") {
-      const { error } = await supabase.from("site_drafts").delete().eq("id", item.id);
+      const { error } = await supabase.from("sites").delete().eq("id", item.id);
       if (error) {
         setNotice(error.message);
         setNoticeKind("error");
@@ -180,7 +180,7 @@ export default function StudioPage() {
       return;
     }
 
-    const { error } = await supabase.from("site_drafts").delete().eq("id", item.id);
+    const { error } = await supabase.from("sites").delete().eq("id", item.id);
     if (error) {
       setNotice(error.message);
       setNoticeKind("error");

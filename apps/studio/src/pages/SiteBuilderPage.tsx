@@ -48,6 +48,9 @@ import { slugify, toBase64 } from "../studio/utils";
 const defaultHomeContent = stripFrontmatter(homeTemplate);
 const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
+const SOLIDARY_MEDIA_IMAGES_BASE_PATH = "/solidary-media/images";
+const SOLIDARY_MEDIA_UPLOADS_BASE_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/uploads`;
+const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-default.jpg`;
 const DEFAULT_FOOTER_MODULES: FooterModule[] = [
   { content: "%copyright%", alignment: "left" },
   { content: "", alignment: "center" },
@@ -101,7 +104,7 @@ const getSitePathFromStoragePath = (storagePath: string) => {
   if (!normalized) return "";
   const filename = normalized.split("/").pop()?.trim();
   if (!filename) return "";
-  return `/images/uploads/${filename}`;
+  return `${SOLIDARY_MEDIA_UPLOADS_BASE_PATH}/${filename}`;
 };
 
 const isDraftStoragePublicUrl = (publicUrl: string) => {
@@ -288,8 +291,8 @@ export default function SiteBuilderPage() {
     ]
   );
   const draftSaveImageUrl = useMemo(() => {
-    if (siteImage) return draftImageUrl || "/images/og/og-default.jpg";
-    return siteImagePreview || draftImageUrl || "/images/og/og-default.jpg";
+    if (siteImage) return draftImageUrl || DEFAULT_OG_IMAGE_URL;
+    return siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
   }, [siteImage, siteImagePreview, draftImageUrl]);
   const currentDraftSignature = useMemo(() => {
     if (!draftState) return "";
@@ -797,10 +800,12 @@ export default function SiteBuilderPage() {
       }
 
       const slug = computedSlug || `site-${Date.now()}`;
-      const imagePath = siteImage ? `public/images/site-image-${slug}.jpg` : "public/images/og/og-default.jpg";
+      const imagePath = siteImage
+        ? `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image-${slug}.jpg`
+        : `public${DEFAULT_OG_IMAGE_URL}`;
       const imageUrl = siteImage
         ? `/${imagePath.replace(/^public\//, "")}`
-        : draftImageUrl || siteImagePreview || "/images/og/og-default.jpg";
+        : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
       const normalizedPages = pages.map((page) => ({
         ...page,
         body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
@@ -964,8 +969,8 @@ export default function SiteBuilderPage() {
         body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
       }));
       const imageUrl = siteImage
-        ? draftImageUrl || "/images/og/og-default.jpg"
-        : siteImagePreview || draftImageUrl || "/images/og/og-default.jpg";
+        ? draftImageUrl || DEFAULT_OG_IMAGE_URL
+        : siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
       const solidaryFile = buildSolidaryFile({
         templateSolidary,
         siteId: draftState.id,
@@ -1063,7 +1068,7 @@ export default function SiteBuilderPage() {
     const fileExtension = getImageExtension(file);
     const filename = `${Date.now()}-${fileBaseName}-${crypto.randomUUID().slice(0, 8)}.${fileExtension}`;
     const storagePath = `drafts/${draftState.id}/${filename}`;
-    const sitePath = `/images/uploads/${filename}`;
+    const sitePath = `${SOLIDARY_MEDIA_UPLOADS_BASE_PATH}/${filename}`;
 
     try {
       setUploadingInlineImage(true);

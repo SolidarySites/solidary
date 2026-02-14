@@ -17,7 +17,8 @@ const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astr
 const EXCLUDE_FILES = new Set<string>([".DS_Store"]);
 const SITE_FILE_REL_PATH = "src/content/site.ts";
 const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary-links.json";
-const DEFAULT_OG_IMAGE_URL = "/images/og/og-default.jpg";
+const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
+const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-default.jpg";
 
 const SITE_TS_TEMPLATE = `// src/content/site.ts
 export type SiteConfig = {
@@ -122,6 +123,7 @@ type ProvisionWorkerBody = {
   siteTitle?: string;
   siteDescription?: string;
   siteImagePath?: string;
+  siteImageContentB64?: string;
 };
 
 class HttpError extends Error {
@@ -167,8 +169,8 @@ const normalizeRepoImagePath = (pathValue: string) => {
   if (!normalized) {
     throw new Error("Site image path is empty.");
   }
-  if (!normalized.startsWith("public/")) {
-    throw new Error("Site image path must start with public/.");
+  if (!normalized.startsWith(SOLIDARY_MEDIA_IMAGE_ROOT)) {
+    throw new Error(`Site image path must start with ${SOLIDARY_MEDIA_IMAGE_ROOT}.`);
   }
   if (normalized.split("/").includes("..")) {
     throw new Error("Site image path contains invalid segments.");
@@ -231,7 +233,8 @@ function applyCreateFlowOverridesToTemplateFiles({
   siteId,
   siteTitle,
   siteDescription,
-  siteImagePath
+  siteImagePath,
+  siteImageContentB64
 }: {
   files: FileRecord[];
   owner: string;
@@ -242,6 +245,7 @@ function applyCreateFlowOverridesToTemplateFiles({
   siteTitle: string;
   siteDescription: string;
   siteImagePath: string;
+  siteImageContentB64: string;
 }) {
   if (!siteId) {
     return files;
@@ -283,6 +287,14 @@ function applyCreateFlowOverridesToTemplateFiles({
       "utf8"
     ).toString("base64")
   });
+
+  if (imageRelPath && siteImageContentB64) {
+    nextByPath.set(imageRelPath, {
+      relPath: imageRelPath,
+      mode: "100644",
+      contentB64: siteImageContentB64
+    });
+  }
 
   return Array.from(nextByPath.values());
 }
@@ -805,6 +817,7 @@ export const handler: Handler = async (event) => {
     const siteTitle = payload.siteTitle?.trim() ?? "";
     const siteDescription = payload.siteDescription?.trim() ?? "";
     const siteImagePath = payload.siteImagePath?.trim() ?? "";
+    const siteImageContentB64 = payload.siteImageContentB64?.trim() ?? "";
 
     await updateJob({
       step: "Loading template files..."
@@ -876,7 +889,8 @@ export const handler: Handler = async (event) => {
       siteId,
       siteTitle,
       siteDescription,
-      siteImagePath
+      siteImagePath,
+      siteImageContentB64
     });
 
     await updateJob({
