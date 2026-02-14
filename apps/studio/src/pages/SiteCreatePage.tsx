@@ -5,16 +5,14 @@ import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import { getPublishPollDelayMs } from "../components/studio/site-builder/utils";
 import { supabase } from "../lib/supabase";
-import type { NoticeKind, RepoFileSet } from "../studio/types";
+import type { NoticeKind } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
-import { buildSiteTs, type AstroPageDraft, type AstroSettings } from "../studio/astro";
-import { githubRequest, writeTextFile } from "../studio/github";
+import { type AstroPageDraft, type AstroSettings } from "../studio/astro";
+import { githubRequest } from "../studio/github";
 import { slugify, toBase64 } from "../studio/utils";
 
 const FILE_KEYS = {
-  site: "src/content/site.ts",
-  tokens: "src/styles/partials/tokens.css",
   solidary: "public/.well-known/solidary-links.json"
 };
 
@@ -359,18 +357,6 @@ export default function SiteCreatePage() {
       .replaceAll("{{IMAGE_URL}}", imageUrl);
   };
 
-  const buildFiles = (siteId: string, imageUrl: string, urlOverride?: string) => {
-    const settings = buildSettingsPayload(imageUrl, urlOverride);
-
-    const files: RepoFileSet = {
-      [FILE_KEYS.site]: buildSiteTs(settings),
-      [FILE_KEYS.tokens]: tokensCss,
-      [FILE_KEYS.solidary]: buildSolidaryFile(siteId, imageUrl, urlOverride)
-    };
-
-    return files;
-  };
-
   const handleProvision = async () => {
     setNotice(null);
     setNoticeKind(null);
@@ -410,13 +396,19 @@ export default function SiteCreatePage() {
     setIsProvisioning(true);
 
     try {
+      const publishStartedAt = new Date().toISOString();
+
       setProvisionStep("Queueing repository provisioning...");
       const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
         token: providerToken,
         name: slug,
         description: siteDescription.trim(),
         private: false,
-        supabase_access_token: supabaseAccessToken
+        supabase_access_token: supabaseAccessToken,
+        site_id: siteId,
+        site_title: normalizedTitle,
+        site_description: siteDescription.trim(),
+        site_image_path: siteImage ? imagePath : undefined
       });
 
       const jobId = startResponse.job?.id?.trim() ?? "";
@@ -461,27 +453,19 @@ export default function SiteCreatePage() {
         branch: defaultBranch
       });
 
-      const files = buildFiles(siteId, imageUrl, siteUrlResolved);
       const solidaryFile = buildSolidaryFile(siteId, imageUrl, siteUrlResolved);
-      const publishStartedAt = new Date().toISOString();
 
-      setProvisionStep("Uploading site image...");
       if (siteImage) {
-        const imageBase64 = toBase64(await siteImage.arrayBuffer());
+        setProvisionStep("Uploading site image...");
         await githubRequest("/.netlify/functions/github-contents-write", {
           token: providerToken,
           owner: ownerLogin,
           repo: repoName,
           path: imagePath,
           message: "Add site image",
-          content: imageBase64,
+          content: toBase64(await siteImage.arrayBuffer()),
           branch: defaultBranch
         });
-      }
-
-      setProvisionStep("Writing content files...");
-      for (const [path, content] of Object.entries(files)) {
-        await writeTextFile(providerToken, ownerLogin, repoName, path, content, defaultBranch);
       }
 
       setProvisionStep("Waiting for GitHub Pages deployment...");

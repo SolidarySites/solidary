@@ -11,6 +11,10 @@ type StartRepoProvisionBody = {
   description?: string;
   private?: boolean;
   supabase_access_token?: string;
+  site_id?: string;
+  site_title?: string;
+  site_description?: string;
+  site_image_path?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -69,6 +73,10 @@ export const handler: Handler = async (event) => {
   const description = typeof body.description === "string" ? body.description : "";
   const isPrivate = body.private === undefined ? false : Boolean(body.private);
   const supabaseAccessToken = body.supabase_access_token?.trim();
+  const siteId = body.site_id?.trim();
+  const siteTitle = body.site_title?.trim();
+  const siteDescription = body.site_description?.trim();
+  const siteImagePath = body.site_image_path?.trim();
 
   if (!userToken || !name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -123,7 +131,11 @@ export const handler: Handler = async (event) => {
           token: userToken,
           name,
           description,
-          private: isPrivate
+          private: isPrivate,
+          siteId,
+          siteTitle,
+          siteDescription,
+          siteImagePath
         })
       });
     } catch (error) {

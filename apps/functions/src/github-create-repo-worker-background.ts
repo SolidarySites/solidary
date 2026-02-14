@@ -15,6 +15,74 @@ const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ??
 
 const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
 const EXCLUDE_FILES = new Set<string>([".DS_Store"]);
+const SITE_FILE_REL_PATH = "src/content/site.ts";
+const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary-links.json";
+const DEFAULT_OG_IMAGE_URL = "/images/og/og-default.jpg";
+
+const SITE_TS_TEMPLATE = `// src/content/site.ts
+export type SiteConfig = {
+  name: string;
+  description: string;
+  url: string;
+  seo: {
+    ogImage?: string;
+    robots: string;
+  };
+  header: {
+    disabled: boolean;
+    fixed: boolean;
+    brandText: string;
+    disableBrand: boolean;
+  };
+  footer: {
+    disabled: boolean;
+    fixed: boolean;
+    modules: Array<{
+      content: string;
+      alignment: "left" | "center" | "right";
+    }>;
+  };
+};
+
+const parseTemplateBoolean = (value: string) => value === "true";
+
+export const site: SiteConfig = {
+  name: "{{TITLE}}",
+  description: "{{DESCRIPTION}}",
+  url: "{{SITE_URL}}",
+  seo: {
+    ogImage: "{{OG_IMAGE}}",
+    robots: "index,follow"
+  },
+  header: {
+    disabled: parseTemplateBoolean("{{HEADER_DISABLED}}"),
+    fixed: parseTemplateBoolean("{{HEADER_FIXED}}"),
+    brandText: "{{HEADER_BRAND_TEXT}}",
+    disableBrand: parseTemplateBoolean("{{HEADER_DISABLE_BRAND}}")
+  },
+  footer: {
+    disabled: parseTemplateBoolean("{{FOOTER_DISABLED}}"),
+    fixed: parseTemplateBoolean("{{FOOTER_FIXED}}"),
+    modules: JSON.parse("{{FOOTER_MODULES}}")
+  }
+};
+`;
+
+const SOLIDARY_LINKS_TEMPLATE = `{
+  "protocol_version": "1.0",
+  "site_id": "{{SITE_ID}}",
+  "site_url": "{{SITE_URL}}",
+  "title": "{{TITLE}}",
+  "image_url": "{{IMAGE_URL}}",
+  "description": "{{DESCRIPTION}}"
+}
+`;
+
+const DEFAULT_FOOTER_MODULES = [
+  { content: "%copyright%", alignment: "left" },
+  { content: "", alignment: "center" },
+  { content: "", alignment: "right" }
+] as const;
 
 type GhErrorPayload = { message?: string; documentation_url?: string };
 type GhRepoPayload = {
@@ -50,6 +118,10 @@ type ProvisionWorkerBody = {
   name?: string;
   description?: string;
   private?: boolean;
+  siteId?: string;
+  siteTitle?: string;
+  siteDescription?: string;
+  siteImagePath?: string;
 };
 
 class HttpError extends Error {
@@ -81,6 +153,139 @@ const parseBody = (rawBody: string | null): ProvisionWorkerBody => {
     throw new Error("Invalid JSON payload.");
   }
 };
+
+const escapeTemplateValue = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+
+const resolveSiteUrlForRepo = (owner: string, repo: string) => {
+  const pagesRootUrl = `https://${owner}.github.io`;
+  const isUserSite = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`;
+  return isUserSite ? pagesRootUrl : `${pagesRootUrl}/${repo}`;
+};
+
+const normalizeRepoImagePath = (pathValue: string) => {
+  const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Site image path is empty.");
+  }
+  if (!normalized.startsWith("public/")) {
+    throw new Error("Site image path must start with public/.");
+  }
+  if (normalized.split("/").includes("..")) {
+    throw new Error("Site image path contains invalid segments.");
+  }
+  return normalized;
+};
+
+function renderSiteTs({
+  title,
+  description,
+  siteUrl,
+  imageUrl
+}: {
+  title: string;
+  description: string;
+  siteUrl: string;
+  imageUrl: string;
+}) {
+  return SITE_TS_TEMPLATE
+    .replaceAll("{{TITLE}}", escapeTemplateValue(title))
+    .replaceAll("{{DESCRIPTION}}", escapeTemplateValue(description))
+    .replaceAll("{{SITE_URL}}", escapeTemplateValue(siteUrl))
+    .replaceAll("{{OG_IMAGE}}", escapeTemplateValue(imageUrl))
+    .replaceAll("{{HEADER_DISABLED}}", "false")
+    .replaceAll("{{HEADER_FIXED}}", "false")
+    .replaceAll("{{HEADER_BRAND_TEXT}}", escapeTemplateValue(title))
+    .replaceAll("{{HEADER_DISABLE_BRAND}}", "false")
+    .replaceAll("{{FOOTER_DISABLED}}", "false")
+    .replaceAll("{{FOOTER_FIXED}}", "false")
+    .replaceAll("{{FOOTER_MODULES}}", escapeTemplateValue(JSON.stringify(DEFAULT_FOOTER_MODULES)));
+}
+
+function renderSolidaryLinksFile({
+  siteId,
+  title,
+  description,
+  siteUrl,
+  imageUrl
+}: {
+  siteId: string;
+  title: string;
+  description: string;
+  siteUrl: string;
+  imageUrl: string;
+}) {
+  return SOLIDARY_LINKS_TEMPLATE
+    .replaceAll("{{SITE_ID}}", escapeTemplateValue(siteId))
+    .replaceAll("{{TITLE}}", escapeTemplateValue(title))
+    .replaceAll("{{DESCRIPTION}}", escapeTemplateValue(description))
+    .replaceAll("{{SITE_URL}}", escapeTemplateValue(siteUrl))
+    .replaceAll("{{IMAGE_URL}}", escapeTemplateValue(imageUrl));
+}
+
+function applyCreateFlowOverridesToTemplateFiles({
+  files,
+  owner,
+  repo,
+  fallbackTitle,
+  fallbackDescription,
+  siteId,
+  siteTitle,
+  siteDescription,
+  siteImagePath
+}: {
+  files: FileRecord[];
+  owner: string;
+  repo: string;
+  fallbackTitle: string;
+  fallbackDescription: string;
+  siteId: string;
+  siteTitle: string;
+  siteDescription: string;
+  siteImagePath: string;
+}) {
+  if (!siteId) {
+    return files;
+  }
+
+  const resolvedTitle = siteTitle || fallbackTitle;
+  const resolvedDescription = siteDescription || fallbackDescription;
+  const siteUrl = resolveSiteUrlForRepo(owner, repo);
+  const imageRelPath = siteImagePath ? normalizeRepoImagePath(siteImagePath) : "";
+  const imageUrl = imageRelPath ? `/${imageRelPath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
+
+  const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
+
+  nextByPath.set(SITE_FILE_REL_PATH, {
+    relPath: SITE_FILE_REL_PATH,
+    mode: "100644",
+    contentB64: Buffer.from(
+      renderSiteTs({
+        title: resolvedTitle,
+        description: resolvedDescription,
+        siteUrl,
+        imageUrl
+      }),
+      "utf8"
+    ).toString("base64")
+  });
+
+  nextByPath.set(SOLIDARY_FILE_REL_PATH, {
+    relPath: SOLIDARY_FILE_REL_PATH,
+    mode: "100644",
+    contentB64: Buffer.from(
+      renderSolidaryLinksFile({
+        siteId,
+        title: resolvedTitle,
+        description: resolvedDescription,
+        siteUrl,
+        imageUrl
+      }),
+      "utf8"
+    ).toString("base64")
+  });
+
+  return Array.from(nextByPath.values());
+}
 
 const createSupabaseAdmin = () =>
   createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
@@ -596,6 +801,10 @@ export const handler: Handler = async (event) => {
     const name = parsedName;
     const description = typeof payload.description === "string" ? payload.description : "";
     const isPrivate = payload.private === undefined ? false : Boolean(payload.private);
+    const siteId = payload.siteId?.trim() ?? "";
+    const siteTitle = payload.siteTitle?.trim() ?? "";
+    const siteDescription = payload.siteDescription?.trim() ?? "";
+    const siteImagePath = payload.siteImagePath?.trim() ?? "";
 
     await updateJob({
       step: "Loading template files..."
@@ -658,6 +867,18 @@ export const handler: Handler = async (event) => {
       });
     }
 
+    const templateFilesForCreateFlow = applyCreateFlowOverridesToTemplateFiles({
+      files: templateFiles,
+      owner,
+      repo,
+      fallbackTitle: name,
+      fallbackDescription: description,
+      siteId,
+      siteTitle,
+      siteDescription,
+      siteImagePath
+    });
+
     await updateJob({
       step: "Creating template commit (0%)..."
     });
@@ -666,7 +887,7 @@ export const handler: Handler = async (event) => {
       owner,
       repo,
       branch: TARGET_DEFAULT_BRANCH,
-      files: templateFiles,
+      files: templateFilesForCreateFlow,
       onProgress: async (completed, total) => {
         const percent = Math.max(1, Math.round((completed / Math.max(1, total)) * 100));
         await updateJob({
