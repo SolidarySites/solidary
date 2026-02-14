@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "public/images/**"
+      - "public/solidary-media/**"
   workflow_dispatch:
 
 permissions:
