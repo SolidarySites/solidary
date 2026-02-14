@@ -104,6 +104,17 @@ const getSitePathFromStoragePath = (storagePath: string) => {
   return `/images/uploads/${filename}`;
 };
 
+const isDraftStoragePublicUrl = (publicUrl: string) => {
+  const trimmed = publicUrl.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.pathname.includes(`/storage/v1/object/public/${SITE_DRAFT_IMAGES_BUCKET}/`);
+  } catch {
+    return false;
+  }
+};
+
 const replaceDraftImageUrlsWithSitePaths = (body: string, draftImages: DraftImageAsset[]) => {
   let nextBody = body;
   draftImages.forEach((image) => {
@@ -723,6 +734,7 @@ export default function SiteBuilderPage() {
     for (const image of images) {
       const sitePath = normalizeSitePath(image.sitePath);
       if (!sitePath || !image.storagePath.trim()) continue;
+      if (!isDraftStoragePublicUrl(image.publicUrl)) continue;
       const repoPath = `public${sitePath}`;
 
       const { data: downloadData, error: downloadError } = await supabase.storage
