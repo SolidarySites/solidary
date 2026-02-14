@@ -26,9 +26,15 @@ type GhRepoPayload = {
 type GhBranchPayload = {
   commit?: { sha?: string };
 };
-type GhContentReadPayload = {
+type GhCommitPayload = {
   sha?: string;
-  type?: string;
+  tree?: { sha?: string };
+};
+type GhBlobPayload = {
+  sha?: string;
+};
+type GhTreePayload = {
+  sha?: string;
 };
 
 type FileRecord = {
@@ -57,6 +63,8 @@ class HttpError extends Error {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const WORKFLOW_SCOPE_ERROR_MESSAGE =
+  "GitHub token is missing permission to write workflow files. Sign out and sign in again so GitHub grants the 'workflow' scope.";
 
 function safeJson(statusCode: number, body: unknown) {
   return {
@@ -280,113 +288,33 @@ async function createBranchIfMissing({
   assertOk(res, data, `Failed creating ${branch} branch for ${owner}/${repo}.`);
 }
 
-async function getFileSha({
+async function getCommitTreeSha({
   userToken,
   owner,
   repo,
-  path,
-  branch
+  commitSha
 }: {
   userToken: string;
   owner: string;
   repo: string;
-  path: string;
-  branch: string;
+  commitSha: string;
 }) {
-  const url = new URL(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`);
-  url.searchParams.set("ref", branch);
-
-  const { res, data } = await ghUserWithRetry<GhContentReadPayload | GhErrorPayload>({
+  const { res, data } = await ghUserWithRetry<GhCommitPayload | GhErrorPayload>({
     userToken,
-    url: url.toString(),
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits/${commitSha}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
   });
+  assertOk(res, data, `Failed reading commit ${commitSha} for ${owner}/${repo}.`);
 
-  if (res.status === 404) {
-    return null;
+  const treeSha = typeof (data as GhCommitPayload)?.tree?.sha === "string" ? (data as GhCommitPayload).tree?.sha : "";
+  if (!treeSha) {
+    throw new HttpError(500, `Commit ${commitSha} for ${owner}/${repo} does not contain a tree SHA.`);
   }
-  assertOk(res, data, `Failed reading ${path} in ${owner}/${repo}.`);
-
-  const payload = data as GhContentReadPayload;
-  if (payload.type && payload.type !== "file") {
-    throw new HttpError(
-      422,
-      `Path ${path} in ${owner}/${repo} is not a regular file (${payload.type}).`
-    );
-  }
-
-  return typeof payload.sha === "string" ? payload.sha : null;
+  return treeSha;
 }
 
-async function writeFileToBranch({
-  userToken,
-  owner,
-  repo,
-  branch,
-  file
-}: {
-  userToken: string;
-  owner: string;
-  repo: string;
-  branch: string;
-  file: FileRecord;
-}) {
-  const contentB64 = file.contentB64;
-
-  const writeOnce = async (sha?: string | null) =>
-    ghUserWithRetry<any>({
-      userToken,
-      url: `${GITHUB_API}/repos/${owner}/${repo}/contents/${file.relPath}`,
-      init: {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: `Seed ${file.relPath}`,
-          content: contentB64,
-          branch,
-          sha: sha ?? undefined
-        })
-      },
-      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
-    });
-
-  let { res, data } = await writeOnce(null);
-  if (!res.ok && (res.status === 409 || res.status === 422)) {
-    await sleep(120);
-    ({ res, data } = await writeOnce(null));
-  }
-  if (!res.ok && (res.status === 409 || res.status === 422)) {
-    const currentSha = await getFileSha({
-      userToken,
-      owner,
-      repo,
-      path: file.relPath,
-      branch
-    });
-    ({ res, data } = await writeOnce(currentSha ?? null));
-  }
-
-  if (!res.ok && file.relPath.startsWith(".github/workflows/")) {
-    throw new HttpError(
-      403,
-      "GitHub token is missing permission to write workflow files. Sign out and sign in again so GitHub grants the 'workflow' scope."
-    );
-  }
-
-  assertOk(res, data, `Failed writing template file ${file.relPath} to ${owner}/${repo}.`);
-
-  if (file.mode === "100755") {
-    console.log("[github-create-repo] executable bit not preserved by contents API", {
-      owner,
-      repo,
-      path: file.relPath
-    });
-  }
-}
-
-async function seedTemplateFiles({
+async function createTemplateSeedCommit({
   userToken,
   owner,
   repo,
@@ -402,21 +330,136 @@ async function seedTemplateFiles({
   onProgress?: (completed: number, total: number) => Promise<void>;
 }) {
   const sortedFiles = [...files].sort((a, b) => a.relPath.localeCompare(b.relPath));
+  if (!sortedFiles.length) {
+    throw new HttpError(500, "Template directory is empty.");
+  }
+
+  const hasWorkflowFile = sortedFiles.some((file) => file.relPath.startsWith(".github/workflows/"));
+  const assertWorkflowPermission = (statusCode: number) => {
+    if (statusCode === 403 && hasWorkflowFile) {
+      throw new HttpError(403, WORKFLOW_SCOPE_ERROR_MESSAGE);
+    }
+  };
+
+  const parentCommitSha = await getBranchHeadSha({
+    userToken,
+    owner,
+    repo,
+    branch
+  });
+  const baseTreeSha = await getCommitTreeSha({
+    userToken,
+    owner,
+    repo,
+    commitSha: parentCommitSha
+  });
+
+  const treeEntries: Array<{
+    path: string;
+    mode: "100644" | "100755";
+    type: "blob";
+    sha: string;
+  }> = [];
+
   const total = sortedFiles.length;
   for (let completed = 0; completed < sortedFiles.length; completed += 1) {
     const file = sortedFiles[completed];
-    await writeFileToBranch({
+    const { res: blobRes, data: blobData } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
       userToken,
-      owner,
-      repo,
-      branch,
-      file
+      url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs`,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: file.contentB64,
+          encoding: "base64"
+        })
+      },
+      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
     });
+    assertWorkflowPermission(blobRes.status);
+    assertOk(blobRes, blobData, `Failed creating blob for ${file.relPath}.`);
+
+    const blobSha = typeof (blobData as GhBlobPayload)?.sha === "string" ? (blobData as GhBlobPayload).sha : "";
+    if (!blobSha) {
+      throw new HttpError(500, `GitHub did not return blob SHA for ${file.relPath}.`);
+    }
+
+    treeEntries.push({
+      path: file.relPath,
+      mode: file.mode,
+      type: "blob",
+      sha: blobSha
+    });
+
     const current = completed + 1;
     if (onProgress && (current === total || current % 5 === 0)) {
       await onProgress(current, total);
     }
   }
+
+  const { res: treeRes, data: treeData } = await ghUserWithRetry<GhTreePayload | GhErrorPayload>({
+    userToken,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees`,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries
+      })
+    },
+    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+  });
+  assertWorkflowPermission(treeRes.status);
+  assertOk(treeRes, treeData, "Failed creating template tree.");
+
+  const treeSha = typeof (treeData as GhTreePayload)?.sha === "string" ? (treeData as GhTreePayload).sha : "";
+  if (!treeSha) {
+    throw new HttpError(500, "GitHub did not return tree SHA for template commit.");
+  }
+
+  const { res: commitRes, data: commitData } = await ghUserWithRetry<GhCommitPayload | GhErrorPayload>({
+    userToken,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits`,
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Initialize repository from template",
+        tree: treeSha,
+        parents: [parentCommitSha]
+      })
+    },
+    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+  });
+  assertWorkflowPermission(commitRes.status);
+  assertOk(commitRes, commitData, "Failed creating template commit.");
+
+  const commitSha = typeof (commitData as GhCommitPayload)?.sha === "string" ? (commitData as GhCommitPayload).sha : "";
+  if (!commitSha) {
+    throw new HttpError(500, "GitHub did not return commit SHA for template commit.");
+  }
+
+  const { res: refRes, data: refData } = await ghUserWithRetry<GhErrorPayload>({
+    userToken,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+    init: {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sha: commitSha,
+        force: false
+      })
+    },
+    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode)
+  });
+  assertWorkflowPermission(refRes.status);
+  assertOk(refRes, refData, `Failed updating ${branch} branch to template commit.`);
 }
 
 async function setDefaultBranch({
@@ -616,9 +659,9 @@ export const handler: Handler = async (event) => {
     }
 
     await updateJob({
-      step: "Seeding template files (0%)..."
+      step: "Creating template commit (0%)..."
     });
-    await seedTemplateFiles({
+    await createTemplateSeedCommit({
       userToken,
       owner,
       repo,
@@ -627,7 +670,7 @@ export const handler: Handler = async (event) => {
       onProgress: async (completed, total) => {
         const percent = Math.max(1, Math.round((completed / Math.max(1, total)) * 100));
         await updateJob({
-          step: `Seeding template files (${percent}%)...`
+          step: `Creating template commit (${percent}%)...`
         });
       }
     });
