@@ -4,7 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import { getPublishPollDelayMs } from "../components/studio/site-builder/utils";
-import { supabase } from "../lib/supabase";
+import { createSupabaseAccessTokenClient, supabase } from "../lib/supabase";
 import type { NoticeKind } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
@@ -402,6 +402,7 @@ export default function SiteCreatePage() {
     setIsProvisioning(true);
     let stagedSiteImageStoragePath = "";
     let startedProvisioningJob = false;
+    const accessTokenScopedSupabase = createSupabaseAccessTokenClient(supabaseAccessToken);
 
     try {
       const publishStartedAt = new Date().toISOString();
@@ -409,7 +410,7 @@ export default function SiteCreatePage() {
       if (siteImage) {
         stagedSiteImageStoragePath = `${session.user.id}/create-site/${siteId}/site-image-${slug}.jpg`;
         setProvisionStep("Staging site image...");
-        const { error: stageImageError } = await supabase.storage
+        const { error: stageImageError } = await accessTokenScopedSupabase.storage
           .from(SITE_DRAFT_IMAGES_BUCKET)
           .upload(stagedSiteImageStoragePath, siteImage, {
             upsert: true,
@@ -575,7 +576,10 @@ export default function SiteCreatePage() {
       navigate(`/site-builder?draftId=${siteId}`);
     } catch (caught) {
       if (!startedProvisioningJob && stagedSiteImageStoragePath) {
-        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([stagedSiteImageStoragePath]);
+        await accessTokenScopedSupabase.storage
+          .from(SITE_DRAFT_IMAGES_BUCKET)
+          .remove([stagedSiteImageStoragePath])
+          .catch(() => undefined);
       }
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
