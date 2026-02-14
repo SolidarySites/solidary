@@ -397,6 +397,7 @@ export default function SiteCreatePage() {
       : DEFAULT_OG_IMAGE_PATH;
     const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
     const siteId = crypto.randomUUID();
+    const siteImageContentB64 = siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined;
 
     setIsProvisioning(true);
 
@@ -413,8 +414,7 @@ export default function SiteCreatePage() {
         site_id: siteId,
         site_title: normalizedTitle,
         site_description: siteDescription.trim(),
-        site_image_path: siteImage ? imagePath : undefined,
-        site_image_content_b64: siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined
+        site_image_path: siteImage ? imagePath : undefined
       });
 
       const jobId = startResponse.job?.id?.trim() ?? "";
@@ -450,6 +450,19 @@ export default function SiteCreatePage() {
         branch: defaultBranch,
         onStep: setProvisionStep
       });
+
+      if (siteImageContentB64 && siteImage) {
+        setProvisionStep("Uploading site image...");
+        await githubRequest("/.netlify/functions/github-contents-write", {
+          token: providerToken,
+          owner: ownerLogin,
+          repo: repoName,
+          path: imagePath,
+          message: `Add ${imagePath}`,
+          content: siteImageContentB64,
+          branch: defaultBranch
+        });
+      }
 
       setProvisionStep("Enabling GitHub Pages...");
       await githubRequest("/.netlify/functions/github-enable-pages", {

@@ -78,7 +78,6 @@ export const handler: Handler = async (event) => {
   const siteTitle = body.site_title?.trim();
   const siteDescription = body.site_description?.trim();
   const siteImagePath = body.site_image_path?.trim();
-  const siteImageContentB64 = body.site_image_content_b64?.trim();
 
   if (!userToken || !name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -137,8 +136,7 @@ export const handler: Handler = async (event) => {
           siteId,
           siteTitle,
           siteDescription,
-          siteImagePath,
-          siteImageContentB64
+          siteImagePath
         })
       });
     } catch (error) {
@@ -159,10 +157,21 @@ export const handler: Handler = async (event) => {
     }
 
     if (![200, 202].includes(dispatchResponse.status)) {
-      const dispatchPayload = await dispatchResponse.json().catch(() => ({}));
-      const dispatchMessage =
-        (dispatchPayload as { error?: string }).error ??
-        `Background worker dispatch failed with status ${dispatchResponse.status}.`;
+      const rawDispatchBody = await dispatchResponse.text().catch(() => "");
+      let dispatchMessage = `Background worker dispatch failed with status ${dispatchResponse.status}.`;
+
+      if (rawDispatchBody.trim()) {
+        try {
+          const dispatchPayload = JSON.parse(rawDispatchBody) as { error?: string };
+          const payloadMessage = dispatchPayload.error?.trim() ?? "";
+          if (payloadMessage) {
+            dispatchMessage = payloadMessage;
+          }
+        } catch {
+          const normalizedBody = rawDispatchBody.trim().slice(0, 300);
+          dispatchMessage = `Background worker dispatch failed with status ${dispatchResponse.status}: ${normalizedBody}`;
+        }
+      }
 
       await supabase
         .from("repo_provision_jobs")
