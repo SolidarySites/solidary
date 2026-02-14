@@ -5,6 +5,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const WORKER_PATH = "/.netlify/functions/github-create-repo-worker-background";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
+const MAX_STAGED_SITE_IMAGE_BYTES = 4 * 1024 * 1024;
 
 type StartRepoProvisionBody = {
   token?: string;
@@ -43,6 +44,14 @@ const normalizeStoragePath = (pathValue: string) => {
     throw new Error("Site image storage path contains invalid segments.");
   }
   return normalized;
+};
+
+const getFilenameFromRepoPath = (pathValue: string) => {
+  const filename = pathValue.trim().split("/").pop()?.trim() ?? "";
+  if (!filename || filename === "." || filename === "..") {
+    return "site-image.jpg";
+  }
+  return filename;
 };
 
 const resolveOrigin = (event: Parameters<Handler>[0]) => {
@@ -92,6 +101,7 @@ export const handler: Handler = async (event) => {
   const siteDescription = body.site_description?.trim();
   const siteImagePath = body.site_image_path?.trim();
   const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
+  const siteImageContentB64 = body.site_image_content_b64?.trim();
 
   if (!userToken || !name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -131,6 +141,38 @@ export const handler: Handler = async (event) => {
         return safeJson(403, {
           error: "site_image_storage_path must be scoped to the authenticated user."
         });
+      }
+    }
+
+    if (siteImageContentB64 && !siteImageStoragePath) {
+      const normalizedB64 = siteImageContentB64.replace(/^data:[^;]+;base64,/, "").trim();
+      if (!normalizedB64) {
+        return safeJson(400, { error: "site_image_content_b64 is empty." });
+      }
+
+      const imageBuffer = Buffer.from(normalizedB64, "base64");
+      if (!imageBuffer.length) {
+        return safeJson(400, { error: "site_image_content_b64 could not be decoded." });
+      }
+      if (imageBuffer.length > MAX_STAGED_SITE_IMAGE_BYTES) {
+        return safeJson(400, {
+          error: `Site image exceeds ${MAX_STAGED_SITE_IMAGE_BYTES} byte limit for create flow.`
+        });
+      }
+
+      const createSiteId = siteId && siteId.length > 0 ? siteId : crypto.randomUUID();
+      const filename = getFilenameFromRepoPath(siteImagePath ?? "");
+      siteImageStoragePath = `${user.id}/create-site/${createSiteId}/${filename}`;
+
+      const { error: stageUploadError } = await supabase.storage
+        .from(SITE_DRAFT_IMAGES_BUCKET)
+        .upload(siteImageStoragePath, imageBuffer, {
+          upsert: true,
+          contentType: "image/jpeg"
+        });
+
+      if (stageUploadError) {
+        return safeJson(500, { error: stageUploadError.message });
       }
     }
 

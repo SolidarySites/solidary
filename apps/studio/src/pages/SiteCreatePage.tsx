@@ -4,18 +4,17 @@ import type { Session } from "@supabase/supabase-js";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import { getPublishPollDelayMs } from "../components/studio/site-builder/utils";
-import { createSupabaseAccessTokenClient, supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import type { NoticeKind } from "../studio/types";
 import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { type AstroPageDraft, type AstroSettings } from "../studio/astro";
 import { githubRequest } from "../studio/github";
-import { slugify } from "../studio/utils";
+import { slugify, toBase64 } from "../studio/utils";
 
 const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
 };
-const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images";
 const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-default.jpg`;
 const DEFAULT_OG_IMAGE_URL = `/${DEFAULT_OG_IMAGE_PATH.replace(/^public\//, "")}`;
@@ -398,29 +397,12 @@ export default function SiteCreatePage() {
       : DEFAULT_OG_IMAGE_PATH;
     const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
     const siteId = crypto.randomUUID();
+    const siteImageContentB64 = siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined;
 
     setIsProvisioning(true);
-    let stagedSiteImageStoragePath = "";
-    let startedProvisioningJob = false;
-    const accessTokenScopedSupabase = createSupabaseAccessTokenClient(supabaseAccessToken);
 
     try {
       const publishStartedAt = new Date().toISOString();
-
-      if (siteImage) {
-        stagedSiteImageStoragePath = `${session.user.id}/create-site/${siteId}/site-image-${slug}.jpg`;
-        setProvisionStep("Staging site image...");
-        const { error: stageImageError } = await accessTokenScopedSupabase.storage
-          .from(SITE_DRAFT_IMAGES_BUCKET)
-          .upload(stagedSiteImageStoragePath, siteImage, {
-            upsert: true,
-            contentType: siteImage.type || "image/jpeg"
-          });
-
-        if (stageImageError) {
-          throw new Error(stageImageError.message);
-        }
-      }
 
       setProvisionStep("Queueing repository provisioning...");
       const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
@@ -433,14 +415,13 @@ export default function SiteCreatePage() {
         site_title: normalizedTitle,
         site_description: siteDescription.trim(),
         site_image_path: siteImage ? imagePath : undefined,
-        site_image_storage_path: stagedSiteImageStoragePath || undefined
+        site_image_content_b64: siteImageContentB64
       });
 
       const jobId = startResponse.job?.id?.trim() ?? "";
       if (!jobId) {
         throw new Error("Failed to start repository provisioning job.");
       }
-      startedProvisioningJob = true;
 
       const repo = await waitForRepoProvisioningJob({
         jobId,
@@ -575,12 +556,6 @@ export default function SiteCreatePage() {
       setProvisionStep("Opening your site builder...");
       navigate(`/site-builder?draftId=${siteId}`);
     } catch (caught) {
-      if (!startedProvisioningJob && stagedSiteImageStoragePath) {
-        await accessTokenScopedSupabase.storage
-          .from(SITE_DRAFT_IMAGES_BUCKET)
-          .remove([stagedSiteImageStoragePath])
-          .catch(() => undefined);
-      }
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
       setNoticeKind("error");

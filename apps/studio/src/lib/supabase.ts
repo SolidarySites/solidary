@@ -13,14 +13,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export function isSupabaseConfigured() {
   return Boolean(supabaseUrl && supabaseAnonKey);
 }
-
-export function createSupabaseAccessTokenClient(accessToken: string) {
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    }
-  });
-}
