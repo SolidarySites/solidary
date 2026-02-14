@@ -22,8 +22,7 @@ export default function SiteHeader({
       <div className="brand">
         <span className="brand-mark">●</span>
         <div>
-          <div className="brand-title">Solidary Links Studio</div>
-          <div className="brand-subtitle">A slow web toolkit.</div>
+          <div className="brand-title">Solidary</div>
         </div>
       </div>
       <nav className="site-nav" aria-label="Primary">

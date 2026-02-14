@@ -52,14 +52,6 @@
   letter-spacing: 0.02em;
 }
 
-.brand-subtitle {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: rgba(31, 34, 28, 0.6);
-}
-
 .main-content {
   display: flex;
   flex-direction: column;
@@ -134,17 +126,6 @@
 .ghost-link {
   background: rgba(31, 34, 28, 0.05);
   color: #1f221c;
-}
-
-.landing-panel {
-  display: grid;
-  gap: 1rem;
-}
-
-.panel-card {
-  border: 1px dashed rgba(31, 34, 28, 0.25);
-  padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.9);
 }
 
 .panel-card h2 {

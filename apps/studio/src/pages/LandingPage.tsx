@@ -8,11 +8,10 @@ export default function LandingPage() {
       <main className="main-content">
         <section className="landing-hero">
           <div>
-            <p className="eyebrow">Solidary Links</p>
-            <h1>Publish slow web sites with a single GitHub repo.</h1>
+            <p className="eyebrow">The Connected Static Web</p>
+            <h1>Your website, your internet.</h1>
             <p>
-              Solidary Links Studio helps you compose sites, enable GitHub Pages, and share the
-              protocol metadata that keeps the slow web connected.
+              Solidary is a toolkit for creating and connecting static websites. Generate and edit your own site that you control, then share and connect with others in the Solidary web. Your site is your space to create, curate, and collaborate on the living web.
             </p>
             <div className="landing-actions">
               <Link to="/studio" className="primary-link">
@@ -23,29 +22,19 @@ export default function LandingPage() {
               </a>
             </div>
           </div>
-          <div className="landing-panel">
-            <div className="panel-card">
-              <h2>What you can do</h2>
-              <ul>
-                <li>Generate a ready-to-host Jekyll site.</li>
-                <li>Publish to GitHub Pages in minutes.</li>
-                <li>Ship the Solidary Links metadata automatically.</li>
-              </ul>
-            </div>
-          </div>
         </section>
         <section id="features" className="landing-grid">
           <div className="landing-card">
-            <h3>Slow web templates</h3>
-            <p>Start with a minimalist theme that works for portfolios, reading lists, and notes.</p>
+            <h3>Create a free website that you control</h3>
+            <p>Easily create a free website that is yours to keep and modify forever.</p>
           </div>
           <div className="landing-card">
-            <h3>One-click provisioning</h3>
-            <p>Studio handles repos, commits, and GitHub Pages setup in the background.</p>
+            <h3>Collaborate and connect.</h3>
+            <p>Solidary doesn't hold your content hostage. It's a DIWO static web, where you choose who to connect and collaborate with, on or off the Solidary platform.</p>
           </div>
           <div className="landing-card">
-            <h3>Protocol-ready metadata</h3>
-            <p>Ship the Solidary Links JSON so directories can discover your site.</p>
+            <h3>Create collections</h3>
+            <p>Create collections of static websites and curate a living archive of the static web.</p>
           </div>
         </section>
       </main>
