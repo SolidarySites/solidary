@@ -9,9 +9,11 @@ const TEMPLATE_DIR = "templates/astro-baseline";
 const TARGET_DEFAULT_BRANCH = "main";
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
+const STORAGE_DOWNLOAD_RETRY_DELAYS_MS = [0, 250, 500, 1000, 2000];
 const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
+const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
 const EXCLUDE_FILES = new Set<string>([".DS_Store"]);
@@ -123,6 +125,7 @@ type ProvisionWorkerBody = {
   siteTitle?: string;
   siteDescription?: string;
   siteImagePath?: string;
+  siteImageStoragePath?: string;
   siteImageContentB64?: string;
 };
 
@@ -174,6 +177,17 @@ const normalizeRepoImagePath = (pathValue: string) => {
   }
   if (normalized.split("/").includes("..")) {
     throw new Error("Site image path contains invalid segments.");
+  }
+  return normalized;
+};
+
+const normalizeStoragePath = (pathValue: string) => {
+  const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Site image storage path is empty.");
+  }
+  if (normalized.split("/").includes("..")) {
+    throw new Error("Site image storage path contains invalid segments.");
   }
   return normalized;
 };
@@ -303,6 +317,64 @@ const createSupabaseAdmin = () =>
   createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+
+async function loadStagedSiteImageContentB64({
+  supabase,
+  storagePath
+}: {
+  supabase: ReturnType<typeof createSupabaseAdmin>;
+  storagePath: string;
+}) {
+  const normalizedStoragePath = normalizeStoragePath(storagePath);
+  let lastErrorMessage = "Failed to download staged site image.";
+
+  for (let attempt = 0; attempt < STORAGE_DOWNLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
+    const delay = STORAGE_DOWNLOAD_RETRY_DELAYS_MS[attempt];
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    const { data, error } = await supabase.storage
+      .from(SITE_DRAFT_IMAGES_BUCKET)
+      .download(normalizedStoragePath);
+
+    if (!error && data) {
+      const arrayBuffer = await data.arrayBuffer();
+      return Buffer.from(arrayBuffer).toString("base64");
+    }
+
+    lastErrorMessage = error?.message?.trim() || "Failed to download staged site image.";
+    const looksRetryableMissingObject = /not found|does not exist|404/i.test(lastErrorMessage);
+    if (!looksRetryableMissingObject) {
+      break;
+    }
+  }
+
+  throw new Error(`Failed to load staged site image (${lastErrorMessage}).`);
+}
+
+async function cleanupStagedSiteImage({
+  supabase,
+  storagePath
+}: {
+  supabase: ReturnType<typeof createSupabaseAdmin>;
+  storagePath: string;
+}) {
+  let normalizedStoragePath = "";
+  try {
+    normalizedStoragePath = normalizeStoragePath(storagePath);
+  } catch {
+    return;
+  }
+
+  const { error } = await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([normalizedStoragePath]);
+  if (error) {
+    console.log("[github-create-repo-worker] failed to delete staged site image", {
+      storagePath: normalizedStoragePath,
+      message: error.message
+    });
+  }
+}
 
 async function ghUser<T>(userToken: string, url: string, init: RequestInit = {}) {
   const res = await fetch(url, {
@@ -774,11 +846,29 @@ export const handler: Handler = async (event) => {
   const ownerUserId = payload.ownerUserId?.trim() ?? "";
   const parsedToken = payload.token?.trim() ?? "";
   const parsedName = payload.name?.trim() ?? "";
+  const rawSiteImageStoragePath = payload.siteImageStoragePath?.trim() ?? "";
 
   if (!jobId || !ownerUserId || !parsedToken || !parsedName) {
     return safeJson(400, {
       error: "Missing jobId, ownerUserId, token, or name."
     });
+  }
+
+  let siteImageStoragePath = "";
+  if (rawSiteImageStoragePath) {
+    try {
+      siteImageStoragePath = normalizeStoragePath(rawSiteImageStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid siteImageStoragePath."
+      });
+    }
+
+    if (!siteImageStoragePath.startsWith(`${ownerUserId}/`)) {
+      return safeJson(403, {
+        error: "siteImageStoragePath must be scoped to the job owner."
+      });
+    }
   }
 
   const supabase = createSupabaseAdmin();
@@ -817,7 +907,15 @@ export const handler: Handler = async (event) => {
     const siteTitle = payload.siteTitle?.trim() ?? "";
     const siteDescription = payload.siteDescription?.trim() ?? "";
     const siteImagePath = payload.siteImagePath?.trim() ?? "";
-    const siteImageContentB64 = payload.siteImageContentB64?.trim() ?? "";
+    const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
+    const siteImageContentB64 =
+      siteImageContentB64Raw ||
+      (siteImageStoragePath
+        ? await loadStagedSiteImageContentB64({
+            supabase,
+            storagePath: siteImageStoragePath
+          })
+        : "");
 
     await updateJob({
       step: "Loading template files..."
@@ -982,5 +1080,12 @@ export const handler: Handler = async (event) => {
       status: "accepted",
       jobId
     });
+  } finally {
+    if (siteImageStoragePath) {
+      await cleanupStagedSiteImage({
+        supabase,
+        storagePath: siteImageStoragePath
+      });
+    }
   }
 };

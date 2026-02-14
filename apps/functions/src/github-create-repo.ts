@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const WORKER_PATH = "/.netlify/functions/github-create-repo-worker-background";
+const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 type StartRepoProvisionBody = {
   token?: string;
@@ -15,6 +16,7 @@ type StartRepoProvisionBody = {
   site_title?: string;
   site_description?: string;
   site_image_path?: string;
+  site_image_storage_path?: string;
   site_image_content_b64?: string;
 };
 
@@ -30,6 +32,17 @@ const parseBody = (rawBody: string | null): StartRepoProvisionBody => {
   } catch {
     throw new Error("Invalid JSON payload.");
   }
+};
+
+const normalizeStoragePath = (pathValue: string) => {
+  const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Site image storage path is empty.");
+  }
+  if (normalized.split("/").includes("..")) {
+    throw new Error("Site image storage path contains invalid segments.");
+  }
+  return normalized;
 };
 
 const resolveOrigin = (event: Parameters<Handler>[0]) => {
@@ -78,6 +91,7 @@ export const handler: Handler = async (event) => {
   const siteTitle = body.site_title?.trim();
   const siteDescription = body.site_description?.trim();
   const siteImagePath = body.site_image_path?.trim();
+  const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
 
   if (!userToken || !name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -88,6 +102,11 @@ export const handler: Handler = async (event) => {
   const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+  let siteImageStoragePath = "";
+  const cleanupStagedSiteImage = async () => {
+    if (!siteImageStoragePath) return;
+    await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([siteImageStoragePath]);
+  };
 
   try {
     const {
@@ -97,6 +116,22 @@ export const handler: Handler = async (event) => {
 
     if (userError || !user) {
       return safeJson(401, { error: "Invalid Supabase session." });
+    }
+
+    if (rawSiteImageStoragePath) {
+      try {
+        siteImageStoragePath = normalizeStoragePath(rawSiteImageStoragePath);
+      } catch (error) {
+        return safeJson(400, {
+          error: error instanceof Error ? error.message : "Invalid site_image_storage_path."
+        });
+      }
+
+      if (!siteImageStoragePath.startsWith(`${user.id}/`)) {
+        return safeJson(403, {
+          error: "site_image_storage_path must be scoped to the authenticated user."
+        });
+      }
     }
 
     const { data: job, error: insertError } = await supabase
@@ -110,6 +145,7 @@ export const handler: Handler = async (event) => {
       .single();
 
     if (insertError || !job?.id) {
+      await cleanupStagedSiteImage();
       return safeJson(500, {
         error: insertError?.message ?? "Failed to create provisioning job."
       });
@@ -136,7 +172,8 @@ export const handler: Handler = async (event) => {
           siteId,
           siteTitle,
           siteDescription,
-          siteImagePath
+          siteImagePath,
+          siteImageStoragePath
         })
       });
     } catch (error) {
@@ -152,6 +189,7 @@ export const handler: Handler = async (event) => {
         })
         .eq("id", job.id)
         .eq("owner_user_id", user.id);
+      await cleanupStagedSiteImage();
 
       return safeJson(500, { error: dispatchMessage });
     }
@@ -183,6 +221,7 @@ export const handler: Handler = async (event) => {
         })
         .eq("id", job.id)
         .eq("owner_user_id", user.id);
+      await cleanupStagedSiteImage();
 
       return safeJson(500, { error: dispatchMessage });
     }
@@ -195,6 +234,7 @@ export const handler: Handler = async (event) => {
       }
     });
   } catch (error) {
+    await cleanupStagedSiteImage();
     return safeJson(500, {
       error: error instanceof Error ? error.message : "Unknown error"
     });

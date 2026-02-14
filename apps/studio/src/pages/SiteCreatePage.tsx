@@ -10,11 +10,12 @@ import templateSolidary from "../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../templates/astro/tokens.css?raw";
 import { type AstroPageDraft, type AstroSettings } from "../studio/astro";
 import { githubRequest } from "../studio/github";
-import { slugify, toBase64 } from "../studio/utils";
+import { slugify } from "../studio/utils";
 
 const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
 };
+const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images";
 const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-default.jpg`;
 const DEFAULT_OG_IMAGE_URL = `/${DEFAULT_OG_IMAGE_PATH.replace(/^public\//, "")}`;
@@ -397,12 +398,28 @@ export default function SiteCreatePage() {
       : DEFAULT_OG_IMAGE_PATH;
     const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
     const siteId = crypto.randomUUID();
-    const siteImageContentB64 = siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined;
 
     setIsProvisioning(true);
+    let stagedSiteImageStoragePath = "";
+    let startedProvisioningJob = false;
 
     try {
       const publishStartedAt = new Date().toISOString();
+
+      if (siteImage) {
+        stagedSiteImageStoragePath = `${session.user.id}/create-site/${siteId}/site-image-${slug}.jpg`;
+        setProvisionStep("Staging site image...");
+        const { error: stageImageError } = await supabase.storage
+          .from(SITE_DRAFT_IMAGES_BUCKET)
+          .upload(stagedSiteImageStoragePath, siteImage, {
+            upsert: true,
+            contentType: siteImage.type || "image/jpeg"
+          });
+
+        if (stageImageError) {
+          throw new Error(stageImageError.message);
+        }
+      }
 
       setProvisionStep("Queueing repository provisioning...");
       const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
@@ -414,13 +431,15 @@ export default function SiteCreatePage() {
         site_id: siteId,
         site_title: normalizedTitle,
         site_description: siteDescription.trim(),
-        site_image_path: siteImage ? imagePath : undefined
+        site_image_path: siteImage ? imagePath : undefined,
+        site_image_storage_path: stagedSiteImageStoragePath || undefined
       });
 
       const jobId = startResponse.job?.id?.trim() ?? "";
       if (!jobId) {
         throw new Error("Failed to start repository provisioning job.");
       }
+      startedProvisioningJob = true;
 
       const repo = await waitForRepoProvisioningJob({
         jobId,
@@ -450,19 +469,6 @@ export default function SiteCreatePage() {
         branch: defaultBranch,
         onStep: setProvisionStep
       });
-
-      if (siteImageContentB64 && siteImage) {
-        setProvisionStep("Uploading site image...");
-        await githubRequest("/.netlify/functions/github-contents-write", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repoName,
-          path: imagePath,
-          message: `Add ${imagePath}`,
-          content: siteImageContentB64,
-          branch: defaultBranch
-        });
-      }
 
       setProvisionStep("Enabling GitHub Pages...");
       await githubRequest("/.netlify/functions/github-enable-pages", {
@@ -568,6 +574,9 @@ export default function SiteCreatePage() {
       setProvisionStep("Opening your site builder...");
       navigate(`/site-builder?draftId=${siteId}`);
     } catch (caught) {
+      if (!startedProvisioningJob && stagedSiteImageStoragePath) {
+        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([stagedSiteImageStoragePath]);
+      }
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
       setNoticeKind("error");
