@@ -247,6 +247,7 @@ export default function SiteBuilderPage() {
   const [publishFeedback, setPublishFeedback] = useState<PublishFeedback | null>(null);
   const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
   const [lastSavedDraftSignature, setLastSavedDraftSignature] = useState("");
+  const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
@@ -1258,69 +1259,73 @@ export default function SiteBuilderPage() {
         canPublish={canPublish}
         liveSiteUrl={liveSiteUrl}
         githubRepoUrl={githubRepoUrl}
+        isPreviewFullscreen={isPreviewFullscreen}
+        onTogglePreviewFullscreen={() => setIsPreviewFullscreen((value) => !value)}
         publishFeedback={publishFeedback}
         onSaveDraft={handleSaveDraft}
         onPublish={handlePublish}
       />
 
-      <div className="builder-body">
-        <BuilderSidebar
-          activeSection={activeSection}
-          activeSettingsSection={activeSettingsSection}
-          siteTitle={siteTitle}
-          siteDescription={siteDescription}
-          siteImagePreview={siteImagePreview}
-          pages={pages}
-          activePreviewSlug={activePreviewSlug}
-          pageTitleRef={pageTitleRef}
-          tokensCss={tokensCss}
-          siteUrl={siteUrl}
-          headerDisabled={headerDisabled}
-          headerFixed={headerFixed}
-          headerBrandText={headerBrandText}
-          headerBrandDisabled={headerBrandDisabled}
-          headerNavItems={headerNavItems}
-          footerDisabled={footerDisabled}
-          footerFixed={footerFixed}
-          footerModules={footerModules}
-          onBack={handleSidebarBack}
-          onSectionChange={setActiveSection}
-          onSettingsSectionChange={setActiveSettingsSection}
-          onSiteTitleChange={setSiteTitle}
-          onSiteDescriptionChange={setSiteDescription}
-          onSiteImageChange={setSiteImage}
-          onAddPage={addPage}
-          onActivePreviewSlugChange={setActivePreviewSlug}
-          onPageTitleChange={handlePageTitleChange}
-          onPageSlugChange={handlePageSlugChange}
-          onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
-          onRemovePage={removePage}
-          onTokensCssChange={setTokensCss}
-          onSiteUrlChange={setSiteUrl}
-          onHeaderDisabledChange={setHeaderDisabled}
-          onHeaderFixedChange={setHeaderFixed}
-          onHeaderBrandTextChange={setHeaderBrandText}
-          onHeaderBrandDisabledChange={setHeaderBrandDisabled}
-          onMoveHeaderNavItemUp={(slug) => moveHeaderNavItem(slug, -1)}
-          onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
-          onFooterDisabledChange={setFooterDisabled}
-          onFooterFixedChange={setFooterFixed}
-          onFooterModuleContentChange={updateFooterModuleContent}
-          onFooterModuleAlignmentChange={updateFooterModuleAlignment}
-          onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
-          onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
-          canFormatText={canFormatText}
-          onRunFormatCommand={runPreviewCommand}
-          onRunFormatLink={runPreviewLink}
-          onUploadFormatImage={handleInlineImageUpload}
-          onCaptureFormatSelection={capturePreviewSelection}
-          isFormatImageUploading={uploadingInlineImage}
-          maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
-          selectedEditorImage={selectedEditorImage}
-          onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
-          onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}
-          onSelectedEditorImageSizeChange={handleSelectedEditorImageSizeChange}
-        />
+      <div className={`builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""}`}>
+        {!isPreviewFullscreen && (
+          <BuilderSidebar
+            activeSection={activeSection}
+            activeSettingsSection={activeSettingsSection}
+            siteTitle={siteTitle}
+            siteDescription={siteDescription}
+            siteImagePreview={siteImagePreview}
+            pages={pages}
+            activePreviewSlug={activePreviewSlug}
+            pageTitleRef={pageTitleRef}
+            tokensCss={tokensCss}
+            siteUrl={siteUrl}
+            headerDisabled={headerDisabled}
+            headerFixed={headerFixed}
+            headerBrandText={headerBrandText}
+            headerBrandDisabled={headerBrandDisabled}
+            headerNavItems={headerNavItems}
+            footerDisabled={footerDisabled}
+            footerFixed={footerFixed}
+            footerModules={footerModules}
+            onBack={handleSidebarBack}
+            onSectionChange={setActiveSection}
+            onSettingsSectionChange={setActiveSettingsSection}
+            onSiteTitleChange={setSiteTitle}
+            onSiteDescriptionChange={setSiteDescription}
+            onSiteImageChange={setSiteImage}
+            onAddPage={addPage}
+            onActivePreviewSlugChange={setActivePreviewSlug}
+            onPageTitleChange={handlePageTitleChange}
+            onPageSlugChange={handlePageSlugChange}
+            onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
+            onRemovePage={removePage}
+            onTokensCssChange={setTokensCss}
+            onSiteUrlChange={setSiteUrl}
+            onHeaderDisabledChange={setHeaderDisabled}
+            onHeaderFixedChange={setHeaderFixed}
+            onHeaderBrandTextChange={setHeaderBrandText}
+            onHeaderBrandDisabledChange={setHeaderBrandDisabled}
+            onMoveHeaderNavItemUp={(slug) => moveHeaderNavItem(slug, -1)}
+            onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
+            onFooterDisabledChange={setFooterDisabled}
+            onFooterFixedChange={setFooterFixed}
+            onFooterModuleContentChange={updateFooterModuleContent}
+            onFooterModuleAlignmentChange={updateFooterModuleAlignment}
+            onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
+            onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
+            canFormatText={canFormatText}
+            onRunFormatCommand={runPreviewCommand}
+            onRunFormatLink={runPreviewLink}
+            onUploadFormatImage={handleInlineImageUpload}
+            onCaptureFormatSelection={capturePreviewSelection}
+            isFormatImageUploading={uploadingInlineImage}
+            maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
+            selectedEditorImage={selectedEditorImage}
+            onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
+            onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}
+            onSelectedEditorImageSizeChange={handleSelectedEditorImageSizeChange}
+          />
+        )}
 
         <BuilderPreviewPanel
           shouldLoadDraft={shouldLoadDraft}
