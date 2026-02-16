@@ -132,6 +132,7 @@ export const handler: Handler = async (event) => {
       .select("site_id")
       .eq("site_id", draftId)
       .eq("user_id", user.id)
+      .in("role", ["admin", "editor"])
       .maybeSingle();
 
     if (adminAccessError) {

@@ -35,6 +35,8 @@ export type FooterOptions = {
   modules: FooterModule[];
 };
 
+export type SiteAccessRole = "owner" | "admin" | "editor" | "viewer";
+
 export type BuilderSection = "menu" | "content" | "settings";
 
 export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
@@ -43,6 +45,10 @@ export type DraftState = {
   id: string;
   repoFullName: string;
   branch: string;
+  ownerUserId: string;
+  revision: number;
+  lastEditedAt?: string | null;
+  lastEditedByUserId?: string | null;
   files: RepoFileSet;
 };
 

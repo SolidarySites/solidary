@@ -12,6 +12,8 @@ import type { BuilderPage, BuilderSection, BuilderSettingsSection, FooterModule 
 type BuilderSidebarProps = {
   activeSection: BuilderSection;
   activeSettingsSection: BuilderSettingsSection;
+  canEditDraft: boolean;
+  canEditMetadata: boolean;
   siteTitle: string;
   siteDescription: string;
   siteImagePreview: string | null;
@@ -73,6 +75,8 @@ type BuilderSidebarProps = {
 const BuilderSidebar = ({
   activeSection,
   activeSettingsSection,
+  canEditDraft,
+  canEditMetadata,
   siteTitle,
   siteDescription,
   siteImagePreview,
@@ -135,35 +139,49 @@ const BuilderSidebar = ({
     {activeSection === "menu" && (
       <>
         <div className="builder-sidebar-nav">
-          <button className="ghost" onClick={() => onSectionChange("content")}>
-            Solidary Metadata
-          </button>
-          <button className="ghost" onClick={() => onSectionChange("settings")}>
-            Settings
-          </button>
-        </div>
-        <div className="builder-section builder-format-toolbar">
-          {canFormatText ? (
-            <BuilderEditorToolbar
-              onRunCommand={onRunFormatCommand}
-              onRunLink={onRunFormatLink}
-              onUploadImage={onUploadFormatImage}
-              onCaptureSelection={onCaptureFormatSelection}
-              uploadingImage={isFormatImageUploading}
-              maxImageUploadBytes={maxFormatImageUploadBytes}
-            />
-          ) : (
-            <p className="builder-format-toolbar-note">
-              Formatting tools are available once the preview has loaded.
-            </p>
+          {canEditMetadata && (
+            <button className="ghost" onClick={() => onSectionChange("content")}>
+              Solidary Metadata
+            </button>
+          )}
+          {canEditDraft && (
+            <button className="ghost" onClick={() => onSectionChange("settings")}>
+              Settings
+            </button>
           )}
         </div>
-        <BuilderImageSettingsPanel
-          image={selectedEditorImage}
-          onAltChange={onSelectedEditorImageAltChange}
-          onCaptionChange={onSelectedEditorImageCaptionChange}
-          onSizeChange={onSelectedEditorImageSizeChange}
-        />
+        {canEditDraft ? (
+          <>
+            <div className="builder-section builder-format-toolbar">
+              {canFormatText ? (
+                <BuilderEditorToolbar
+                  onRunCommand={onRunFormatCommand}
+                  onRunLink={onRunFormatLink}
+                  onUploadImage={onUploadFormatImage}
+                  onCaptureSelection={onCaptureFormatSelection}
+                  uploadingImage={isFormatImageUploading}
+                  maxImageUploadBytes={maxFormatImageUploadBytes}
+                />
+              ) : (
+                <p className="builder-format-toolbar-note">
+                  Formatting tools are available once the preview has loaded.
+                </p>
+              )}
+            </div>
+            <BuilderImageSettingsPanel
+              image={selectedEditorImage}
+              onAltChange={onSelectedEditorImageAltChange}
+              onCaptionChange={onSelectedEditorImageCaptionChange}
+              onSizeChange={onSelectedEditorImageSizeChange}
+            />
+          </>
+        ) : (
+          <div className="builder-section">
+            <p className="builder-format-toolbar-note">
+              This draft is in read-only mode for your current role.
+            </p>
+          </div>
+        )}
       </>
     )}
 
@@ -180,7 +198,7 @@ const BuilderSidebar = ({
       />
     )}
 
-    {activeSection === "settings" && (
+    {activeSection === "settings" && canEditDraft && (
       <>
         <div className="builder-sidebar-nav">
           <button

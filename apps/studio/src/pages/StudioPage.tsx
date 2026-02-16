@@ -15,6 +15,8 @@ type DraftItem = {
   repo_full_name: string;
   branch: string;
   files: RepoFileSet;
+  owner_user_id: string;
+  access_role: "owner" | "admin" | "editor" | "viewer";
   updated_at?: string;
 };
 
@@ -33,7 +35,8 @@ export default function StudioPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
 
-  const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [ownedDraftItems, setOwnedDraftItems] = useState<DraftItem[]>([]);
+  const [sharedDraftItems, setSharedDraftItems] = useState<DraftItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -68,7 +71,8 @@ export default function StudioPage() {
 
   useEffect(() => {
     if (!session) {
-      setDraftItems([]);
+      setOwnedDraftItems([]);
+      setSharedDraftItems([]);
       return;
     }
 
@@ -76,23 +80,89 @@ export default function StudioPage() {
     const loadDrafts = async () => {
       setDraftsLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: ownedData, error: ownedError } = await supabase
           .from("site_drafts")
-          .select("id, repo_full_name, branch, files, updated_at")
+          .select("id, repo_full_name, branch, files, updated_at, owner_user_id")
           .eq("owner_user_id", session.user.id)
           .order("updated_at", { ascending: false });
+
         if (!mounted) return;
-        if (error) {
-          setNotice(error.message);
+        if (ownedError) {
+          setNotice(ownedError.message);
           setNoticeKind("error");
           return;
         }
-        setDraftItems(
-          (data ?? []).map((row) => ({
+
+        const ownedItems = (ownedData ?? []).map((row) => ({
+          id: row.id,
+          repo_full_name: row.repo_full_name,
+          branch: row.branch,
+          files: row.files as RepoFileSet,
+          owner_user_id: row.owner_user_id,
+          access_role: "owner" as const,
+          updated_at: row.updated_at
+        }));
+        setOwnedDraftItems(ownedItems);
+
+        const { data: collaboratorMemberships, error: collaboratorError } = await supabase
+          .from("site_admins")
+          .select("site_id, role")
+          .eq("user_id", session.user.id);
+
+        if (!mounted) return;
+        if (collaboratorError) {
+          setNotice(collaboratorError.message);
+          setNoticeKind("error");
+          return;
+        }
+
+        const sharedMemberships = (collaboratorMemberships ?? []).filter((membership) =>
+          membership.role === "admin" ||
+          membership.role === "editor" ||
+          membership.role === "viewer"
+        );
+        const ownedDraftIds = new Set(ownedItems.map((item) => item.id));
+        const sharedDraftIds = Array.from(
+          new Set(
+            sharedMemberships
+              .map((membership) => membership.site_id)
+              .filter((siteId) => !ownedDraftIds.has(siteId))
+          )
+        );
+
+        if (!sharedDraftIds.length) {
+          setSharedDraftItems([]);
+          return;
+        }
+
+        const roleBySiteId = new Map<string, "admin" | "editor" | "viewer">();
+        sharedMemberships.forEach((membership) => {
+          if (membership.role === "admin" || membership.role === "editor" || membership.role === "viewer") {
+            roleBySiteId.set(membership.site_id, membership.role);
+          }
+        });
+
+        const { data: sharedData, error: sharedError } = await supabase
+          .from("site_drafts")
+          .select("id, repo_full_name, branch, files, updated_at, owner_user_id")
+          .in("id", sharedDraftIds)
+          .order("updated_at", { ascending: false });
+
+        if (!mounted) return;
+        if (sharedError) {
+          setNotice(sharedError.message);
+          setNoticeKind("error");
+          return;
+        }
+
+        setSharedDraftItems(
+          (sharedData ?? []).map((row) => ({
             id: row.id,
             repo_full_name: row.repo_full_name,
             branch: row.branch,
             files: row.files as RepoFileSet,
+            owner_user_id: row.owner_user_id,
+            access_role: roleBySiteId.get(row.id) ?? "viewer",
             updated_at: row.updated_at
           }))
         );
@@ -139,7 +209,7 @@ export default function StudioPage() {
         setNoticeKind("error");
         return;
       }
-      setDraftItems((items) => items.filter((entry) => entry.id !== item.id));
+      setOwnedDraftItems((items) => items.filter((entry) => entry.id !== item.id));
       return;
     }
 
@@ -186,12 +256,12 @@ export default function StudioPage() {
       setNoticeKind("error");
       return;
     }
-    setDraftItems((items) => items.filter((entry) => entry.id !== item.id));
+    setOwnedDraftItems((items) => items.filter((entry) => entry.id !== item.id));
   };
 
-  const listItems = useMemo(
+  const ownedListItems = useMemo(
     () =>
-      draftItems.map((item) => {
+      ownedDraftItems.map((item) => {
         const solidary = parseSolidaryJson(findSolidary(item.files));
         return {
           id: item.id,
@@ -200,10 +270,29 @@ export default function StudioPage() {
           repoFullName: item.repo_full_name,
           repoHtmlUrl: `https://github.com/${item.repo_full_name}`,
           siteUrl: solidary?.site_url ?? "",
+          accessRole: "owner" as const,
           updatedAt: item.updated_at
         };
       }),
-    [draftItems]
+    [ownedDraftItems]
+  );
+
+  const sharedListItems = useMemo(
+    () =>
+      sharedDraftItems.map((item) => {
+        const solidary = parseSolidaryJson(findSolidary(item.files));
+        return {
+          id: item.id,
+          title: solidary?.title ?? item.repo_full_name,
+          description: solidary?.description ?? "",
+          repoFullName: item.repo_full_name,
+          repoHtmlUrl: `https://github.com/${item.repo_full_name}`,
+          siteUrl: solidary?.site_url ?? "",
+          accessRole: item.access_role,
+          updatedAt: item.updated_at
+        };
+      }),
+    [sharedDraftItems]
   );
 
   return (
@@ -217,7 +306,9 @@ export default function StudioPage() {
       <main className="main-content">
         {session && (
           <SitesListSection
-            items={listItems}
+            title="Your sites"
+            emptyMessage="No saved sites yet. Create one to see it here."
+            items={ownedListItems}
             loading={draftsLoading}
             onEdit={(id) => navigate(`/site-builder?draftId=${id}`)}
             onCreate={() => navigate("/site-create")}
@@ -230,6 +321,16 @@ export default function StudioPage() {
               setDeleteMode(null);
               setDeleteConfirmText("");
             }}
+          />
+        )}
+
+        {session && (
+          <SitesListSection
+            title="Shared with you"
+            emptyMessage="No collaborator sites yet."
+            items={sharedListItems}
+            loading={draftsLoading}
+            onEdit={(id) => navigate(`/site-builder?draftId=${id}`)}
           />
         )}
 

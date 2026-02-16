@@ -8,12 +8,14 @@ import type {
   DraftState,
   FooterModuleAlignment,
   FooterOptions,
-  HeaderOptions
+  HeaderOptions,
+  SiteAccessRole
 } from "./types";
 import { getPageSafeSlug, resolveImagePreviewUrl } from "./utils";
 
 export type LoadedDraftResult = {
   draftState: DraftState;
+  accessRole: SiteAccessRole;
   pages: BuilderPage[];
   draftPageSlugs: string[];
   initialActivePreviewSlug: string | null;
@@ -84,19 +86,48 @@ const normalizeFooterModules = (modules: unknown): FooterOptions["modules"] => {
 
 export const loadDraftById = async ({
   draftId,
-  defaultHomeContent
+  defaultHomeContent,
+  userId
 }: {
   draftId: string;
   defaultHomeContent: string;
+  userId: string;
 }) => {
   const { data, error } = await supabase
     .from("site_drafts")
-    .select("id, repo_full_name, branch, files")
+    .select(
+      "id, repo_full_name, branch, owner_user_id, revision, updated_at, last_edited_by_user_id, last_edited_at, files"
+    )
     .eq("id", draftId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Draft not found.");
+
+  let accessRole: SiteAccessRole | null = null;
+  if (data.owner_user_id === userId) {
+    accessRole = "owner";
+  } else {
+    const { data: collaboratorRow, error: collaboratorError } = await supabase
+      .from("site_admins")
+      .select("role")
+      .eq("site_id", draftId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (collaboratorError) throw new Error(collaboratorError.message);
+    if (
+      collaboratorRow?.role === "admin" ||
+      collaboratorRow?.role === "editor" ||
+      collaboratorRow?.role === "viewer"
+    ) {
+      accessRole = collaboratorRow.role;
+    }
+  }
+
+  if (!accessRole) {
+    throw new Error("You do not have access to this draft.");
+  }
 
   const files = data.files as RepoFileSet;
   const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
@@ -106,6 +137,11 @@ export const loadDraftById = async ({
     id: data.id,
     repoFullName: data.repo_full_name,
     branch: data.branch,
+    ownerUserId: data.owner_user_id,
+    revision: typeof data.revision === "number" ? data.revision : 1,
+    lastEditedAt: typeof data.last_edited_at === "string" ? data.last_edited_at : null,
+    lastEditedByUserId:
+      typeof data.last_edited_by_user_id === "string" ? data.last_edited_by_user_id : null,
     files
   };
 
@@ -166,6 +202,7 @@ export const loadDraftById = async ({
 
   const result: LoadedDraftResult = {
     draftState,
+    accessRole,
     pages,
     draftPageSlugs,
     initialActivePreviewSlug,

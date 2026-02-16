@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import type { Session } from "@supabase/supabase-js";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
@@ -30,7 +30,8 @@ import type {
   DraftState,
   FooterModule,
   FooterModuleAlignment,
-  PublishFeedback
+  PublishFeedback,
+  SiteAccessRole
 } from "../components/studio/site-builder/types";
 import { usePublishStatusTracking } from "../components/studio/site-builder/usePublishStatusTracking";
 import {
@@ -152,6 +153,28 @@ type BatchCommitResponse = {
   noChanges?: boolean;
 };
 
+type PresencePayload = {
+  user_id?: string;
+  name?: string;
+  role?: SiteAccessRole;
+  active_page_slug?: string | null;
+  at?: string;
+};
+
+type DraftPresenceMember = {
+  userId: string;
+  name: string;
+  role: SiteAccessRole | null;
+  activePageSlug: string | null;
+};
+
+class DraftConflictError extends Error {
+  constructor() {
+    super("This draft was updated by someone else. Reload to get the latest version.");
+    this.name = "DraftConflictError";
+  }
+}
+
 const buildDraftPageRows = (
   draftId: string,
   pagesSnapshot: BuilderPage[],
@@ -236,6 +259,8 @@ export default function SiteBuilderPage() {
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
+  const [siteAccessRole, setSiteAccessRole] = useState<SiteAccessRole | null>(null);
+  const [activePresenceMembers, setActivePresenceMembers] = useState<DraftPresenceMember[]>([]);
   const [isDraftLoading, setIsDraftLoading] = useState(() => {
     const initialDraftId =
       searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId;
@@ -251,6 +276,7 @@ export default function SiteBuilderPage() {
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
+  const draftPresenceChannelRef = useRef<RealtimeChannel | null>(null);
   const hasInitializedHeaderBrand = useRef(false);
   const cleanedPublishedDraftIdRef = useRef<string | null>(null);
   const shouldCaptureLoadedDraftSignature = useRef(false);
@@ -262,6 +288,30 @@ export default function SiteBuilderPage() {
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
   const sessionUserId = session?.user.id ?? null;
+  const isOwner = siteAccessRole === "owner";
+  const canEditDraft =
+    siteAccessRole === "owner" || siteAccessRole === "admin" || siteAccessRole === "editor";
+  const canPublishByRole = siteAccessRole === "owner" || siteAccessRole === "admin";
+  const collaboratorPresenceNames = useMemo(
+    () =>
+      activePresenceMembers
+        .filter((member) => member.userId !== sessionUserId)
+        .map((member) => member.name),
+    [activePresenceMembers, sessionUserId]
+  );
+  const sessionDisplayName = useMemo(() => {
+    const metadata = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+    const candidates = [
+      metadata.user_name,
+      metadata.preferred_username,
+      metadata.name,
+      session?.user.email
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+    return "Unknown";
+  }, [session]);
   const publishedSiteBaseUrl = useMemo(() => {
     if (publishFeedback?.kind !== "success") return null;
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
@@ -441,6 +491,8 @@ export default function SiteBuilderPage() {
       setIsDraftLoading(false);
       setDraftLoadError(null);
       setDraftImages([]);
+      setSiteAccessRole(null);
+      setActivePresenceMembers([]);
       setLastSavedDraftSignature("");
       cleanedPublishedDraftIdRef.current = null;
       shouldCaptureLoadedDraftSignature.current = false;
@@ -467,13 +519,15 @@ export default function SiteBuilderPage() {
       try {
         const loaded = await loadDraftById({
           draftId,
-          defaultHomeContent
+          defaultHomeContent,
+          userId: sessionUserId
         });
 
         if (!mounted) return;
 
         const loadedDraftImages = loaded.draftImages ?? [];
         setDraftState(loaded.draftState);
+        setSiteAccessRole(loaded.accessRole);
         setDraftImages(loadedDraftImages);
         setPages(
           loaded.pages.map((page) => ({
@@ -518,6 +572,7 @@ export default function SiteBuilderPage() {
       } catch (caught) {
         if (!mounted) return;
         const message = caught instanceof Error ? caught.message : "Failed to load draft.";
+        setSiteAccessRole(null);
         setDraftLoadError(message);
       } finally {
         if (mounted) {
@@ -539,6 +594,91 @@ export default function SiteBuilderPage() {
   }, [currentDraftSignature, draftState, isDraftLoading]);
 
   useEffect(() => {
+    if (!draftState?.id || !sessionUserId || !siteAccessRole) {
+      void draftPresenceChannelRef.current?.unsubscribe();
+      draftPresenceChannelRef.current = null;
+      setActivePresenceMembers([]);
+      return;
+    }
+
+    const channel = supabase.channel(`draft-presence:${draftState.id}`, {
+      config: {
+        presence: {
+          key: sessionUserId
+        }
+      }
+    });
+    draftPresenceChannelRef.current = channel;
+
+    const syncPresence = () => {
+      const state = channel.presenceState<PresencePayload>();
+      const membersByUserId = new Map<string, DraftPresenceMember>();
+
+      Object.values(state)
+        .flat()
+        .forEach((payload) => {
+          const userId = typeof payload.user_id === "string" ? payload.user_id.trim() : "";
+          if (!userId) return;
+          const roleValue =
+            payload.role === "owner" ||
+            payload.role === "admin" ||
+            payload.role === "editor" ||
+            payload.role === "viewer"
+              ? payload.role
+              : null;
+          const existing = membersByUserId.get(userId);
+          if (existing) return;
+          membersByUserId.set(userId, {
+            userId,
+            role: roleValue,
+            name: typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : "Unknown",
+            activePageSlug:
+              typeof payload.active_page_slug === "string" && payload.active_page_slug.trim()
+                ? payload.active_page_slug
+                : null
+          });
+        });
+
+      setActivePresenceMembers(
+        Array.from(membersByUserId.values()).sort((left, right) => left.name.localeCompare(right.name))
+      );
+    };
+
+    channel.on("presence", { event: "sync" }, syncPresence);
+
+    channel.subscribe(async (status) => {
+      if (status !== "SUBSCRIBED") return;
+      await channel.track({
+        user_id: sessionUserId,
+        name: sessionDisplayName,
+        role: siteAccessRole,
+        active_page_slug: null,
+        at: new Date().toISOString()
+      } satisfies PresencePayload);
+    });
+
+    return () => {
+      setActivePresenceMembers([]);
+      if (draftPresenceChannelRef.current === channel) {
+        draftPresenceChannelRef.current = null;
+      }
+      void channel.unsubscribe();
+    };
+  }, [draftState?.id, sessionDisplayName, sessionUserId, siteAccessRole]);
+
+  useEffect(() => {
+    const channel = draftPresenceChannelRef.current;
+    if (!channel || !sessionUserId || !siteAccessRole) return;
+    void channel.track({
+      user_id: sessionUserId,
+      name: sessionDisplayName,
+      role: siteAccessRole,
+      active_page_slug: activePreviewSlug,
+      at: new Date().toISOString()
+    } satisfies PresencePayload);
+  }, [activePreviewSlug, sessionDisplayName, sessionUserId, siteAccessRole]);
+
+  useEffect(() => {
     if (!hasUnsavedChanges) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -551,6 +691,16 @@ export default function SiteBuilderPage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!canEditDraft) {
+      if (activeSection !== "content" && activeSection !== "settings") return;
+      setActiveSection("menu");
+      return;
+    }
+    if (isOwner || activeSection !== "content") return;
+    setActiveSection("menu");
+  }, [activeSection, canEditDraft, isOwner]);
 
   const handleGitHubLogin = async () => {
     setNotice(null);
@@ -628,13 +778,17 @@ export default function SiteBuilderPage() {
     );
   };
 
-  const updateDraftSolidaryFile = (baseDraft: DraftState, solidaryFile: string) => {
-    setDraftState({
-      ...baseDraft,
-      files: {
-        [FILE_KEYS.solidary]: solidaryFile
-      }
-    });
+  const updateDraftSolidaryFile = (solidaryFile: string) => {
+    setDraftState((current) =>
+      current
+        ? {
+            ...current,
+            files: {
+              [FILE_KEYS.solidary]: solidaryFile
+            }
+          }
+        : current
+    );
   };
 
   const saveDraftState = async (
@@ -643,23 +797,51 @@ export default function SiteBuilderPage() {
     imageUrl: string,
     pagesSnapshot: BuilderPage[] = pages
   ) => {
-    const { error } = await supabase.from("site_drafts").upsert(
-      {
-        id: repoInfo.id,
-        owner_user_id: session?.user.id,
-        repo_full_name: repoInfo.repoFullName,
+    if (!canEditDraft) {
+      throw new Error("Your current role is read-only for this draft.");
+    }
+
+    const nowIso = new Date().toISOString();
+    const editorUserId = session?.user.id ?? null;
+    const { data: draftRow, error: draftUpdateError } = await supabase
+      .from("site_drafts")
+      .update({
         branch: repoInfo.branch,
         commit_sha: "",
         files: {
           [FILE_KEYS.solidary]: solidaryFile
-        }
-      },
-      { onConflict: "owner_user_id,repo_full_name" }
-    );
+        },
+        last_edited_by_user_id: editorUserId,
+        last_edited_at: nowIso
+      })
+      .eq("id", repoInfo.id)
+      .eq("revision", repoInfo.revision)
+      .select("owner_user_id, revision, last_edited_at, last_edited_by_user_id")
+      .maybeSingle();
 
-    if (error) {
-      throw new Error(error.message);
+    if (draftUpdateError) {
+      throw new Error(draftUpdateError.message);
     }
+    if (!draftRow) {
+      throw new DraftConflictError();
+    }
+
+    setDraftState((current) =>
+      current
+        ? {
+            ...current,
+            revision: typeof draftRow.revision === "number" ? draftRow.revision : current.revision,
+            lastEditedAt:
+              typeof draftRow.last_edited_at === "string"
+                ? draftRow.last_edited_at
+                : (current.lastEditedAt ?? null),
+            lastEditedByUserId:
+              typeof draftRow.last_edited_by_user_id === "string"
+                ? draftRow.last_edited_by_user_id
+                : (current.lastEditedByUserId ?? null)
+          }
+        : current
+    );
 
     const { error: settingsError } = await supabase.from("site_draft_settings").upsert({
       draft_id: repoInfo.id,
@@ -776,6 +958,12 @@ export default function SiteBuilderPage() {
     cancelPublishStatusTracking();
     cleanedPublishedDraftIdRef.current = null;
 
+    if (!canPublishByRole) {
+      setNotice("Only owners or admins can publish this site.");
+      setNoticeKind("error");
+      return;
+    }
+
     if (!session) {
       setNotice("Sign in with GitHub to continue.");
       setNoticeKind("error");
@@ -838,7 +1026,7 @@ export default function SiteBuilderPage() {
 
       setProvisionStep("Saving draft...");
       await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
-      updateDraftSolidaryFile(draftState, solidaryFile);
+      updateDraftSolidaryFile(solidaryFile);
       setPages(normalizedPages);
       setLastSavedDraftSignature(draftSignatureAfterSave);
 
@@ -972,6 +1160,11 @@ export default function SiteBuilderPage() {
 
   const handleSaveDraft = async () => {
     if (!draftState || savingDraft) return;
+    if (!canEditDraft) {
+      setNotice("Your role is read-only for this site.");
+      setNoticeKind("error");
+      return;
+    }
     setSavingDraft(true);
     try {
       const normalizedPages = pages.map((page) => ({
@@ -997,7 +1190,7 @@ export default function SiteBuilderPage() {
         draftImages
       });
       await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
-      updateDraftSolidaryFile(draftState, solidaryFile);
+      updateDraftSolidaryFile(solidaryFile);
       setPages(normalizedPages);
       setLastSavedDraftSignature(draftSignatureAfterSave);
       setNotice("Draft saved locally.");
@@ -1012,10 +1205,12 @@ export default function SiteBuilderPage() {
   };
 
   const runPreviewCommand = (command: string, value?: string) => {
+    if (!canEditDraft) return;
     previewRef.current?.execCommand(command, value);
   };
 
   const runPreviewLink = () => {
+    if (!canEditDraft) return;
     const url = window.prompt("Link URL");
     if (!url) return;
     previewRef.current?.execCommand("createLink", url);
@@ -1045,6 +1240,13 @@ export default function SiteBuilderPage() {
 
   const handleInlineImageUpload = async (file: File): Promise<void> => {
     resetNotices();
+
+    if (!canEditDraft) {
+      const message = "Your role is read-only for this draft.";
+      setNotice(message);
+      setNoticeKind("error");
+      throw new Error(message);
+    }
 
     if (!file.type.startsWith("image/")) {
       const message = "Select an image file to insert.";
@@ -1230,9 +1432,10 @@ export default function SiteBuilderPage() {
     });
   };
 
-  const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError;
-  const canSaveDraft = Boolean(draftState) && !savingDraft && hasUnsavedChanges;
-  const canPublish = !isProvisioning && Boolean(draftState) && publishFeedback?.kind !== "progress";
+  const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError && canEditDraft;
+  const canSaveDraft = Boolean(draftState) && canEditDraft && !savingDraft && hasUnsavedChanges;
+  const canPublish =
+    !isProvisioning && Boolean(draftState) && canPublishByRole && publishFeedback?.kind !== "progress";
 
   const handleSidebarBack = () => {
     if (activeSection !== "menu") {
@@ -1259,6 +1462,8 @@ export default function SiteBuilderPage() {
         canPublish={canPublish}
         liveSiteUrl={liveSiteUrl}
         githubRepoUrl={githubRepoUrl}
+        accessRole={siteAccessRole}
+        activeCollaborators={collaboratorPresenceNames}
         isPreviewFullscreen={isPreviewFullscreen}
         onTogglePreviewFullscreen={() => setIsPreviewFullscreen((value) => !value)}
         publishFeedback={publishFeedback}
@@ -1271,6 +1476,8 @@ export default function SiteBuilderPage() {
           <BuilderSidebar
             activeSection={activeSection}
             activeSettingsSection={activeSettingsSection}
+            canEditDraft={canEditDraft}
+            canEditMetadata={isOwner}
             siteTitle={siteTitle}
             siteDescription={siteDescription}
             siteImagePreview={siteImagePreview}
@@ -1331,6 +1538,7 @@ export default function SiteBuilderPage() {
           shouldLoadDraft={shouldLoadDraft}
           isDraftLoading={isDraftLoading}
           draftLoadError={draftLoadError}
+          canEditContent={canEditDraft}
           previewRef={previewRef}
           previewBrand={siteTitle}
           pages={pages}
