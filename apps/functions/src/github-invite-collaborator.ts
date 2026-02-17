@@ -150,7 +150,7 @@ export const handler: Handler = async (event) => {
 
   const { data: draft, error: draftError } = await supabase
     .from("site_drafts")
-    .select("id, owner_user_id, repo_full_name")
+    .select("id, site_id, owner_user_id, repo_full_name, draft_type")
     .eq("id", draftId)
     .maybeSingle();
 
@@ -168,13 +168,15 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ error: "Draft not found." })
     };
   }
-  if (draft.owner_user_id !== user.id) {
+  if (draft.owner_user_id !== user.id || draft.draft_type !== "owner") {
     return {
       statusCode: 403,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ error: "Only owners can invite collaborators." })
     };
   }
+
+  const siteId = typeof draft.site_id === "string" && draft.site_id.trim() ? draft.site_id : draft.id;
 
   const [owner, repo] =
     typeof draft.repo_full_name === "string" ? draft.repo_full_name.split("/") : [];
@@ -254,7 +256,7 @@ export const handler: Handler = async (event) => {
   if (matchedSolidaryUserId && matchedSolidaryUserId !== user.id) {
     const { error: membershipError } = await supabase.from("site_admins").upsert(
       {
-        site_id: draftId,
+        site_id: siteId,
         user_id: matchedSolidaryUserId,
         role
       },

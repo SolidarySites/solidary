@@ -6,6 +6,7 @@ type BuilderActionsProps = {
   provisionStep: string;
   canSaveDraft: boolean;
   canPublish: boolean;
+  publishLabel: string;
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
   onPublish: () => void;
@@ -17,6 +18,7 @@ const BuilderActions = ({
   provisionStep,
   canSaveDraft,
   canPublish,
+  publishLabel,
   publishFeedback,
   onSaveDraft,
   onPublish
@@ -28,10 +30,10 @@ const BuilderActions = ({
       </button>
       <button className="primary" onClick={onPublish} disabled={!canPublish}>
         {isProvisioning
-          ? "Publishing..."
+          ? `${publishLabel}...`
           : publishFeedback?.kind === "progress"
             ? "Building..."
-            : "Publish"}
+            : publishLabel}
       </button>
     </div>
     {(isProvisioning || publishFeedback) && (
@@ -51,7 +53,11 @@ const BuilderActions = ({
           {isProvisioning && <span>{provisionStep}</span>}
           {!isProvisioning && publishFeedback?.runUrl && (
             <a href={publishFeedback.runUrl} target="_blank" rel="noopener noreferrer">
-              {publishFeedback.kind === "progress" ? "View actions" : "View build"}
+              {publishLabel === "Create PR"
+                ? "View pull request"
+                : publishFeedback.kind === "progress"
+                  ? "View actions"
+                  : "View build"}
             </a>
           )}
           {!isProvisioning && publishFeedback?.pagesUrl && publishFeedback.kind === "success" && (

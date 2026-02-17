@@ -105,7 +105,7 @@ export const handler: Handler = async (event) => {
 
   const { data: draft, error: draftError } = await supabase
     .from("site_drafts")
-    .select("id, owner_user_id")
+    .select("id, site_id, owner_user_id")
     .eq("id", draftId)
     .maybeSingle();
 
@@ -125,12 +125,14 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  const siteId = typeof draft.site_id === "string" && draft.site_id.trim() ? draft.site_id : draft.id;
+
   let hasAccess = draft.owner_user_id === user.id;
   if (!hasAccess) {
     const { data: adminAccess, error: adminAccessError } = await supabase
       .from("site_admins")
       .select("site_id")
-      .eq("site_id", draftId)
+      .eq("site_id", siteId)
       .eq("user_id", user.id)
       .in("role", ["admin", "editor"])
       .maybeSingle();

@@ -37,6 +37,7 @@ export type FooterOptions = {
 
 export type SiteAccessRole = "owner" | "admin" | "editor" | "viewer";
 export type CollaboratorRole = "admin" | "editor" | "viewer";
+export type DraftType = "owner" | "editor";
 
 export type CollaboratorSearchResult = {
   userId: string;
@@ -53,9 +54,19 @@ export type BuilderEditableSectionKey = "metadata" | "pages" | "header" | "foote
 
 export type DraftState = {
   id: string;
+  siteId: string;
   repoFullName: string;
   branch: string;
   ownerUserId: string;
+  draftType: DraftType;
+  sourceOwnerDraftId?: string | null;
+  touchedSections: Array<BuilderEditableSectionKey>;
+  touchedPageSlugs: string[];
+  deletedPageSlugs: string[];
+  editorBranch?: string | null;
+  lastPullRequestNumber?: number | null;
+  lastPullRequestUrl?: string | null;
+  lastPullRequestState?: string | null;
   revision: number;
   lastEditedAt?: string | null;
   lastEditedByUserId?: string | null;

@@ -345,6 +345,8 @@ export default function SiteBuilderPage() {
   const cleanedPublishedDraftIdRef = useRef<string | null>(null);
   const shouldCaptureLoadedDraftSignature = useRef(false);
   const sectionTransitionInFlightRef = useRef(false);
+  const touchedPageSlugsRef = useRef<Set<string>>(new Set());
+  const deletedPageSlugsRef = useRef<Set<string>>(new Set());
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -354,9 +356,16 @@ export default function SiteBuilderPage() {
   const shouldLoadDraft = Boolean(draftId);
   const sessionUserId = session?.user.id ?? null;
   const isOwner = siteAccessRole === "owner";
-  const canEditDraft =
-    siteAccessRole === "owner" || siteAccessRole === "admin" || siteAccessRole === "editor";
-  const canPublishByRole = siteAccessRole === "owner" || siteAccessRole === "admin";
+  const isOwnerOnOwnerDraft = isOwner && draftState?.draftType === "owner";
+  const isEditorWorkingDraft =
+    draftState?.draftType === "editor" && siteAccessRole === "editor" && draftState.ownerUserId === sessionUserId;
+  const isOwnerOrAdminOnOwnerDraft =
+    draftState?.draftType === "owner" &&
+    (siteAccessRole === "owner" || siteAccessRole === "admin");
+  const canEditDraft = Boolean(isOwnerOrAdminOnOwnerDraft || isEditorWorkingDraft);
+  const canDirectPublish = Boolean(isOwnerOrAdminOnOwnerDraft);
+  const canSubmitPullRequest = Boolean(isEditorWorkingDraft);
+  const canPublishByRole = canDirectPublish || canSubmitPullRequest;
   const activeEditableSection = useMemo(
     () => getEditableSectionFromUi(activeSection, activeSettingsSection),
     [activeSection, activeSettingsSection]
@@ -442,9 +451,10 @@ export default function SiteBuilderPage() {
   }, [session]);
   const publishedSiteBaseUrl = useMemo(() => {
     if (publishFeedback?.kind !== "success") return null;
+    if (!canDirectPublish) return null;
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
     return candidate || null;
-  }, [publishFeedback, siteUrl]);
+  }, [canDirectPublish, publishFeedback, siteUrl]);
   const liveSiteUrl = toExternalUrl(publishedSiteBaseUrl ?? siteUrl);
   const githubRepoFullName = draftState?.repoFullName?.trim() ?? "";
   const githubRepoUrl = githubRepoFullName ? `https://github.com/${githubRepoFullName}` : null;
@@ -511,6 +521,7 @@ export default function SiteBuilderPage() {
   useEffect(() => {
     if (publishFeedback?.kind !== "success") return;
     if (!draftState?.id) return;
+    if (draftState.draftType !== "owner") return;
     if (cleanedPublishedDraftIdRef.current === draftState.id) return;
 
     (async () => {
@@ -577,7 +588,7 @@ export default function SiteBuilderPage() {
         })
       );
     })();
-  }, [draftState?.id, publishFeedback?.kind, publishedSiteBaseUrl, session?.access_token]);
+  }, [draftState?.draftType, draftState?.id, publishFeedback?.kind, publishedSiteBaseUrl, session?.access_token]);
 
   useEffect(() => {
     let mounted = true;
@@ -616,6 +627,8 @@ export default function SiteBuilderPage() {
 
   const applyLoadedDraft = useCallback((loaded: LoadedDraftResult) => {
     const loadedDraftImages = loaded.draftImages ?? [];
+    touchedPageSlugsRef.current.clear();
+    deletedPageSlugsRef.current.clear();
     setDraftState(loaded.draftState);
     setSiteAccessRole(loaded.accessRole);
     setDraftImages(loadedDraftImages);
@@ -673,6 +686,8 @@ export default function SiteBuilderPage() {
       setSelectedCollaboratorSuggestion(null);
       cleanedPublishedDraftIdRef.current = null;
       shouldCaptureLoadedDraftSignature.current = false;
+      touchedPageSlugsRef.current.clear();
+      deletedPageSlugsRef.current.clear();
       return;
     }
 
@@ -702,6 +717,9 @@ export default function SiteBuilderPage() {
 
         if (!mounted) return;
         applyLoadedDraft(loaded);
+        if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftId) {
+          navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
+        }
       } catch (caught) {
         if (!mounted) return;
         const message = caught instanceof Error ? caught.message : "Failed to load draft.";
@@ -718,7 +736,7 @@ export default function SiteBuilderPage() {
     return () => {
       mounted = false;
     };
-  }, [applyLoadedDraft, draftId, sessionResolved, sessionUserId]);
+  }, [applyLoadedDraft, draftId, navigate, sessionResolved, sessionUserId]);
 
   const reloadLatestDraftAfterConflict = useCallback(async () => {
     if (!draftId || !sessionUserId) return;
@@ -732,6 +750,9 @@ export default function SiteBuilderPage() {
         userId: sessionUserId
       });
       applyLoadedDraft(loaded);
+      if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftId) {
+        navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
+      }
       setNotice("Draft changed by another collaborator. Loaded the latest version.");
       setNoticeKind("error");
     } catch (caught) {
@@ -742,10 +763,10 @@ export default function SiteBuilderPage() {
     } finally {
       setIsDraftLoading(false);
     }
-  }, [applyLoadedDraft, draftId, sessionUserId]);
+  }, [applyLoadedDraft, draftId, navigate, sessionUserId]);
 
   useEffect(() => {
-    if (!isOwner || !draftState?.id) {
+    if (!isOwnerOnOwnerDraft || !draftState?.id) {
       setCollaboratorSuggestions([]);
       setCollaboratorSearchLoading(false);
       return;
@@ -810,7 +831,7 @@ export default function SiteBuilderPage() {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [collaboratorQuery, draftState?.id, isOwner]);
+  }, [collaboratorQuery, draftState?.id, isOwnerOnOwnerDraft]);
 
   const handleCollaboratorQueryChange = (value: string) => {
     setCollaboratorQuery(value);
@@ -825,7 +846,7 @@ export default function SiteBuilderPage() {
 
   const handleInviteCollaborator = async () => {
     if (!draftState?.id) return;
-    if (!isOwner) {
+    if (!isOwnerOnOwnerDraft) {
       setNotice("Only owners can invite collaborators.");
       setNoticeKind("error");
       return;
@@ -1034,9 +1055,9 @@ export default function SiteBuilderPage() {
       setActiveSection("menu");
       return;
     }
-    if (isOwner || activeSection !== "content") return;
+    if (isOwnerOnOwnerDraft || activeSection !== "content") return;
     setActiveSection("menu");
-  }, [activeSection, canEditDraft, draftState?.id, isOwner, sessionUserId]);
+  }, [activeSection, canEditDraft, draftState?.id, isOwnerOnOwnerDraft, sessionUserId]);
 
   const handleGitHubLogin = async () => {
     setNotice(null);
@@ -1064,6 +1085,23 @@ export default function SiteBuilderPage() {
     setNoticeKind(null);
   };
 
+  const normalizeTouchedSlug = (value: string | null | undefined) =>
+    value?.trim().toLowerCase() ?? "";
+
+  const markPageSlugTouched = (slug: string | null | undefined) => {
+    const normalized = normalizeTouchedSlug(slug);
+    if (!normalized) return;
+    touchedPageSlugsRef.current.add(normalized);
+    deletedPageSlugsRef.current.delete(normalized);
+  };
+
+  const markPageSlugDeleted = (slug: string | null | undefined) => {
+    const normalized = normalizeTouchedSlug(slug);
+    if (!normalized) return;
+    touchedPageSlugsRef.current.delete(normalized);
+    deletedPageSlugsRef.current.add(normalized);
+  };
+
   const addPage = () => {
     const slug = makeUniquePageSlug("new-page", pages);
     setPages((items) => [
@@ -1077,6 +1115,7 @@ export default function SiteBuilderPage() {
         position: items.length
       }
     ]);
+    markPageSlugTouched(slug);
     setActivePreviewSlug(slug);
     setActiveSection("settings");
     setActiveSettingsSection("pages");
@@ -1085,11 +1124,17 @@ export default function SiteBuilderPage() {
 
   const updatePage = (index: number, updates: Partial<BuilderPage>) => {
     const existing = pages[index];
-    if (existing && !existing.isHome) {
+    if (existing) {
       const previousSlug = getPageSafeSlug(existing, index);
       const nextSlug = getPageSafeSlug({ ...existing, ...updates }, index);
       if (previousSlug !== nextSlug && activePreviewSlug === previousSlug) {
         setActivePreviewSlug(nextSlug);
+      }
+      if (previousSlug !== nextSlug) {
+        markPageSlugDeleted(previousSlug);
+        markPageSlugTouched(nextSlug);
+      } else {
+        markPageSlugTouched(previousSlug);
       }
     }
     setPages((items) => items.map((item, idx) => (idx === index ? { ...item, ...updates } : item)));
@@ -1100,6 +1145,7 @@ export default function SiteBuilderPage() {
     if (!page || page.isHome) return;
 
     const removedSlug = getPageSafeSlug(page, index);
+    markPageSlugDeleted(removedSlug);
     setPages((items) => items.filter((_, idx) => idx !== index || items[idx]?.isHome));
     if (activePreviewSlug === removedSlug) {
       setActivePreviewSlug("home");
@@ -1107,6 +1153,7 @@ export default function SiteBuilderPage() {
   };
 
   const updatePageBody = (safeSlug: string, body: string) => {
+    markPageSlugTouched(safeSlug);
     setPages((items) =>
       items.map((item, index) =>
         getPageSafeSlug(item, index) === safeSlug ? { ...item, body } : item
@@ -1241,6 +1288,70 @@ export default function SiteBuilderPage() {
     });
   };
 
+  const syncEditorTouchedState = (
+    touchedSections: string[] | null | undefined,
+    touchedPageSlugs: string[] | null | undefined,
+    deletedPageSlugs: string[] | null | undefined
+  ) => {
+    const normalizedTouchedSections = (touchedSections ?? []).filter(
+      (entry): entry is BuilderEditableSectionKey =>
+        entry === "metadata" ||
+        entry === "pages" ||
+        entry === "header" ||
+        entry === "footer" ||
+        entry === "styles"
+    );
+    const normalizedTouchedPageSlugs = (touchedPageSlugs ?? [])
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean);
+    const normalizedDeletedPageSlugs = (deletedPageSlugs ?? [])
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean);
+
+    setDraftState((current) =>
+      current
+        ? {
+            ...current,
+            touchedSections: normalizedTouchedSections,
+            touchedPageSlugs: normalizedTouchedPageSlugs,
+            deletedPageSlugs: normalizedDeletedPageSlugs
+          }
+        : current
+    );
+  };
+
+  const markEditorDraftTouched = async (
+    section: BuilderEditableSectionKey,
+    touchedPageSlugs: string[] = [],
+    deletedPageSlugs: string[] = []
+  ) => {
+    if (!draftState || draftState.draftType !== "editor") return;
+    const { data, error } = await supabase.rpc("site_editor_mark_touched", {
+      p_draft_id: draftState.id,
+      p_section_key: section,
+      p_touched_page_slugs: touchedPageSlugs,
+      p_deleted_page_slugs: deletedPageSlugs
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    const row =
+      Array.isArray(data) && data.length
+        ? (data[0] as {
+            touched_sections?: string[] | null;
+            touched_page_slugs?: string[] | null;
+            deleted_page_slugs?: string[] | null;
+          })
+        : null;
+    if (row) {
+      syncEditorTouchedState(
+        row.touched_sections ?? null,
+        row.touched_page_slugs ?? null,
+        row.deleted_page_slugs ?? null
+      );
+    }
+  };
+
   const saveMetadataSection = async () => {
     if (!draftState) {
       throw new Error("Missing draft data.");
@@ -1251,7 +1362,7 @@ export default function SiteBuilderPage() {
       : siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
     const solidaryFile = buildSolidaryFile({
       templateSolidary,
-      siteId: draftState.id,
+      siteId: draftState.siteId,
       imageUrl,
       settingsInput: siteSettingsInput,
       urlOverride: siteUrl
@@ -1292,6 +1403,8 @@ export default function SiteBuilderPage() {
       throw new Error(settingsError.message);
     }
 
+    await markEditorDraftTouched("metadata");
+
     return buildDraftSignatureForState({ imageUrl });
   };
 
@@ -1329,6 +1442,19 @@ export default function SiteBuilderPage() {
     setPages(normalizedPages);
     setDraftPageSlugs(pageRows.map((page) => page.slug));
 
+    const touchedPageSlugs = Array.from(touchedPageSlugsRef.current);
+    const deletedPageSlugs = Array.from(
+      new Set([
+        ...deletedSlugs.map((entry) => entry.trim().toLowerCase()).filter(Boolean),
+        ...Array.from(deletedPageSlugsRef.current)
+      ])
+    );
+    if (touchedPageSlugs.length || deletedPageSlugs.length) {
+      await markEditorDraftTouched("pages", touchedPageSlugs, deletedPageSlugs);
+    }
+    touchedPageSlugsRef.current.clear();
+    deletedPageSlugsRef.current.clear();
+
     return buildDraftSignatureForState({ pagesSnapshot: normalizedPages });
   };
 
@@ -1343,6 +1469,8 @@ export default function SiteBuilderPage() {
     if (error) {
       throw new Error(error.message);
     }
+
+    await markEditorDraftTouched("header");
 
     return buildDraftSignatureForState();
   };
@@ -1362,6 +1490,8 @@ export default function SiteBuilderPage() {
       throw new Error(error.message);
     }
 
+    await markEditorDraftTouched("footer");
+
     return buildDraftSignatureForState();
   };
 
@@ -1376,6 +1506,8 @@ export default function SiteBuilderPage() {
     if (error) {
       throw new Error(error.message);
     }
+
+    await markEditorDraftTouched("styles");
 
     return buildDraftSignatureForState();
   };
@@ -1635,6 +1767,418 @@ export default function SiteBuilderPage() {
     }
   };
 
+  const publishOwnerDraft = async ({
+    providerToken,
+    publishStartedAt
+  }: {
+    providerToken: string;
+    publishStartedAt: string;
+  }) => {
+    if (!draftState || draftState.draftType !== "owner") {
+      throw new Error("Owner draft is required for direct publish.");
+    }
+
+    const normalizedTitle = siteTitle.trim();
+    const [ownerLogin, repoName] = draftState.repoFullName.split("/");
+    if (!ownerLogin || !repoName) {
+      throw new Error("Invalid repository name.");
+    }
+
+    const slug = computedSlug || `site-${Date.now()}`;
+    const imagePath = siteImage
+      ? `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image-${slug}.jpg`
+      : `public${DEFAULT_OG_IMAGE_URL}`;
+    const imageUrl = siteImage
+      ? `/${imagePath.replace(/^public\//, "")}`
+      : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
+    const normalizedPages = pages.map((page) => ({
+      ...page,
+      body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
+    }));
+    const solidaryFile = buildSolidaryFile({
+      templateSolidary,
+      siteId: draftState.siteId,
+      imageUrl,
+      settingsInput: siteSettingsInput,
+      urlOverride: siteUrl
+    });
+    const draftSignatureAfterSave = buildDraftSaveSignature({
+      draftId: draftState.id,
+      settingsInput: siteSettingsInput,
+      imageUrl,
+      tokensCss,
+      pagesSnapshot: normalizedPages,
+      draftImages
+    });
+
+    setProvisionStep("Saving draft...");
+    await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
+    updateDraftSolidaryFile(solidaryFile);
+    setPages(normalizedPages);
+    setLastSavedDraftSignature(draftSignatureAfterSave);
+
+    if (siteImage) {
+      setProvisionStep("Uploading site image...");
+      const imageBase64 = toBase64(await siteImage.arrayBuffer());
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        path: imagePath,
+        message: "Update site image",
+        content: imageBase64,
+        branch: draftState.branch
+      });
+    }
+
+    setProvisionStep("Loading draft images...");
+    const draftImagesForPublish = await loadDraftImagesForDraft(draftState.id);
+    setDraftImages(draftImagesForPublish);
+    const publishPages = normalizedPages.map((page) => ({
+      ...page,
+      body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImagesForPublish)
+    }));
+    setPages(publishPages);
+    if (draftImagesForPublish.length) {
+      setProvisionStep("Uploading draft images...");
+      await uploadDraftImagesToGitHub({
+        providerToken,
+        ownerLogin,
+        repoName,
+        branch: draftState.branch,
+        images: draftImagesForPublish
+      });
+    }
+
+    const files = buildFiles({
+      siteId: draftState.siteId,
+      imageUrl,
+      settingsInput: siteSettingsInput,
+      tokensCss,
+      templateSolidary,
+      pages: publishPages,
+      defaultHomeContent,
+      urlOverride: siteUrl
+    });
+
+    setProvisionStep("Preparing content changes...");
+    const repoEntries = await listDirectory(
+      providerToken,
+      ownerLogin,
+      repoName,
+      PAGE_PATH_PREFIX.replace(/\/$/, ""),
+      draftState.branch
+    ).catch(() => []);
+    const desiredPagePaths = new Set(
+      publishPages.map((page, index) => {
+        const safeSlug = getPageSafeSlug(page, index);
+        return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
+      })
+    );
+    const deletePaths: string[] = [];
+    for (const entry of repoEntries) {
+      if (entry.type !== "file" || !entry.path?.endsWith(PAGE_PATH_SUFFIX)) continue;
+      if (!desiredPagePaths.has(entry.path)) {
+        deletePaths.push(entry.path);
+      }
+    }
+
+    setProvisionStep("Publishing content files...");
+    await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
+      token: providerToken,
+      owner: ownerLogin,
+      repo: repoName,
+      branch: draftState.branch,
+      message: "Publish site content",
+      upserts: Object.entries(files).map(([path, content]) => ({
+        path,
+        mode: "100644",
+        content: toBase64(new TextEncoder().encode(content).buffer)
+      })),
+      deletes: deletePaths
+    });
+
+    setProvisionStep("Updating site metadata...");
+    const { error: siteError } = await supabase.from("sites").upsert({
+      id: draftState.siteId,
+      canonical_url: siteUrl.trim(),
+      title: normalizedTitle,
+      description: siteDescription.trim(),
+      image_url: imageUrl,
+      meta: {
+        completion: "complete",
+        source: "studio"
+      }
+    });
+    if (siteError) {
+      throw new Error(siteError.message);
+    }
+
+    setDraftImageUrl(imageUrl);
+    setProvisionStep("Starting deployment status checks...");
+    const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+      token: providerToken,
+      owner: ownerLogin,
+      repo: repoName,
+      branch: draftState.branch
+    });
+    const publishHeadSha = branchResult.sha?.trim() ?? "";
+    if (!publishHeadSha) {
+      throw new Error("Failed to resolve branch head after publish.");
+    }
+    startPublishStatusTracking({
+      token: providerToken,
+      owner: ownerLogin,
+      repo: repoName,
+      branch: draftState.branch,
+      headSha: publishHeadSha,
+      publishStartedAt
+    });
+  };
+
+  const publishEditorDraft = async ({
+    providerToken
+  }: {
+    providerToken: string;
+  }) => {
+    if (!draftState || draftState.draftType !== "editor") {
+      throw new Error("Editor draft is required for pull request publish.");
+    }
+
+    const [ownerLogin, repoName] = draftState.repoFullName.split("/");
+    if (!ownerLogin || !repoName) {
+      throw new Error("Invalid repository name.");
+    }
+
+    const { data: ownerDraft, error: ownerDraftError } = await supabase
+      .from("site_drafts")
+      .select("id, branch")
+      .eq("site_id", draftState.siteId)
+      .eq("draft_type", "owner")
+      .limit(1)
+      .maybeSingle();
+    if (ownerDraftError) {
+      throw new Error(ownerDraftError.message);
+    }
+    if (!ownerDraft) {
+      throw new Error("Owner draft not found for this site.");
+    }
+
+    const headBranch = (draftState.editorBranch ?? draftState.branch).trim();
+    const baseBranch = ownerDraft.branch.trim();
+    if (!headBranch || !baseBranch) {
+      throw new Error("Draft is missing branch settings.");
+    }
+
+    setProvisionStep("Ensuring collaboration branch...");
+    await githubRequest("/.netlify/functions/github-ensure-branch", {
+      token: providerToken,
+      owner: ownerLogin,
+      repo: repoName,
+      branch: headBranch,
+      baseBranch
+    });
+
+    const { data: latestDraftState, error: latestDraftStateError } = await supabase
+      .from("site_drafts")
+      .select("touched_sections, touched_page_slugs, deleted_page_slugs")
+      .eq("id", draftState.id)
+      .maybeSingle();
+    if (latestDraftStateError) {
+      throw new Error(latestDraftStateError.message);
+    }
+
+    const touchedSections = new Set(
+      ((latestDraftState?.touched_sections as string[] | null) ?? []).filter(
+        (entry): entry is BuilderEditableSectionKey =>
+          entry === "metadata" ||
+          entry === "pages" ||
+          entry === "header" ||
+          entry === "footer" ||
+          entry === "styles"
+      )
+    );
+    const touchedPageSlugs = new Set(
+      ((latestDraftState?.touched_page_slugs as string[] | null) ?? [])
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const deletedPageSlugs = new Set(
+      ((latestDraftState?.deleted_page_slugs as string[] | null) ?? [])
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    if (!touchedSections.size && !touchedPageSlugs.size && !deletedPageSlugs.size) {
+      throw new Error("No saved editor changes to submit. Save a section first.");
+    }
+
+    const slug = computedSlug || `site-${Date.now()}`;
+    const imagePath = siteImage
+      ? `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image-${slug}.jpg`
+      : `public${DEFAULT_OG_IMAGE_URL}`;
+    const imageUrl = siteImage
+      ? `/${imagePath.replace(/^public\//, "")}`
+      : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
+    const normalizedPages = pages.map((page) => ({
+      ...page,
+      body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
+    }));
+    const files = buildFiles({
+      siteId: draftState.siteId,
+      imageUrl,
+      settingsInput: siteSettingsInput,
+      tokensCss,
+      templateSolidary,
+      pages: normalizedPages,
+      defaultHomeContent,
+      urlOverride: siteUrl
+    });
+
+    const upsertsByPath = new Map<string, string>();
+    if (touchedSections.has("metadata")) {
+      const solidaryFile = files[FILE_KEYS.solidary];
+      const siteFile = files[FILE_KEYS.site];
+      if (solidaryFile) upsertsByPath.set(FILE_KEYS.solidary, solidaryFile);
+      if (siteFile) upsertsByPath.set(FILE_KEYS.site, siteFile);
+    }
+    if (touchedSections.has("header") || touchedSections.has("footer")) {
+      const siteFile = files[FILE_KEYS.site];
+      if (siteFile) upsertsByPath.set(FILE_KEYS.site, siteFile);
+    }
+    if (touchedSections.has("styles")) {
+      const tokensFile = files[FILE_KEYS.tokens];
+      if (tokensFile) upsertsByPath.set(FILE_KEYS.tokens, tokensFile);
+    }
+    if (touchedSections.has("pages") || touchedPageSlugs.size || deletedPageSlugs.size) {
+      normalizedPages.forEach((page, index) => {
+        const safeSlug = getPageSafeSlug(page, index).trim().toLowerCase();
+        if (!safeSlug) return;
+        if (touchedPageSlugs.size && !touchedPageSlugs.has(safeSlug)) return;
+        const path = `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
+        const content = files[path];
+        if (content) {
+          upsertsByPath.set(path, content);
+        }
+      });
+    }
+
+    const deletePaths = Array.from(deletedPageSlugs).map(
+      (slugValue) => `${PAGE_PATH_PREFIX}${slugValue}${PAGE_PATH_SUFFIX}`
+    );
+
+    if (!upsertsByPath.size && !deletePaths.length) {
+      throw new Error("No touched files were detected for this pull request.");
+    }
+
+    if (siteImage && touchedSections.has("metadata")) {
+      setProvisionStep("Uploading site image...");
+      const imageBase64 = toBase64(await siteImage.arrayBuffer());
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        token: providerToken,
+        owner: ownerLogin,
+        repo: repoName,
+        path: imagePath,
+        message: "Update site image",
+        content: imageBase64,
+        branch: headBranch
+      });
+      setDraftImageUrl(imageUrl);
+    }
+
+    if (touchedSections.has("pages")) {
+      setProvisionStep("Uploading touched draft images...");
+      const draftImagesForPublish = await loadDraftImagesForDraft(draftState.id);
+      if (draftImagesForPublish.length) {
+        await uploadDraftImagesToGitHub({
+          providerToken,
+          ownerLogin,
+          repoName,
+          branch: headBranch,
+          images: draftImagesForPublish
+        });
+      }
+    }
+
+    setProvisionStep("Committing editor changes...");
+    await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
+      token: providerToken,
+      owner: ownerLogin,
+      repo: repoName,
+      branch: headBranch,
+      message: "Apply collaboration draft updates",
+      upserts: Array.from(upsertsByPath.entries()).map(([path, content]) => ({
+        path,
+        mode: "100644",
+        content: toBase64(new TextEncoder().encode(content).buffer)
+      })),
+      deletes: deletePaths
+    });
+
+    setProvisionStep("Creating pull request...");
+    const prResponse = await fetch("/.netlify/functions/github-upsert-collaboration-pr", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session?.access_token ?? ""}`
+      },
+      body: JSON.stringify({
+        draftId: draftState.id,
+        githubToken: providerToken,
+        title: `Studio changes by ${sessionDisplayName}`,
+        body: `Touched sections: ${Array.from(touchedSections).join(", ") || "n/a"}`
+      })
+    });
+    const prPayload = (await prResponse.json().catch(() => ({}))) as {
+      error?: string;
+      pullRequest?: {
+        number?: number;
+        url?: string;
+        state?: string;
+      };
+    };
+    if (!prResponse.ok) {
+      throw new Error(prPayload.error ?? "Failed to create pull request.");
+    }
+
+    const prNumber = Number(prPayload.pullRequest?.number ?? 0);
+    const prUrl = typeof prPayload.pullRequest?.url === "string" ? prPayload.pullRequest.url : "";
+    if (!prNumber || !prUrl) {
+      throw new Error("Pull request was created but no URL was returned.");
+    }
+
+    const { error: clearTouchedError } = await supabase.rpc("site_editor_clear_touched", {
+      p_draft_id: draftState.id
+    });
+    if (clearTouchedError) {
+      throw new Error(clearTouchedError.message);
+    }
+    touchedPageSlugsRef.current.clear();
+    deletedPageSlugsRef.current.clear();
+    setDraftState((current) =>
+      current
+        ? {
+            ...current,
+            touchedSections: [],
+            touchedPageSlugs: [],
+            deletedPageSlugs: [],
+            lastPullRequestNumber: prNumber,
+            lastPullRequestUrl: prUrl,
+            lastPullRequestState:
+              typeof prPayload.pullRequest?.state === "string" ? prPayload.pullRequest.state : "open"
+          }
+        : current
+    );
+    setLastSavedDraftSignature(buildDraftSignatureForState({ pagesSnapshot: normalizedPages, imageUrl }));
+    setPublishFeedback({
+      kind: "success",
+      text: `PR #${prNumber} is ready for review.`,
+      runUrl: prUrl
+    });
+    setNotice("Pull request submitted for owner/admin review.");
+    setNoticeKind("notice");
+  };
+
   const handlePublish = async () => {
     resetNotices();
     setPublishFeedback(null);
@@ -1642,12 +2186,12 @@ export default function SiteBuilderPage() {
     cleanedPublishedDraftIdRef.current = null;
 
     if (!canPublishByRole) {
-      setNotice("Only owners or admins can publish this site.");
+      setNotice("You do not have publish access for this draft.");
       setNoticeKind("error");
       return;
     }
 
-    if (hasForeignSectionLocks) {
+    if (canDirectPublish && hasForeignSectionLocks) {
       setNotice("Wait for collaborators to finish their current section edits before publishing.");
       setNoticeKind("error");
       return;
@@ -1680,164 +2224,25 @@ export default function SiteBuilderPage() {
         throw new Error("Missing site draft. Create a site first.");
       }
 
-      const normalizedTitle = siteTitle.trim();
-      const [ownerLogin, repoName] = draftState.repoFullName.split("/");
-      if (!ownerLogin || !repoName) {
-        throw new Error("Invalid repository name.");
+      if (hasUnsavedChanges && activeEditableSection && !activeSectionLockedByOther) {
+        const savedSignature = await saveSectionByKey(activeEditableSection);
+        if (typeof savedSignature === "string" && savedSignature) {
+          setLastSavedDraftSignature(savedSignature);
+        }
       }
 
-      const slug = computedSlug || `site-${Date.now()}`;
-      const imagePath = siteImage
-        ? `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image-${slug}.jpg`
-        : `public${DEFAULT_OG_IMAGE_URL}`;
-      const imageUrl = siteImage
-        ? `/${imagePath.replace(/^public\//, "")}`
-        : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
-      const normalizedPages = pages.map((page) => ({
-        ...page,
-        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
-      }));
-      const solidaryFile = buildSolidaryFile({
-        templateSolidary,
-        siteId: draftState.id,
-        imageUrl,
-        settingsInput: siteSettingsInput,
-        urlOverride: siteUrl
-      });
-      const draftSignatureAfterSave = buildDraftSaveSignature({
-        draftId: draftState.id,
-        settingsInput: siteSettingsInput,
-        imageUrl,
-        tokensCss,
-        pagesSnapshot: normalizedPages,
-        draftImages
-      });
-
-      setProvisionStep("Saving draft...");
-      await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
-      updateDraftSolidaryFile(solidaryFile);
-      setPages(normalizedPages);
-      setLastSavedDraftSignature(draftSignatureAfterSave);
-
-      if (siteImage) {
-        setProvisionStep("Uploading site image...");
-        const imageBase64 = toBase64(await siteImage.arrayBuffer());
-        await githubRequest("/.netlify/functions/github-contents-write", {
-          token: providerToken,
-          owner: ownerLogin,
-          repo: repoName,
-          path: imagePath,
-          message: "Update site image",
-          content: imageBase64,
-          branch: draftState.branch
-        });
-      }
-
-      setProvisionStep("Loading draft images...");
-      const draftImagesForPublish = await loadDraftImagesForDraft(draftState.id);
-      setDraftImages(draftImagesForPublish);
-      const publishPages = normalizedPages.map((page) => ({
-        ...page,
-        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImagesForPublish)
-      }));
-      setPages(publishPages);
-      if (draftImagesForPublish.length) {
-        setProvisionStep("Uploading draft images...");
-        await uploadDraftImagesToGitHub({
+      if (canDirectPublish) {
+        await publishOwnerDraft({
           providerToken,
-          ownerLogin,
-          repoName,
-          branch: draftState.branch,
-          images: draftImagesForPublish
+          publishStartedAt
+        });
+        setNotice(null);
+        setNoticeKind(null);
+      } else {
+        await publishEditorDraft({
+          providerToken
         });
       }
-
-      const files = buildFiles({
-        siteId: draftState.id,
-        imageUrl,
-        settingsInput: siteSettingsInput,
-        tokensCss,
-        templateSolidary,
-        pages: publishPages,
-        defaultHomeContent,
-        urlOverride: siteUrl
-      });
-
-      setProvisionStep("Preparing content changes...");
-      const repoEntries = await listDirectory(
-        providerToken,
-        ownerLogin,
-        repoName,
-        PAGE_PATH_PREFIX.replace(/\/$/, ""),
-        draftState.branch
-      ).catch(() => []);
-      const desiredPagePaths = new Set(
-        publishPages.map((page, index) => {
-          const safeSlug = getPageSafeSlug(page, index);
-          return `${PAGE_PATH_PREFIX}${safeSlug}${PAGE_PATH_SUFFIX}`;
-        })
-      );
-      const deletePaths: string[] = [];
-      for (const entry of repoEntries) {
-        if (entry.type !== "file" || !entry.path?.endsWith(PAGE_PATH_SUFFIX)) continue;
-        if (!desiredPagePaths.has(entry.path)) {
-          deletePaths.push(entry.path);
-        }
-      }
-
-      setProvisionStep("Publishing content files...");
-      await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
-        token: providerToken,
-        owner: ownerLogin,
-        repo: repoName,
-        branch: draftState.branch,
-        message: "Publish site content",
-        upserts: Object.entries(files).map(([path, content]) => ({
-          path,
-          mode: "100644",
-          content: toBase64(new TextEncoder().encode(content).buffer)
-        })),
-        deletes: deletePaths
-      });
-
-      setProvisionStep("Updating site metadata...");
-      const { error: siteError } = await supabase.from("sites").upsert({
-        id: draftState.id,
-        canonical_url: siteUrl.trim(),
-        title: normalizedTitle,
-        description: siteDescription.trim(),
-        image_url: imageUrl,
-        meta: {
-          completion: "complete",
-          source: "studio"
-        }
-      });
-      if (siteError) {
-        throw new Error(siteError.message);
-      }
-
-      setDraftImageUrl(imageUrl);
-      setProvisionStep("Starting deployment status checks...");
-      const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
-        token: providerToken,
-        owner: ownerLogin,
-        repo: repoName,
-        branch: draftState.branch
-      });
-      const publishHeadSha = branchResult.sha?.trim() ?? "";
-      if (!publishHeadSha) {
-        throw new Error("Failed to resolve branch head after publish.");
-      }
-      startPublishStatusTracking({
-        token: providerToken,
-        owner: ownerLogin,
-        repo: repoName,
-        branch: draftState.branch,
-        headSha: publishHeadSha,
-        publishStartedAt
-      });
-      setNotice(null);
-      setNoticeKind(null);
     } catch (caught) {
       if (caught instanceof DraftConflictError) {
         await reloadLatestDraftAfterConflict();
@@ -2147,12 +2552,19 @@ export default function SiteBuilderPage() {
         acquiredNextLock = true;
       }
 
-      if (currentSectionKey && currentSectionKey !== nextSectionKey && canEditDraft && draftState) {
-        const savedSignature = await saveSectionByKey(currentSectionKey);
-        if (typeof savedSignature === "string" && savedSignature) {
-          setLastSavedDraftSignature(savedSignature);
-        } else {
-          setLastSavedDraftSignature(currentDraftSignature);
+      if (
+        currentSectionKey &&
+        currentSectionKey !== nextSectionKey &&
+        canEditDraft &&
+        draftState
+      ) {
+        if (hasUnsavedChanges) {
+          const savedSignature = await saveSectionByKey(currentSectionKey);
+          if (typeof savedSignature === "string" && savedSignature) {
+            setLastSavedDraftSignature(savedSignature);
+          } else {
+            setLastSavedDraftSignature(currentDraftSignature);
+          }
         }
         await releaseSectionLock(currentSectionKey);
       }
@@ -2216,12 +2628,21 @@ export default function SiteBuilderPage() {
     hasUnsavedChanges &&
     Boolean(activeEditableSection) &&
     !activeSectionLockedByOther;
+  const hasEditorPublishableChanges =
+    draftState?.draftType === "editor" &&
+    (
+      hasUnsavedChanges ||
+      (draftState.touchedSections?.length ?? 0) > 0 ||
+      (draftState.touchedPageSlugs?.length ?? 0) > 0 ||
+      (draftState.deletedPageSlugs?.length ?? 0) > 0
+    );
   const canPublish =
     !isProvisioning &&
     Boolean(draftState) &&
     canPublishByRole &&
     publishFeedback?.kind !== "progress" &&
-    !hasForeignSectionLocks;
+    (!canDirectPublish || !hasForeignSectionLocks) &&
+    (canDirectPublish || hasEditorPublishableChanges);
 
   const handleSidebarBack = async () => {
     if (activeSection !== "menu") {
@@ -2246,6 +2667,7 @@ export default function SiteBuilderPage() {
         provisionStep={provisionStep}
         canSaveDraft={canSaveDraft}
         canPublish={canPublish}
+        publishLabel={canDirectPublish ? "Publish" : "Create PR"}
         liveSiteUrl={liveSiteUrl}
         githubRepoUrl={githubRepoUrl}
         accessRole={siteAccessRole}
@@ -2263,7 +2685,7 @@ export default function SiteBuilderPage() {
             activeSection={activeSection}
             activeSettingsSection={activeSettingsSection}
             canEditDraft={canEditDraft}
-            canEditMetadata={isOwner}
+            canEditMetadata={Boolean(isOwnerOnOwnerDraft)}
             siteTitle={siteTitle}
             siteDescription={siteDescription}
             siteImagePreview={siteImagePreview}

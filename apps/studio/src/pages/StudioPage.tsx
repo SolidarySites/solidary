@@ -7,17 +7,32 @@ import SiteFooter from "../components/SiteFooter";
 import SitesListSection from "../components/studio/SitesListSection";
 import IndexesListSection from "../components/studio/IndexesListSection";
 import DeleteSiteDialog from "../components/studio/DeleteSiteDialog";
+import CollaborationPullRequestsSection from "../components/studio/CollaborationPullRequestsSection";
 import type { NoticeKind, RepoFileSet } from "../studio/types";
 import { parseSolidaryJson } from "../studio/utils";
 
 type DraftItem = {
   id: string;
+  site_id?: string;
   repo_full_name: string;
   branch: string;
   files: RepoFileSet;
   owner_user_id: string;
   access_role: "owner" | "admin" | "editor" | "viewer";
   updated_at?: string;
+};
+
+type PullRequestItem = {
+  id: string;
+  siteId: string;
+  siteTitle: string;
+  repoFullName: string;
+  prNumber: number;
+  prUrl: string;
+  updatedAt?: string;
+  editorUserId: string;
+  touchedSections: string[];
+  touchedPageSlugs: string[];
 };
 
 const findSolidary = (files: RepoFileSet) => {
@@ -37,7 +52,9 @@ export default function StudioPage() {
 
   const [ownedDraftItems, setOwnedDraftItems] = useState<DraftItem[]>([]);
   const [sharedDraftItems, setSharedDraftItems] = useState<DraftItem[]>([]);
+  const [pendingPullRequests, setPendingPullRequests] = useState<PullRequestItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
+  const [mergingPullRequestId, setMergingPullRequestId] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -73,6 +90,7 @@ export default function StudioPage() {
     if (!session) {
       setOwnedDraftItems([]);
       setSharedDraftItems([]);
+      setPendingPullRequests([]);
       return;
     }
 
@@ -82,8 +100,9 @@ export default function StudioPage() {
       try {
         const { data: ownedData, error: ownedError } = await supabase
           .from("site_drafts")
-          .select("id, repo_full_name, branch, files, updated_at, owner_user_id")
+          .select("id, site_id, repo_full_name, branch, files, updated_at, owner_user_id")
           .eq("owner_user_id", session.user.id)
+          .eq("draft_type", "owner")
           .order("updated_at", { ascending: false });
 
         if (!mounted) return;
@@ -94,7 +113,8 @@ export default function StudioPage() {
         }
 
         const ownedItems = (ownedData ?? []).map((row) => ({
-          id: row.id,
+          id: (row.site_id as string | null) ?? row.id,
+          site_id: (row.site_id as string | null) ?? row.id,
           repo_full_name: row.repo_full_name,
           branch: row.branch,
           files: row.files as RepoFileSet,
@@ -121,49 +141,170 @@ export default function StudioPage() {
           membership.role === "editor" ||
           membership.role === "viewer"
         );
+        const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+        let resolvedSharedMemberships = sharedMemberships;
+
+        if (providerToken) {
+          const adminMemberships = sharedMemberships.filter((membership) => membership.role === "admin");
+          if (adminMemberships.length) {
+            const syncResults = await Promise.all(
+              adminMemberships.map(async (membership) => {
+                try {
+                  const response = await fetch("/.netlify/functions/sync-admin-role-from-github", {
+                    method: "POST",
+                    headers: {
+                      "content-type": "application/json",
+                      Authorization: `Bearer ${session.access_token}`
+                    },
+                    body: JSON.stringify({
+                      siteId: membership.site_id,
+                      githubToken: providerToken
+                    })
+                  });
+                  const payload = (await response.json().catch(() => ({}))) as {
+                    role?: "admin" | "editor" | "viewer" | null;
+                    demoted?: boolean;
+                  };
+                  if (!response.ok) {
+                    return membership;
+                  }
+                  if (payload.demoted && payload.role === "editor") {
+                    return {
+                      ...membership,
+                      role: "editor" as const
+                    };
+                  }
+                  return membership;
+                } catch {
+                  return membership;
+                }
+              })
+            );
+
+            const roleOverrideBySiteId = new Map<string, "admin" | "editor" | "viewer">();
+            syncResults.forEach((entry) => {
+              if (entry.role === "admin" || entry.role === "editor" || entry.role === "viewer") {
+                roleOverrideBySiteId.set(entry.site_id, entry.role);
+              }
+            });
+            resolvedSharedMemberships = sharedMemberships.map((membership) => ({
+              ...membership,
+              role: roleOverrideBySiteId.get(membership.site_id) ?? membership.role
+            }));
+          }
+        }
+
         const ownedDraftIds = new Set(ownedItems.map((item) => item.id));
         const sharedDraftIds = Array.from(
           new Set(
-            sharedMemberships
+            resolvedSharedMemberships
               .map((membership) => membership.site_id)
               .filter((siteId) => !ownedDraftIds.has(siteId))
           )
         );
 
-        if (!sharedDraftIds.length) {
-          setSharedDraftItems([]);
-          return;
-        }
-
         const roleBySiteId = new Map<string, "admin" | "editor" | "viewer">();
-        sharedMemberships.forEach((membership) => {
+        resolvedSharedMemberships.forEach((membership) => {
           if (membership.role === "admin" || membership.role === "editor" || membership.role === "viewer") {
             roleBySiteId.set(membership.site_id, membership.role);
           }
         });
 
-        const { data: sharedData, error: sharedError } = await supabase
-          .from("site_drafts")
-          .select("id, repo_full_name, branch, files, updated_at, owner_user_id")
-          .in("id", sharedDraftIds)
-          .order("updated_at", { ascending: false });
+        let sharedData: Array<{
+          id: string;
+          site_id: string | null;
+          repo_full_name: string;
+          branch: string;
+          files: RepoFileSet;
+          owner_user_id: string;
+          updated_at?: string;
+        }> = [];
+        if (sharedDraftIds.length) {
+          const { data, error: sharedError } = await supabase
+            .from("site_drafts")
+            .select("id, site_id, repo_full_name, branch, files, updated_at, owner_user_id")
+            .in("site_id", sharedDraftIds)
+            .eq("draft_type", "owner")
+            .order("updated_at", { ascending: false });
 
-        if (!mounted) return;
-        if (sharedError) {
-          setNotice(sharedError.message);
-          setNoticeKind("error");
+          if (!mounted) return;
+          if (sharedError) {
+            setNotice(sharedError.message);
+            setNoticeKind("error");
+            return;
+          }
+          sharedData = (data ?? []) as typeof sharedData;
+        }
+
+        const mappedSharedItems = (sharedData ?? []).map((row) => ({
+          id: (row.site_id as string | null) ?? row.id,
+          site_id: (row.site_id as string | null) ?? row.id,
+          repo_full_name: row.repo_full_name,
+          branch: row.branch,
+          files: row.files as RepoFileSet,
+          owner_user_id: row.owner_user_id,
+          access_role: roleBySiteId.get((row.site_id as string | null) ?? row.id) ?? "viewer",
+          updated_at: row.updated_at
+        }));
+        setSharedDraftItems(mappedSharedItems);
+
+        const managedSiteIds = Array.from(
+          new Set([
+            ...ownedItems.map((item) => item.id),
+            ...resolvedSharedMemberships
+              .filter((membership) => membership.role === "admin")
+              .map((membership) => membership.site_id)
+          ])
+        );
+
+        if (!managedSiteIds.length) {
+          setPendingPullRequests([]);
           return;
         }
 
-        setSharedDraftItems(
-          (sharedData ?? []).map((row) => ({
+        const { data: prData, error: prError } = await supabase
+          .from("site_collaboration_pull_requests")
+          .select(
+            "id, site_id, repo_full_name, github_pr_number, github_pr_url, updated_at, editor_user_id, touched_sections, touched_page_slugs"
+          )
+          .in("site_id", managedSiteIds)
+          .eq("status", "open")
+          .order("updated_at", { ascending: false });
+
+        if (!mounted) return;
+        if (prError) {
+          setNotice(prError.message);
+          setNoticeKind("error");
+          setPendingPullRequests([]);
+          return;
+        }
+
+        const siteTitleById = new Map<string, string>();
+        ownedItems.forEach((item) => {
+          const solidary = parseSolidaryJson(findSolidary(item.files));
+          siteTitleById.set(item.id, solidary?.title ?? item.repo_full_name);
+        });
+        mappedSharedItems.forEach((item) => {
+          const solidary = parseSolidaryJson(findSolidary(item.files));
+          siteTitleById.set(item.id, solidary?.title ?? item.repo_full_name);
+        });
+
+        setPendingPullRequests(
+          (prData ?? []).map((row) => ({
             id: row.id,
-            repo_full_name: row.repo_full_name,
-            branch: row.branch,
-            files: row.files as RepoFileSet,
-            owner_user_id: row.owner_user_id,
-            access_role: roleBySiteId.get(row.id) ?? "viewer",
-            updated_at: row.updated_at
+            siteId: row.site_id,
+            siteTitle: siteTitleById.get(row.site_id) ?? row.repo_full_name,
+            repoFullName: row.repo_full_name,
+            prNumber: row.github_pr_number,
+            prUrl: row.github_pr_url,
+            updatedAt: row.updated_at,
+            editorUserId: row.editor_user_id,
+            touchedSections: Array.isArray(row.touched_sections)
+              ? row.touched_sections.filter((entry): entry is string => typeof entry === "string")
+              : [],
+            touchedPageSlugs: Array.isArray(row.touched_page_slugs)
+              ? row.touched_page_slugs.filter((entry): entry is string => typeof entry === "string")
+              : []
           }))
         );
       } finally {
@@ -197,6 +338,47 @@ export default function StudioPage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleMergePullRequest = async (item: PullRequestItem) => {
+    if (!session) return;
+
+    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+    if (!providerToken) {
+      setNotice("GitHub token missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setMergingPullRequestId(item.id);
+    try {
+      const response = await fetch("/.netlify/functions/github-merge-collaboration-pr", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          siteId: item.siteId,
+          pullRequestNumber: item.prNumber,
+          githubToken: providerToken,
+          commitTitle: `Merge collaboration PR #${item.prNumber}`
+        })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to merge collaboration pull request.");
+      }
+
+      setPendingPullRequests((items) => items.filter((entry) => entry.id !== item.id));
+      setNotice(`Merged PR #${item.prNumber}.`);
+      setNoticeKind("notice");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Failed to merge collaboration pull request.");
+      setNoticeKind("error");
+    } finally {
+      setMergingPullRequestId(null);
+    }
   };
 
   const handleDeleteDraft = async (item: { id: string; repoFullName: string }, mode: "builder" | "github") => {
@@ -331,6 +513,17 @@ export default function StudioPage() {
             items={sharedListItems}
             loading={draftsLoading}
             onEdit={(id) => navigate(`/site-builder?draftId=${id}`)}
+          />
+        )}
+
+        {session && (
+          <CollaborationPullRequestsSection
+            items={pendingPullRequests}
+            loading={draftsLoading}
+            mergingId={mergingPullRequestId}
+            onMerge={(item) => {
+              void handleMergePullRequest(item);
+            }}
           />
         )}
 

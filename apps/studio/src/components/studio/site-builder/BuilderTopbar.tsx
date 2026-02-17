@@ -8,6 +8,7 @@ type BuilderTopbarProps = {
   provisionStep: string;
   canSaveDraft: boolean;
   canPublish: boolean;
+  publishLabel: string;
   liveSiteUrl: string | null;
   githubRepoUrl: string | null;
   accessRole: "owner" | "admin" | "editor" | "viewer" | null;
@@ -25,6 +26,7 @@ const BuilderTopbar = ({
   provisionStep,
   canSaveDraft,
   canPublish,
+  publishLabel,
   liveSiteUrl,
   githubRepoUrl,
   accessRole,
@@ -152,6 +154,7 @@ const BuilderTopbar = ({
         provisionStep={provisionStep}
         canSaveDraft={canSaveDraft}
         canPublish={canPublish}
+        publishLabel={publishLabel}
         publishFeedback={publishFeedback}
         onSaveDraft={onSaveDraft}
         onPublish={onPublish}

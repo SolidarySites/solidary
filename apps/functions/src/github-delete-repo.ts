@@ -44,6 +44,7 @@ export const handler: Handler = async (event) => {
       .from("site_drafts")
       .select("id")
       .eq("owner_user_id", userData.user.id)
+      .eq("draft_type", "owner")
       .eq("repo_full_name", repoFullName)
       .maybeSingle();
 
