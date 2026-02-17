@@ -200,6 +200,32 @@ type CollaboratorSearchRpcRow = {
   github_login: string | null;
 };
 
+const normalizeCollaboratorIdentifier = (value: string) =>
+  value.startsWith("@") ? value.slice(1).trim() : value.trim();
+
+const mapCollaboratorSearchRows = (rows: CollaboratorSearchRpcRow[] | null | undefined) =>
+  (rows ?? [])
+    .map((row) => {
+      const userId = typeof row.user_id === "string" ? row.user_id.trim() : "";
+      const email = typeof row.email === "string" ? row.email.trim() : "";
+      const displayName =
+        typeof row.display_name === "string" && row.display_name.trim()
+          ? row.display_name.trim()
+          : email;
+      const githubLogin =
+        typeof row.github_login === "string" && row.github_login.trim()
+          ? row.github_login.trim()
+          : null;
+      if (!userId || !email) return null;
+      return {
+        userId,
+        email,
+        displayName,
+        githubLogin
+      } satisfies CollaboratorSearchResult;
+    })
+    .filter((entry): entry is CollaboratorSearchResult => Boolean(entry));
+
 const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> = {
   metadata: "Solidary Metadata",
   pages: "Pages",
@@ -796,27 +822,7 @@ export default function SiteBuilderPage() {
             return;
           }
 
-          const suggestions = ((data ?? []) as CollaboratorSearchRpcRow[])
-            .map((row) => {
-              const userId = typeof row.user_id === "string" ? row.user_id.trim() : "";
-              const email = typeof row.email === "string" ? row.email.trim() : "";
-              const displayName =
-                typeof row.display_name === "string" && row.display_name.trim()
-                  ? row.display_name.trim()
-                  : email;
-              const githubLogin =
-                typeof row.github_login === "string" && row.github_login.trim()
-                  ? row.github_login.trim()
-                  : null;
-              if (!userId || !email) return null;
-              return {
-                userId,
-                email,
-                displayName,
-                githubLogin
-              } satisfies CollaboratorSearchResult;
-            })
-            .filter((entry): entry is CollaboratorSearchResult => Boolean(entry));
+          const suggestions = mapCollaboratorSearchRows((data ?? []) as CollaboratorSearchRpcRow[]);
 
           setCollaboratorSuggestions(suggestions.slice(0, 10));
         } finally {
@@ -866,16 +872,14 @@ export default function SiteBuilderPage() {
       return;
     }
 
-    const normalizedIdentifier = identifierInput.startsWith("@")
-      ? identifierInput.slice(1).trim()
-      : identifierInput;
+    const normalizedIdentifier = normalizeCollaboratorIdentifier(identifierInput);
     if (!normalizedIdentifier) {
       setNotice("Enter a valid GitHub username or email.");
       setNoticeKind("error");
       return;
     }
 
-    const selectedSuggestion =
+    let selectedSuggestion =
       selectedCollaboratorSuggestion &&
       (normalizedIdentifier.toLowerCase() === selectedCollaboratorSuggestion.email.toLowerCase() ||
         normalizedIdentifier.toLowerCase() ===
@@ -889,6 +893,24 @@ export default function SiteBuilderPage() {
 
     setInvitingCollaborator(true);
     try {
+      if (!selectedSuggestion && normalizedIdentifier.includes("@")) {
+        const { data, error } = await supabase.rpc("site_search_collaborator_candidates", {
+          p_draft_id: draftState.id,
+          p_query: normalizedIdentifier,
+          p_limit: 10
+        });
+
+        if (!error) {
+          const exactEmailMatch = mapCollaboratorSearchRows((data ?? []) as CollaboratorSearchRpcRow[]).find(
+            (suggestion) => suggestion.email.toLowerCase() === normalizedIdentifier.toLowerCase()
+          );
+          if (exactEmailMatch) {
+            selectedSuggestion = exactEmailMatch;
+            setSelectedCollaboratorSuggestion(exactEmailMatch);
+          }
+        }
+      }
+
       const response = await fetch("/.netlify/functions/github-invite-collaborator", {
         method: "POST",
         headers: {
@@ -900,7 +922,8 @@ export default function SiteBuilderPage() {
           githubToken: providerToken,
           identifier: normalizedIdentifier,
           role: collaboratorRole,
-          solidaryUserId: selectedSuggestion?.userId ?? null
+          solidaryUserId: selectedSuggestion?.userId ?? null,
+          solidaryGithubLogin: selectedSuggestion?.githubLogin ?? null
         })
       });
 
@@ -2692,6 +2715,7 @@ export default function SiteBuilderPage() {
             collaboratorQuery={collaboratorQuery}
             collaboratorRole={collaboratorRole}
             collaboratorSuggestions={collaboratorSuggestions}
+            selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
             collaboratorSearchLoading={collaboratorSearchLoading}
             invitingCollaborator={invitingCollaborator}
             pages={pages}

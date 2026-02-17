@@ -9,7 +9,10 @@ type CollaboratorRole = "admin" | "editor" | "viewer";
 type AuthUserRow = {
   id: string;
   email: string | null;
+  user_metadata: Record<string, unknown> | null;
   raw_user_meta_data: Record<string, unknown> | null;
+  app_metadata: Record<string, unknown> | null;
+  identities: Array<Record<string, unknown>>;
 };
 
 const roleToGithubPermission: Record<CollaboratorRole, "admin" | "push" | "pull"> = {
@@ -35,18 +38,47 @@ const isCollaboratorRole = (value: unknown): value is CollaboratorRole =>
   value === "admin" || value === "editor" || value === "viewer";
 
 const looksLikeEmail = (value: string) => value.includes("@");
+const normalizeGithubIdentifier = (value: string) =>
+  value.startsWith("@") ? value.slice(1).trim() : value.trim();
+
+const asRecord = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+};
 
 const getGithubLoginFromMetadata = (metadata: Record<string, unknown> | null | undefined) => {
   const candidates = [
     metadata?.user_name,
     metadata?.preferred_username,
-    metadata?.login
+    metadata?.login,
+    metadata?.userName,
+    metadata?.username
   ];
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) {
       return candidate.trim();
     }
   }
+  return null;
+};
+
+const getGithubLoginFromAuthUser = (authUser: AuthUserRow | null) => {
+  if (!authUser) return null;
+
+  const metadataLogin =
+    getGithubLoginFromMetadata(authUser.user_metadata) ??
+    getGithubLoginFromMetadata(authUser.raw_user_meta_data) ??
+    getGithubLoginFromMetadata(authUser.app_metadata);
+  if (metadataLogin) return normalizeGithubIdentifier(metadataLogin);
+
+  for (const identity of authUser.identities) {
+    const provider = typeof identity.provider === "string" ? identity.provider : "";
+    if (provider !== "github") continue;
+    const identityData = asRecord(identity.identity_data);
+    const login = getGithubLoginFromMetadata(identityData);
+    if (login) return normalizeGithubIdentifier(login);
+  }
+
   return null;
 };
 
@@ -64,10 +96,12 @@ const readAuthUserById = async (
   return {
     id: typeof data.user.id === "string" ? data.user.id : "",
     email: typeof data.user.email === "string" ? data.user.email : null,
-    raw_user_meta_data:
-      data.user.raw_user_meta_data && typeof data.user.raw_user_meta_data === "object"
-        ? (data.user.raw_user_meta_data as Record<string, unknown>)
-        : null
+    user_metadata: asRecord((data.user as Record<string, unknown>).user_metadata),
+    raw_user_meta_data: asRecord((data.user as Record<string, unknown>).raw_user_meta_data),
+    app_metadata: asRecord((data.user as Record<string, unknown>).app_metadata),
+    identities: Array.isArray((data.user as Record<string, unknown>).identities)
+      ? ((data.user as Record<string, unknown>).identities as Array<Record<string, unknown>>)
+      : []
   };
 };
 
@@ -120,6 +154,10 @@ export const handler: Handler = async (event) => {
   const solidaryUserId =
     typeof payload.solidaryUserId === "string" && payload.solidaryUserId.trim()
       ? payload.solidaryUserId.trim()
+      : null;
+  const solidaryGithubLogin =
+    typeof payload.solidaryGithubLogin === "string" && payload.solidaryGithubLogin.trim()
+      ? normalizeGithubIdentifier(payload.solidaryGithubLogin.trim())
       : null;
   const role = isCollaboratorRole(payload.role) ? payload.role : null;
 
@@ -188,7 +226,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  let inviteTarget = identifier.startsWith("@") ? identifier.slice(1).trim() : identifier;
+  let inviteTarget = normalizeGithubIdentifier(identifier);
   let matchedSolidaryUserId: string | null = solidaryUserId;
 
   if (solidaryUserId) {
@@ -200,8 +238,19 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({ error: "Selected Solidary user was not found." })
       };
     }
-    const login = getGithubLoginFromMetadata(authUser.raw_user_meta_data);
-    inviteTarget = login || authUser.email?.trim() || inviteTarget;
+
+    const login = solidaryGithubLogin ?? getGithubLoginFromAuthUser(authUser);
+    if (!login || looksLikeEmail(login)) {
+      return {
+        statusCode: 422,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          error:
+            "Selected Solidary user is missing a GitHub username. Ask them to sign in with GitHub again."
+        })
+      };
+    }
+    inviteTarget = login;
   }
 
   if (!inviteTarget) {
@@ -213,7 +262,7 @@ export const handler: Handler = async (event) => {
   }
 
   const githubPermission = roleToGithubPermission[role];
-  const inviteByEmail = looksLikeEmail(inviteTarget);
+  const inviteByEmail = !solidaryUserId && looksLikeEmail(inviteTarget);
 
   let githubResponse: Response;
   if (inviteByEmail) {

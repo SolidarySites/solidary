@@ -8,6 +8,7 @@ type BuilderContentSectionProps = {
   collaboratorQuery: string;
   collaboratorRole: CollaboratorRole;
   collaboratorSuggestions: CollaboratorSearchResult[];
+  selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
   onSiteTitleChange: (value: string) => void;
@@ -28,6 +29,7 @@ const BuilderContentSection = ({
   collaboratorQuery,
   collaboratorRole,
   collaboratorSuggestions,
+  selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
   onSiteTitleChange,
@@ -107,7 +109,10 @@ const BuilderContentSection = ({
         </div>
       )}
 
-      {!collaboratorSearchLoading && collaboratorQuery.trim().length >= 2 && !collaboratorSuggestions.length && (
+      {!collaboratorSearchLoading &&
+        collaboratorQuery.trim().length >= 2 &&
+        !collaboratorSuggestions.length &&
+        !selectedCollaboratorSuggestion && (
         <p className="builder-collaborator-hint">
           No Solidary users found. You can still invite this GitHub username/email.
         </p>

@@ -1010,8 +1010,8 @@ begin
 
   return query
   select
-    u.id as user_id,
-    coalesce(u.email, '') as email,
+    u.id::uuid as user_id,
+    coalesce(u.email, '')::text as email,
     coalesce(
       nullif(trim(coalesce(
         u.raw_user_meta_data ->> 'name',
@@ -1020,12 +1020,12 @@ begin
         ''
       )), ''),
       coalesce(u.email, '')
-    ) as display_name,
+    )::text as display_name,
     nullif(trim(coalesce(
       u.raw_user_meta_data ->> 'user_name',
       u.raw_user_meta_data ->> 'preferred_username',
       ''
-    )), '') as github_login
+    )), '')::text as github_login
   from auth.users u
   where u.id <> auth.uid()
     and (

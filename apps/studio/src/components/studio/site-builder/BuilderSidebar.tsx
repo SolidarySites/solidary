@@ -33,6 +33,7 @@ type BuilderSidebarProps = {
   collaboratorQuery: string;
   collaboratorRole: CollaboratorRole;
   collaboratorSuggestions: CollaboratorSearchResult[];
+  selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
   pages: BuilderPage[];
@@ -106,6 +107,7 @@ const BuilderSidebar = ({
   collaboratorQuery,
   collaboratorRole,
   collaboratorSuggestions,
+  selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
   pages,
@@ -258,6 +260,7 @@ const BuilderSidebar = ({
               collaboratorQuery={collaboratorQuery}
               collaboratorRole={collaboratorRole}
               collaboratorSuggestions={collaboratorSuggestions}
+              selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
               collaboratorSearchLoading={collaboratorSearchLoading}
               invitingCollaborator={invitingCollaborator}
               onSiteTitleChange={onSiteTitleChange}
