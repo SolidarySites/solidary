@@ -746,21 +746,34 @@ export default function SiteBuilderPage() {
     return () => URL.revokeObjectURL(url);
   }, [siteImage]);
 
-  const applyLoadedDraft = useCallback((loaded: LoadedDraftResult) => {
+  const applyLoadedDraft = useCallback((
+    loaded: LoadedDraftResult,
+    options: {
+      preserveActivePreviewSlug?: boolean;
+    } = {}
+  ) => {
+    const { preserveActivePreviewSlug = false } = options;
     const loadedDraftImages = loaded.draftImages ?? [];
+    const loadedPages = loaded.pages.map((page) => ({
+      ...page,
+      body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
+    }));
     touchedPageSlugsRef.current.clear();
     deletedPageSlugsRef.current.clear();
     setDraftState(loaded.draftState);
     setSiteAccessRole(loaded.accessRole);
     setDraftImages(loadedDraftImages);
-    setPages(
-      loaded.pages.map((page) => ({
-        ...page,
-        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
-      }))
-    );
+    setPages(loadedPages);
     setDraftPageSlugs(loaded.draftPageSlugs);
-    if (loaded.initialActivePreviewSlug) {
+    if (preserveActivePreviewSlug) {
+      const normalizedActiveSlug = normalizePageSlug(activePreviewSlug) || "home";
+      const hasActiveSlug = loadedPages.some(
+        (page, index) => getPageSafeSlug(page, index) === normalizedActiveSlug
+      );
+      if (!hasActiveSlug && loaded.initialActivePreviewSlug) {
+        setActivePreviewSlug(loaded.initialActivePreviewSlug);
+      }
+    } else if (loaded.initialActivePreviewSlug) {
       setActivePreviewSlug(loaded.initialActivePreviewSlug);
     }
 
@@ -791,7 +804,7 @@ export default function SiteBuilderPage() {
       setFooterModules([...DEFAULT_FOOTER_MODULES]);
     }
     shouldCaptureLoadedDraftSignature.current = true;
-  }, []);
+  }, [activePreviewSlug]);
 
   useEffect(() => {
     if (!draftId) {
@@ -885,6 +898,31 @@ export default function SiteBuilderPage() {
       setIsDraftLoading(false);
     }
   }, [applyLoadedDraft, draftId, navigate, sessionUserId]);
+
+  const refreshDraftAfterSectionChange = useCallback(async () => {
+    if (!draftState?.id || !sessionUserId) return;
+    setIsDraftLoading(true);
+    setDraftLoadError(null);
+    shouldCaptureLoadedDraftSignature.current = false;
+    try {
+      const loaded = await loadDraftById({
+        draftId: draftState.id,
+        defaultHomeContent,
+        userId: sessionUserId
+      });
+      applyLoadedDraft(loaded, { preserveActivePreviewSlug: true });
+      if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftState.id) {
+        navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
+      }
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to refresh draft state.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setIsDraftLoading(false);
+    }
+  }, [applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
 
   useEffect(() => {
     if (!isOwnerOnOwnerDraft || !draftState?.id) {
@@ -2723,6 +2761,7 @@ export default function SiteBuilderPage() {
       if (nextSettingsSection !== activeSettingsSection) {
         setActiveSettingsSection(nextSettingsSection);
       }
+      await refreshDraftAfterSectionChange();
     } catch (caught) {
       if (acquiredNextLock && nextLockKey && nextLockKey !== currentLockKey) {
         await releaseSectionLock(nextLockKey).catch(() => undefined);
