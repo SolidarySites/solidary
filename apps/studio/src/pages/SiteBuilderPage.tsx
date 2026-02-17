@@ -750,9 +750,10 @@ export default function SiteBuilderPage() {
     loaded: LoadedDraftResult,
     options: {
       preserveActivePreviewSlug?: boolean;
+      preservedPreviewSlug?: string;
     } = {}
   ) => {
-    const { preserveActivePreviewSlug = false } = options;
+    const { preserveActivePreviewSlug = false, preservedPreviewSlug } = options;
     const loadedDraftImages = loaded.draftImages ?? [];
     const loadedPages = loaded.pages.map((page) => ({
       ...page,
@@ -766,7 +767,7 @@ export default function SiteBuilderPage() {
     setPages(loadedPages);
     setDraftPageSlugs(loaded.draftPageSlugs);
     if (preserveActivePreviewSlug) {
-      const normalizedActiveSlug = normalizePageSlug(activePreviewSlug) || "home";
+      const normalizedActiveSlug = normalizePageSlug(preservedPreviewSlug ?? "") || "home";
       const hasActiveSlug = loadedPages.some(
         (page, index) => getPageSafeSlug(page, index) === normalizedActiveSlug
       );
@@ -804,7 +805,7 @@ export default function SiteBuilderPage() {
       setFooterModules([...DEFAULT_FOOTER_MODULES]);
     }
     shouldCaptureLoadedDraftSignature.current = true;
-  }, [activePreviewSlug]);
+  }, []);
 
   useEffect(() => {
     if (!draftId) {
@@ -910,7 +911,10 @@ export default function SiteBuilderPage() {
         defaultHomeContent,
         userId: sessionUserId
       });
-      applyLoadedDraft(loaded, { preserveActivePreviewSlug: true });
+      applyLoadedDraft(loaded, {
+        preserveActivePreviewSlug: true,
+        preservedPreviewSlug: activePreviewSlug
+      });
       if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftState.id) {
         navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
       }
@@ -922,7 +926,7 @@ export default function SiteBuilderPage() {
     } finally {
       setIsDraftLoading(false);
     }
-  }, [applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
+  }, [activePreviewSlug, applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
 
   useEffect(() => {
     if (!isOwnerOnOwnerDraft || !draftState?.id) {
