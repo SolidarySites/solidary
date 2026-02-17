@@ -36,6 +36,14 @@ export type FooterOptions = {
 };
 
 export type SiteAccessRole = "owner" | "admin" | "editor" | "viewer";
+export type CollaboratorRole = "admin" | "editor" | "viewer";
+
+export type CollaboratorSearchResult = {
+  userId: string;
+  email: string;
+  displayName: string;
+  githubLogin: string | null;
+};
 
 export type BuilderSection = "menu" | "content" | "settings";
 

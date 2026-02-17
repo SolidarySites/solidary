@@ -21,12 +21,14 @@ import {
   PAGE_PATH_PREFIX,
   PAGE_PATH_SUFFIX
 } from "../components/studio/site-builder/constants";
-import { loadDraftById } from "../components/studio/site-builder/load-draft";
+import { loadDraftById, type LoadedDraftResult } from "../components/studio/site-builder/load-draft";
 import type {
   BuilderEditableSectionKey,
   BuilderPage,
   BuilderSection,
   BuilderSettingsSection,
+  CollaboratorRole,
+  CollaboratorSearchResult,
   DraftImageAsset,
   DraftState,
   FooterModule,
@@ -191,6 +193,13 @@ type SectionLockAcquireResult = {
   expires_at?: string | null;
 };
 
+type CollaboratorSearchRpcRow = {
+  user_id: string | null;
+  email: string | null;
+  display_name: string | null;
+  github_login: string | null;
+};
+
 const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> = {
   metadata: "Solidary Metadata",
   pages: "Pages",
@@ -217,7 +226,7 @@ const isBuilderEditableSectionKey = (value: string): value is BuilderEditableSec
 
 class DraftConflictError extends Error {
   constructor() {
-    super("This draft was updated by someone else. Reload to get the latest version.");
+    super("This draft was updated by another collaborator.");
     this.name = "DraftConflictError";
   }
 }
@@ -320,6 +329,13 @@ export default function SiteBuilderPage() {
   const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
   const [lastSavedDraftSignature, setLastSavedDraftSignature] = useState("");
   const [sectionLocks, setSectionLocks] = useState<SectionLockRecord>({});
+  const [collaboratorQuery, setCollaboratorQuery] = useState("");
+  const [collaboratorRole, setCollaboratorRole] = useState<CollaboratorRole>("editor");
+  const [collaboratorSuggestions, setCollaboratorSuggestions] = useState<CollaboratorSearchResult[]>([]);
+  const [collaboratorSearchLoading, setCollaboratorSearchLoading] = useState(false);
+  const [invitingCollaborator, setInvitingCollaborator] = useState(false);
+  const [selectedCollaboratorSuggestion, setSelectedCollaboratorSuggestion] =
+    useState<CollaboratorSearchResult | null>(null);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
@@ -598,6 +614,51 @@ export default function SiteBuilderPage() {
     return () => URL.revokeObjectURL(url);
   }, [siteImage]);
 
+  const applyLoadedDraft = useCallback((loaded: LoadedDraftResult) => {
+    const loadedDraftImages = loaded.draftImages ?? [];
+    setDraftState(loaded.draftState);
+    setSiteAccessRole(loaded.accessRole);
+    setDraftImages(loadedDraftImages);
+    setPages(
+      loaded.pages.map((page) => ({
+        ...page,
+        body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
+      }))
+    );
+    setDraftPageSlugs(loaded.draftPageSlugs);
+    if (loaded.initialActivePreviewSlug) {
+      setActivePreviewSlug(loaded.initialActivePreviewSlug);
+    }
+
+    if (loaded.siteTitle) {
+      setSiteTitle(loaded.siteTitle);
+    }
+    if (loaded.header) {
+      setHeaderDisabled(loaded.header.disabled);
+      setHeaderFixed(loaded.header.fixed);
+      setHeaderBrandDisabled(loaded.header.disableBrand);
+      setHeaderBrandText(loaded.header.brandText?.trim() || loaded.siteTitle?.trim() || "New Astro Site");
+      hasInitializedHeaderBrand.current = true;
+    } else if (!hasInitializedHeaderBrand.current) {
+      setHeaderBrandText(loaded.siteTitle?.trim() || "New Astro Site");
+      hasInitializedHeaderBrand.current = true;
+    }
+
+    if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
+    if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
+    if (typeof loaded.tokensCss === "string") setTokensCss(loaded.tokensCss);
+    if (typeof loaded.siteImagePreview === "string") setSiteImagePreview(loaded.siteImagePreview);
+    if (typeof loaded.draftImageUrl === "string") setDraftImageUrl(loaded.draftImageUrl);
+    if (loaded.footer) {
+      setFooterDisabled(loaded.footer.disabled);
+      setFooterFixed(loaded.footer.fixed);
+      setFooterModules(normalizeFooterModules(loaded.footer.modules));
+    } else {
+      setFooterModules([...DEFAULT_FOOTER_MODULES]);
+    }
+    shouldCaptureLoadedDraftSignature.current = true;
+  }, []);
+
   useEffect(() => {
     if (!draftId) {
       setIsDraftLoading(false);
@@ -607,6 +668,9 @@ export default function SiteBuilderPage() {
       setActivePresenceMembers([]);
       setLastSavedDraftSignature("");
       setSectionLocks({});
+      setCollaboratorQuery("");
+      setCollaboratorSuggestions([]);
+      setSelectedCollaboratorSuggestion(null);
       cleanedPublishedDraftIdRef.current = null;
       shouldCaptureLoadedDraftSignature.current = false;
       return;
@@ -637,51 +701,7 @@ export default function SiteBuilderPage() {
         });
 
         if (!mounted) return;
-
-        const loadedDraftImages = loaded.draftImages ?? [];
-        setDraftState(loaded.draftState);
-        setSiteAccessRole(loaded.accessRole);
-        setDraftImages(loadedDraftImages);
-        setPages(
-          loaded.pages.map((page) => ({
-            ...page,
-            body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
-          }))
-        );
-        setDraftPageSlugs(loaded.draftPageSlugs);
-        if (loaded.initialActivePreviewSlug) {
-          setActivePreviewSlug(loaded.initialActivePreviewSlug);
-        }
-
-        if (loaded.siteTitle) {
-          setSiteTitle(loaded.siteTitle);
-        }
-        if (loaded.header) {
-          setHeaderDisabled(loaded.header.disabled);
-          setHeaderFixed(loaded.header.fixed);
-          setHeaderBrandDisabled(loaded.header.disableBrand);
-          setHeaderBrandText(
-            loaded.header.brandText?.trim() || loaded.siteTitle?.trim() || "New Astro Site"
-          );
-          hasInitializedHeaderBrand.current = true;
-        } else if (!hasInitializedHeaderBrand.current) {
-          setHeaderBrandText(loaded.siteTitle?.trim() || "New Astro Site");
-          hasInitializedHeaderBrand.current = true;
-        }
-
-        if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
-        if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
-        if (typeof loaded.tokensCss === "string") setTokensCss(loaded.tokensCss);
-        if (typeof loaded.siteImagePreview === "string") setSiteImagePreview(loaded.siteImagePreview);
-        if (typeof loaded.draftImageUrl === "string") setDraftImageUrl(loaded.draftImageUrl);
-        if (loaded.footer) {
-          setFooterDisabled(loaded.footer.disabled);
-          setFooterFixed(loaded.footer.fixed);
-          setFooterModules(normalizeFooterModules(loaded.footer.modules));
-        } else {
-          setFooterModules([...DEFAULT_FOOTER_MODULES]);
-        }
-        shouldCaptureLoadedDraftSignature.current = true;
+        applyLoadedDraft(loaded);
       } catch (caught) {
         if (!mounted) return;
         const message = caught instanceof Error ? caught.message : "Failed to load draft.";
@@ -698,7 +718,198 @@ export default function SiteBuilderPage() {
     return () => {
       mounted = false;
     };
-  }, [draftId, sessionResolved, sessionUserId]);
+  }, [applyLoadedDraft, draftId, sessionResolved, sessionUserId]);
+
+  const reloadLatestDraftAfterConflict = useCallback(async () => {
+    if (!draftId || !sessionUserId) return;
+    setIsDraftLoading(true);
+    setDraftLoadError(null);
+    shouldCaptureLoadedDraftSignature.current = false;
+    try {
+      const loaded = await loadDraftById({
+        draftId,
+        defaultHomeContent,
+        userId: sessionUserId
+      });
+      applyLoadedDraft(loaded);
+      setNotice("Draft changed by another collaborator. Loaded the latest version.");
+      setNoticeKind("error");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to reload draft.";
+      setDraftLoadError(message);
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setIsDraftLoading(false);
+    }
+  }, [applyLoadedDraft, draftId, sessionUserId]);
+
+  useEffect(() => {
+    if (!isOwner || !draftState?.id) {
+      setCollaboratorSuggestions([]);
+      setCollaboratorSearchLoading(false);
+      return;
+    }
+
+    const query = collaboratorQuery.trim();
+    if (query.length < 2) {
+      setCollaboratorSuggestions([]);
+      setCollaboratorSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      setCollaboratorSearchLoading(true);
+      void (async () => {
+        try {
+          const { data, error } = await supabase.rpc("site_search_collaborator_candidates", {
+          p_draft_id: draftState.id,
+          p_query: query,
+          p_limit: 10
+          });
+
+          if (cancelled) return;
+          if (error) {
+            setCollaboratorSuggestions([]);
+            return;
+          }
+
+          const suggestions = ((data ?? []) as CollaboratorSearchRpcRow[])
+            .map((row) => {
+              const userId = typeof row.user_id === "string" ? row.user_id.trim() : "";
+              const email = typeof row.email === "string" ? row.email.trim() : "";
+              const displayName =
+                typeof row.display_name === "string" && row.display_name.trim()
+                  ? row.display_name.trim()
+                  : email;
+              const githubLogin =
+                typeof row.github_login === "string" && row.github_login.trim()
+                  ? row.github_login.trim()
+                  : null;
+              if (!userId || !email) return null;
+              return {
+                userId,
+                email,
+                displayName,
+                githubLogin
+              } satisfies CollaboratorSearchResult;
+            })
+            .filter((entry): entry is CollaboratorSearchResult => Boolean(entry));
+
+          setCollaboratorSuggestions(suggestions.slice(0, 10));
+        } finally {
+          if (!cancelled) {
+            setCollaboratorSearchLoading(false);
+          }
+        }
+      })();
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [collaboratorQuery, draftState?.id, isOwner]);
+
+  const handleCollaboratorQueryChange = (value: string) => {
+    setCollaboratorQuery(value);
+    setSelectedCollaboratorSuggestion(null);
+  };
+
+  const handleCollaboratorSuggestionSelect = (suggestion: CollaboratorSearchResult) => {
+    setSelectedCollaboratorSuggestion(suggestion);
+    setCollaboratorQuery(suggestion.githubLogin ? `@${suggestion.githubLogin}` : suggestion.email);
+    setCollaboratorSuggestions([]);
+  };
+
+  const handleInviteCollaborator = async () => {
+    if (!draftState?.id) return;
+    if (!isOwner) {
+      setNotice("Only owners can invite collaborators.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const providerToken = (session as { provider_token?: string } | null)?.provider_token;
+    if (!providerToken) {
+      setNotice("GitHub token missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const identifierInput = collaboratorQuery.trim();
+    if (!identifierInput) {
+      setNotice("Enter a GitHub username or email.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const normalizedIdentifier = identifierInput.startsWith("@")
+      ? identifierInput.slice(1).trim()
+      : identifierInput;
+    if (!normalizedIdentifier) {
+      setNotice("Enter a valid GitHub username or email.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const selectedSuggestion =
+      selectedCollaboratorSuggestion &&
+      (normalizedIdentifier.toLowerCase() === selectedCollaboratorSuggestion.email.toLowerCase() ||
+        normalizedIdentifier.toLowerCase() ===
+          (selectedCollaboratorSuggestion.githubLogin ?? "").toLowerCase())
+        ? selectedCollaboratorSuggestion
+        : (collaboratorSuggestions.find(
+            (suggestion) =>
+              normalizedIdentifier.toLowerCase() === suggestion.email.toLowerCase() ||
+              normalizedIdentifier.toLowerCase() === (suggestion.githubLogin ?? "").toLowerCase()
+          ) ?? null);
+
+    setInvitingCollaborator(true);
+    try {
+      const response = await fetch("/.netlify/functions/github-invite-collaborator", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          draftId: draftState.id,
+          githubToken: providerToken,
+          identifier: normalizedIdentifier,
+          role: collaboratorRole,
+          solidaryUserId: selectedSuggestion?.userId ?? null
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message =
+          typeof payload?.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Failed to send collaborator invite.";
+        throw new Error(message);
+      }
+
+      const invitedLabel =
+        typeof payload?.target === "string" && payload.target.trim()
+          ? payload.target.trim()
+          : normalizedIdentifier;
+      setNotice(`Invite sent to ${invitedLabel}.`);
+      setNoticeKind("notice");
+      setCollaboratorQuery("");
+      setCollaboratorSuggestions([]);
+      setSelectedCollaboratorSuggestion(null);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to invite collaborator.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setInvitingCollaborator(false);
+    }
+  };
 
   useEffect(() => {
     if (!shouldCaptureLoadedDraftSignature.current) return;
@@ -1628,9 +1839,13 @@ export default function SiteBuilderPage() {
       setNotice(null);
       setNoticeKind(null);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Something went wrong.";
-      setNotice(message);
-      setNoticeKind("error");
+      if (caught instanceof DraftConflictError) {
+        await reloadLatestDraftAfterConflict();
+      } else {
+        const message = caught instanceof Error ? caught.message : "Something went wrong.";
+        setNotice(message);
+        setNoticeKind("error");
+      }
     } finally {
       setIsProvisioning(false);
     }
@@ -1660,9 +1875,13 @@ export default function SiteBuilderPage() {
       setNotice(`${EDITABLE_SECTION_LABELS[sectionKey]} saved.`);
       setNoticeKind("notice");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save draft.";
-      setNotice(message);
-      setNoticeKind("error");
+      if (error instanceof DraftConflictError) {
+        await reloadLatestDraftAfterConflict();
+      } else {
+        const message = error instanceof Error ? error.message : "Failed to save draft.";
+        setNotice(message);
+        setNoticeKind("error");
+      }
     } finally {
       setSavingDraft(false);
     }
@@ -1948,9 +2167,13 @@ export default function SiteBuilderPage() {
       if (acquiredNextLock && nextSectionKey && nextSectionKey !== currentSectionKey) {
         await releaseSectionLock(nextSectionKey).catch(() => undefined);
       }
-      const message = caught instanceof Error ? caught.message : "Failed to switch sections.";
-      setNotice(message);
-      setNoticeKind("error");
+      if (caught instanceof DraftConflictError) {
+        await reloadLatestDraftAfterConflict();
+      } else {
+        const message = caught instanceof Error ? caught.message : "Failed to switch sections.";
+        setNotice(message);
+        setNoticeKind("error");
+      }
       return;
     } finally {
       sectionTransitionInFlightRef.current = false;
@@ -2044,6 +2267,11 @@ export default function SiteBuilderPage() {
             siteTitle={siteTitle}
             siteDescription={siteDescription}
             siteImagePreview={siteImagePreview}
+            collaboratorQuery={collaboratorQuery}
+            collaboratorRole={collaboratorRole}
+            collaboratorSuggestions={collaboratorSuggestions}
+            collaboratorSearchLoading={collaboratorSearchLoading}
+            invitingCollaborator={invitingCollaborator}
             pages={pages}
             activePreviewSlug={activePreviewSlug}
             pageTitleRef={pageTitleRef}
@@ -2070,6 +2298,12 @@ export default function SiteBuilderPage() {
             onSiteTitleChange={setSiteTitle}
             onSiteDescriptionChange={setSiteDescription}
             onSiteImageChange={setSiteImage}
+            onCollaboratorQueryChange={handleCollaboratorQueryChange}
+            onCollaboratorRoleChange={setCollaboratorRole}
+            onCollaboratorSuggestionSelect={handleCollaboratorSuggestionSelect}
+            onInviteCollaborator={() => {
+              void handleInviteCollaborator();
+            }}
             onAddPage={addPage}
             onActivePreviewSlugChange={setActivePreviewSlug}
             onPageTitleChange={handlePageTitleChange}

@@ -8,6 +8,8 @@ import BuilderPagesSection from "./BuilderPagesSection";
 import BuilderStylesSection from "./BuilderStylesSection";
 import type { PreviewSelectedImage } from "../AstroTemplatePreview";
 import type {
+  CollaboratorRole,
+  CollaboratorSearchResult,
   BuilderEditableSectionKey,
   BuilderPage,
   BuilderSection,
@@ -28,6 +30,11 @@ type BuilderSidebarProps = {
   siteTitle: string;
   siteDescription: string;
   siteImagePreview: string | null;
+  collaboratorQuery: string;
+  collaboratorRole: CollaboratorRole;
+  collaboratorSuggestions: CollaboratorSearchResult[];
+  collaboratorSearchLoading: boolean;
+  invitingCollaborator: boolean;
   pages: BuilderPage[];
   activePreviewSlug: string;
   pageTitleRef: RefObject<HTMLInputElement | null>;
@@ -51,6 +58,10 @@ type BuilderSidebarProps = {
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
+  onCollaboratorQueryChange: (value: string) => void;
+  onCollaboratorRoleChange: (value: CollaboratorRole) => void;
+  onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
+  onInviteCollaborator: () => void;
   onAddPage: () => void;
   onActivePreviewSlugChange: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
@@ -92,6 +103,11 @@ const BuilderSidebar = ({
   siteTitle,
   siteDescription,
   siteImagePreview,
+  collaboratorQuery,
+  collaboratorRole,
+  collaboratorSuggestions,
+  collaboratorSearchLoading,
+  invitingCollaborator,
   pages,
   activePreviewSlug,
   pageTitleRef,
@@ -112,6 +128,10 @@ const BuilderSidebar = ({
   onSiteTitleChange,
   onSiteDescriptionChange,
   onSiteImageChange,
+  onCollaboratorQueryChange,
+  onCollaboratorRoleChange,
+  onCollaboratorSuggestionSelect,
+  onInviteCollaborator,
   onAddPage,
   onActivePreviewSlugChange,
   onPageTitleChange,
@@ -235,10 +255,19 @@ const BuilderSidebar = ({
               siteDescription={siteDescription}
               siteUrl={siteUrl}
               siteImagePreview={siteImagePreview}
+              collaboratorQuery={collaboratorQuery}
+              collaboratorRole={collaboratorRole}
+              collaboratorSuggestions={collaboratorSuggestions}
+              collaboratorSearchLoading={collaboratorSearchLoading}
+              invitingCollaborator={invitingCollaborator}
               onSiteTitleChange={onSiteTitleChange}
               onSiteDescriptionChange={onSiteDescriptionChange}
               onSiteUrlChange={onSiteUrlChange}
               onSiteImageChange={onSiteImageChange}
+              onCollaboratorQueryChange={onCollaboratorQueryChange}
+              onCollaboratorRoleChange={onCollaboratorRoleChange}
+              onCollaboratorSuggestionSelect={onCollaboratorSuggestionSelect}
+              onInviteCollaborator={onInviteCollaborator}
             />
           </fieldset>
         </div>
