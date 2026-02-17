@@ -647,7 +647,10 @@ create table if not exists public.site_draft_section_locks (
   expires_at timestamptz not null,
   updated_at timestamptz not null default now(),
   primary key (draft_id, section_key),
-  check (section_key in ('metadata', 'pages', 'header', 'footer', 'styles'))
+  check (
+    section_key in ('metadata', 'pages', 'header', 'footer', 'styles')
+    or section_key ~ '^page:[a-z0-9][a-z0-9_-]*$'
+  )
 );
 
 create index if not exists site_draft_section_locks_draft_expires_idx
@@ -700,7 +703,10 @@ begin
     raise exception 'Authentication required.';
   end if;
 
-  if p_section_key not in ('metadata', 'pages', 'header', 'footer', 'styles') then
+  if
+    p_section_key not in ('metadata', 'pages', 'header', 'footer', 'styles')
+    and p_section_key !~ '^page:[a-z0-9][a-z0-9_-]*$'
+  then
     raise exception 'Invalid section key.';
   end if;
 

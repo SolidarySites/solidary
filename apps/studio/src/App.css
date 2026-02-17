@@ -632,6 +632,10 @@
   padding-bottom: 0.75rem;
 }
 
+.builder-page-item.is-locked {
+  opacity: 0.82;
+}
+
 .builder-page-item:last-child {
   border-bottom: none;
   padding-bottom: 0;
@@ -663,6 +667,16 @@
 
 .builder-page-edit-link.is-active {
   color: #1f221c;
+}
+
+.builder-page-edit-link.is-locked {
+  color: rgba(31, 34, 28, 0.6);
+}
+
+.builder-page-lock-note {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem;
+  color: rgba(31, 34, 28, 0.68);
 }
 
 .builder-page-details {

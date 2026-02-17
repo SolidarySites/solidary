@@ -40,6 +40,7 @@ import { usePublishStatusTracking } from "../components/studio/site-builder/useP
 import {
   getPageSafeSlug,
   makeUniquePageSlug,
+  normalizePageSlug,
   stripFrontmatter
 } from "../components/studio/site-builder/utils";
 import type { NoticeKind } from "../studio/types";
@@ -178,13 +179,13 @@ type DraftPresenceMember = {
 };
 
 type SectionLockEntry = {
-  sectionKey: BuilderEditableSectionKey;
+  lockKey: string;
   userId: string;
   holderName: string;
   expiresAt: string;
 };
 
-type SectionLockRecord = Partial<Record<BuilderEditableSectionKey, SectionLockEntry>>;
+type SectionLockRecord = Record<string, SectionLockEntry>;
 
 type SectionLockAcquireResult = {
   acquired?: boolean;
@@ -249,6 +250,59 @@ const isBuilderEditableSectionKey = (value: string): value is BuilderEditableSec
   value === "header" ||
   value === "footer" ||
   value === "styles";
+
+const normalizePageLockValue = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "");
+
+const getPageLockKey = (value: string) => `page:${normalizePageLockValue(value) || "home"}`;
+
+const getPageLockKeyForPage = (page: BuilderPage, index: number) =>
+  getPageLockKey(
+    typeof page.id === "string" && page.id.trim() ? page.id.trim() : getPageSafeSlug(page, index)
+  );
+
+const getPageLockKeyForSlug = (pages: BuilderPage[], activePageSlug: string) => {
+  const normalizedSlug = normalizePageSlug(activePageSlug) || "home";
+  const matchedIndex = pages.findIndex(
+    (page, index) => getPageSafeSlug(page, index) === normalizedSlug
+  );
+  if (matchedIndex === -1) {
+    return getPageLockKey(normalizedSlug);
+  }
+  return getPageLockKeyForPage(pages[matchedIndex], matchedIndex);
+};
+
+const isPageLockKey = (value: string) => /^page:[a-z0-9][a-z0-9_-]*$/.test(value);
+
+const isSupportedLockKey = (value: string) =>
+  isBuilderEditableSectionKey(value) || isPageLockKey(value);
+
+const getLockKeyFromUi = (
+  section: BuilderSection,
+  settingsSection: BuilderSettingsSection,
+  activePageSlug: string,
+  pages: BuilderPage[]
+) => {
+  if (section === "content") return "metadata";
+  if (section !== "settings") return null;
+  if (settingsSection === "pages") return getPageLockKeyForSlug(pages, activePageSlug);
+  return settingsSection;
+};
+
+const getLockLabel = (lockKey: string) => {
+  if (isPageLockKey(lockKey)) {
+    return "this page";
+  }
+  if (isBuilderEditableSectionKey(lockKey)) {
+    return EDITABLE_SECTION_LABELS[lockKey];
+  }
+  return "this section";
+};
 
 class DraftConflictError extends Error {
   constructor() {
@@ -396,7 +450,11 @@ export default function SiteBuilderPage() {
     () => getEditableSectionFromUi(activeSection, activeSettingsSection),
     [activeSection, activeSettingsSection]
   );
-  const activeSectionLock = activeEditableSection ? sectionLocks[activeEditableSection] : null;
+  const activeLockKey = useMemo(
+    () => getLockKeyFromUi(activeSection, activeSettingsSection, activePreviewSlug, pages),
+    [activePreviewSlug, activeSection, activeSettingsSection, pages]
+  );
+  const activeSectionLock = activeLockKey ? sectionLocks[activeLockKey] : null;
   const activeSectionLockedByOther = Boolean(
     activeSectionLock && activeSectionLock.userId !== sessionUserId
   );
@@ -404,8 +462,8 @@ export default function SiteBuilderPage() {
     () =>
       Object.entries(sectionLocks).reduce(
         (accumulator, [sectionKey, lock]) => {
-          if (!lock) return accumulator;
-          accumulator[sectionKey as BuilderEditableSectionKey] = {
+          if (!lock || !isBuilderEditableSectionKey(sectionKey)) return accumulator;
+          accumulator[sectionKey] = {
             holderName: lock.holderName,
             isSelf: lock.userId === sessionUserId
           };
@@ -423,8 +481,42 @@ export default function SiteBuilderPage() {
       ),
     [sectionLocks, sessionUserId]
   );
-  const pagesLock = sectionLocks.pages;
-  const pagesLockedByOther = Boolean(pagesLock && pagesLock.userId !== sessionUserId);
+  const pageLocksBySlug = useMemo(
+    () => {
+      const pageSlugByLockKey = new Map<string, string>();
+      pages.forEach((page, index) => {
+        pageSlugByLockKey.set(getPageLockKeyForPage(page, index), getPageSafeSlug(page, index));
+      });
+
+      return Object.entries(sectionLocks).reduce(
+        (accumulator, [lockKey, lock]) => {
+          if (!lock || !isPageLockKey(lockKey)) return accumulator;
+          const fallbackSlug = lockKey.slice("page:".length);
+          const slug = pageSlugByLockKey.get(lockKey) ?? normalizePageSlug(fallbackSlug);
+          if (!slug) return accumulator;
+          accumulator[slug] = {
+            holderName: lock.holderName,
+            isSelf: lock.userId === sessionUserId
+          };
+          return accumulator;
+        },
+        {} as Record<
+          string,
+          {
+            holderName: string;
+            isSelf: boolean;
+          }
+        >
+      );
+    },
+    [pages, sectionLocks, sessionUserId]
+  );
+  const activePageLockKey = useMemo(
+    () => getPageLockKeyForSlug(pages, activePreviewSlug),
+    [activePreviewSlug, pages]
+  );
+  const activePageLock = sectionLocks[activePageLockKey] ?? sectionLocks.pages;
+  const activePageLockedByOther = Boolean(activePageLock && activePageLock.userId !== sessionUserId);
   const hasForeignSectionLocks = useMemo(
     () => Object.values(sectionLocks).some((lock) => Boolean(lock && lock.userId !== sessionUserId)),
     [sectionLocks, sessionUserId]
@@ -433,7 +525,7 @@ export default function SiteBuilderPage() {
     canEditDraft &&
     activeSection === "settings" &&
     activeSettingsSection === "pages" &&
-    !pagesLockedByOther;
+    !activePageLockedByOther;
   const previewReadOnlyMessage = useMemo(() => {
     if (shouldLoadDraft && isDraftLoading) return null;
     if (draftLoadError) return null;
@@ -441,18 +533,21 @@ export default function SiteBuilderPage() {
     if (activeSection !== "settings" || activeSettingsSection !== "pages") {
       return "Open Pages to edit content in the live preview.";
     }
-    if (pagesLockedByOther) {
-      return `${pagesLock?.holderName ?? "Another collaborator"} is editing Pages right now.`;
+    if (activePageLockedByOther) {
+      return `${
+        activePageLock?.holderName ?? "Another collaborator"
+      } is editing page "${normalizePageSlug(activePreviewSlug) || "home"}" right now.`;
     }
     return null;
   }, [
+    activePageLock?.holderName,
+    activePageLockedByOther,
+    activePreviewSlug,
     activeSection,
     activeSettingsSection,
     canEditDraft,
     draftLoadError,
     isDraftLoading,
-    pagesLock?.holderName,
-    pagesLockedByOther,
     shouldLoadDraft
   ]);
   const collaboratorPresenceNames = useMemo(
@@ -1130,7 +1225,7 @@ export default function SiteBuilderPage() {
     setPages((items) => [
       ...items,
       {
-        id: `new-${crypto.randomUUID()}`,
+        id: slug,
         title: "New page",
         slug,
         body: "<p>Write your page content here.</p>",
@@ -1139,7 +1234,7 @@ export default function SiteBuilderPage() {
       }
     ]);
     markPageSlugTouched(slug);
-    setActivePreviewSlug(slug);
+    void handleActivePreviewSlugChange(slug);
     setActiveSection("settings");
     setActiveSettingsSection("pages");
     requestAnimationFrame(() => pageTitleRef.current?.focus());
@@ -1171,7 +1266,7 @@ export default function SiteBuilderPage() {
     markPageSlugDeleted(removedSlug);
     setPages((items) => items.filter((_, idx) => idx !== index || items[idx]?.isHome));
     if (activePreviewSlug === removedSlug) {
-      setActivePreviewSlug("home");
+      void handleActivePreviewSlugChange("home");
     }
   };
 
@@ -1443,6 +1538,11 @@ export default function SiteBuilderPage() {
     const pageRows = buildDraftPageRows(draftState.id, normalizedPages, draftImages);
     const currentSlugs = pageRows.map((page) => page.slug);
     const deletedSlugs = draftPageSlugs.filter((slug) => !currentSlugs.includes(slug));
+    const touchedPageSlugs = Array.from(touchedPageSlugsRef.current)
+      .map((entry) => normalizePageSlug(entry))
+      .filter(Boolean);
+    const touchedPageSlugSet = new Set(touchedPageSlugs);
+    const upsertRows = pageRows.filter((row) => touchedPageSlugSet.has(normalizePageSlug(row.slug)));
 
     if (deletedSlugs.length) {
       const { error: deleteError } = await supabase
@@ -1455,17 +1555,18 @@ export default function SiteBuilderPage() {
       }
     }
 
-    const { error: upsertError } = await supabase
-      .from("site_draft_pages")
-      .upsert(pageRows, { onConflict: "draft_id,slug" });
-    if (upsertError) {
-      throw new Error(upsertError.message);
+    if (upsertRows.length) {
+      const { error: upsertError } = await supabase
+        .from("site_draft_pages")
+        .upsert(upsertRows, { onConflict: "draft_id,slug" });
+      if (upsertError) {
+        throw new Error(upsertError.message);
+      }
     }
 
     setPages(normalizedPages);
     setDraftPageSlugs(pageRows.map((page) => page.slug));
 
-    const touchedPageSlugs = Array.from(touchedPageSlugsRef.current);
     const deletedPageSlugs = Array.from(
       new Set([
         ...deletedSlugs.map((entry) => entry.trim().toLowerCase()).filter(Boolean),
@@ -1538,9 +1639,15 @@ export default function SiteBuilderPage() {
   const saveSectionByKey = async (sectionKey: BuilderEditableSectionKey) => {
     if (!canEditDraft) return;
     if (!draftState) return;
-    const lock = sectionLocks[sectionKey];
+    const lockKey = sectionKey === "pages" ? getPageLockKeyForSlug(pages, activePreviewSlug) : sectionKey;
+    const lock = sectionLocks[lockKey] ?? (sectionKey === "pages" ? sectionLocks.pages : null);
     if (lock && lock.userId !== sessionUserId) {
-      throw new Error(`${lock.holderName} is editing ${EDITABLE_SECTION_LABELS[sectionKey]}.`);
+      if (sectionKey === "pages") {
+        throw new Error(
+          `${lock.holderName} is editing page "${normalizePageSlug(activePreviewSlug) || "home"}".`
+        );
+      }
+      throw new Error(`${lock.holderName} is editing ${getLockLabel(lockKey)}.`);
     }
 
     if (sectionKey === "metadata") {
@@ -1571,11 +1678,11 @@ export default function SiteBuilderPage() {
     const nextLocks: SectionLockRecord = {};
     const nowTime = Date.now();
     (data ?? []).forEach((row) => {
-      const sectionKey =
-        typeof row.section_key === "string" && isBuilderEditableSectionKey(row.section_key)
+      const lockKey =
+        typeof row.section_key === "string" && isSupportedLockKey(row.section_key)
           ? row.section_key
           : null;
-      if (!sectionKey) return;
+      if (!lockKey) return;
       const userId = typeof row.locked_by_user_id === "string" ? row.locked_by_user_id.trim() : "";
       const holderName =
         typeof row.locked_by_name === "string" && row.locked_by_name.trim()
@@ -1585,8 +1692,8 @@ export default function SiteBuilderPage() {
       const expiresAtTime = Date.parse(expiresAt);
       if (!userId || !expiresAt || Number.isNaN(expiresAtTime) || expiresAtTime <= nowTime) return;
 
-      nextLocks[sectionKey] = {
-        sectionKey,
+      nextLocks[lockKey] = {
+        lockKey,
         userId,
         holderName,
         expiresAt
@@ -1596,11 +1703,11 @@ export default function SiteBuilderPage() {
     return nextLocks;
   }, []);
 
-  const acquireSectionLock = useCallback(async (sectionKey: BuilderEditableSectionKey) => {
+  const acquireSectionLock = useCallback(async (lockKey: string) => {
     if (!draftState?.id || !canEditDraft || !sessionUserId) return false;
     const { data, error } = await supabase.rpc("site_draft_acquire_section_lock", {
       p_draft_id: draftState.id,
-      p_section_key: sectionKey,
+      p_section_key: lockKey,
       p_holder_name: sessionDisplayName,
       p_ttl_seconds: 45
     });
@@ -1625,11 +1732,11 @@ export default function SiteBuilderPage() {
     setSectionLocks((current) => {
       const next = { ...current };
       if (!lockUserId) {
-        delete next[sectionKey];
+        delete next[lockKey];
         return next;
       }
-      next[sectionKey] = {
-        sectionKey,
+      next[lockKey] = {
+        lockKey,
         userId: lockUserId,
         holderName: lockName,
         expiresAt
@@ -1640,18 +1747,18 @@ export default function SiteBuilderPage() {
     return Boolean(response?.acquired && lockUserId === sessionUserId);
   }, [canEditDraft, draftState?.id, sessionDisplayName, sessionUserId]);
 
-  const releaseSectionLock = useCallback(async (sectionKey: BuilderEditableSectionKey) => {
+  const releaseSectionLock = useCallback(async (lockKey: string) => {
     if (!draftState?.id || !sessionUserId) return;
     const { error } = await supabase.rpc("site_draft_release_section_lock", {
       p_draft_id: draftState.id,
-      p_section_key: sectionKey
+      p_section_key: lockKey
     });
     if (error) {
       throw new Error(error.message);
     }
     setSectionLocks((current) => {
       const next = { ...current };
-      delete next[sectionKey];
+      delete next[lockKey];
       return next;
     });
   }, [draftState?.id, sessionUserId]);
@@ -1673,8 +1780,8 @@ export default function SiteBuilderPage() {
   }, [draftState?.id, loadSectionLocks, sessionUserId]);
 
   useEffect(() => {
-    if (!draftState?.id || !sessionUserId || !canEditDraft || !activeEditableSection) return;
-    void acquireSectionLock(activeEditableSection)
+    if (!draftState?.id || !sessionUserId || !canEditDraft || !activeLockKey) return;
+    void acquireSectionLock(activeLockKey)
       .then((acquired) => {
         if (!acquired) {
           void loadSectionLocks(draftState.id).catch(() => undefined);
@@ -1683,7 +1790,7 @@ export default function SiteBuilderPage() {
       .catch(() => undefined);
 
     const intervalId = window.setInterval(() => {
-      void acquireSectionLock(activeEditableSection)
+      void acquireSectionLock(activeLockKey)
         .then((acquired) => {
           if (!acquired) {
             void loadSectionLocks(draftState.id).catch(() => undefined);
@@ -1697,7 +1804,7 @@ export default function SiteBuilderPage() {
     };
   }, [
     acquireSectionLock,
-    activeEditableSection,
+    activeLockKey,
     canEditDraft,
     draftState?.id,
     loadSectionLocks,
@@ -2503,6 +2610,8 @@ export default function SiteBuilderPage() {
       const toIndex = navIndices[targetNavIndex].index;
       const next = [...items];
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      markPageSlugTouched(navIndices[currentNavIndex].slug);
+      markPageSlugTouched(navIndices[targetNavIndex].slug);
       return next;
     });
   };
@@ -2552,6 +2661,13 @@ export default function SiteBuilderPage() {
 
     const currentSectionKey = getEditableSectionFromUi(activeSection, activeSettingsSection);
     const nextSectionKey = getEditableSectionFromUi(nextSection, nextSettingsSection);
+    const currentLockKey = getLockKeyFromUi(
+      activeSection,
+      activeSettingsSection,
+      activePreviewSlug,
+      pages
+    );
+    const nextLockKey = getLockKeyFromUi(nextSection, nextSettingsSection, activePreviewSlug, pages);
     const isSameDestination =
       nextSection === activeSection && nextSettingsSection === activeSettingsSection;
     if (isSameDestination) {
@@ -2562,22 +2678,31 @@ export default function SiteBuilderPage() {
     let acquiredNextLock = false;
 
     try {
-      if (nextSectionKey && nextSectionKey !== currentSectionKey) {
-        const acquired = await acquireSectionLock(nextSectionKey);
+      if (nextLockKey && nextLockKey !== currentLockKey) {
+        const acquired = await acquireSectionLock(nextLockKey);
         if (!acquired) {
           const latestLocks =
             draftState?.id ? await loadSectionLocks(draftState.id).catch(() => ({} as SectionLockRecord)) : {};
-          const lockHolder = latestLocks[nextSectionKey]?.holderName ?? "Another collaborator";
-          setNotice(`${lockHolder} is editing ${EDITABLE_SECTION_LABELS[nextSectionKey]}.`);
-          setNoticeKind("error");
-          return;
+          const lockHolder = latestLocks[nextLockKey]?.holderName ?? "Another collaborator";
+          if (nextSectionKey === "pages") {
+            setNotice(
+              `${lockHolder} is editing page "${normalizePageSlug(activePreviewSlug) || "home"}". Choose another page to edit.`
+            );
+            setNoticeKind("error");
+          } else {
+            setNotice(`${lockHolder} is editing ${getLockLabel(nextLockKey)}.`);
+            setNoticeKind("error");
+            return;
+          }
+        } else {
+          acquiredNextLock = true;
         }
-        acquiredNextLock = true;
       }
 
       if (
         currentSectionKey &&
-        currentSectionKey !== nextSectionKey &&
+        currentLockKey &&
+        currentLockKey !== nextLockKey &&
         canEditDraft &&
         draftState
       ) {
@@ -2589,7 +2714,7 @@ export default function SiteBuilderPage() {
             setLastSavedDraftSignature(currentDraftSignature);
           }
         }
-        await releaseSectionLock(currentSectionKey);
+        await releaseSectionLock(currentLockKey);
       }
 
       if (nextSection !== activeSection) {
@@ -2599,8 +2724,8 @@ export default function SiteBuilderPage() {
         setActiveSettingsSection(nextSettingsSection);
       }
     } catch (caught) {
-      if (acquiredNextLock && nextSectionKey && nextSectionKey !== currentSectionKey) {
-        await releaseSectionLock(nextSectionKey).catch(() => undefined);
+      if (acquiredNextLock && nextLockKey && nextLockKey !== currentLockKey) {
+        await releaseSectionLock(nextLockKey).catch(() => undefined);
       }
       if (caught instanceof DraftConflictError) {
         await reloadLatestDraftAfterConflict();
@@ -2612,6 +2737,70 @@ export default function SiteBuilderPage() {
       return;
     } finally {
       sectionTransitionInFlightRef.current = false;
+    }
+  };
+
+  const handleActivePreviewSlugChange = async (nextSlug: string) => {
+    const normalizedNextSlug = normalizePageSlug(nextSlug) || "home";
+    const normalizedCurrentSlug = normalizePageSlug(activePreviewSlug) || "home";
+    if (normalizedNextSlug === normalizedCurrentSlug) {
+      setActivePreviewSlug(normalizedNextSlug);
+      return;
+    }
+
+    if (
+      !draftState?.id ||
+      !sessionUserId ||
+      !canEditDraft ||
+      activeSection !== "settings" ||
+      activeSettingsSection !== "pages"
+    ) {
+      setActivePreviewSlug(normalizedNextSlug);
+      return;
+    }
+
+    const currentPageLockKey = getPageLockKeyForSlug(pages, normalizedCurrentSlug);
+    const nextPageLockKey = getPageLockKeyForSlug(pages, normalizedNextSlug);
+    if (currentPageLockKey === nextPageLockKey) {
+      setActivePreviewSlug(normalizedNextSlug);
+      return;
+    }
+    let acquiredNextLock = false;
+
+    try {
+      const acquired = await acquireSectionLock(nextPageLockKey);
+      if (!acquired) {
+        const latestLocks =
+          draftState?.id ? await loadSectionLocks(draftState.id).catch(() => ({} as SectionLockRecord)) : {};
+        const lockHolder = latestLocks[nextPageLockKey]?.holderName ?? "Another collaborator";
+        setNotice(`${lockHolder} is editing page "${normalizedNextSlug}".`);
+        setNoticeKind("error");
+        return;
+      }
+      acquiredNextLock = true;
+
+      if (hasUnsavedChanges) {
+        const savedSignature = await saveSectionByKey("pages");
+        if (typeof savedSignature === "string" && savedSignature) {
+          setLastSavedDraftSignature(savedSignature);
+        } else {
+          setLastSavedDraftSignature(currentDraftSignature);
+        }
+      }
+
+      await releaseSectionLock(currentPageLockKey).catch(() => undefined);
+      setActivePreviewSlug(normalizedNextSlug);
+    } catch (caught) {
+      if (acquiredNextLock) {
+        await releaseSectionLock(nextPageLockKey).catch(() => undefined);
+      }
+      if (caught instanceof DraftConflictError) {
+        await reloadLatestDraftAfterConflict();
+      } else {
+        const message = caught instanceof Error ? caught.message : "Failed to switch pages.";
+        setNotice(message);
+        setNoticeKind("error");
+      }
     }
   };
 
@@ -2632,6 +2821,7 @@ export default function SiteBuilderPage() {
     ];
     const nextSettingsSection =
       preferredSettingsSections.find((entry) => {
+        if (entry === "pages") return true;
         const lock = sectionLocks[entry];
         return !lock || lock.userId === sessionUserId;
       }) ?? activeSettingsSection;
@@ -2731,6 +2921,7 @@ export default function SiteBuilderPage() {
             footerDisabled={footerDisabled}
             footerFixed={footerFixed}
             footerModules={footerModules}
+            pageLocksBySlug={pageLocksBySlug}
             sectionLocks={sidebarSectionLocks}
             onBack={() => {
               void handleSidebarBack();
@@ -2751,7 +2942,9 @@ export default function SiteBuilderPage() {
               void handleInviteCollaborator();
             }}
             onAddPage={addPage}
-            onActivePreviewSlugChange={setActivePreviewSlug}
+            onActivePreviewSlugChange={(slug) => {
+              void handleActivePreviewSlugChange(slug);
+            }}
             onPageTitleChange={handlePageTitleChange}
             onPageSlugChange={handlePageSlugChange}
             onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
@@ -2809,7 +3002,9 @@ export default function SiteBuilderPage() {
             fixed: footerFixed,
             modules: footerModules
           }}
-          onActivePreviewSlugChange={setActivePreviewSlug}
+          onActivePreviewSlugChange={(slug) => {
+            void handleActivePreviewSlugChange(slug);
+          }}
           onPageBodyChange={updatePageBody}
           onSelectedImageChange={setSelectedEditorImage}
         />

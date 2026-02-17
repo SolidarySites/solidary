@@ -52,6 +52,7 @@ type BuilderSidebarProps = {
   footerDisabled: boolean;
   footerFixed: boolean;
   footerModules: FooterModule[];
+  pageLocksBySlug: Record<string, BuilderSectionLock>;
   sectionLocks: Partial<Record<BuilderEditableSectionKey, BuilderSectionLock>>;
   onBack: () => void;
   onSectionChange: (section: BuilderSection) => void;
@@ -123,6 +124,7 @@ const BuilderSidebar = ({
   footerDisabled,
   footerFixed,
   footerModules,
+  pageLocksBySlug,
   sectionLocks,
   onBack,
   onSectionChange,
@@ -168,8 +170,6 @@ const BuilderSidebar = ({
 }: BuilderSidebarProps) => {
   const metadataLock = sectionLocks.metadata;
   const metadataLockedByOther = Boolean(metadataLock && !metadataLock.isSelf);
-  const pagesLock = sectionLocks.pages;
-  const pagesLockedByOther = Boolean(pagesLock && !pagesLock.isSelf);
   const headerLock = sectionLocks.header;
   const headerLockedByOther = Boolean(headerLock && !headerLock.isSelf);
   const footerLock = sectionLocks.footer;
@@ -280,11 +280,8 @@ const BuilderSidebar = ({
         <>
           <div className="builder-sidebar-nav">
             <button
-              className={`${activeSettingsSection === "pages" ? "primary" : "ghost"} ${
-                pagesLockedByOther ? "is-locked" : ""
-              }`.trim()}
+              className={`${activeSettingsSection === "pages" ? "primary" : "ghost"}`.trim()}
               onClick={() => onSettingsSectionChange("pages")}
-              disabled={pagesLockedByOther && activeSettingsSection !== "pages"}
             >
               Pages
             </button>
@@ -327,6 +324,7 @@ const BuilderSidebar = ({
             {activeSettingsSection === "pages" && (
               <BuilderPagesSection
                 pages={pages}
+                pageLocksBySlug={pageLocksBySlug}
                 activePreviewSlug={activePreviewSlug}
                 pageTitleRef={pageTitleRef}
                 onAddPage={onAddPage}

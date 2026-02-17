@@ -4,6 +4,13 @@ import { getPageSafeSlug } from "./utils";
 
 type BuilderPagesSectionProps = {
   pages: BuilderPage[];
+  pageLocksBySlug: Record<
+    string,
+    {
+      holderName: string;
+      isSelf: boolean;
+    }
+  >;
   activePreviewSlug: string;
   pageTitleRef: RefObject<HTMLInputElement | null>;
   onAddPage: () => void;
@@ -24,6 +31,7 @@ const getPageKeyFromActiveSlug = (pages: BuilderPage[], activePreviewSlug: strin
 
 const BuilderPagesSection = ({
   pages,
+  pageLocksBySlug,
   activePreviewSlug,
   pageTitleRef,
   onAddPage,
@@ -56,14 +64,21 @@ const BuilderPagesSection = ({
           const pageKey = getPageItemKey(page, index);
           const isExpanded = expandedPageKey === pageKey;
           const pageLabel = page.title.trim() || (page.isHome ? "Home" : "Untitled page");
+          const pageLock = pageLocksBySlug[safeSlug];
+          const pageLockedByOther = Boolean(pageLock && !pageLock.isSelf);
 
           return (
-            <div key={pageKey} className="builder-page-item">
+            <div
+              key={pageKey}
+              className={`builder-page-item ${pageLockedByOther ? "is-locked" : ""}`.trim()}
+            >
               <div className="builder-page-row">
                 <span className="builder-page-row-label">{pageLabel}</span>
                 <button
                   type="button"
-                  className={`builder-page-edit-link ${isExpanded ? "is-active" : ""}`}
+                  className={`builder-page-edit-link ${isExpanded ? "is-active" : ""} ${
+                    pageLockedByOther ? "is-locked" : ""
+                  }`.trim()}
                   onClick={() => {
                     onActivePreviewSlugChange(safeSlug);
                     setExpandedPageKey((current) => (current === pageKey ? null : pageKey));
@@ -73,40 +88,54 @@ const BuilderPagesSection = ({
                 </button>
               </div>
 
+              {pageLockedByOther && (
+                <p className="builder-page-lock-note">
+                  {pageLock?.holderName ?? "Another collaborator"} is editing this page.
+                </p>
+              )}
+
               {isExpanded && (
                 <div className="builder-page-details">
-                  <label>
-                    Title
-                    <input
-                      ref={index === pages.length - 1 ? pageTitleRef : null}
-                      value={page.title}
-                      onChange={(event) => onPageTitleChange(index, event.target.value)}
-                      disabled={page.isHome}
-                    />
-                  </label>
-                  <label>
-                    Slug
-                    <input
-                      value={page.slug}
-                      onChange={(event) => onPageSlugChange(index, event.target.value)}
-                      disabled={page.isHome}
-                    />
-                  </label>
-                  {!page.isHome && (
-                    <label className="checkbox">
+                  <fieldset className="builder-locked-fieldset" disabled={pageLockedByOther}>
+                    <label>
+                      Title
                       <input
-                        type="checkbox"
-                        checked={page.showInNav}
-                        onChange={(event) => onPageShowInNavChange(index, event.target.checked)}
+                        ref={index === pages.length - 1 ? pageTitleRef : null}
+                        value={page.title}
+                        onChange={(event) => onPageTitleChange(index, event.target.value)}
+                        disabled={page.isHome || pageLockedByOther}
                       />
-                      Show in navigation
                     </label>
-                  )}
-                  {!page.isHome && (
-                    <button className="ghost" type="button" onClick={() => onRemovePage(index)}>
-                      Remove page
-                    </button>
-                  )}
+                    <label>
+                      Slug
+                      <input
+                        value={page.slug}
+                        onChange={(event) => onPageSlugChange(index, event.target.value)}
+                        disabled={page.isHome || pageLockedByOther}
+                      />
+                    </label>
+                    {!page.isHome && (
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={page.showInNav}
+                          onChange={(event) => onPageShowInNavChange(index, event.target.checked)}
+                          disabled={pageLockedByOther}
+                        />
+                        Show in navigation
+                      </label>
+                    )}
+                    {!page.isHome && (
+                      <button
+                        className="ghost"
+                        type="button"
+                        onClick={() => onRemovePage(index)}
+                        disabled={pageLockedByOther}
+                      >
+                        Remove page
+                      </button>
+                    )}
+                  </fieldset>
                 </div>
               )}
             </div>
