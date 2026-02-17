@@ -548,12 +548,47 @@
   line-height: 1.3;
 }
 
+.builder-sidebar-nav button.is-locked {
+  opacity: 0.52;
+  background: rgba(31, 34, 28, 0.04);
+}
+
+.builder-section-lock-note {
+  margin: 0;
+  font-size: 0.76rem;
+  color: rgba(31, 34, 28, 0.68);
+}
+
+.builder-section-lock-shell.is-locked {
+  opacity: 0.82;
+}
+
+.builder-locked-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.builder-locked-fieldset:disabled {
+  opacity: 0.78;
+}
+
 .builder-panel {
   border: 1px solid rgba(31, 34, 28, 0.15);
   padding: 0;
   background: rgba(255, 255, 255, 0.9);
   display: grid;
   min-height: 640px;
+}
+
+.builder-preview-readonly-note {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.15);
+  background: rgba(31, 34, 28, 0.04);
+  color: rgba(31, 34, 28, 0.8);
+  font-size: 0.82rem;
 }
 
 .builder-panel > .provisioning {

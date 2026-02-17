@@ -41,6 +41,8 @@ export type BuilderSection = "menu" | "content" | "settings";
 
 export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
 
+export type BuilderEditableSectionKey = "metadata" | "pages" | "header" | "footer" | "styles";
+
 export type DraftState = {
   id: string;
   repoFullName: string;
