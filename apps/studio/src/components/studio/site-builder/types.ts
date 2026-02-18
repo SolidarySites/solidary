@@ -46,6 +46,17 @@ export type CollaboratorSearchResult = {
   githubLogin: string | null;
 };
 
+export type ManagedCollaboratorSyncState = "synced" | "pending_invite" | "unknown";
+
+export type ManagedCollaborator = {
+  userId: string;
+  role: CollaboratorRole;
+  email: string;
+  displayName: string;
+  githubLogin: string | null;
+  syncState: ManagedCollaboratorSyncState;
+};
+
 export type BuilderSection = "menu" | "content" | "settings";
 
 export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";

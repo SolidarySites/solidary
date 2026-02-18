@@ -33,6 +33,7 @@ import type {
   DraftState,
   FooterModule,
   FooterModuleAlignment,
+  ManagedCollaborator,
   PublishFeedback,
   SiteAccessRole
 } from "../components/studio/site-builder/types";
@@ -201,6 +202,15 @@ type CollaboratorSearchRpcRow = {
   github_login: string | null;
 };
 
+type ManagedCollaboratorApiRow = {
+  userId: string | null;
+  role: CollaboratorRole | null;
+  email: string | null;
+  displayName: string | null;
+  githubLogin: string | null;
+  syncState: "synced" | "pending_invite" | "unknown" | null;
+};
+
 const normalizeCollaboratorIdentifier = (value: string) =>
   value.startsWith("@") ? value.slice(1).trim() : value.trim();
 
@@ -226,6 +236,41 @@ const mapCollaboratorSearchRows = (rows: CollaboratorSearchRpcRow[] | null | und
       } satisfies CollaboratorSearchResult;
     })
     .filter((entry): entry is CollaboratorSearchResult => Boolean(entry));
+
+const mapManagedCollaboratorRows = (rows: ManagedCollaboratorApiRow[] | null | undefined) =>
+  (rows ?? [])
+    .map((row) => {
+      const userId = typeof row.userId === "string" ? row.userId.trim() : "";
+      const email = typeof row.email === "string" ? row.email.trim() : "";
+      const displayName =
+        typeof row.displayName === "string" && row.displayName.trim()
+          ? row.displayName.trim()
+          : email || userId;
+      const githubLogin =
+        typeof row.githubLogin === "string" && row.githubLogin.trim()
+          ? row.githubLogin.trim()
+          : null;
+      const role =
+        row.role === "admin" || row.role === "editor" || row.role === "viewer"
+          ? row.role
+          : null;
+      const syncState =
+        row.syncState === "synced" ||
+        row.syncState === "pending_invite" ||
+        row.syncState === "unknown"
+          ? row.syncState
+          : "unknown";
+      if (!userId || !role) return null;
+      return {
+        userId,
+        role,
+        email,
+        displayName,
+        githubLogin,
+        syncState
+      } satisfies ManagedCollaborator;
+    })
+    .filter((entry): entry is ManagedCollaborator => Boolean(entry));
 
 const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> = {
   metadata: "Solidary Metadata",
@@ -416,6 +461,9 @@ export default function SiteBuilderPage() {
   const [invitingCollaborator, setInvitingCollaborator] = useState(false);
   const [selectedCollaboratorSuggestion, setSelectedCollaboratorSuggestion] =
     useState<CollaboratorSearchResult | null>(null);
+  const [managedCollaborators, setManagedCollaborators] = useState<ManagedCollaborator[]>([]);
+  const [managedCollaboratorsLoading, setManagedCollaboratorsLoading] = useState(false);
+  const [updatingCollaboratorUserId, setUpdatingCollaboratorUserId] = useState<string | null>(null);
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
@@ -819,6 +867,9 @@ export default function SiteBuilderPage() {
       setCollaboratorQuery("");
       setCollaboratorSuggestions([]);
       setSelectedCollaboratorSuggestion(null);
+      setManagedCollaborators([]);
+      setManagedCollaboratorsLoading(false);
+      setUpdatingCollaboratorUserId(null);
       cleanedPublishedDraftIdRef.current = null;
       shouldCaptureLoadedDraftSignature.current = false;
       touchedPageSlugsRef.current.clear();
@@ -927,6 +978,67 @@ export default function SiteBuilderPage() {
       setIsDraftLoading(false);
     }
   }, [activePreviewSlug, applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
+
+  const loadManagedCollaborators = useCallback(async () => {
+    if (!draftState?.id || !isOwnerOnOwnerDraft) {
+      setManagedCollaborators([]);
+      setManagedCollaboratorsLoading(false);
+      return;
+    }
+
+    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+    if (!providerToken || !session?.access_token) {
+      setManagedCollaborators([]);
+      setManagedCollaboratorsLoading(false);
+      return;
+    }
+
+    setManagedCollaboratorsLoading(true);
+    try {
+      const response = await fetch("/.netlify/functions/github-list-collaborators", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          draftId: draftState.id,
+          githubToken: providerToken
+        })
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        collaborators?: ManagedCollaboratorApiRow[];
+        error?: string;
+      };
+      if (!response.ok) {
+        const message =
+          typeof payload.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Failed to load collaborators.";
+        throw new Error(message);
+      }
+
+      setManagedCollaborators(mapManagedCollaboratorRows(payload.collaborators));
+    } catch (caught) {
+      setManagedCollaborators([]);
+      const message =
+        caught instanceof Error ? caught.message : "Failed to load collaborators.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setManagedCollaboratorsLoading(false);
+    }
+  }, [draftState?.id, isOwnerOnOwnerDraft, session, session?.access_token]);
+
+  useEffect(() => {
+    if (!isOwnerOnOwnerDraft || !draftState?.id) {
+      setManagedCollaborators([]);
+      setManagedCollaboratorsLoading(false);
+      return;
+    }
+    void loadManagedCollaborators();
+  }, [draftState?.id, isOwnerOnOwnerDraft, loadManagedCollaborators]);
 
   useEffect(() => {
     if (!isOwnerOnOwnerDraft || !draftState?.id) {
@@ -1082,6 +1194,7 @@ export default function SiteBuilderPage() {
       setCollaboratorQuery("");
       setCollaboratorSuggestions([]);
       setSelectedCollaboratorSuggestion(null);
+      await loadManagedCollaborators();
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Failed to invite collaborator.";
@@ -1089,6 +1202,110 @@ export default function SiteBuilderPage() {
       setNoticeKind("error");
     } finally {
       setInvitingCollaborator(false);
+    }
+  };
+
+  const handleCollaboratorRoleUpdate = async (
+    collaboratorUserId: string,
+    role: CollaboratorRole
+  ) => {
+    if (!draftState?.id || !isOwnerOnOwnerDraft) return;
+    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+    if (!providerToken || !session?.access_token) {
+      setNotice("GitHub token missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
+    if (!collaborator || collaborator.role === role) return;
+
+    setUpdatingCollaboratorUserId(collaboratorUserId);
+    try {
+      const response = await fetch("/.netlify/functions/github-manage-collaborator", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: "update_role",
+          draftId: draftState.id,
+          githubToken: providerToken,
+          collaboratorUserId,
+          role
+        })
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        const message =
+          typeof payload.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Failed to update collaborator role.";
+        throw new Error(message);
+      }
+
+      setNotice(`Updated ${collaborator.displayName}'s role to ${role}.`);
+      setNoticeKind("notice");
+      await loadManagedCollaborators();
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to update collaborator role.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setUpdatingCollaboratorUserId(null);
+    }
+  };
+
+  const handleCollaboratorRemove = async (collaboratorUserId: string) => {
+    if (!draftState?.id || !isOwnerOnOwnerDraft) return;
+    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+    if (!providerToken || !session?.access_token) {
+      setNotice("GitHub token missing. Please sign in again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
+    if (!collaborator) return;
+
+    setUpdatingCollaboratorUserId(collaboratorUserId);
+    try {
+      const response = await fetch("/.netlify/functions/github-manage-collaborator", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          action: "remove",
+          draftId: draftState.id,
+          githubToken: providerToken,
+          collaboratorUserId
+        })
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        const message =
+          typeof payload.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Failed to remove collaborator.";
+        throw new Error(message);
+      }
+
+      setNotice(`Removed ${collaborator.displayName} from this site.`);
+      setNoticeKind("notice");
+      await loadManagedCollaborators();
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to remove collaborator.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setUpdatingCollaboratorUserId(null);
     }
   };
 
@@ -2951,6 +3168,9 @@ export default function SiteBuilderPage() {
             selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
             collaboratorSearchLoading={collaboratorSearchLoading}
             invitingCollaborator={invitingCollaborator}
+            collaborators={managedCollaborators}
+            collaboratorsLoading={managedCollaboratorsLoading}
+            updatingCollaboratorUserId={updatingCollaboratorUserId}
             pages={pages}
             activePreviewSlug={activePreviewSlug}
             pageTitleRef={pageTitleRef}
@@ -2983,6 +3203,12 @@ export default function SiteBuilderPage() {
             onCollaboratorSuggestionSelect={handleCollaboratorSuggestionSelect}
             onInviteCollaborator={() => {
               void handleInviteCollaborator();
+            }}
+            onCollaboratorRoleUpdate={(collaboratorUserId, role) => {
+              void handleCollaboratorRoleUpdate(collaboratorUserId, role);
+            }}
+            onCollaboratorRemove={(collaboratorUserId) => {
+              void handleCollaboratorRemove(collaboratorUserId);
             }}
             onAddPage={addPage}
             onActivePreviewSlugChange={(slug) => {

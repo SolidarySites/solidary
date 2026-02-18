@@ -1114,6 +1114,49 @@ textarea {
   color: rgba(31, 34, 28, 0.7);
 }
 
+.builder-collaborator-list-section {
+  border-top: 1px dashed rgba(31, 34, 28, 0.2);
+  padding-top: 1rem;
+}
+
+.builder-collaborator-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.builder-collaborator-list-item {
+  border: 1px dashed rgba(31, 34, 28, 0.24);
+  background: rgba(248, 245, 239, 0.52);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.builder-collaborator-list-meta {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.builder-collaborator-list-meta strong {
+  font-size: 0.86rem;
+}
+
+.builder-collaborator-list-meta span {
+  font-size: 0.75rem;
+  color: rgba(31, 34, 28, 0.72);
+}
+
+.builder-collaborator-status {
+  color: #7a5a10;
+}
+
+.builder-collaborator-list-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .form-actions {
   display: flex;
   gap: 0.8rem;

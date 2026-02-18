@@ -10,6 +10,7 @@ import type { PreviewSelectedImage } from "../AstroTemplatePreview";
 import type {
   CollaboratorRole,
   CollaboratorSearchResult,
+  ManagedCollaborator,
   BuilderEditableSectionKey,
   BuilderPage,
   BuilderSection,
@@ -36,6 +37,9 @@ type BuilderSidebarProps = {
   selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
+  collaborators: ManagedCollaborator[];
+  collaboratorsLoading: boolean;
+  updatingCollaboratorUserId: string | null;
   pages: BuilderPage[];
   activePreviewSlug: string;
   pageTitleRef: RefObject<HTMLInputElement | null>;
@@ -64,6 +68,8 @@ type BuilderSidebarProps = {
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
   onInviteCollaborator: () => void;
+  onCollaboratorRoleUpdate: (userId: string, role: CollaboratorRole) => void;
+  onCollaboratorRemove: (userId: string) => void;
   onAddPage: () => void;
   onActivePreviewSlugChange: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
@@ -111,6 +117,9 @@ const BuilderSidebar = ({
   selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
+  collaborators,
+  collaboratorsLoading,
+  updatingCollaboratorUserId,
   pages,
   activePreviewSlug,
   pageTitleRef,
@@ -136,6 +145,8 @@ const BuilderSidebar = ({
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
   onInviteCollaborator,
+  onCollaboratorRoleUpdate,
+  onCollaboratorRemove,
   onAddPage,
   onActivePreviewSlugChange,
   onPageTitleChange,
@@ -263,6 +274,9 @@ const BuilderSidebar = ({
               selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
               collaboratorSearchLoading={collaboratorSearchLoading}
               invitingCollaborator={invitingCollaborator}
+              collaborators={collaborators}
+              collaboratorsLoading={collaboratorsLoading}
+              updatingCollaboratorUserId={updatingCollaboratorUserId}
               onSiteTitleChange={onSiteTitleChange}
               onSiteDescriptionChange={onSiteDescriptionChange}
               onSiteUrlChange={onSiteUrlChange}
@@ -271,6 +285,8 @@ const BuilderSidebar = ({
               onCollaboratorRoleChange={onCollaboratorRoleChange}
               onCollaboratorSuggestionSelect={onCollaboratorSuggestionSelect}
               onInviteCollaborator={onInviteCollaborator}
+              onCollaboratorRoleUpdate={onCollaboratorRoleUpdate}
+              onCollaboratorRemove={onCollaboratorRemove}
             />
           </fieldset>
         </div>

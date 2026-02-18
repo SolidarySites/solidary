@@ -1,4 +1,8 @@
-import type { CollaboratorRole, CollaboratorSearchResult } from "./types";
+import type {
+  CollaboratorRole,
+  CollaboratorSearchResult,
+  ManagedCollaborator
+} from "./types";
 
 type BuilderContentSectionProps = {
   siteTitle: string;
@@ -11,6 +15,9 @@ type BuilderContentSectionProps = {
   selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
+  collaborators: ManagedCollaborator[];
+  collaboratorsLoading: boolean;
+  updatingCollaboratorUserId: string | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteUrlChange: (value: string) => void;
@@ -19,6 +26,8 @@ type BuilderContentSectionProps = {
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
   onInviteCollaborator: () => void;
+  onCollaboratorRoleUpdate: (userId: string, role: CollaboratorRole) => void;
+  onCollaboratorRemove: (userId: string) => void;
 };
 
 const BuilderContentSection = ({
@@ -32,6 +41,9 @@ const BuilderContentSection = ({
   selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
+  collaborators,
+  collaboratorsLoading,
+  updatingCollaboratorUserId,
   onSiteTitleChange,
   onSiteDescriptionChange,
   onSiteUrlChange,
@@ -39,7 +51,9 @@ const BuilderContentSection = ({
   onCollaboratorQueryChange,
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
-  onInviteCollaborator
+  onInviteCollaborator,
+  onCollaboratorRoleUpdate,
+  onCollaboratorRemove
 }: BuilderContentSectionProps) => (
   <div className="builder-section">
     <div className="section-header">
@@ -138,6 +152,69 @@ const BuilderContentSection = ({
       >
         {invitingCollaborator ? "Sending invite..." : "Send invite"}
       </button>
+    </div>
+
+    <div className="builder-section builder-collaborator-list-section">
+      <div className="section-header">
+        <h3>Current collaborators</h3>
+        <p>Update collaborator roles or remove access.</p>
+      </div>
+
+      {collaboratorsLoading && (
+        <p className="builder-collaborator-hint">Loading collaborators...</p>
+      )}
+
+      {!collaboratorsLoading && !collaborators.length && (
+        <p className="builder-collaborator-hint">No collaborators yet.</p>
+      )}
+
+      {!collaboratorsLoading && collaborators.length > 0 && (
+        <div className="builder-collaborator-list">
+          {collaborators.map((collaborator) => {
+            const isUpdating = updatingCollaboratorUserId === collaborator.userId;
+
+            return (
+              <div className="builder-collaborator-list-item" key={collaborator.userId}>
+                <div className="builder-collaborator-list-meta">
+                  <strong>{collaborator.displayName}</strong>
+                  <span>
+                    {collaborator.githubLogin
+                      ? `@${collaborator.githubLogin}`
+                      : collaborator.email || collaborator.userId}
+                  </span>
+                  {collaborator.syncState === "pending_invite" && (
+                    <span className="builder-collaborator-status">Invite pending acceptance</span>
+                  )}
+                </div>
+                <div className="builder-collaborator-list-actions">
+                  <select
+                    value={collaborator.role}
+                    onChange={(event) =>
+                      onCollaboratorRoleUpdate(
+                        collaborator.userId,
+                        event.target.value as CollaboratorRole
+                      )
+                    }
+                    disabled={isUpdating}
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => onCollaboratorRemove(collaborator.userId)}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? "Working..." : "Remove"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   </div>
 );
