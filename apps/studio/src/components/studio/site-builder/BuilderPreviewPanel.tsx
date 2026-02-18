@@ -61,7 +61,7 @@ const BuilderPreviewPanel = ({
   isFormatImageUploading,
   maxFormatImageUploadBytes
 }: BuilderPreviewPanelProps) => (
-  <div className="builder-preview-shell">
+  <div className={`builder-preview-shell ${showFormattingToolbar ? "has-toolbar" : ""}`.trim()}>
     {showFormattingToolbar && (
       <aside className="builder-toolbar-rail" aria-label="Formatting tools">
         <BuilderEditorToolbar

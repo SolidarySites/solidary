@@ -533,9 +533,20 @@
 
 .builder-preview-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  width: 100%;
+}
+
+.builder-preview-shell.has-toolbar {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 0.7rem;
-  align-items: start;
+}
+
+.builder-preview-shell > .builder-panel {
+  min-width: 0;
+  width: 100%;
 }
 
 .builder-settings-full {
