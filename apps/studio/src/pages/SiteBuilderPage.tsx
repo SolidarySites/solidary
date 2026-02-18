@@ -283,10 +283,12 @@ const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> = {
 
 const getEditableSectionFromUi = (
   section: BuilderSection,
-  settingsSection: BuilderSettingsSection
+  settingsSection: BuilderSettingsSection,
+  pageEditingMode: boolean
 ): BuilderEditableSectionKey | null => {
   if (section === "content") return "metadata";
   if (section !== "settings") return null;
+  if (settingsSection === "pages" && !pageEditingMode) return null;
   return settingsSection;
 };
 
@@ -332,10 +334,12 @@ const getLockKeyFromUi = (
   section: BuilderSection,
   settingsSection: BuilderSettingsSection,
   activePageSlug: string,
-  pages: BuilderPage[]
+  pages: BuilderPage[],
+  pageEditingMode: boolean
 ) => {
   if (section === "content") return "metadata";
   if (section !== "settings") return null;
+  if (settingsSection === "pages" && !pageEditingMode) return null;
   if (settingsSection === "pages") return getPageLockKeyForSlug(pages, activePageSlug);
   return settingsSection;
 };
@@ -412,6 +416,7 @@ export default function SiteBuilderPage() {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [activeSection, setActiveSection] = useState<BuilderSection>("menu");
   const [activeSettingsSection, setActiveSettingsSection] = useState<BuilderSettingsSection>("pages");
+  const [isPageEditingMode, setIsPageEditingMode] = useState(false);
   const [isProvisioning, setIsProvisioning] = useState(false);
   const [provisionStep, setProvisionStep] = useState("Preparing your updates...");
   const [sessionResolved, setSessionResolved] = useState(false);
@@ -496,12 +501,19 @@ export default function SiteBuilderPage() {
   const canSubmitPullRequest = Boolean(isEditorWorkingDraft);
   const canPublishByRole = canDirectPublish || canSubmitPullRequest;
   const activeEditableSection = useMemo(
-    () => getEditableSectionFromUi(activeSection, activeSettingsSection),
-    [activeSection, activeSettingsSection]
+    () => getEditableSectionFromUi(activeSection, activeSettingsSection, isPageEditingMode),
+    [activeSection, activeSettingsSection, isPageEditingMode]
   );
   const activeLockKey = useMemo(
-    () => getLockKeyFromUi(activeSection, activeSettingsSection, activePreviewSlug, pages),
-    [activePreviewSlug, activeSection, activeSettingsSection, pages]
+    () =>
+      getLockKeyFromUi(
+        activeSection,
+        activeSettingsSection,
+        activePreviewSlug,
+        pages,
+        isPageEditingMode
+      ),
+    [activePreviewSlug, activeSection, activeSettingsSection, isPageEditingMode, pages]
   );
   const activeSectionLock = activeLockKey ? sectionLocks[activeLockKey] : null;
   const activeSectionLockedByOther = Boolean(
@@ -574,6 +586,7 @@ export default function SiteBuilderPage() {
     canEditDraft &&
     activeSection === "settings" &&
     activeSettingsSection === "pages" &&
+    isPageEditingMode &&
     !activePageLockedByOther;
   const metadataLock = sectionLocks.metadata ?? null;
   const metadataLockedByOther = Boolean(metadataLock && metadataLock.userId !== sessionUserId);
@@ -584,6 +597,9 @@ export default function SiteBuilderPage() {
     if (!canEditDraft) return "This draft is read-only for your current role.";
     if (activeSection !== "settings" || activeSettingsSection !== "pages") {
       return "Open Pages to edit content in the live preview.";
+    }
+    if (!isPageEditingMode) {
+      return "Select a page in the sidebar to start editing content.";
     }
     if (activePageLockedByOther) {
       return `${
@@ -597,6 +613,7 @@ export default function SiteBuilderPage() {
     activePreviewSlug,
     activeSection,
     activeSettingsSection,
+    isPageEditingMode,
     canEditDraft,
     draftLoadError,
     isDraftLoading,
@@ -866,6 +883,7 @@ export default function SiteBuilderPage() {
       setDraftImages([]);
       setSiteAccessRole(null);
       setActivePresenceMembers([]);
+      setIsPageEditingMode(false);
       setLastSavedDraftSignature("");
       setSectionLocks({});
       setCollaboratorQuery("");
@@ -955,11 +973,17 @@ export default function SiteBuilderPage() {
     }
   }, [applyLoadedDraft, draftId, navigate, sessionUserId]);
 
-  const refreshDraftAfterSectionChange = useCallback(async () => {
+  const refreshDraftAfterSectionChange = useCallback(async (
+    options: {
+      preservedPreviewSlug?: string;
+    } = {}
+  ) => {
     if (!draftState?.id || !sessionUserId) return;
     setIsDraftLoading(true);
     setDraftLoadError(null);
     shouldCaptureLoadedDraftSignature.current = false;
+    const preservedPreviewSlug =
+      normalizePageSlug(options.preservedPreviewSlug ?? activePreviewSlug) || "home";
     try {
       const loaded = await loadDraftById({
         draftId: draftState.id,
@@ -968,7 +992,7 @@ export default function SiteBuilderPage() {
       });
       applyLoadedDraft(loaded, {
         preserveActivePreviewSlug: true,
-        preservedPreviewSlug: activePreviewSlug
+        preservedPreviewSlug
       });
       if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftState.id) {
         navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
@@ -1455,6 +1479,16 @@ export default function SiteBuilderPage() {
     setActiveSection("menu");
   }, [activeSection, canEditDraft, draftState?.id, isOwnerOnOwnerDraft, sessionUserId]);
 
+  useEffect(() => {
+    const inPageEditingMode =
+      activeSection === "settings" && activeSettingsSection === "pages" && isPageEditingMode;
+    if (inPageEditingMode) return;
+    setSelectedEditorImage(null);
+    if (activeSection !== "settings" || activeSettingsSection !== "pages") {
+      setIsPageEditingMode(false);
+    }
+  }, [activeSection, activeSettingsSection, isPageEditingMode]);
+
   const handleGitHubLogin = async () => {
     setNotice(null);
     setNoticeKind(null);
@@ -1512,9 +1546,11 @@ export default function SiteBuilderPage() {
       }
     ]);
     markPageSlugTouched(slug);
-    void handleActivePreviewSlugChange(slug);
-    setActiveSection("settings");
-    setActiveSettingsSection("pages");
+    setActivePreviewSlug(slug);
+    void switchEditorSection("settings", "pages", {
+      nextPageEditingMode: true,
+      nextPreviewSlug: slug
+    });
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };
 
@@ -2932,22 +2968,50 @@ export default function SiteBuilderPage() {
 
   const switchEditorSection = async (
     nextSection: BuilderSection,
-    nextSettingsSection: BuilderSettingsSection
+    nextSettingsSection: BuilderSettingsSection,
+    options: {
+      nextPageEditingMode?: boolean;
+      nextPreviewSlug?: string;
+    } = {}
   ) => {
     if (sectionTransitionInFlightRef.current) return;
     sectionTransitionInFlightRef.current = true;
 
-    const currentSectionKey = getEditableSectionFromUi(activeSection, activeSettingsSection);
-    const nextSectionKey = getEditableSectionFromUi(nextSection, nextSettingsSection);
+    const normalizedCurrentSlug = normalizePageSlug(activePreviewSlug) || "home";
+    const normalizedNextSlug = normalizePageSlug(options.nextPreviewSlug ?? activePreviewSlug) || "home";
+    const nextPageEditingMode =
+      nextSection === "settings" && nextSettingsSection === "pages"
+        ? Boolean(options.nextPageEditingMode)
+        : false;
+    const currentSectionKey = getEditableSectionFromUi(
+      activeSection,
+      activeSettingsSection,
+      isPageEditingMode
+    );
+    const nextSectionKey = getEditableSectionFromUi(
+      nextSection,
+      nextSettingsSection,
+      nextPageEditingMode
+    );
     const currentLockKey = getLockKeyFromUi(
       activeSection,
       activeSettingsSection,
-      activePreviewSlug,
-      pages
+      normalizedCurrentSlug,
+      pages,
+      isPageEditingMode
     );
-    const nextLockKey = getLockKeyFromUi(nextSection, nextSettingsSection, activePreviewSlug, pages);
+    const nextLockKey = getLockKeyFromUi(
+      nextSection,
+      nextSettingsSection,
+      normalizedNextSlug,
+      pages,
+      nextPageEditingMode
+    );
     const isSameDestination =
-      nextSection === activeSection && nextSettingsSection === activeSettingsSection;
+      nextSection === activeSection &&
+      nextSettingsSection === activeSettingsSection &&
+      nextPageEditingMode === isPageEditingMode &&
+      normalizedNextSlug === normalizedCurrentSlug;
     if (isSameDestination) {
       sectionTransitionInFlightRef.current = false;
       return;
@@ -2964,9 +3028,10 @@ export default function SiteBuilderPage() {
           const lockHolder = latestLocks[nextLockKey]?.holderName ?? "Another collaborator";
           if (nextSectionKey === "pages") {
             setNotice(
-              `${lockHolder} is editing page "${normalizePageSlug(activePreviewSlug) || "home"}". Choose another page to edit.`
+              `${lockHolder} is editing page "${normalizedNextSlug}". Choose another page to edit.`
             );
             setNoticeKind("error");
+            return;
           } else {
             setNotice(`${lockHolder} is editing ${getLockLabel(nextLockKey)}.`);
             setNoticeKind("error");
@@ -3001,7 +3066,18 @@ export default function SiteBuilderPage() {
       if (nextSettingsSection !== activeSettingsSection) {
         setActiveSettingsSection(nextSettingsSection);
       }
-      await refreshDraftAfterSectionChange();
+      if (normalizedNextSlug !== normalizedCurrentSlug) {
+        setActivePreviewSlug(normalizedNextSlug);
+      }
+      if (nextPageEditingMode !== isPageEditingMode) {
+        setIsPageEditingMode(nextPageEditingMode);
+      }
+      if (!nextPageEditingMode) {
+        setSelectedEditorImage(null);
+      }
+      await refreshDraftAfterSectionChange({
+        preservedPreviewSlug: normalizedNextSlug
+      });
     } catch (caught) {
       if (acquiredNextLock && nextLockKey && nextLockKey !== currentLockKey) {
         await releaseSectionLock(nextLockKey).catch(() => undefined);
@@ -3032,7 +3108,8 @@ export default function SiteBuilderPage() {
       !sessionUserId ||
       !canEditDraft ||
       activeSection !== "settings" ||
-      activeSettingsSection !== "pages"
+      activeSettingsSection !== "pages" ||
+      !isPageEditingMode
     ) {
       setActivePreviewSlug(normalizedNextSlug);
       return;
@@ -3105,11 +3182,29 @@ export default function SiteBuilderPage() {
         return !lock || lock.userId === sessionUserId;
       }) ?? activeSettingsSection;
 
-    await switchEditorSection("settings", nextSettingsSection);
+    await switchEditorSection("settings", nextSettingsSection, {
+      nextPageEditingMode: nextSettingsSection === "pages" ? false : undefined
+    });
   };
 
   const handleSettingsSectionChange = async (section: BuilderSettingsSection) => {
-    await switchEditorSection("settings", section);
+    await switchEditorSection("settings", section, {
+      nextPageEditingMode: section === "pages" ? false : undefined
+    });
+  };
+
+  const handleEnterPageEditingMode = async (slug: string) => {
+    await switchEditorSection("settings", "pages", {
+      nextPageEditingMode: true,
+      nextPreviewSlug: slug
+    });
+    requestAnimationFrame(() => pageTitleRef.current?.focus());
+  };
+
+  const handleExitPageEditingMode = async () => {
+    await switchEditorSection("settings", "pages", {
+      nextPageEditingMode: false
+    });
   };
 
   const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError && canEditPageContent;
@@ -3137,6 +3232,10 @@ export default function SiteBuilderPage() {
     (canDirectPublish || hasEditorPublishableChanges);
 
   const handleSidebarBack = async () => {
+    if (activeSection === "settings" && activeSettingsSection === "pages" && isPageEditingMode) {
+      await handleExitPageEditingMode();
+      return;
+    }
     if (activeSection !== "menu") {
       await handleSectionChange("menu");
       return;
@@ -3238,6 +3337,7 @@ export default function SiteBuilderPage() {
               <BuilderSidebar
                 activeSection={activeSection}
                 activeSettingsSection={activeSettingsSection}
+                isPageEditingMode={isPageEditingMode}
                 canEditDraft={canEditDraft}
                 canEditMetadata={Boolean(isOwnerOnOwnerDraft)}
                 siteTitle={siteTitle}
@@ -3289,8 +3389,11 @@ export default function SiteBuilderPage() {
                   void handleCollaboratorRemove(collaboratorUserId);
                 }}
                 onAddPage={addPage}
-                onActivePreviewSlugChange={(slug) => {
-                  void handleActivePreviewSlugChange(slug);
+                onEnterPageEditingMode={(slug) => {
+                  void handleEnterPageEditingMode(slug);
+                }}
+                onExitPageEditingMode={() => {
+                  void handleExitPageEditingMode();
                 }}
                 onPageTitleChange={handlePageTitleChange}
                 onPageSlugChange={handlePageSlugChange}
@@ -3310,13 +3413,6 @@ export default function SiteBuilderPage() {
                 onFooterModuleAlignmentChange={updateFooterModuleAlignment}
                 onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
                 onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
-                canFormatText={canFormatText}
-                onRunFormatCommand={runPreviewCommand}
-                onRunFormatLink={runPreviewLink}
-                onUploadFormatImage={handleInlineImageUpload}
-                onCaptureFormatSelection={capturePreviewSelection}
-                isFormatImageUploading={uploadingInlineImage}
-                maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
                 selectedEditorImage={selectedEditorImage}
                 onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
                 onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}

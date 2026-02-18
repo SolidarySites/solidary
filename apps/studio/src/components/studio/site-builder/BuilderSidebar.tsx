@@ -1,6 +1,5 @@
 import type { RefObject } from "react";
 import BuilderContentSection from "./BuilderContentSection";
-import BuilderEditorToolbar from "./BuilderEditorToolbar";
 import BuilderFooterSection from "./BuilderFooterSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
 import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
@@ -26,6 +25,7 @@ type BuilderSectionLock = {
 type BuilderSidebarProps = {
   activeSection: BuilderSection;
   activeSettingsSection: BuilderSettingsSection;
+  isPageEditingMode: boolean;
   canEditDraft: boolean;
   canEditMetadata: boolean;
   siteTitle: string;
@@ -70,7 +70,8 @@ type BuilderSidebarProps = {
   onCollaboratorRoleUpdate: (userId: string, role: CollaboratorRole) => void;
   onCollaboratorRemove: (userId: string) => void;
   onAddPage: () => void;
-  onActivePreviewSlugChange: (slug: string) => void;
+  onEnterPageEditingMode: (slug: string) => void;
+  onExitPageEditingMode: () => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
   onPageShowInNavChange: (index: number, checked: boolean) => void;
@@ -89,13 +90,6 @@ type BuilderSidebarProps = {
   onFooterModuleAlignmentChange: (index: number, value: "left" | "center" | "right") => void;
   onMoveFooterModuleUp: (index: number) => void;
   onMoveFooterModuleDown: (index: number) => void;
-  canFormatText: boolean;
-  onRunFormatCommand: (command: string, value?: string) => void;
-  onRunFormatLink: () => void;
-  onUploadFormatImage: (file: File) => Promise<void>;
-  onCaptureFormatSelection: () => void;
-  isFormatImageUploading: boolean;
-  maxFormatImageUploadBytes: number;
   selectedEditorImage: PreviewSelectedImage | null;
   onSelectedEditorImageAltChange: (value: string) => void;
   onSelectedEditorImageCaptionChange: (value: string) => void;
@@ -105,6 +99,7 @@ type BuilderSidebarProps = {
 const BuilderSidebar = ({
   activeSection,
   activeSettingsSection,
+  isPageEditingMode,
   canEditDraft,
   canEditMetadata,
   siteTitle,
@@ -146,7 +141,8 @@ const BuilderSidebar = ({
   onCollaboratorRoleUpdate,
   onCollaboratorRemove,
   onAddPage,
-  onActivePreviewSlugChange,
+  onEnterPageEditingMode,
+  onExitPageEditingMode,
   onPageTitleChange,
   onPageSlugChange,
   onPageShowInNavChange,
@@ -165,13 +161,6 @@ const BuilderSidebar = ({
   onFooterModuleAlignmentChange,
   onMoveFooterModuleUp,
   onMoveFooterModuleDown,
-  canFormatText,
-  onRunFormatCommand,
-  onRunFormatLink,
-  onUploadFormatImage,
-  onCaptureFormatSelection,
-  isFormatImageUploading,
-  maxFormatImageUploadBytes,
   selectedEditorImage,
   onSelectedEditorImageAltChange,
   onSelectedEditorImageCaptionChange,
@@ -187,6 +176,8 @@ const BuilderSidebar = ({
   const stylesLockedByOther = Boolean(stylesLock && !stylesLock.isSelf);
   const activeSettingsLock = sectionLocks[activeSettingsSection];
   const activeSettingsLockedByOther = Boolean(activeSettingsLock && !activeSettingsLock.isSelf);
+  const inPageEditingMode =
+    activeSection === "settings" && activeSettingsSection === "pages" && isPageEditingMode;
 
   return (
     <aside className="builder-sidebar">
@@ -202,71 +193,48 @@ const BuilderSidebar = ({
           >
             Pages
           </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
-            } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("header")}
-            disabled={headerLockedByOther && activeSettingsSection !== "header"}
-          >
-            Header
-          </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
-            } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("footer")}
-            disabled={footerLockedByOther && activeSettingsSection !== "footer"}
-          >
-            Footer
-          </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
-            } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("styles")}
-            disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
-          >
-            Styles
-          </button>
+          {!inPageEditingMode && (
+            <>
+              <button
+                className={`${
+                  activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
+                } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
+                onClick={() => onSettingsSectionChange("header")}
+                disabled={headerLockedByOther && activeSettingsSection !== "header"}
+              >
+                Header
+              </button>
+              <button
+                className={`${
+                  activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
+                } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
+                onClick={() => onSettingsSectionChange("footer")}
+                disabled={footerLockedByOther && activeSettingsSection !== "footer"}
+              >
+                Footer
+              </button>
+              <button
+                className={`${
+                  activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
+                } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
+                onClick={() => onSettingsSectionChange("styles")}
+                disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
+              >
+                Styles
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {activeSection === "menu" && (
-        <>
-          {canEditDraft ? (
-            <>
-              <div className="builder-section builder-format-toolbar">
-                {canFormatText ? (
-                  <BuilderEditorToolbar
-                    onRunCommand={onRunFormatCommand}
-                    onRunLink={onRunFormatLink}
-                    onUploadImage={onUploadFormatImage}
-                    onCaptureSelection={onCaptureFormatSelection}
-                    uploadingImage={isFormatImageUploading}
-                    maxImageUploadBytes={maxFormatImageUploadBytes}
-                  />
-                ) : (
-                  <p className="builder-format-toolbar-note">
-                    Open Pages to edit content when that section is available.
-                  </p>
-                )}
-              </div>
-              <BuilderImageSettingsPanel
-                image={selectedEditorImage}
-                onAltChange={onSelectedEditorImageAltChange}
-                onCaptionChange={onSelectedEditorImageCaptionChange}
-                onSizeChange={onSelectedEditorImageSizeChange}
-              />
-            </>
-          ) : (
-            <div className="builder-section">
-              <p className="builder-format-toolbar-note">
-                This draft is in read-only mode for your current role.
-              </p>
-            </div>
-          )}
-        </>
+        <div className="builder-section">
+          <p className="builder-format-toolbar-note">
+            {canEditDraft
+              ? "Choose a section to continue editing."
+              : "This draft is in read-only mode for your current role."}
+          </p>
+        </div>
       )}
 
       {activeSection === "content" && canEditMetadata && (
@@ -316,18 +284,30 @@ const BuilderSidebar = ({
 
           <fieldset className="builder-locked-fieldset" disabled={activeSettingsLockedByOther}>
             {activeSettingsSection === "pages" && (
-              <BuilderPagesSection
-                pages={pages}
-                pageLocksBySlug={pageLocksBySlug}
-                activePreviewSlug={activePreviewSlug}
-                pageTitleRef={pageTitleRef}
-                onAddPage={onAddPage}
-                onActivePreviewSlugChange={onActivePreviewSlugChange}
-                onPageTitleChange={onPageTitleChange}
-                onPageSlugChange={onPageSlugChange}
-                onPageShowInNavChange={onPageShowInNavChange}
-                onRemovePage={onRemovePage}
-              />
+              <>
+                <BuilderPagesSection
+                  pages={pages}
+                  pageLocksBySlug={pageLocksBySlug}
+                  isPageEditingMode={isPageEditingMode}
+                  activePreviewSlug={activePreviewSlug}
+                  pageTitleRef={pageTitleRef}
+                  onAddPage={onAddPage}
+                  onEnterPageEditingMode={onEnterPageEditingMode}
+                  onExitPageEditingMode={onExitPageEditingMode}
+                  onPageTitleChange={onPageTitleChange}
+                  onPageSlugChange={onPageSlugChange}
+                  onPageShowInNavChange={onPageShowInNavChange}
+                  onRemovePage={onRemovePage}
+                />
+                {isPageEditingMode && (
+                  <BuilderImageSettingsPanel
+                    image={selectedEditorImage}
+                    onAltChange={onSelectedEditorImageAltChange}
+                    onCaptionChange={onSelectedEditorImageCaptionChange}
+                    onSizeChange={onSelectedEditorImageSizeChange}
+                  />
+                )}
+              </>
             )}
 
             {activeSettingsSection === "header" && (
