@@ -71,11 +71,8 @@ type BuilderSidebarProps = {
   onCollaboratorRemove: (userId: string) => void;
   onAddPage: () => void;
   onEnterPageEditingMode: (slug: string) => void;
-  onExitPageEditingMode: () => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
-  onPageShowInNavChange: (index: number, checked: boolean) => void;
-  onRemovePage: (index: number) => void;
   onTokensCssChange: (value: string) => void;
   onSiteUrlChange: (value: string) => void;
   onHeaderDisabledChange: (value: boolean) => void;
@@ -142,11 +139,8 @@ const BuilderSidebar = ({
   onCollaboratorRemove,
   onAddPage,
   onEnterPageEditingMode,
-  onExitPageEditingMode,
   onPageTitleChange,
   onPageSlugChange,
-  onPageShowInNavChange,
-  onRemovePage,
   onTokensCssChange,
   onSiteUrlChange,
   onHeaderDisabledChange,
@@ -185,7 +179,7 @@ const BuilderSidebar = ({
         BACK
       </button>
 
-      {canEditDraft && (
+      {canEditDraft && !inPageEditingMode && (
         <div className="builder-sidebar-nav">
           <button
             className={`${activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"}`.trim()}
@@ -193,37 +187,33 @@ const BuilderSidebar = ({
           >
             Pages
           </button>
-          {!inPageEditingMode && (
-            <>
-              <button
-                className={`${
-                  activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
-                } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
-                onClick={() => onSettingsSectionChange("header")}
-                disabled={headerLockedByOther && activeSettingsSection !== "header"}
-              >
-                Header
-              </button>
-              <button
-                className={`${
-                  activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
-                } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
-                onClick={() => onSettingsSectionChange("footer")}
-                disabled={footerLockedByOther && activeSettingsSection !== "footer"}
-              >
-                Footer
-              </button>
-              <button
-                className={`${
-                  activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
-                } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
-                onClick={() => onSettingsSectionChange("styles")}
-                disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
-              >
-                Styles
-              </button>
-            </>
-          )}
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
+            } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("header")}
+            disabled={headerLockedByOther && activeSettingsSection !== "header"}
+          >
+            Header
+          </button>
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
+            } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("footer")}
+            disabled={footerLockedByOther && activeSettingsSection !== "footer"}
+          >
+            Footer
+          </button>
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
+            } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("styles")}
+            disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
+          >
+            Styles
+          </button>
         </div>
       )}
 
@@ -293,11 +283,8 @@ const BuilderSidebar = ({
                   pageTitleRef={pageTitleRef}
                   onAddPage={onAddPage}
                   onEnterPageEditingMode={onEnterPageEditingMode}
-                  onExitPageEditingMode={onExitPageEditingMode}
                   onPageTitleChange={onPageTitleChange}
                   onPageSlugChange={onPageSlugChange}
-                  onPageShowInNavChange={onPageShowInNavChange}
-                  onRemovePage={onRemovePage}
                 />
                 {isPageEditingMode && (
                   <BuilderImageSettingsPanel

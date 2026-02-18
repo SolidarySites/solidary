@@ -1572,18 +1572,6 @@ export default function SiteBuilderPage() {
     setPages((items) => items.map((item, idx) => (idx === index ? { ...item, ...updates } : item)));
   };
 
-  const removePage = (index: number) => {
-    const page = pages[index];
-    if (!page || page.isHome) return;
-
-    const removedSlug = getPageSafeSlug(page, index);
-    markPageSlugDeleted(removedSlug);
-    setPages((items) => items.filter((_, idx) => idx !== index || items[idx]?.isHome));
-    if (activePreviewSlug === removedSlug) {
-      void handleActivePreviewSlugChange("home");
-    }
-  };
-
   const updatePageBody = (safeSlug: string, body: string) => {
     markPageSlugTouched(safeSlug);
     setPages((items) =>
@@ -3392,13 +3380,8 @@ export default function SiteBuilderPage() {
                 onEnterPageEditingMode={(slug) => {
                   void handleEnterPageEditingMode(slug);
                 }}
-                onExitPageEditingMode={() => {
-                  void handleExitPageEditingMode();
-                }}
                 onPageTitleChange={handlePageTitleChange}
                 onPageSlugChange={handlePageSlugChange}
-                onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
-                onRemovePage={removePage}
                 onTokensCssChange={setTokensCss}
                 onSiteUrlChange={setSiteUrl}
                 onHeaderDisabledChange={setHeaderDisabled}
