@@ -19,6 +19,7 @@ type BuilderEditorToolbarProps = {
   uploadingImage: boolean;
   maxImageUploadBytes: number;
   onCaptureSelection: () => void;
+  orientation?: "horizontal" | "vertical";
 };
 
 type ToolbarAction = {
@@ -33,7 +34,8 @@ const BuilderEditorToolbar = ({
   onUploadImage,
   uploadingImage,
   maxImageUploadBytes,
-  onCaptureSelection
+  onCaptureSelection,
+  orientation = "horizontal"
 }: BuilderEditorToolbarProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showImageDialog, setShowImageDialog] = useState(false);
@@ -156,7 +158,11 @@ const BuilderEditorToolbar = ({
 
   return (
     <>
-      <div className="builder-editor-toolbar" role="toolbar" aria-label="Formatting tools">
+      <div
+        className={`builder-editor-toolbar ${orientation === "vertical" ? "is-vertical" : ""}`.trim()}
+        role="toolbar"
+        aria-label="Formatting tools"
+      >
         {actions.map((action) => (
           <button
             key={action.label}

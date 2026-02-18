@@ -388,6 +388,11 @@
   gap: 0.4rem;
 }
 
+.builder-editor-toolbar.is-vertical {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
 .builder-toolbar-button {
   width: 2rem;
   height: 2rem;
@@ -520,6 +525,36 @@
 
 .builder-body.is-preview-fullscreen {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.builder-preview-shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+}
+
+.builder-toolbar-rail {
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.55rem;
+  align-self: start;
+  position: sticky;
+  top: calc(
+    var(--builder-topbar-sticky-top) + var(--builder-topbar-sticky-height) +
+      var(--builder-sidebar-sticky-gap)
+  );
+}
+
+.builder-toolbar-rail .builder-image-dialog {
+  position: absolute;
+  left: calc(100% + 0.55rem);
+  top: 0;
+  width: min(320px, 70vw);
+  z-index: 8;
+  box-shadow: 0 0.35rem 0.8rem rgba(31, 34, 28, 0.15);
 }
 
 .builder-sidebar {

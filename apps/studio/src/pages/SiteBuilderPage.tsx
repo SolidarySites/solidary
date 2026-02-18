@@ -3268,6 +3268,7 @@ export default function SiteBuilderPage() {
           isDraftLoading={isDraftLoading}
           draftLoadError={draftLoadError}
           canEditContent={canEditPageContent}
+          showFormattingToolbar={canFormatText}
           readOnlyMessage={previewReadOnlyMessage}
           previewRef={previewRef}
           previewBrand={siteTitle}
@@ -3293,6 +3294,12 @@ export default function SiteBuilderPage() {
           }}
           onPageBodyChange={updatePageBody}
           onSelectedImageChange={setSelectedEditorImage}
+          onRunFormatCommand={runPreviewCommand}
+          onRunFormatLink={runPreviewLink}
+          onUploadFormatImage={handleInlineImageUpload}
+          onCaptureFormatSelection={capturePreviewSelection}
+          isFormatImageUploading={uploadingInlineImage}
+          maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
         />
       </div>
 
