@@ -59,7 +59,6 @@ type BuilderSidebarProps = {
   pageLocksBySlug: Record<string, BuilderSectionLock>;
   sectionLocks: Partial<Record<BuilderEditableSectionKey, BuilderSectionLock>>;
   onBack: () => void;
-  onSectionChange: (section: BuilderSection) => void;
   onSettingsSectionChange: (section: BuilderSettingsSection) => void;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
@@ -136,7 +135,6 @@ const BuilderSidebar = ({
   pageLocksBySlug,
   sectionLocks,
   onBack,
-  onSectionChange,
   onSettingsSectionChange,
   onSiteTitleChange,
   onSiteDescriptionChange,
@@ -196,30 +194,46 @@ const BuilderSidebar = ({
         BACK
       </button>
 
+      {canEditDraft && (
+        <div className="builder-sidebar-nav">
+          <button
+            className={`${activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"}`.trim()}
+            onClick={() => onSettingsSectionChange("pages")}
+          >
+            Pages
+          </button>
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
+            } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("header")}
+            disabled={headerLockedByOther && activeSettingsSection !== "header"}
+          >
+            Header
+          </button>
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
+            } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("footer")}
+            disabled={footerLockedByOther && activeSettingsSection !== "footer"}
+          >
+            Footer
+          </button>
+          <button
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
+            } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
+            onClick={() => onSettingsSectionChange("styles")}
+            disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
+          >
+            Styles
+          </button>
+        </div>
+      )}
+
       {activeSection === "menu" && (
         <>
-          <div className="builder-sidebar-nav">
-            {canEditMetadata && (
-              <button
-                className={`ghost ${metadataLockedByOther ? "is-locked" : ""}`.trim()}
-                onClick={() => onSectionChange("content")}
-                disabled={metadataLockedByOther}
-              >
-                Solidary Metadata
-              </button>
-            )}
-            {canEditDraft && (
-              <button className="ghost" onClick={() => onSectionChange("settings")}>
-                Settings
-              </button>
-            )}
-          </div>
-          {metadataLockedByOther && (
-            <p className="builder-section-lock-note">
-              Solidary Metadata is currently being edited by {metadataLock?.holderName ?? "another user"}.
-            </p>
-          )}
-
           {canEditDraft ? (
             <>
               <div className="builder-section builder-format-toolbar">
@@ -255,7 +269,7 @@ const BuilderSidebar = ({
         </>
       )}
 
-      {activeSection === "content" && (
+      {activeSection === "content" && canEditMetadata && (
         <div className={`builder-section-lock-shell ${metadataLockedByOther ? "is-locked" : ""}`.trim()}>
           {metadataLockedByOther && (
             <p className="builder-section-lock-note">
@@ -294,42 +308,6 @@ const BuilderSidebar = ({
 
       {activeSection === "settings" && canEditDraft && (
         <>
-          <div className="builder-sidebar-nav">
-            <button
-              className={`${activeSettingsSection === "pages" ? "primary" : "ghost"}`.trim()}
-              onClick={() => onSettingsSectionChange("pages")}
-            >
-              Pages
-            </button>
-            <button
-              className={`${activeSettingsSection === "header" ? "primary" : "ghost"} ${
-                headerLockedByOther ? "is-locked" : ""
-              }`.trim()}
-              onClick={() => onSettingsSectionChange("header")}
-              disabled={headerLockedByOther && activeSettingsSection !== "header"}
-            >
-              Header
-            </button>
-            <button
-              className={`${activeSettingsSection === "footer" ? "primary" : "ghost"} ${
-                footerLockedByOther ? "is-locked" : ""
-              }`.trim()}
-              onClick={() => onSettingsSectionChange("footer")}
-              disabled={footerLockedByOther && activeSettingsSection !== "footer"}
-            >
-              Footer
-            </button>
-            <button
-              className={`${activeSettingsSection === "styles" ? "primary" : "ghost"} ${
-                stylesLockedByOther ? "is-locked" : ""
-              }`.trim()}
-              onClick={() => onSettingsSectionChange("styles")}
-              disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
-            >
-              Styles
-            </button>
-          </div>
-
           {activeSettingsLockedByOther && (
             <p className="builder-section-lock-note">
               {activeSettingsLock?.holderName ?? "Another user"} is editing this section.

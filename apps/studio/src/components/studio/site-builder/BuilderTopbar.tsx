@@ -13,7 +13,10 @@ type BuilderTopbarProps = {
   githubRepoUrl: string | null;
   accessRole: "owner" | "admin" | "editor" | "viewer" | null;
   activeCollaborators: string[];
+  canOpenMetadataSettings: boolean;
+  metadataSettingsActive: boolean;
   isPreviewFullscreen: boolean;
+  onOpenMetadataSettings: () => void;
   onTogglePreviewFullscreen: () => void;
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
@@ -31,7 +34,10 @@ const BuilderTopbar = ({
   githubRepoUrl,
   accessRole,
   activeCollaborators,
+  canOpenMetadataSettings,
+  metadataSettingsActive,
   isPreviewFullscreen,
+  onOpenMetadataSettings,
   onTogglePreviewFullscreen,
   publishFeedback,
   onSaveDraft,
@@ -114,6 +120,15 @@ const BuilderTopbar = ({
     <div ref={topbarRef} className={`builder-topbar ${isSticky ? "is-sticky" : ""}`}>
       <div className="builder-topbar-main">
         <div className="builder-topbar-links">
+          {canOpenMetadataSettings && (
+            <button
+              type="button"
+              className={`builder-topbar-link-button ${metadataSettingsActive ? "is-active" : ""}`.trim()}
+              onClick={onOpenMetadataSettings}
+            >
+              Settings
+            </button>
+          )}
           <button
             type="button"
             className="builder-topbar-link-button"

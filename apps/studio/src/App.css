@@ -315,6 +315,11 @@
   background: rgba(31, 34, 28, 0.08);
 }
 
+.builder-topbar-link-button.is-active {
+  background: #1f221c;
+  color: #f8f5ef;
+}
+
 .builder-topbar-link-button:disabled {
   opacity: 0.45;
 }

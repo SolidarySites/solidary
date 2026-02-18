@@ -3160,7 +3160,12 @@ export default function SiteBuilderPage() {
         githubRepoUrl={githubRepoUrl}
         accessRole={siteAccessRole}
         activeCollaborators={collaboratorPresenceNames}
+        canOpenMetadataSettings={Boolean(isOwnerOnOwnerDraft)}
+        metadataSettingsActive={activeSection === "content"}
         isPreviewFullscreen={isPreviewFullscreen}
+        onOpenMetadataSettings={() => {
+          void handleSectionChange("content");
+        }}
         onTogglePreviewFullscreen={() => setIsPreviewFullscreen((value) => !value)}
         publishFeedback={publishFeedback}
         onSaveDraft={handleSaveDraft}
@@ -3203,9 +3208,6 @@ export default function SiteBuilderPage() {
             sectionLocks={sidebarSectionLocks}
             onBack={() => {
               void handleSidebarBack();
-            }}
-            onSectionChange={(section) => {
-              void handleSectionChange(section);
             }}
             onSettingsSectionChange={(section) => {
               void handleSettingsSectionChange(section);
