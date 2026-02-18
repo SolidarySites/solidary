@@ -8,6 +8,7 @@ import type {
   AstroTemplatePreviewHandle,
   PreviewSelectedImage
 } from "../components/studio/AstroTemplatePreview";
+import BuilderContentSection from "../components/studio/site-builder/BuilderContentSection";
 import BuilderPreviewPanel from "../components/studio/site-builder/BuilderPreviewPanel";
 import BuilderSidebar from "../components/studio/site-builder/BuilderSidebar";
 import BuilderTopbar from "../components/studio/site-builder/BuilderTopbar";
@@ -574,6 +575,9 @@ export default function SiteBuilderPage() {
     activeSection === "settings" &&
     activeSettingsSection === "pages" &&
     !activePageLockedByOther;
+  const metadataLock = sectionLocks.metadata ?? null;
+  const metadataLockedByOther = Boolean(metadataLock && metadataLock.userId !== sessionUserId);
+  const showMetadataFullView = activeSection === "content" && Boolean(isOwnerOnOwnerDraft);
   const previewReadOnlyMessage = useMemo(() => {
     if (shouldLoadDraft && isDraftLoading) return null;
     if (draftLoadError) return null;
@@ -3161,9 +3165,17 @@ export default function SiteBuilderPage() {
         accessRole={siteAccessRole}
         activeCollaborators={collaboratorPresenceNames}
         canOpenMetadataSettings={Boolean(isOwnerOnOwnerDraft)}
-        metadataSettingsActive={activeSection === "content"}
+        metadataSettingsActive={showMetadataFullView}
         isPreviewFullscreen={isPreviewFullscreen}
         onOpenMetadataSettings={() => {
+          if (showMetadataFullView) {
+            if (canEditDraft) {
+              void handleSettingsSectionChange("pages");
+            } else {
+              void handleSectionChange("menu");
+            }
+            return;
+          }
           void handleSectionChange("content");
         }}
         onTogglePreviewFullscreen={() => setIsPreviewFullscreen((value) => !value)}
@@ -3172,135 +3184,186 @@ export default function SiteBuilderPage() {
         onPublish={handlePublish}
       />
 
-      <div className={`builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""}`}>
-        {!isPreviewFullscreen && (
-          <BuilderSidebar
-            activeSection={activeSection}
-            activeSettingsSection={activeSettingsSection}
-            canEditDraft={canEditDraft}
-            canEditMetadata={Boolean(isOwnerOnOwnerDraft)}
-            siteTitle={siteTitle}
-            siteDescription={siteDescription}
-            siteImagePreview={siteImagePreview}
-            collaboratorQuery={collaboratorQuery}
-            collaboratorRole={collaboratorRole}
-            collaboratorSuggestions={collaboratorSuggestions}
-            selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
-            collaboratorSearchLoading={collaboratorSearchLoading}
-            invitingCollaborator={invitingCollaborator}
-            collaborators={managedCollaborators}
-            collaboratorsLoading={managedCollaboratorsLoading}
-            updatingCollaboratorUserId={updatingCollaboratorUserId}
-            pages={pages}
-            activePreviewSlug={activePreviewSlug}
-            pageTitleRef={pageTitleRef}
-            tokensCss={tokensCss}
-            siteUrl={siteUrl}
-            headerDisabled={headerDisabled}
-            headerFixed={headerFixed}
-            headerBrandText={headerBrandText}
-            headerBrandDisabled={headerBrandDisabled}
-            headerNavItems={headerNavItems}
-            footerDisabled={footerDisabled}
-            footerFixed={footerFixed}
-            footerModules={footerModules}
-            pageLocksBySlug={pageLocksBySlug}
-            sectionLocks={sidebarSectionLocks}
-            onBack={() => {
-              void handleSidebarBack();
-            }}
-            onSettingsSectionChange={(section) => {
-              void handleSettingsSectionChange(section);
-            }}
-            onSiteTitleChange={setSiteTitle}
-            onSiteDescriptionChange={setSiteDescription}
-            onSiteImageChange={setSiteImage}
-            onCollaboratorQueryChange={handleCollaboratorQueryChange}
-            onCollaboratorRoleChange={setCollaboratorRole}
-            onCollaboratorSuggestionSelect={handleCollaboratorSuggestionSelect}
-            onInviteCollaborator={() => {
-              void handleInviteCollaborator();
-            }}
-            onCollaboratorRoleUpdate={(collaboratorUserId, role) => {
-              void handleCollaboratorRoleUpdate(collaboratorUserId, role);
-            }}
-            onCollaboratorRemove={(collaboratorUserId) => {
-              void handleCollaboratorRemove(collaboratorUserId);
-            }}
-            onAddPage={addPage}
-            onActivePreviewSlugChange={(slug) => {
-              void handleActivePreviewSlugChange(slug);
-            }}
-            onPageTitleChange={handlePageTitleChange}
-            onPageSlugChange={handlePageSlugChange}
-            onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
-            onRemovePage={removePage}
-            onTokensCssChange={setTokensCss}
-            onSiteUrlChange={setSiteUrl}
-            onHeaderDisabledChange={setHeaderDisabled}
-            onHeaderFixedChange={setHeaderFixed}
-            onHeaderBrandTextChange={setHeaderBrandText}
-            onHeaderBrandDisabledChange={setHeaderBrandDisabled}
-            onMoveHeaderNavItemUp={(slug) => moveHeaderNavItem(slug, -1)}
-            onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
-            onFooterDisabledChange={setFooterDisabled}
-            onFooterFixedChange={setFooterFixed}
-            onFooterModuleContentChange={updateFooterModuleContent}
-            onFooterModuleAlignmentChange={updateFooterModuleAlignment}
-            onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
-            onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
-            canFormatText={canFormatText}
-            onRunFormatCommand={runPreviewCommand}
-            onRunFormatLink={runPreviewLink}
-            onUploadFormatImage={handleInlineImageUpload}
-            onCaptureFormatSelection={capturePreviewSelection}
-            isFormatImageUploading={uploadingInlineImage}
-            maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
-            selectedEditorImage={selectedEditorImage}
-            onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
-            onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}
-            onSelectedEditorImageSizeChange={handleSelectedEditorImageSizeChange}
-          />
-        )}
+      <div
+        className={`builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""} ${
+          showMetadataFullView ? "is-settings-full" : ""
+        }`.trim()}
+      >
+        {showMetadataFullView ? (
+          <section className="builder-settings-full">
+            <div className={`builder-section-lock-shell ${metadataLockedByOther ? "is-locked" : ""}`.trim()}>
+              {metadataLockedByOther && (
+                <p className="builder-section-lock-note">
+                  {metadataLock?.holderName ?? "Another user"} is editing this section.
+                </p>
+              )}
+              <fieldset className="builder-locked-fieldset" disabled={metadataLockedByOther}>
+                <BuilderContentSection
+                  siteTitle={siteTitle}
+                  siteDescription={siteDescription}
+                  siteUrl={siteUrl}
+                  siteImagePreview={siteImagePreview}
+                  collaboratorQuery={collaboratorQuery}
+                  collaboratorRole={collaboratorRole}
+                  collaboratorSuggestions={collaboratorSuggestions}
+                  selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
+                  collaboratorSearchLoading={collaboratorSearchLoading}
+                  invitingCollaborator={invitingCollaborator}
+                  collaborators={managedCollaborators}
+                  collaboratorsLoading={managedCollaboratorsLoading}
+                  updatingCollaboratorUserId={updatingCollaboratorUserId}
+                  onSiteTitleChange={setSiteTitle}
+                  onSiteDescriptionChange={setSiteDescription}
+                  onSiteUrlChange={setSiteUrl}
+                  onSiteImageChange={setSiteImage}
+                  onCollaboratorQueryChange={handleCollaboratorQueryChange}
+                  onCollaboratorRoleChange={setCollaboratorRole}
+                  onCollaboratorSuggestionSelect={handleCollaboratorSuggestionSelect}
+                  onInviteCollaborator={() => {
+                    void handleInviteCollaborator();
+                  }}
+                  onCollaboratorRoleUpdate={(collaboratorUserId, role) => {
+                    void handleCollaboratorRoleUpdate(collaboratorUserId, role);
+                  }}
+                  onCollaboratorRemove={(collaboratorUserId) => {
+                    void handleCollaboratorRemove(collaboratorUserId);
+                  }}
+                />
+              </fieldset>
+            </div>
+          </section>
+        ) : (
+          <>
+            {!isPreviewFullscreen && (
+              <BuilderSidebar
+                activeSection={activeSection}
+                activeSettingsSection={activeSettingsSection}
+                canEditDraft={canEditDraft}
+                canEditMetadata={Boolean(isOwnerOnOwnerDraft)}
+                siteTitle={siteTitle}
+                siteDescription={siteDescription}
+                siteImagePreview={siteImagePreview}
+                collaboratorQuery={collaboratorQuery}
+                collaboratorRole={collaboratorRole}
+                collaboratorSuggestions={collaboratorSuggestions}
+                selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
+                collaboratorSearchLoading={collaboratorSearchLoading}
+                invitingCollaborator={invitingCollaborator}
+                collaborators={managedCollaborators}
+                collaboratorsLoading={managedCollaboratorsLoading}
+                updatingCollaboratorUserId={updatingCollaboratorUserId}
+                pages={pages}
+                activePreviewSlug={activePreviewSlug}
+                pageTitleRef={pageTitleRef}
+                tokensCss={tokensCss}
+                siteUrl={siteUrl}
+                headerDisabled={headerDisabled}
+                headerFixed={headerFixed}
+                headerBrandText={headerBrandText}
+                headerBrandDisabled={headerBrandDisabled}
+                headerNavItems={headerNavItems}
+                footerDisabled={footerDisabled}
+                footerFixed={footerFixed}
+                footerModules={footerModules}
+                pageLocksBySlug={pageLocksBySlug}
+                sectionLocks={sidebarSectionLocks}
+                onBack={() => {
+                  void handleSidebarBack();
+                }}
+                onSettingsSectionChange={(section) => {
+                  void handleSettingsSectionChange(section);
+                }}
+                onSiteTitleChange={setSiteTitle}
+                onSiteDescriptionChange={setSiteDescription}
+                onSiteImageChange={setSiteImage}
+                onCollaboratorQueryChange={handleCollaboratorQueryChange}
+                onCollaboratorRoleChange={setCollaboratorRole}
+                onCollaboratorSuggestionSelect={handleCollaboratorSuggestionSelect}
+                onInviteCollaborator={() => {
+                  void handleInviteCollaborator();
+                }}
+                onCollaboratorRoleUpdate={(collaboratorUserId, role) => {
+                  void handleCollaboratorRoleUpdate(collaboratorUserId, role);
+                }}
+                onCollaboratorRemove={(collaboratorUserId) => {
+                  void handleCollaboratorRemove(collaboratorUserId);
+                }}
+                onAddPage={addPage}
+                onActivePreviewSlugChange={(slug) => {
+                  void handleActivePreviewSlugChange(slug);
+                }}
+                onPageTitleChange={handlePageTitleChange}
+                onPageSlugChange={handlePageSlugChange}
+                onPageShowInNavChange={(index, checked) => updatePage(index, { showInNav: checked })}
+                onRemovePage={removePage}
+                onTokensCssChange={setTokensCss}
+                onSiteUrlChange={setSiteUrl}
+                onHeaderDisabledChange={setHeaderDisabled}
+                onHeaderFixedChange={setHeaderFixed}
+                onHeaderBrandTextChange={setHeaderBrandText}
+                onHeaderBrandDisabledChange={setHeaderBrandDisabled}
+                onMoveHeaderNavItemUp={(slug) => moveHeaderNavItem(slug, -1)}
+                onMoveHeaderNavItemDown={(slug) => moveHeaderNavItem(slug, 1)}
+                onFooterDisabledChange={setFooterDisabled}
+                onFooterFixedChange={setFooterFixed}
+                onFooterModuleContentChange={updateFooterModuleContent}
+                onFooterModuleAlignmentChange={updateFooterModuleAlignment}
+                onMoveFooterModuleUp={(index) => moveFooterModule(index, -1)}
+                onMoveFooterModuleDown={(index) => moveFooterModule(index, 1)}
+                canFormatText={canFormatText}
+                onRunFormatCommand={runPreviewCommand}
+                onRunFormatLink={runPreviewLink}
+                onUploadFormatImage={handleInlineImageUpload}
+                onCaptureFormatSelection={capturePreviewSelection}
+                isFormatImageUploading={uploadingInlineImage}
+                maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
+                selectedEditorImage={selectedEditorImage}
+                onSelectedEditorImageAltChange={handleSelectedEditorImageAltChange}
+                onSelectedEditorImageCaptionChange={handleSelectedEditorImageCaptionChange}
+                onSelectedEditorImageSizeChange={handleSelectedEditorImageSizeChange}
+              />
+            )}
 
-        <BuilderPreviewPanel
-          shouldLoadDraft={shouldLoadDraft}
-          isDraftLoading={isDraftLoading}
-          draftLoadError={draftLoadError}
-          canEditContent={canEditPageContent}
-          showFormattingToolbar={canFormatText}
-          readOnlyMessage={previewReadOnlyMessage}
-          previewRef={previewRef}
-          previewBrand={siteTitle}
-          pages={pages}
-          draftImages={draftImages}
-          tokensCss={tokensCss}
-          homeFallbackBody={defaultHomeContent}
-          activePreviewSlug={activePreviewSlug}
-          publishedSiteBaseUrl={publishedSiteBaseUrl}
-          header={{
-            disabled: headerDisabled,
-            fixed: headerFixed,
-            brandText: headerBrandText,
-            disableBrand: headerBrandDisabled
-          }}
-          footer={{
-            disabled: footerDisabled,
-            fixed: footerFixed,
-            modules: footerModules
-          }}
-          onActivePreviewSlugChange={(slug) => {
-            void handleActivePreviewSlugChange(slug);
-          }}
-          onPageBodyChange={updatePageBody}
-          onSelectedImageChange={setSelectedEditorImage}
-          onRunFormatCommand={runPreviewCommand}
-          onRunFormatLink={runPreviewLink}
-          onUploadFormatImage={handleInlineImageUpload}
-          onCaptureFormatSelection={capturePreviewSelection}
-          isFormatImageUploading={uploadingInlineImage}
-          maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
-        />
+            <BuilderPreviewPanel
+              shouldLoadDraft={shouldLoadDraft}
+              isDraftLoading={isDraftLoading}
+              draftLoadError={draftLoadError}
+              canEditContent={canEditPageContent}
+              showFormattingToolbar={canFormatText}
+              readOnlyMessage={previewReadOnlyMessage}
+              previewRef={previewRef}
+              previewBrand={siteTitle}
+              pages={pages}
+              draftImages={draftImages}
+              tokensCss={tokensCss}
+              homeFallbackBody={defaultHomeContent}
+              activePreviewSlug={activePreviewSlug}
+              publishedSiteBaseUrl={publishedSiteBaseUrl}
+              header={{
+                disabled: headerDisabled,
+                fixed: headerFixed,
+                brandText: headerBrandText,
+                disableBrand: headerBrandDisabled
+              }}
+              footer={{
+                disabled: footerDisabled,
+                fixed: footerFixed,
+                modules: footerModules
+              }}
+              onActivePreviewSlugChange={(slug) => {
+                void handleActivePreviewSlugChange(slug);
+              }}
+              onPageBodyChange={updatePageBody}
+              onSelectedImageChange={setSelectedEditorImage}
+              onRunFormatCommand={runPreviewCommand}
+              onRunFormatLink={runPreviewLink}
+              onUploadFormatImage={handleInlineImageUpload}
+              onCaptureFormatSelection={capturePreviewSelection}
+              isFormatImageUploading={uploadingInlineImage}
+              maxFormatImageUploadBytes={MAX_IMAGE_UPLOAD_BYTES}
+            />
+          </>
+        )}
       </div>
 
       <SiteFooter notice={notice} noticeKind={noticeKind} />

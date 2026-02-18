@@ -527,10 +527,26 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.builder-body.is-settings-full {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .builder-preview-shell {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
   align-items: start;
+}
+
+.builder-settings-full {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-height: 640px;
 }
 
 .builder-toolbar-rail {
