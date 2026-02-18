@@ -530,7 +530,6 @@
 .builder-preview-shell {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.7rem;
   align-items: start;
 }
 
