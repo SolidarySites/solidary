@@ -212,6 +212,7 @@ export const handler: Handler = async (event) => {
 
   const draftId = typeof payload.draftId === "string" ? payload.draftId.trim() : "";
   const githubToken = typeof payload.githubToken === "string" ? payload.githubToken.trim() : "";
+  const syncRoles = payload.syncRoles !== false;
   if (!draftId || !githubToken) {
     return {
       statusCode: 400,
@@ -332,7 +333,7 @@ export const handler: Handler = async (event) => {
       };
       const nextRole = toCollaboratorRoleFromPermission(permissionPayload.permission ?? null);
 
-      if (nextRole !== membership.role) {
+      if (syncRoles && nextRole !== membership.role) {
         const { error: updateError } = await supabase
           .from("site_admins")
           .update({ role: nextRole })
@@ -369,15 +370,17 @@ export const handler: Handler = async (event) => {
         continue;
       }
 
-      const { error: deleteError } = await supabase
-        .from("site_admins")
-        .delete()
-        .eq("site_id", siteId)
-        .eq("user_id", membership.user_id);
+      if (syncRoles) {
+        const { error: deleteError } = await supabase
+          .from("site_admins")
+          .delete()
+          .eq("site_id", siteId)
+          .eq("user_id", membership.user_id);
 
-      if (!deleteError) {
-        removedCount += 1;
-        continue;
+        if (!deleteError) {
+          removedCount += 1;
+          continue;
+        }
       }
     }
 

@@ -979,7 +979,7 @@ export default function SiteBuilderPage() {
     }
   }, [activePreviewSlug, applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
 
-  const loadManagedCollaborators = useCallback(async () => {
+  const loadManagedCollaborators = useCallback(async (options?: { syncRoles?: boolean }) => {
     if (!draftState?.id || !isOwnerOnOwnerDraft) {
       setManagedCollaborators([]);
       setManagedCollaboratorsLoading(false);
@@ -993,6 +993,8 @@ export default function SiteBuilderPage() {
       return;
     }
 
+    const syncRoles = options?.syncRoles !== false;
+
     setManagedCollaboratorsLoading(true);
     try {
       const response = await fetch("/.netlify/functions/github-list-collaborators", {
@@ -1003,7 +1005,8 @@ export default function SiteBuilderPage() {
         },
         body: JSON.stringify({
           draftId: draftState.id,
-          githubToken: providerToken
+          githubToken: providerToken,
+          syncRoles
         })
       });
 
@@ -1194,7 +1197,7 @@ export default function SiteBuilderPage() {
       setCollaboratorQuery("");
       setCollaboratorSuggestions([]);
       setSelectedCollaboratorSuggestion(null);
-      await loadManagedCollaborators();
+      await loadManagedCollaborators({ syncRoles: false });
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Failed to invite collaborator.";
@@ -1246,9 +1249,19 @@ export default function SiteBuilderPage() {
         throw new Error(message);
       }
 
+      setManagedCollaborators((current) =>
+        current.map((entry) =>
+          entry.userId === collaboratorUserId
+            ? {
+                ...entry,
+                role,
+                syncState: "unknown"
+              }
+            : entry
+        )
+      );
       setNotice(`Updated ${collaborator.displayName}'s role to ${role}.`);
       setNoticeKind("notice");
-      await loadManagedCollaborators();
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Failed to update collaborator role.";
@@ -1296,9 +1309,11 @@ export default function SiteBuilderPage() {
         throw new Error(message);
       }
 
+      setManagedCollaborators((current) =>
+        current.filter((entry) => entry.userId !== collaboratorUserId)
+      );
       setNotice(`Removed ${collaborator.displayName} from this site.`);
       setNoticeKind("notice");
-      await loadManagedCollaborators();
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : "Failed to remove collaborator.";
