@@ -141,6 +141,11 @@ const toCollaboratorRoleFromPermission = (permission: string | null): Collaborat
   return "viewer";
 };
 
+const hasWriteAccessPermission = (permission: string | null) => {
+  const value = (permission ?? "").toLowerCase().trim();
+  return value === "admin" || value === "maintain" || value === "write" || value === "push";
+};
+
 const listPendingInviteLogins = async ({
   githubToken,
   owner,
@@ -331,16 +336,24 @@ export const handler: Handler = async (event) => {
       const permissionPayload = (await permissionResponse.json().catch(() => ({}))) as {
         permission?: string;
       };
-      const nextRole = toCollaboratorRoleFromPermission(permissionPayload.permission ?? null);
+      const githubRole = toCollaboratorRoleFromPermission(permissionPayload.permission ?? null);
 
-      if (syncRoles && nextRole !== membership.role) {
+      // Preserve Solidary admin/editor roles when GitHub still reports write-level access.
+      // This avoids downgrading admin -> editor on personal repos where admin permission
+      // may not be represented by the GitHub collaborator permission endpoint.
+      if (
+        syncRoles &&
+        githubRole === "viewer" &&
+        !hasWriteAccessPermission(permissionPayload.permission ?? null) &&
+        membership.role !== "viewer"
+      ) {
         const { error: updateError } = await supabase
           .from("site_admins")
-          .update({ role: nextRole })
+          .update({ role: "viewer" })
           .eq("site_id", siteId)
           .eq("user_id", membership.user_id);
         if (!updateError) {
-          membership.role = nextRole;
+          membership.role = "viewer";
           updatedCount += 1;
         }
       }

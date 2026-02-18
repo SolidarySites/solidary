@@ -25,6 +25,11 @@ const githubHeaders = (token: string) => ({
   "Content-Type": "application/json"
 });
 
+const hasWriteAccessPermission = (permission: string | null | undefined) => {
+  const value = (permission ?? "").toLowerCase().trim();
+  return value === "admin" || value === "maintain" || value === "write" || value === "push";
+};
+
 const getGithubLoginFromMetadata = (metadata: Record<string, unknown> | null | undefined) => {
   const candidates = [
     metadata?.user_name,
@@ -206,7 +211,10 @@ export const handler: Handler = async (event) => {
       typeof permissionPayload.permission === "string" ? permissionPayload.permission : null;
   }
 
-  const shouldDemote = githubPermission !== "admin";
+  // Treat any write-level collaborator permission as sufficient to keep Solidary admin.
+  // This prevents false demotions on personal repositories where GitHub may not expose
+  // collaborator "admin" as a distinct permission.
+  const shouldDemote = !hasWriteAccessPermission(githubPermission);
 
   if (!shouldDemote) {
     return {
