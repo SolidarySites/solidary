@@ -8,8 +8,11 @@ type BuilderTopbarProps = {
   provisionStep: string;
   canSaveDraft: boolean;
   canPublish: boolean;
+  publishLabel: string;
   liveSiteUrl: string | null;
   githubRepoUrl: string | null;
+  accessRole: "owner" | "admin" | "editor" | "viewer" | null;
+  activeCollaborators: string[];
   isPreviewFullscreen: boolean;
   onTogglePreviewFullscreen: () => void;
   publishFeedback: PublishFeedback | null;
@@ -23,8 +26,11 @@ const BuilderTopbar = ({
   provisionStep,
   canSaveDraft,
   canPublish,
+  publishLabel,
   liveSiteUrl,
   githubRepoUrl,
+  accessRole,
+  activeCollaborators,
   isPreviewFullscreen,
   onTogglePreviewFullscreen,
   publishFeedback,
@@ -128,6 +134,19 @@ const BuilderTopbar = ({
             {isPreviewFullscreen ? "Exit full screen preview" : "View full screen preview"}
           </button>
         </div>
+        <div className="builder-collab-strip" aria-live="polite">
+          <span className="builder-collab-pill">
+            {accessRole === "owner" ? "Owner access" : `Role: ${accessRole ?? "none"}`}
+          </span>
+          <span className="builder-collab-pill">
+            {activeCollaborators.length ? `${activeCollaborators.length} active now` : "No one else active"}
+          </span>
+          {activeCollaborators.slice(0, 3).map((name, index) => (
+            <span key={`${name}-${index}`} className="builder-collab-name">
+              {name}
+            </span>
+          ))}
+        </div>
       </div>
       <BuilderActions
         savingDraft={savingDraft}
@@ -135,6 +154,7 @@ const BuilderTopbar = ({
         provisionStep={provisionStep}
         canSaveDraft={canSaveDraft}
         canPublish={canPublish}
+        publishLabel={publishLabel}
         publishFeedback={publishFeedback}
         onSaveDraft={onSaveDraft}
         onPublish={onPublish}

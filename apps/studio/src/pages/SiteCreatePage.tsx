@@ -491,13 +491,19 @@ export default function SiteCreatePage() {
       const { error: draftError } = await supabase.from("site_drafts").upsert(
         {
           id: siteId,
+          site_id: siteId,
           owner_user_id: session.user.id,
           repo_full_name: repoFullName,
           branch: defaultBranch,
           commit_sha: "",
           files: {
             [FILE_KEYS.solidary]: solidaryFile
-          }
+          },
+          draft_type: "owner",
+          source_owner_draft_id: null,
+          touched_sections: [],
+          touched_page_slugs: [],
+          deleted_page_slugs: []
         },
         { onConflict: "owner_user_id,repo_full_name" }
       );

@@ -5,15 +5,19 @@ import { FILE_KEYS } from "./constants";
 import type {
   BuilderPage,
   DraftImageAsset,
+  DraftType,
   DraftState,
   FooterModuleAlignment,
   FooterOptions,
-  HeaderOptions
+  HeaderOptions,
+  SiteAccessRole
 } from "./types";
 import { getPageSafeSlug, resolveImagePreviewUrl } from "./utils";
 
 export type LoadedDraftResult = {
   draftState: DraftState;
+  accessRole: SiteAccessRole;
+  resolvedDraftId?: string;
   pages: BuilderPage[];
   draftPageSlugs: string[];
   initialActivePreviewSlug: string | null;
@@ -82,30 +86,155 @@ const normalizeFooterModules = (modules: unknown): FooterOptions["modules"] => {
   return normalized;
 };
 
-export const loadDraftById = async ({
-  draftId,
-  defaultHomeContent
-}: {
-  draftId: string;
-  defaultHomeContent: string;
-}) => {
+type DraftRow = {
+  id: string;
+  site_id: string | null;
+  repo_full_name: string;
+  branch: string;
+  owner_user_id: string;
+  draft_type: DraftType | null;
+  source_owner_draft_id: string | null;
+  touched_sections: string[] | null;
+  touched_page_slugs: string[] | null;
+  deleted_page_slugs: string[] | null;
+  editor_branch: string | null;
+  last_pull_request_number: number | null;
+  last_pull_request_url: string | null;
+  last_pull_request_state: string | null;
+  revision: number | null;
+  updated_at: string | null;
+  last_edited_by_user_id: string | null;
+  last_edited_at: string | null;
+  files: RepoFileSet;
+};
+
+const loadDraftRowById = async (draftId: string) => {
   const { data, error } = await supabase
     .from("site_drafts")
-    .select("id, repo_full_name, branch, files")
+    .select(
+      "id, site_id, repo_full_name, branch, owner_user_id, draft_type, source_owner_draft_id, touched_sections, touched_page_slugs, deleted_page_slugs, editor_branch, last_pull_request_number, last_pull_request_url, last_pull_request_state, revision, updated_at, last_edited_by_user_id, last_edited_at, files"
+    )
     .eq("id", draftId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Draft not found.");
+  return data as DraftRow;
+};
 
-  const files = data.files as RepoFileSet;
+export const loadDraftById = async ({
+  draftId,
+  defaultHomeContent,
+  userId
+}: {
+  draftId: string;
+  defaultHomeContent: string;
+  userId: string;
+}) => {
+  const requestedDraft = await loadDraftRowById(draftId);
+  const siteId = requestedDraft.site_id ?? requestedDraft.id;
+
+  const { data: ownerDraft, error: ownerDraftError } = await supabase
+    .from("site_drafts")
+    .select("id, owner_user_id")
+    .eq("site_id", siteId)
+    .eq("draft_type", "owner")
+    .limit(1)
+    .maybeSingle();
+
+  if (ownerDraftError) throw new Error(ownerDraftError.message);
+
+  let accessRole: SiteAccessRole | null = null;
+  if (ownerDraft?.owner_user_id === userId) {
+    accessRole = "owner";
+  } else {
+    const { data: collaboratorRow, error: collaboratorError } = await supabase
+      .from("site_admins")
+      .select("role")
+      .eq("site_id", siteId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (collaboratorError) throw new Error(collaboratorError.message);
+    if (
+      collaboratorRow?.role === "admin" ||
+      collaboratorRow?.role === "editor" ||
+      collaboratorRow?.role === "viewer"
+    ) {
+      accessRole = collaboratorRow.role;
+    }
+  }
+
+  if (!accessRole) {
+    throw new Error("You do not have access to this draft.");
+  }
+
+  let resolvedDraft = requestedDraft;
+  if (accessRole === "editor" && requestedDraft.draft_type !== "editor") {
+    const { data: editorDraftResult, error: editorDraftError } = await supabase.rpc(
+      "site_get_or_create_editor_draft",
+      {
+        p_site_id: siteId
+      }
+    );
+
+    if (editorDraftError) throw new Error(editorDraftError.message);
+    const editorDraftId =
+      Array.isArray(editorDraftResult) && editorDraftResult.length
+        ? (editorDraftResult[0] as { draft_id?: string }).draft_id
+        : null;
+    if (!editorDraftId || typeof editorDraftId !== "string") {
+      throw new Error("Failed to load your editor draft.");
+    }
+    resolvedDraft = await loadDraftRowById(editorDraftId);
+  }
+
+  const files = resolvedDraft.files as RepoFileSet;
   const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
   const solidary = parseSolidaryJson(solidaryRaw);
 
   const draftState: DraftState = {
-    id: data.id,
-    repoFullName: data.repo_full_name,
-    branch: data.branch,
+    id: resolvedDraft.id,
+    siteId: resolvedDraft.site_id ?? resolvedDraft.id,
+    repoFullName: resolvedDraft.repo_full_name,
+    branch: resolvedDraft.branch,
+    ownerUserId: resolvedDraft.owner_user_id,
+    draftType: resolvedDraft.draft_type === "editor" ? "editor" : "owner",
+    sourceOwnerDraftId: resolvedDraft.source_owner_draft_id,
+    touchedSections: (resolvedDraft.touched_sections ?? []).filter(
+      (entry): entry is "metadata" | "pages" | "header" | "footer" | "styles" =>
+        entry === "metadata" ||
+        entry === "pages" ||
+        entry === "header" ||
+        entry === "footer" ||
+        entry === "styles"
+    ),
+    touchedPageSlugs: (resolvedDraft.touched_page_slugs ?? []).filter(
+      (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+    ),
+    deletedPageSlugs: (resolvedDraft.deleted_page_slugs ?? []).filter(
+      (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+    ),
+    editorBranch:
+      typeof resolvedDraft.editor_branch === "string" ? resolvedDraft.editor_branch : null,
+    lastPullRequestNumber:
+      typeof resolvedDraft.last_pull_request_number === "number"
+        ? resolvedDraft.last_pull_request_number
+        : null,
+    lastPullRequestUrl:
+      typeof resolvedDraft.last_pull_request_url === "string"
+        ? resolvedDraft.last_pull_request_url
+        : null,
+    lastPullRequestState:
+      typeof resolvedDraft.last_pull_request_state === "string"
+        ? resolvedDraft.last_pull_request_state
+        : null,
+    revision: typeof resolvedDraft.revision === "number" ? resolvedDraft.revision : 1,
+    lastEditedAt: typeof resolvedDraft.last_edited_at === "string" ? resolvedDraft.last_edited_at : null,
+    lastEditedByUserId:
+      typeof resolvedDraft.last_edited_by_user_id === "string"
+        ? resolvedDraft.last_edited_by_user_id
+        : null,
     files
   };
 
@@ -113,17 +242,17 @@ export const loadDraftById = async ({
     supabase
       .from("site_draft_pages")
       .select("id, slug, title, content, show_in_nav, position, is_home")
-      .eq("draft_id", data.id)
+      .eq("draft_id", resolvedDraft.id)
       .order("position", { ascending: true }),
     supabase
       .from("site_draft_settings")
       .select("settings, styles")
-      .eq("draft_id", data.id)
+      .eq("draft_id", resolvedDraft.id)
       .maybeSingle(),
     supabase
       .from("site_draft_images")
       .select("id, storage_path, public_url, site_path, uploaded_at")
-      .eq("draft_id", data.id)
+      .eq("draft_id", resolvedDraft.id)
       .order("uploaded_at", { ascending: true })
   ]);
 
@@ -166,6 +295,8 @@ export const loadDraftById = async ({
 
   const result: LoadedDraftResult = {
     draftState,
+    accessRole,
+    resolvedDraftId: resolvedDraft.id,
     pages,
     draftPageSlugs,
     initialActivePreviewSlug,

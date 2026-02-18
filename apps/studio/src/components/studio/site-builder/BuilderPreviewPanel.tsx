@@ -9,6 +9,8 @@ type BuilderPreviewPanelProps = {
   shouldLoadDraft: boolean;
   isDraftLoading: boolean;
   draftLoadError: string | null;
+  canEditContent: boolean;
+  readOnlyMessage?: string | null;
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
   previewBrand: string;
   pages: BuilderPage[];
@@ -28,6 +30,8 @@ const BuilderPreviewPanel = ({
   shouldLoadDraft,
   isDraftLoading,
   draftLoadError,
+  canEditContent,
+  readOnlyMessage,
   previewRef,
   previewBrand,
   pages,
@@ -43,6 +47,10 @@ const BuilderPreviewPanel = ({
   onSelectedImageChange
 }: BuilderPreviewPanelProps) => (
   <section className="builder-panel">
+    {!isDraftLoading && !draftLoadError && readOnlyMessage && (
+      <div className="builder-preview-readonly-note">{readOnlyMessage}</div>
+    )}
+
     {shouldLoadDraft && isDraftLoading && (
       <div className="provisioning">
         <div className="spinner" />
@@ -61,6 +69,7 @@ const BuilderPreviewPanel = ({
     {!isDraftLoading && !draftLoadError && (
       <AstroTemplatePreview
         ref={previewRef}
+        editable={canEditContent}
         previewBrand={previewBrand}
         pages={pages}
         draftImages={draftImages}

@@ -10,7 +10,7 @@ import {
   type KeyboardEvent,
   type MouseEvent
 } from "react";
-import { slugify } from "../../studio/utils";
+import { normalizePageSlug } from "./site-builder/utils";
 import type { DraftImageAsset, FooterOptions, HeaderOptions } from "./site-builder/types";
 
 type PreviewPage = {
@@ -23,6 +23,7 @@ type PreviewPage = {
 };
 
 type AstroTemplatePreviewProps = {
+  editable: boolean;
   previewBrand: string;
   pages: PreviewPage[];
   draftImages: DraftImageAsset[];
@@ -422,6 +423,7 @@ const mapHtmlImageSources = (
 const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplatePreviewProps>(
   function AstroTemplatePreview(
     {
+      editable,
       previewBrand,
       pages,
       draftImages,
@@ -445,7 +447,8 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   const parsedPages = useMemo<ParsedPage[]>(
     () =>
       pages.map((page, index) => {
-        const safeSlug = page.isHome ? "home" : slugify(page.slug || page.title) || `page-${index + 1}`;
+        const safeSlug =
+          page.isHome ? "home" : normalizePageSlug(page.slug || page.title) || `page-${index + 1}`;
         return {
           ...page,
           safeSlug
@@ -817,6 +820,11 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
 
   const handleEditorClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
+      if (!editable) {
+        selectedImageElementRef.current = null;
+        setSelectedImage(null);
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLImageElement)) {
         selectedImageElementRef.current = null;
@@ -842,7 +850,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       });
       captureSelection();
     },
-    [activeSlug, captureSelection, ensureImageFigure]
+    [activeSlug, captureSelection, editable, ensureImageFigure]
   );
 
   const updateSelectedImageAlt = useCallback(
@@ -1170,7 +1178,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   const executeCommand = useCallback(
     (command: string, value?: string) => {
       const editor = editorRef.current;
-      if (!editor) return;
+      if (!editor || !editable) return;
       editor.focus();
       restoreSelection();
       if (applySelectedFigcaptionAlignment(command)) {
@@ -1208,6 +1216,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       captureSelection();
     },
     [
+      editable,
       applySelectedFigcaptionAlignment,
       applySelectedImageAlignment,
       captureSelection,
@@ -1240,6 +1249,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   );
 
   const handleEditorInput = () => {
+    if (!editable) return;
     normalizeTypedLineDivToParagraph();
     persistEditorContent();
     captureSelection();
@@ -1247,6 +1257,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
 
   const handleEditorKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
+      if (!editable) return;
       if (event.nativeEvent.isComposing) return;
 
       if (event.key === "Backspace" || event.key === "Delete") {
@@ -1279,6 +1290,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       captureSelection();
     },
     [
+      editable,
       captureSelection,
       findFigcaptionFromSelection,
       persistEditorContent,
@@ -1349,8 +1361,9 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           <article className="prose">
             <div
               ref={editorRef}
-              className="astro-editor"
-              contentEditable
+              className={`astro-editor ${editable ? "" : "is-read-only"}`.trim()}
+              contentEditable={editable}
+              aria-readonly={!editable}
               suppressContentEditableWarning
               onInput={handleEditorInput}
               onClick={handleEditorClick}
