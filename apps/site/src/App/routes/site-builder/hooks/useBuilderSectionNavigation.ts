@@ -42,6 +42,7 @@ export const useBuilderSectionNavigation = ({
     options: {
       nextPageEditingMode?: boolean;
       nextPreviewSlug?: string;
+      skipDraftRefresh?: boolean;
     } = {}
   ) => {
     if (sectionTransitionInFlightRef.current) return;

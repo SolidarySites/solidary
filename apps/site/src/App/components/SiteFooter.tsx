@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "../lib/supabase";
 import type { NoticeKind } from "../types/notice";
+import "./SiteFooter.css";
 
 type SiteFooterProps = {
   notice: string | null;

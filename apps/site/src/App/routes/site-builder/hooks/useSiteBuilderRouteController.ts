@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { supabase } from "../../../lib/supabase";
-import {
-  FILE_KEYS
-} from "../services/constants";
 import {
   buildDraftSaveSignature,
   DEFAULT_FOOTER_MODULES,
@@ -12,45 +9,12 @@ import {
   MAX_IMAGE_UPLOAD_BYTES,
   normalizeFooterModules,
   normalizeSitePath,
-  replaceDraftImageUrlsWithSitePaths,
   toExternalUrl
 } from "../services/draft-utils";
-import { loadDraftById, type LoadedDraftResult } from "../services/load-draft";
 import {
-  EDITABLE_SECTION_LABELS,
-  getEditableSectionFromUi,
-  getLockKeyFromUi,
-  getLockLabel,
-  getPageLockKeyForPage,
-  getPageLockKeyForSlug,
-  isBuilderEditableSectionKey,
-  isPageLockKey,
   type SectionLockRecord
 } from "../services/locks";
-import {
-  publishEditorDraft,
-  publishOwnerDraft
-} from "../services/publish-draft";
-import {
-  DraftConflictError,
-  saveDraftState,
-  type DraftRevisionRow
-} from "../services/save-draft-state";
-import { markEditorDraftTouched as markEditorDraftTouchedInternal } from "../services/save-editor-touch";
-import {
-  saveMetadataSection as runSaveMetadataSection,
-  savePagesSection as runSavePagesSection
-} from "../services/save-metadata-and-pages";
-import {
-  buildDraftSignatureForState as buildDraftSignatureFromState
-} from "../services/save-section-signature";
-import {
-  saveFooterSection as runSaveFooterSection,
-  saveHeaderSection as runSaveHeaderSection,
-  saveStylesSection as runSaveStylesSection
-} from "../services/save-settings-sections";
 import type {
-  BuilderEditableSectionKey,
   BuilderPage,
   BuilderSection,
   BuilderSettingsSection,
@@ -66,8 +30,6 @@ import { useBuilderSectionNavigation } from "./useBuilderSectionNavigation";
 import { useDraftSectionLocks } from "./useDraftSectionLocks";
 import { usePublishStatusTracking } from "./usePublishStatusTracking";
 import {
-  getPageSafeSlug,
-  normalizePageSlug,
   stripFrontmatter
 } from "../services/utils";
 import type { NoticeKind } from "../../../types/notice";
@@ -78,6 +40,9 @@ import { slugify } from "../../../lib/slugify";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
 import { useBuilderPreviewEditor } from "./useBuilderPreviewEditor";
+import { useSiteBuilderAccessAndLocks } from "./useSiteBuilderAccessAndLocks";
+import { useSiteBuilderDraftLifecycle } from "./useSiteBuilderDraftLifecycle";
+import { useSiteBuilderSavePublishActions } from "./useSiteBuilderSavePublishActions";
 
 const defaultHomeContent = stripFrontmatter(homeTemplate);
 
@@ -147,8 +112,36 @@ export const useSiteBuilderRouteController = () => {
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
   const shouldLoadDraft = Boolean(draftId);
   const sessionUserId = session?.user.id ?? null;
-  const isOwner = siteAccessRole === "owner";
-  const isOwnerOnOwnerDraft = isOwner && draftState?.draftType === "owner";
+  const {
+    isOwnerOnOwnerDraft,
+    canEditDraft,
+    canDirectPublish,
+    canPublishByRole,
+    activeEditableSection,
+    activeLockKey,
+    activeSectionLockedByOther,
+    sidebarSectionLocks,
+    pageLocksBySlug,
+    hasForeignSectionLocks,
+    canEditPageContent,
+    metadataLock,
+    metadataLockedByOther,
+    showMetadataFullView,
+    previewReadOnlyMessage
+  } = useSiteBuilderAccessAndLocks({
+    activeSection,
+    activeSettingsSection,
+    isPageEditingMode,
+    activePreviewSlug,
+    pages,
+    sectionLocks,
+    siteAccessRole,
+    draftState,
+    sessionUserId,
+    shouldLoadDraft,
+    isDraftLoading,
+    draftLoadError
+  });
   const {
     collaboratorQuery,
     collaboratorRole,
@@ -173,134 +166,6 @@ export const useSiteBuilderRouteController = () => {
     setNotice,
     setNoticeKind
   });
-  const isEditorWorkingDraft =
-    draftState?.draftType === "editor" && siteAccessRole === "editor" && draftState.ownerUserId === sessionUserId;
-  const isOwnerOrAdminOnOwnerDraft =
-    draftState?.draftType === "owner" &&
-    (siteAccessRole === "owner" || siteAccessRole === "admin");
-  const canEditDraft = Boolean(isOwnerOrAdminOnOwnerDraft || isEditorWorkingDraft);
-  const canDirectPublish = Boolean(isOwnerOrAdminOnOwnerDraft);
-  const canSubmitPullRequest = Boolean(isEditorWorkingDraft);
-  const canPublishByRole = canDirectPublish || canSubmitPullRequest;
-  const activeEditableSection = useMemo(
-    () => getEditableSectionFromUi(activeSection, activeSettingsSection, isPageEditingMode),
-    [activeSection, activeSettingsSection, isPageEditingMode]
-  );
-  const activeLockKey = useMemo(
-    () =>
-      getLockKeyFromUi(
-        activeSection,
-        activeSettingsSection,
-        activePreviewSlug,
-        pages,
-        isPageEditingMode
-      ),
-    [activePreviewSlug, activeSection, activeSettingsSection, isPageEditingMode, pages]
-  );
-  const activeSectionLock = activeLockKey ? sectionLocks[activeLockKey] : null;
-  const activeSectionLockedByOther = Boolean(
-    activeSectionLock && activeSectionLock.userId !== sessionUserId
-  );
-  const sidebarSectionLocks = useMemo(
-    () =>
-      Object.entries(sectionLocks).reduce(
-        (accumulator, [sectionKey, lock]) => {
-          if (!lock || !isBuilderEditableSectionKey(sectionKey)) return accumulator;
-          accumulator[sectionKey] = {
-            holderName: lock.holderName,
-            isSelf: lock.userId === sessionUserId
-          };
-          return accumulator;
-        },
-        {} as Partial<
-          Record<
-            BuilderEditableSectionKey,
-            {
-              holderName: string;
-              isSelf: boolean;
-            }
-          >
-        >
-      ),
-    [sectionLocks, sessionUserId]
-  );
-  const pageLocksBySlug = useMemo(
-    () => {
-      const pageSlugByLockKey = new Map<string, string>();
-      pages.forEach((page, index) => {
-        pageSlugByLockKey.set(getPageLockKeyForPage(page, index), getPageSafeSlug(page, index));
-      });
-
-      return Object.entries(sectionLocks).reduce(
-        (accumulator, [lockKey, lock]) => {
-          if (!lock || !isPageLockKey(lockKey)) return accumulator;
-          const fallbackSlug = lockKey.slice("page:".length);
-          const slug = pageSlugByLockKey.get(lockKey) ?? normalizePageSlug(fallbackSlug);
-          if (!slug) return accumulator;
-          accumulator[slug] = {
-            holderName: lock.holderName,
-            isSelf: lock.userId === sessionUserId
-          };
-          return accumulator;
-        },
-        {} as Record<
-          string,
-          {
-            holderName: string;
-            isSelf: boolean;
-          }
-        >
-      );
-    },
-    [pages, sectionLocks, sessionUserId]
-  );
-  const activePageLockKey = useMemo(
-    () => getPageLockKeyForSlug(pages, activePreviewSlug),
-    [activePreviewSlug, pages]
-  );
-  const activePageLock = sectionLocks[activePageLockKey] ?? sectionLocks.pages;
-  const activePageLockedByOther = Boolean(activePageLock && activePageLock.userId !== sessionUserId);
-  const hasForeignSectionLocks = useMemo(
-    () => Object.values(sectionLocks).some((lock) => Boolean(lock && lock.userId !== sessionUserId)),
-    [sectionLocks, sessionUserId]
-  );
-  const canEditPageContent =
-    canEditDraft &&
-    activeSection === "settings" &&
-    activeSettingsSection === "pages" &&
-    isPageEditingMode &&
-    !activePageLockedByOther;
-  const metadataLock = sectionLocks.metadata ?? null;
-  const metadataLockedByOther = Boolean(metadataLock && metadataLock.userId !== sessionUserId);
-  const showMetadataFullView = activeSection === "content" && Boolean(isOwnerOnOwnerDraft);
-  const previewReadOnlyMessage = useMemo(() => {
-    if (shouldLoadDraft && isDraftLoading) return null;
-    if (draftLoadError) return null;
-    if (!canEditDraft) return "This draft is read-only for your current role.";
-    if (activeSection !== "settings" || activeSettingsSection !== "pages") {
-      return "Open Pages to edit content in the live preview.";
-    }
-    if (!isPageEditingMode) {
-      return "Select a page in the sidebar to start editing content.";
-    }
-    if (activePageLockedByOther) {
-      return `${
-        activePageLock?.holderName ?? "Another collaborator"
-      } is editing page "${normalizePageSlug(activePreviewSlug) || "home"}" right now.`;
-    }
-    return null;
-  }, [
-    activePageLock?.holderName,
-    activePageLockedByOther,
-    activePreviewSlug,
-    activeSection,
-    activeSettingsSection,
-    isPageEditingMode,
-    canEditDraft,
-    draftLoadError,
-    isDraftLoading,
-    shouldLoadDraft
-  ]);
   const {
     previewRef,
     selectedEditorImage,
@@ -502,198 +367,49 @@ export const useSiteBuilderRouteController = () => {
     return () => URL.revokeObjectURL(url);
   }, [siteImage]);
 
-  const applyLoadedDraft = useCallback((
-    loaded: LoadedDraftResult,
-    options: {
-      preserveActivePreviewSlug?: boolean;
-      preservedPreviewSlug?: string;
-    } = {}
-  ) => {
-    const { preserveActivePreviewSlug = false, preservedPreviewSlug } = options;
-    const loadedDraftImages = loaded.draftImages ?? [];
-    const loadedPages = loaded.pages.map((page) => ({
-      ...page,
-      body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", loadedDraftImages)
-    }));
-    touchedPageSlugsRef.current.clear();
-    deletedPageSlugsRef.current.clear();
-    setDraftState(loaded.draftState);
-    setSiteAccessRole(loaded.accessRole);
-    setDraftImages(loadedDraftImages);
-    setPages(loadedPages);
-    setDraftPageSlugs(loaded.draftPageSlugs);
-    if (preserveActivePreviewSlug) {
-      const normalizedActiveSlug = normalizePageSlug(preservedPreviewSlug ?? "") || "home";
-      const hasActiveSlug = loadedPages.some(
-        (page, index) => getPageSafeSlug(page, index) === normalizedActiveSlug
-      );
-      if (!hasActiveSlug && loaded.initialActivePreviewSlug) {
-        setActivePreviewSlug(loaded.initialActivePreviewSlug);
-      }
-    } else if (loaded.initialActivePreviewSlug) {
-      setActivePreviewSlug(loaded.initialActivePreviewSlug);
-    }
-
-    if (loaded.siteTitle) {
-      setSiteTitle(loaded.siteTitle);
-    }
-    if (loaded.header) {
-      setHeaderDisabled(loaded.header.disabled);
-      setHeaderFixed(loaded.header.fixed);
-      setHeaderBrandDisabled(loaded.header.disableBrand);
-      setHeaderBrandText(loaded.header.brandText?.trim() || loaded.siteTitle?.trim() || "New Astro Site");
-      hasInitializedHeaderBrand.current = true;
-    } else if (!hasInitializedHeaderBrand.current) {
-      setHeaderBrandText(loaded.siteTitle?.trim() || "New Astro Site");
-      hasInitializedHeaderBrand.current = true;
-    }
-
-    if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
-    if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
-    if (typeof loaded.tokensCss === "string") setTokensCss(loaded.tokensCss);
-    if (typeof loaded.siteImagePreview === "string") setSiteImagePreview(loaded.siteImagePreview);
-    if (typeof loaded.draftImageUrl === "string") setDraftImageUrl(loaded.draftImageUrl);
-    if (loaded.footer) {
-      setFooterDisabled(loaded.footer.disabled);
-      setFooterFixed(loaded.footer.fixed);
-      setFooterModules(normalizeFooterModules(loaded.footer.modules));
-    } else {
-      setFooterModules([...DEFAULT_FOOTER_MODULES]);
-    }
-    shouldCaptureLoadedDraftSignature.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (!draftId) {
-      setIsDraftLoading(false);
-      setDraftLoadError(null);
-      setDraftImages([]);
-      setSiteAccessRole(null);
-      setIsPageEditingMode(false);
-      setLastSavedDraftSignature("");
-      setSectionLocks({});
-      resetCollaborators();
-      cleanedPublishedDraftIdRef.current = null;
-      shouldCaptureLoadedDraftSignature.current = false;
-      touchedPageSlugsRef.current.clear();
-      deletedPageSlugsRef.current.clear();
-      return;
-    }
-
-    if (!sessionResolved) {
-      setIsDraftLoading(true);
-      setDraftLoadError(null);
-      return;
-    }
-
-    if (!sessionUserId) {
-      setIsDraftLoading(false);
-      setDraftLoadError("Sign in to load this draft.");
-      return;
-    }
-
-    let mounted = true;
-    shouldCaptureLoadedDraftSignature.current = false;
-    setIsDraftLoading(true);
-    setDraftLoadError(null);
-    (async () => {
-      try {
-        const loaded = await loadDraftById({
-          draftId,
-          defaultHomeContent,
-          userId: sessionUserId
-        });
-
-        if (!mounted) return;
-        applyLoadedDraft(loaded);
-        if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftId) {
-          navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
-        }
-      } catch (caught) {
-        if (!mounted) return;
-        const message = caught instanceof Error ? caught.message : "Failed to load draft.";
-        setSiteAccessRole(null);
-        setSectionLocks({});
-        setDraftLoadError(message);
-      } finally {
-        if (mounted) {
-          setIsDraftLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, [applyLoadedDraft, draftId, navigate, resetCollaborators, sessionResolved, sessionUserId]);
-
-  const reloadLatestDraftAfterConflict = useCallback(async () => {
-    if (!draftId || !sessionUserId) return;
-    setIsDraftLoading(true);
-    setDraftLoadError(null);
-    shouldCaptureLoadedDraftSignature.current = false;
-    try {
-      const loaded = await loadDraftById({
-        draftId,
-        defaultHomeContent,
-        userId: sessionUserId
-      });
-      applyLoadedDraft(loaded);
-      if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftId) {
-        navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
-      }
-      setNotice("Draft changed by another collaborator. Loaded the latest version.");
-      setNoticeKind("error");
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Failed to reload draft.";
-      setDraftLoadError(message);
-      setNotice(message);
-      setNoticeKind("error");
-    } finally {
-      setIsDraftLoading(false);
-    }
-  }, [applyLoadedDraft, draftId, navigate, sessionUserId]);
-
-  const refreshDraftAfterSectionChange = useCallback(async (
-    options: {
-      preservedPreviewSlug?: string;
-    } = {}
-  ) => {
-    if (!draftState?.id || !sessionUserId) return;
-    setIsDraftLoading(true);
-    setDraftLoadError(null);
-    shouldCaptureLoadedDraftSignature.current = false;
-    const preservedPreviewSlug =
-      normalizePageSlug(options.preservedPreviewSlug ?? activePreviewSlug) || "home";
-    try {
-      const loaded = await loadDraftById({
-        draftId: draftState.id,
-        defaultHomeContent,
-        userId: sessionUserId
-      });
-      applyLoadedDraft(loaded, {
-        preserveActivePreviewSlug: true,
-        preservedPreviewSlug
-      });
-      if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftState.id) {
-        navigate(`/site-builder?draftId=${loaded.resolvedDraftId}`, { replace: true });
-      }
-    } catch (caught) {
-      const message =
-        caught instanceof Error ? caught.message : "Failed to refresh draft state.";
-      setNotice(message);
-      setNoticeKind("error");
-    } finally {
-      setIsDraftLoading(false);
-    }
-  }, [activePreviewSlug, applyLoadedDraft, draftState?.id, navigate, sessionUserId]);
-
-  useEffect(() => {
-    if (!shouldCaptureLoadedDraftSignature.current) return;
-    if (isDraftLoading || !draftState) return;
-    setLastSavedDraftSignature(currentDraftSignature);
-    shouldCaptureLoadedDraftSignature.current = false;
-  }, [currentDraftSignature, draftState, isDraftLoading]);
+  const { reloadLatestDraftAfterConflict, refreshDraftAfterSectionChange } = useSiteBuilderDraftLifecycle({
+    draftId,
+    sessionResolved,
+    sessionUserId,
+    defaultHomeContent,
+    activePreviewSlug,
+    currentDraftSignature,
+    draftState,
+    isDraftLoading,
+    navigate,
+    resetCollaborators,
+    setNotice,
+    setNoticeKind,
+    setDraftState,
+    setSiteAccessRole,
+    setDraftImages,
+    setPages,
+    setDraftPageSlugs,
+    setActivePreviewSlug,
+    setSiteTitle,
+    setHeaderDisabled,
+    setHeaderFixed,
+    setHeaderBrandText,
+    setHeaderBrandDisabled,
+    setSiteDescription,
+    setSiteUrl,
+    setTokensCss,
+    setSiteImagePreview,
+    setDraftImageUrl,
+    setFooterDisabled,
+    setFooterFixed,
+    setFooterModules,
+    setIsDraftLoading,
+    setDraftLoadError,
+    setIsPageEditingMode,
+    setLastSavedDraftSignature,
+    setSectionLocks,
+    hasInitializedHeaderBrandRef: hasInitializedHeaderBrand,
+    cleanedPublishedDraftIdRef: cleanedPublishedDraftIdRef,
+    shouldCaptureLoadedDraftSignatureRef: shouldCaptureLoadedDraftSignature,
+    touchedPageSlugsRef,
+    deletedPageSlugsRef
+  });
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -740,180 +456,6 @@ export const useSiteBuilderRouteController = () => {
     }
   }, [activeSection, activeSettingsSection, clearSelectedEditorImage, isPageEditingMode]);
 
-  const resetNotices = () => {
-    setNotice(null);
-    setNoticeKind(null);
-  };
-
-  const updateDraftSolidaryFile = (solidaryFile: string) => {
-    setDraftState((current) =>
-      current
-        ? {
-            ...current,
-            files: {
-              [FILE_KEYS.solidary]: solidaryFile
-            }
-          }
-        : current
-    );
-  };
-
-  const applyDraftRevisionRow = (draftRow: DraftRevisionRow | null | undefined) => {
-    if (!draftRow) return;
-    setDraftState((current) =>
-      current
-        ? {
-            ...current,
-            revision: typeof draftRow.revision === "number" ? draftRow.revision : current.revision,
-            lastEditedAt:
-              typeof draftRow.last_edited_at === "string"
-                ? draftRow.last_edited_at
-                : (current.lastEditedAt ?? null),
-            lastEditedByUserId:
-              typeof draftRow.last_edited_by_user_id === "string"
-                ? draftRow.last_edited_by_user_id
-                : (current.lastEditedByUserId ?? null)
-          }
-        : current
-    );
-  };
-
-  const saveCurrentDraftState = async (
-    repoInfo: DraftState,
-    solidaryFile: string,
-    imageUrl: string,
-    pagesSnapshot: BuilderPage[] = pages
-  ) =>
-    saveDraftState({
-      canEditDraft,
-      sessionUserId: session?.user.id ?? null,
-      repoInfo,
-      solidaryFile,
-      imageUrl,
-      pagesSnapshot,
-      siteSettingsInput,
-      tokensCss,
-      draftImages,
-      draftPageSlugs,
-      applyDraftRevisionRow,
-      setDraftPageSlugs
-    });
-
-  const buildDraftSignatureForState = ({
-    pagesSnapshot = pages,
-    imageUrl = draftSaveImageUrl
-  }: {
-    pagesSnapshot?: BuilderPage[];
-    imageUrl?: string;
-  } = {}) =>
-    buildDraftSignatureFromState({
-      draftState,
-      siteSettingsInput,
-      tokensCss,
-      draftImages,
-      pagesSnapshot,
-      imageUrl
-    });
-
-  const markEditorDraftTouched = async (
-    section: BuilderEditableSectionKey,
-    touchedPageSlugs: string[] = [],
-    deletedPageSlugs: string[] = []
-  ) =>
-    markEditorDraftTouchedInternal({
-      draftState,
-      section,
-      setDraftState,
-      touchedPageSlugs,
-      deletedPageSlugs
-    });
-
-  const saveMetadataSection = async () =>
-    runSaveMetadataSection({
-      draftState,
-      siteImage,
-      draftImageUrl,
-      siteImagePreview,
-      templateSolidary,
-      siteSettingsInput,
-      siteUrl,
-      sessionUserId: session?.user.id ?? null,
-      applyDraftRevisionRow,
-      updateDraftSolidaryFile,
-      markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: ({ imageUrl }) =>
-        buildDraftSignatureForState({ imageUrl })
-    });
-
-  const savePagesSection = async () =>
-    runSavePagesSection({
-      draftState,
-      pages,
-      draftImages,
-      draftPageSlugs,
-      touchedPageSlugsRef,
-      deletedPageSlugsRef,
-      setPages,
-      setDraftPageSlugs,
-      markEditorDraftTouched: (section, touchedPageSlugs, deletedPageSlugs) =>
-        markEditorDraftTouched(section, touchedPageSlugs, deletedPageSlugs),
-      buildDraftSignatureForState: ({ pagesSnapshot }) =>
-        buildDraftSignatureForState({ pagesSnapshot })
-    });
-
-  const saveHeaderSection = async () =>
-    runSaveHeaderSection({
-      draftState,
-      siteSettingsInput,
-      markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
-    });
-
-  const saveFooterSection = async () =>
-    runSaveFooterSection({
-      draftState,
-      siteSettingsInput,
-      markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
-    });
-
-  const saveStylesSection = async () =>
-    runSaveStylesSection({
-      draftState,
-      tokensCss,
-      markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
-    });
-
-  const saveSectionByKey = async (sectionKey: BuilderEditableSectionKey) => {
-    if (!canEditDraft) return;
-    if (!draftState) return;
-    const lockKey = sectionKey === "pages" ? getPageLockKeyForSlug(pages, activePreviewSlug) : sectionKey;
-    const lock = sectionLocks[lockKey] ?? (sectionKey === "pages" ? sectionLocks.pages : null);
-    if (lock && lock.userId !== sessionUserId) {
-      if (sectionKey === "pages") {
-        throw new Error(
-          `${lock.holderName} is editing page "${normalizePageSlug(activePreviewSlug) || "home"}".`
-        );
-      }
-      throw new Error(`${lock.holderName} is editing ${getLockLabel(lockKey)}.`);
-    }
-
-    if (sectionKey === "metadata") {
-      return saveMetadataSection();
-    } else if (sectionKey === "pages") {
-      return savePagesSection();
-    } else if (sectionKey === "header") {
-      return saveHeaderSection();
-    } else if (sectionKey === "footer") {
-      return saveFooterSection();
-    } else if (sectionKey === "styles") {
-      return saveStylesSection();
-    }
-
-    return "";
-  };
-
   const { loadSectionLocks, acquireSectionLock, releaseSectionLock } = useDraftSectionLocks({
     draftId: draftState?.id ?? null,
     sessionUserId,
@@ -923,166 +465,56 @@ export const useSiteBuilderRouteController = () => {
     setSectionLocks
   });
 
-  const handlePublish = async () => {
-    resetNotices();
-    setPublishFeedback(null);
-    cancelPublishStatusTracking();
-    cleanedPublishedDraftIdRef.current = null;
-
-    if (!canPublishByRole) {
-      setNotice("You do not have publish access for this draft.");
-      setNoticeKind("error");
-      return;
-    }
-
-    if (canDirectPublish && hasForeignSectionLocks) {
-      setNotice("Wait for collaborators to finish their current section edits before publishing.");
-      setNoticeKind("error");
-      return;
-    }
-
-    if (!session) {
-      setNotice("Sign in with GitHub to continue.");
-      setNoticeKind("error");
-      return;
-    }
-
-    const providerToken = (session as { provider_token?: string }).provider_token;
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
-      setNoticeKind("error");
-      return;
-    }
-
-    if (!siteTitle.trim() || !siteDescription.trim()) {
-      setNotice("Title and description are required.");
-      setNoticeKind("error");
-      return;
-    }
-
-    setIsProvisioning(true);
-    const publishStartedAt = new Date().toISOString();
-
-    try {
-      if (!draftState) {
-        throw new Error("Missing site draft. Create a site first.");
-      }
-
-      if (hasUnsavedChanges && activeEditableSection && !activeSectionLockedByOther) {
-        const savedSignature = await saveSectionByKey(activeEditableSection);
-        if (typeof savedSignature === "string" && savedSignature) {
-          setLastSavedDraftSignature(savedSignature);
-        }
-      }
-
-      if (canDirectPublish) {
-        await publishOwnerDraft({
-          providerToken,
-          publishStartedAt,
-          draftState,
-          siteTitle,
-          siteDescription,
-          siteUrl,
-          siteImage,
-          siteImagePreview,
-          draftImageUrl,
-          computedSlug,
-          pages,
-          draftImages,
-          siteSettingsInput,
-          tokensCss,
-          templateSolidary,
-          defaultHomeContent,
-          setProvisionStep,
-          saveDraftState: saveCurrentDraftState,
-          updateDraftSolidaryFile,
-          setPages,
-          setDraftImages,
-          setLastSavedDraftSignature,
-          setDraftImageUrl,
-          startPublishStatusTracking
-        });
-        setNotice(null);
-        setNoticeKind(null);
-      } else {
-        await publishEditorDraft({
-          providerToken,
-          draftState,
-          siteUrl,
-          siteImage,
-          siteImagePreview,
-          draftImageUrl,
-          computedSlug,
-          pages,
-          draftImages,
-          siteSettingsInput,
-          tokensCss,
-          templateSolidary,
-          defaultHomeContent,
-          setProvisionStep,
-          sessionAccessToken: session.access_token ?? null,
-          sessionDisplayName,
-          setDraftImageUrl,
-          setDraftState,
-          clearTouchedPageTracking: () => {
-            touchedPageSlugsRef.current.clear();
-            deletedPageSlugsRef.current.clear();
-          },
-          setLastSavedDraftSignature,
-          setPublishFeedback,
-          setNotice,
-          setNoticeKind,
-          buildDraftSignatureForState
-        });
-      }
-    } catch (caught) {
-      if (caught instanceof DraftConflictError) {
-        await reloadLatestDraftAfterConflict();
-      } else {
-        const message = caught instanceof Error ? caught.message : "Something went wrong.";
-        setNotice(message);
-        setNoticeKind("error");
-      }
-    } finally {
-      setIsProvisioning(false);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    if (!draftState || savingDraft) return;
-    if (!canEditDraft) {
-      setNotice("Your role is read-only for this site.");
-      setNoticeKind("error");
-      return;
-    }
-    const sectionKey = activeEditableSection;
-    if (!sectionKey) {
-      setNotice("Open a section to save your latest changes.");
-      setNoticeKind("error");
-      return;
-    }
-    setSavingDraft(true);
-    try {
-      const savedSignature = await saveSectionByKey(sectionKey);
-      if (typeof savedSignature === "string" && savedSignature) {
-        setLastSavedDraftSignature(savedSignature);
-      } else {
-        setLastSavedDraftSignature(currentDraftSignature);
-      }
-      setNotice(`${EDITABLE_SECTION_LABELS[sectionKey]} saved.`);
-      setNoticeKind("notice");
-    } catch (error) {
-      if (error instanceof DraftConflictError) {
-        await reloadLatestDraftAfterConflict();
-      } else {
-        const message = error instanceof Error ? error.message : "Failed to save draft.";
-        setNotice(message);
-        setNoticeKind("error");
-      }
-    } finally {
-      setSavingDraft(false);
-    }
-  };
+  const { saveSectionByKey, handlePublish, handleSaveDraft } = useSiteBuilderSavePublishActions({
+    canEditDraft,
+    canPublishByRole,
+    canDirectPublish,
+    hasForeignSectionLocks,
+    activeEditableSection,
+    activeSectionLockedByOther,
+    sectionLocks,
+    activePreviewSlug,
+    sessionUserId,
+    session,
+    siteTitle,
+    siteDescription,
+    siteUrl,
+    siteImage,
+    siteImagePreview,
+    draftImageUrl,
+    draftSaveImageUrl,
+    computedSlug,
+    pages,
+    draftImages,
+    draftPageSlugs,
+    draftState,
+    siteSettingsInput,
+    tokensCss,
+    templateSolidary,
+    defaultHomeContent,
+    hasUnsavedChanges,
+    currentDraftSignature,
+    savingDraft,
+    sessionDisplayName,
+    touchedPageSlugsRef,
+    deletedPageSlugsRef,
+    cleanedPublishedDraftIdRef,
+    setNotice,
+    setNoticeKind,
+    setPublishFeedback,
+    setIsProvisioning,
+    setProvisionStep,
+    setDraftState,
+    setPages,
+    setDraftImages,
+    setDraftPageSlugs,
+    setDraftImageUrl,
+    setLastSavedDraftSignature,
+    setSavingDraft,
+    startPublishStatusTracking,
+    cancelPublishStatusTracking,
+    reloadLatestDraftAfterConflict
+  });
 
   const {
     switchEditorSection,

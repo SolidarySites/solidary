@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import "./SiteHeader.css";
 
 const getUserDisplayName = (session: Session | null) => {
   const metadata = session?.user.user_metadata as Record<string, unknown> | undefined;

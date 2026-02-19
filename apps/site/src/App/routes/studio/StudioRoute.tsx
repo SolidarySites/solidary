@@ -4,6 +4,7 @@ import DeleteSiteDialog from "./components/DeleteSiteDialog";
 import IndexesListSection from "./components/IndexesListSection";
 import SitesListSection from "./components/SitesListSection";
 import { useStudioRouteController } from "./hooks/useStudioRouteController";
+import "./StudioRoute.css";
 
 export default function StudioRoute() {
   const controller = useStudioRouteController();

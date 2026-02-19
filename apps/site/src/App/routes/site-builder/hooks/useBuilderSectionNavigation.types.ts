@@ -43,6 +43,7 @@ export type UseBuilderSectionNavigationResult = {
     options?: {
       nextPageEditingMode?: boolean;
       nextPreviewSlug?: string;
+      skipDraftRefresh?: boolean;
     }
   ) => Promise<void>;
   handleActivePreviewSlugChange: (nextSlug: string) => Promise<void>;

@@ -68,7 +68,8 @@ export const useBuilderPageEditing = ({
     setActivePreviewSlug(slug);
     void switchEditorSection("settings", "pages", {
       nextPageEditingMode: true,
-      nextPreviewSlug: slug
+      nextPreviewSlug: slug,
+      skipDraftRefresh: true
     });
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };

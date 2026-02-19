@@ -5,6 +5,7 @@ import BuilderPreviewPanel from "./components/BuilderPreviewPanel";
 import BuilderSidebar from "./components/BuilderSidebar";
 import BuilderTopbar from "./components/BuilderTopbar";
 import { useSiteBuilderRouteController } from "./hooks/useSiteBuilderRouteController";
+import "./SiteBuilderRoute.css";
 
 export default function SiteBuilderRoute() {
   const controller = useSiteBuilderRouteController();

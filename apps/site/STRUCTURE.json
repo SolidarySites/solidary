@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-19T11:27:55.820Z",
-  "latest_commit_sha": "ae851add626fcf823f166bfbbc8cad4e24de85e5",
+  "generated_at": "2026-02-19T12:24:12.000Z",
+  "latest_commit_sha": "7489c7e2856cff980b477b7a84605a53d9d3356e",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -21,7 +21,7 @@
     },
     {
       "path": "src/App",
-      "description": "Primary application module containing router shell (`App.tsx`), global styles, shared layout components, cross-route features, and route folders."
+      "description": "Primary application module containing router shell (`App.tsx`), shared primitive styles, route/component-scoped stylesheets, shared layout components, cross-route features, and route folders."
     },
     {
       "path": "src/App/assets",
@@ -29,7 +29,7 @@
     },
     {
       "path": "src/App/components",
-      "description": "Global shell components reused across routes (currently `SiteHeader` and `SiteFooter`)."
+      "description": "Global shell components reused across routes (`SiteHeader` and `SiteFooter`) with co-located component stylesheets."
     },
     {
       "path": "src/App/features",
@@ -85,7 +85,7 @@
     },
     {
       "path": "src/App/routes/site-builder/hooks",
-      "description": "Builder hooks coordinating controller state, section/page navigation, locks, presence, collaborators, and publish tracking."
+      "description": "Builder hooks coordinating route-controller composition, access/locks, draft lifecycle, save/publish actions, section/page navigation, collaborators/presence, and publish tracking."
     },
     {
       "path": "src/App/routes/site-builder/services",
@@ -182,8 +182,8 @@
     },
     {
       "path": "src/App/App.css",
-      "description": "Primary UI stylesheet for shared layout and route components (header, landing, studio cards/dialogs, and builder scaffolding).",
-      "LOC": 1567
+      "description": "Shared UI primitives (shell layout, form controls, action button variants, and reusable loading styles) consumed across routes.",
+      "LOC": 97
     },
     {
       "path": "src/App/App.tsx",
@@ -191,9 +191,19 @@
       "LOC": 45
     },
     {
+      "path": "src/App/components/SiteFooter.css",
+      "description": "Component-scoped footer styles for notices/warnings and footer layout.",
+      "LOC": 28
+    },
+    {
       "path": "src/App/components/SiteFooter.tsx",
       "description": "Global footer that shows Supabase env setup warnings and route-level notice/error messages.",
       "LOC": 25
+    },
+    {
+      "path": "src/App/components/SiteHeader.css",
+      "description": "Component-scoped header/profile menu styles, including the mobile header spacing adjustment.",
+      "LOC": 133
     },
     {
       "path": "src/App/components/SiteHeader.tsx",
@@ -254,6 +264,11 @@
       "path": "src/App/routes/landing/index.ts",
       "description": "Route barrel re-export for the landing route entry component.",
       "LOC": 2
+    },
+    {
+      "path": "src/App/routes/landing/LandingRoute.css",
+      "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
+      "LOC": 78
     },
     {
       "path": "src/App/routes/landing/LandingRoute.tsx",
@@ -328,47 +343,62 @@
     {
       "path": "src/App/routes/site-builder/hooks/useBuilderCollaborators.ts",
       "description": "Hook for collaborator search, invite, role updates, removals, and managed-collaborator list loading/sync via Supabase RPC + Netlify GitHub functions.",
-      "LOC": 416
+      "LOC": 415
     },
     {
       "path": "src/App/routes/site-builder/hooks/useBuilderPageEditing.ts",
       "description": "Hook for page CRUD-ish editing helpers (add/update slug/title/body), touched/deleted slug tracking, nav ordering, and footer module reordering.",
-      "LOC": 212
+      "LOC": 211
     },
     {
       "path": "src/App/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
       "description": "Hook wrapping preview editor commands, selected image state, and inline image uploads to Supabase storage + draft image metadata records.",
-      "LOC": 196
+      "LOC": 195
     },
     {
       "path": "src/App/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
       "description": "Section/page navigation coordinator that delegates lock-aware transitions and exposes route-level navigation handlers.",
-      "LOC": 208
+      "LOC": 207
     },
     {
       "path": "src/App/routes/site-builder/hooks/useBuilderSectionNavigation.types.ts",
       "description": "Type contracts for section-navigation hook inputs/outputs and lock/save callbacks.",
-      "LOC": 54
+      "LOC": 53
     },
     {
       "path": "src/App/routes/site-builder/hooks/useDraftPresence.ts",
       "description": "Realtime presence hook that tracks active collaborators and active page slug per user through Supabase Realtime presence channels.",
-      "LOC": 131
+      "LOC": 130
     },
     {
       "path": "src/App/routes/site-builder/hooks/useDraftSectionLocks.ts",
       "description": "Section-lock hook for polling/acquiring/releasing draft section locks and releasing all locks on pagehide/unmount.",
-      "LOC": 198
+      "LOC": 197
     },
     {
       "path": "src/App/routes/site-builder/hooks/usePublishStatusTracking.ts",
       "description": "Publish status polling hook that tracks GitHub deployment workflow progress and emits publish feedback/error/success callbacks.",
-      "LOC": 167
+      "LOC": 166
+    },
+    {
+      "path": "src/App/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
+      "description": "Route-controller subhook that derives builder access mode, lock ownership maps, metadata/full-view state, and preview read-only messaging from role + lock state.",
+      "LOC": 217
+    },
+    {
+      "path": "src/App/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
+      "description": "Route-controller subhook for draft load/reload/refresh orchestration, applying loaded draft snapshots into route state, and syncing saved-signature capture after loads.",
+      "LOC": 386
     },
     {
       "path": "src/App/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
-      "description": "Primary site-builder controller: draft loading, role/lock state, section saves, publish flows (owner vs editor), collaborator/presence wiring, and UI prop composition.",
-      "LOC": 1376
+      "description": "Primary site-builder route orchestrator that composes route state, collaborators/presence hooks, section navigation, and view-model props while delegating access/locks, draft lifecycle, and save/publish logic to dedicated subhooks.",
+      "LOC": 807
+    },
+    {
+      "path": "src/App/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
+      "description": "Route-controller subhook that owns section-scoped draft saves plus owner/editor publish workflows, including conflict reload handling and publish status tracking handoff.",
+      "LOC": 482
     },
     {
       "path": "src/App/routes/site-builder/index.ts",
@@ -486,6 +516,11 @@
       "LOC": 73
     },
     {
+      "path": "src/App/routes/site-builder/SiteBuilderRoute.css",
+      "description": "Site-builder route stylesheet covering builder layout/topbar/sidebar/panels, collaborator and lock affordances, Astro preview skinning, and responsive builder breakpoints.",
+      "LOC": 974
+    },
+    {
       "path": "src/App/routes/site-builder/SiteBuilderRoute.tsx",
       "description": "Site builder route orchestrator that composes topbar, sidebar/content sections, preview panel, and metadata full-view lock state.",
       "LOC": 48
@@ -514,6 +549,11 @@
       "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
       "description": "End-to-end create-site workflow service that starts and polls async GitHub repo provisioning, enables Pages, waits for deployment, verifies live auth identity consistency, and inserts initial `sites`/`site_drafts`/`site_draft_settings`/`site_draft_pages` rows with structured diagnostic logging.",
       "LOC": 630
+    },
+    {
+      "path": "src/App/routes/site-create/SiteCreateRoute.css",
+      "description": "Site-create route stylesheet for the form surface wrapper.",
+      "LOC": 7
     },
     {
       "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
@@ -564,6 +604,11 @@
       "path": "src/App/routes/studio/services/studio-types.ts",
       "description": "Route-local types for draft rows, access roles, collaboration PR cards, rendered site cards, and delete-dialog mode/target state.",
       "LOC": 36
+    },
+    {
+      "path": "src/App/routes/studio/StudioRoute.css",
+      "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
+      "LOC": 192
     },
     {
       "path": "src/App/routes/studio/StudioRoute.tsx",
@@ -618,7 +663,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 680
+      "LOC": 704
     },
     {
       "path": "tsconfig.app.json",

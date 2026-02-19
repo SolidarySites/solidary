@@ -1,0 +1,28 @@
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.15);
+  padding-top: 1.5rem;
+  font-size: 0.8rem;
+  color: rgba(31, 34, 28, 0.7);
+}
+
+.warning,
+.error,
+.notice {
+  border: 1px solid rgba(31, 34, 28, 0.2);
+  padding: 0.7rem 0.9rem;
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+.error {
+  border-color: rgba(180, 60, 50, 0.6);
+  color: #7a1f17;
+}
+
+.notice {
+  border-color: rgba(30, 110, 70, 0.6);
+  color: #1b4d32;
+}

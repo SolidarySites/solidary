@@ -21,6 +21,7 @@ type SwitchEditorSectionParams = {
   options: {
     nextPageEditingMode?: boolean;
     nextPreviewSlug?: string;
+    skipDraftRefresh?: boolean;
   };
   activeSection: BuilderSection;
   activeSettingsSection: BuilderSettingsSection;
@@ -172,9 +173,11 @@ export const switchEditorSectionWithLocks = async ({
     if (!nextPageEditingMode) {
       clearSelectedEditorImage();
     }
-    await refreshDraftAfterSectionChange({
-      preservedPreviewSlug: normalizedNextSlug
-    });
+    if (!options.skipDraftRefresh) {
+      await refreshDraftAfterSectionChange({
+        preservedPreviewSlug: normalizedNextSlug
+      });
+    }
   } catch (caught) {
     if (acquiredNextLock && nextLockKey && nextLockKey !== currentLockKey) {
       await releaseSectionLock(nextLockKey).catch(() => undefined);

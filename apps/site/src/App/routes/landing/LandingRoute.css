@@ -1,0 +1,78 @@
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 2rem;
+  align-items: center;
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  padding: 2.5rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.landing-hero h1 {
+  margin: 0 0 0.8rem;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+}
+
+.landing-hero p {
+  margin: 0 0 1.2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.7rem;
+  margin-bottom: 1rem;
+  color: rgba(31, 34, 28, 0.6);
+}
+
+.landing-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.primary-link,
+.ghost-link {
+  border: 1px solid rgba(31, 34, 28, 0.4);
+  padding: 0.6rem 1.2rem;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.primary-link {
+  background: #1f221c;
+  color: #f8f5ef;
+}
+
+.ghost-link {
+  background: rgba(31, 34, 28, 0.05);
+  color: #1f221c;
+}
+
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.landing-card {
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  padding: 1.6rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.landing-card h3 {
+  margin: 0 0 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+  }
+}
