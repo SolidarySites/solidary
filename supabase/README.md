@@ -9,7 +9,7 @@
 4. Leave other providers disabled.
 
 ## Local dev
-- Copy `apps/studio/.env.example` to `apps/studio/.env` and fill in your project values.
+- Copy `apps/site/.env.example` to `apps/site/.env` and fill in your project values.
 - Apply migrations with the Supabase CLI:
   `supabase db push`
 - Optional seed: `supabase db seed --file supabase/seed.sql`

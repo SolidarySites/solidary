@@ -167,7 +167,7 @@ Membership is represented as events (append-only) rather than overwriting truth.
 
 This repo is organized as:
 
-- `apps/studio/`
+- `apps/site/`
   - React app hosted on solidary.link
   - non-technical editing UI for site feeds and archive management
   - CodeMirror-based advanced editor
@@ -273,7 +273,7 @@ Protocol ingestion must remain GitHub-API-independent.
 ## Local setup
 
 1) Studio env
-- `cp apps/studio/.env.example apps/studio/.env`
+- `cp apps/site/.env.example apps/site/.env`
 - Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
 
 2) Functions env

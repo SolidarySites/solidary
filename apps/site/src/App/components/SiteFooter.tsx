@@ -13,7 +13,7 @@ export default function SiteFooter({ notice, noticeKind }: SiteFooterProps) {
         <div className="warning">
           Add <code>VITE_SUPABASE_PROJECT_ID</code> and
           <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> to
-          <code>apps/studio/.env</code> before signing in.
+          <code>apps/site/.env</code> before signing in.
         </div>
       )}
       {notice && (

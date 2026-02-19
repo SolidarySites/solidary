@@ -1,7 +1,7 @@
 [build]
   base = "/"
   command = "npm run build"
-  publish = "apps/studio/dist"
+  publish = "apps/site/dist"
 
 [functions]
   directory = "apps/functions/src"
@@ -11,7 +11,7 @@
   included_files = ["templates/astro-baseline/**", "../../templates/astro-baseline/**"]
 
 [dev]
-  command = "npm -w apps/studio run dev"
+  command = "npm -w apps/site run dev"
   functions = "apps/functions/src"
   port = 8888
 
