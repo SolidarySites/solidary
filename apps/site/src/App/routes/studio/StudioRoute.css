@@ -40,6 +40,7 @@
 .site-card-thumbnail-shell {
   flex: 0 0 148px;
   width: 148px;
+  position: relative;
 }
 
 .site-card-thumbnail,
@@ -53,6 +54,28 @@
 .site-card-thumbnail {
   display: block;
   object-fit: cover;
+}
+
+.site-card-thumbnail[data-external-image-state="loading"] {
+  animation: none;
+  transform: none;
+  opacity: 0;
+}
+
+.site-card-thumbnail-shell[data-external-image-state="loading"]::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 50%;
+  top: 50%;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 999px;
+  border: 2px solid rgba(31, 34, 28, 0.2);
+  border-top-color: rgba(31, 34, 28, 0.65);
+  animation: studio-thumbnail-spinner 1.8s linear infinite;
+  pointer-events: none;
 }
 
 .site-card-thumbnail-placeholder {
@@ -168,6 +191,12 @@
   justify-content: flex-end;
   gap: 0.8rem;
   flex-wrap: wrap;
+}
+
+@keyframes studio-thumbnail-spinner {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 720px) {

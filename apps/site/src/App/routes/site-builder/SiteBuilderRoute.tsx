@@ -1,5 +1,4 @@
 import SiteFooter from "../../components/SiteFooter";
-import SiteHeader from "../../components/SiteHeader";
 import BuilderContentSection from "./components/BuilderContentSection";
 import BuilderPreviewPanel from "./components/BuilderPreviewPanel";
 import BuilderSidebar from "./components/BuilderSidebar";
@@ -12,8 +11,6 @@ export default function SiteBuilderRoute() {
 
   return (
     <div className="app-shell builder-shell">
-      <SiteHeader />
-
       <BuilderTopbar {...controller.topbarProps} />
 
       <div className={controller.bodyClassName}>

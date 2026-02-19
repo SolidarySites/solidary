@@ -1,4 +1,3 @@
-import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
 import DeleteSiteDialog from "./components/DeleteSiteDialog";
 import IndexesListSection from "./components/IndexesListSection";
@@ -11,7 +10,6 @@ export default function StudioRoute() {
 
   return (
     <div className="app-shell">
-      <SiteHeader />
       <main className="main-content">
         {controller.shouldShowSections && <SitesListSection {...controller.ownedSitesProps} />}
         {controller.shouldShowSections && <IndexesListSection {...controller.indexesProps} />}

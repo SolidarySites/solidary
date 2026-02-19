@@ -1,11 +1,9 @@
 import { Link } from "react-router-dom";
-import SiteHeader from "../../components/SiteHeader";
 import "./LandingRoute.css";
 
 export default function LandingRoute() {
   return (
     <div className="app-shell">
-      <SiteHeader />
       <main className="main-content">
         <section className="landing-hero">
           <div>

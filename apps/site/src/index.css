@@ -38,3 +38,17 @@ textarea {
 .w-md-editor-preview {
   background: #fff;
 }
+
+img[data-external-image-state="loading"] {
+  object-fit: none;
+  object-position: center;
+  background: transparent;
+  animation: external-image-spinner-rotate 1.8s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes external-image-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

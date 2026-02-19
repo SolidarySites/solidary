@@ -12,6 +12,11 @@ import {
 } from "react";
 import { normalizePageSlug } from "../services/utils";
 import type { DraftImageAsset, FooterOptions, HeaderOptions } from "../services/types";
+import {
+  EXTERNAL_IMAGE_PLACEHOLDER_SRC,
+  getTrackedExternalImageSource,
+  normalizeExternalImageForPersistence
+} from "../../../lib/external-image-loading";
 
 type PreviewPage = {
   id?: string;
@@ -515,7 +520,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     const wrapper = document.createElement("div");
     wrapper.innerHTML = displayBodyHtml;
     return Array.from(wrapper.querySelectorAll("img"))
-      .map((image, index) => `${index}:${(image.getAttribute("src") ?? "").trim()}`)
+      .map((image, index) => `${index}:${getTrackedExternalImageSource(image)}`)
       .join("|");
   }, [displayBodyHtml]);
 
@@ -618,6 +623,12 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   }, []);
 
   const syncFigureCaptionLayout = useCallback((image: HTMLImageElement) => {
+    const currentSrc = image.getAttribute("src")?.trim() ?? "";
+    const trackedSource = getTrackedExternalImageSource(image);
+    const isPlaceholderImage =
+      currentSrc === EXTERNAL_IMAGE_PLACEHOLDER_SRC && trackedSource !== currentSrc;
+    if (isPlaceholderImage) return;
+
     const figure = image.closest(`figure[${IMAGE_FIGURE_ATTR}="true"]`);
     if (!(figure instanceof HTMLElement)) return;
     const figcaption = getDirectFigcaption(figure);
@@ -644,6 +655,10 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   const getPersistableEditorHtml = useCallback((editor: HTMLDivElement) => {
     const clone = editor.cloneNode(true);
     if (!(clone instanceof HTMLDivElement)) return editor.innerHTML;
+
+    clone.querySelectorAll("img").forEach((image) => {
+      normalizeExternalImageForPersistence(image);
+    });
 
     clone
       .querySelectorAll(`figure[${IMAGE_FIGURE_ATTR}="true"] > figcaption`)
@@ -699,16 +714,28 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     editor.querySelectorAll("img").forEach((image) => {
       const syncImageLayout = () => {
         if (!editor.contains(image)) return;
+        const currentSrc = image.getAttribute("src")?.trim() ?? "";
+        const trackedSource = getTrackedExternalImageSource(image);
+        if (currentSrc === EXTERNAL_IMAGE_PLACEHOLDER_SRC && trackedSource !== currentSrc) {
+          return;
+        }
         ensureImageFigure(image);
         syncFigureCaptionLayout(image);
+
+        image.removeEventListener("load", syncImageLayout);
       };
 
-      if (image.complete && image.naturalWidth > 0) {
+      const currentSrc = image.getAttribute("src")?.trim() ?? "";
+      const trackedSource = getTrackedExternalImageSource(image);
+      const isPlaceholderImage =
+        currentSrc === EXTERNAL_IMAGE_PLACEHOLDER_SRC && trackedSource !== currentSrc;
+
+      if (image.complete && image.naturalWidth > 0 && !isPlaceholderImage) {
         syncImageLayout();
         return;
       }
 
-      image.addEventListener("load", syncImageLayout, { once: true });
+      image.addEventListener("load", syncImageLayout);
       removeLoadListeners.push(() => image.removeEventListener("load", syncImageLayout));
     });
 
@@ -788,7 +815,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       return {
         pageSlug: current.pageSlug,
         id: current.id,
-        src: image.getAttribute("src")?.trim() ?? "",
+        src: getTrackedExternalImageSource(image),
         alt: image.getAttribute("alt") ?? "",
         caption: getImageCaptionText(image),
         sizePercent: parseImageSizePercent(image)
@@ -843,7 +870,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       setSelectedImage({
         pageSlug: activeSlug,
         id: imageId,
-        src: target.getAttribute("src")?.trim() ?? "",
+        src: getTrackedExternalImageSource(target),
         alt: target.getAttribute("alt") ?? "",
         caption: getImageCaptionText(target),
         sizePercent: parseImageSizePercent(target)

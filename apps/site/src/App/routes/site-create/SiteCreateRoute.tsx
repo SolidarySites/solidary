@@ -1,5 +1,4 @@
 import SiteFooter from "../../components/SiteFooter";
-import SiteHeader from "../../components/SiteHeader";
 import SiteCreateFormSection from "./components/SiteCreateFormSection";
 import SiteCreateProvisioningSection from "./components/SiteCreateProvisioningSection";
 import { useSiteCreateRouteController } from "./hooks/useSiteCreateRouteController";
@@ -10,8 +9,6 @@ export default function SiteCreateRoute() {
 
   return (
     <div className="app-shell">
-      <SiteHeader />
-
       <main className="main-content">
         {controller.isProvisioning ? (
           <SiteCreateProvisioningSection provisionStep={controller.provisionStep} />

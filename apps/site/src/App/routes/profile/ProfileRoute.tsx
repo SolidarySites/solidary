@@ -1,5 +1,4 @@
 import SiteFooter from "../../components/SiteFooter";
-import SiteHeader from "../../components/SiteHeader";
 import { useProfileRouteController } from "./hooks/useProfileRouteController";
 import "./ProfileRoute.css";
 
@@ -13,8 +12,6 @@ export default function ProfileRoute() {
 
   return (
     <div className="app-shell">
-      <SiteHeader />
-
       <main className="main-content">
         <section className="profile-settings-card">
           <div className="section-header">

@@ -34,7 +34,7 @@ function SiteCardThumbnail({ imageUrl, title }: SiteCardThumbnailProps) {
   const canShowImage = Boolean(imageUrl) && !imageFailed;
 
   return (
-    <div className="site-card-thumbnail-shell" aria-hidden={!canShowImage}>
+    <div className="site-card-thumbnail-shell" data-external-image-container="true" aria-hidden={!canShowImage}>
       {canShowImage ? (
         <img
           className="site-card-thumbnail"
