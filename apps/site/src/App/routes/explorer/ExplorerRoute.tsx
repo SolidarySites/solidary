@@ -10,41 +10,6 @@ export default function ExplorerRoute() {
   return (
     <div className="app-shell">
       <main className="main-content">
-        <section className="explorer-hero">
-          <div className="section-header">
-            <p className="explorer-eyebrow">Public explorer</p>
-            <h2>Explore the connected sites graph</h2>
-            <p>
-              This page is public and read-only. It visualizes sites in the database and approved
-              site-to-site connections between them.
-            </p>
-          </div>
-
-          <div className="explorer-stats">
-            <article className="explorer-stat-card">
-              <span>Sites</span>
-              <strong>{controller.totalSiteCount}</strong>
-            </article>
-            <article className="explorer-stat-card">
-              <span>Connections</span>
-              <strong>{controller.totalConnectionCount}</strong>
-            </article>
-            <article className="explorer-stat-card">
-              <span>Visible</span>
-              <strong>{controller.filteredSites.length}</strong>
-            </article>
-          </div>
-
-          <label className="explorer-search-label">
-            Search sites
-            <input
-              value={controller.searchQuery}
-              onChange={(event) => controller.onSearchQueryChange(event.target.value)}
-              placeholder="Filter by title, description, or URL"
-            />
-          </label>
-        </section>
-
         {controller.loading && (
           <section className="explorer-panel">
             <p>Loading explorer data...</p>
@@ -60,12 +25,16 @@ export default function ExplorerRoute() {
         {!controller.loading && !controller.error && (
           <>
             <ExplorerGraph
-              sites={controller.filteredSites}
-              connections={controller.filteredConnections}
+              sites={controller.sites}
+              connections={controller.connections}
             />
             <ExplorerSitesList
-              sites={controller.filteredSites}
-              connections={controller.filteredConnections}
+              sites={controller.listSites}
+              connections={controller.connections}
+              totalSiteCount={controller.totalSiteCount}
+              totalConnectionCount={controller.totalConnectionCount}
+              searchQuery={controller.searchQuery}
+              onSearchQueryChange={controller.onSearchQueryChange}
             />
           </>
         )}

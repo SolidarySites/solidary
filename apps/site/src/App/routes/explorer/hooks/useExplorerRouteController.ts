@@ -4,8 +4,8 @@ import { loadExplorerData, type ExplorerConnection, type ExplorerSite } from "..
 const normalize = (value: string) => value.trim().toLowerCase();
 
 export const useExplorerRouteController = () => {
-  const [sites, setSites] = useState<ExplorerSite[]>([]);
-  const [connections, setConnections] = useState<ExplorerConnection[]>([]);
+  const [allSites, setAllSites] = useState<ExplorerSite[]>([]);
+  const [allConnections, setAllConnections] = useState<ExplorerConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,8 +19,8 @@ export const useExplorerRouteController = () => {
       try {
         const data = await loadExplorerData();
         if (cancelled) return;
-        setSites(data.sites);
-        setConnections(data.connections);
+        setAllSites(data.sites);
+        setAllConnections(data.connections);
       } catch (caught) {
         if (cancelled) return;
         const message =
@@ -40,38 +40,24 @@ export const useExplorerRouteController = () => {
     };
   }, []);
 
-  const filteredSites = useMemo(() => {
+  const listSites = useMemo(() => {
     const query = normalize(searchQuery);
-    if (!query) return sites;
-    return sites.filter((site) => {
+    if (!query) return allSites;
+    return allSites.filter((site) => {
       const haystack = `${site.title} ${site.description} ${site.canonicalUrl}`.toLowerCase();
       return haystack.includes(query);
     });
-  }, [searchQuery, sites]);
-
-  const filteredSiteIds = useMemo(
-    () => new Set(filteredSites.map((site) => site.id)),
-    [filteredSites]
-  );
-
-  const filteredConnections = useMemo(
-    () =>
-      connections.filter(
-        (connection) =>
-          filteredSiteIds.has(connection.sourceSiteId) &&
-          filteredSiteIds.has(connection.targetSiteId)
-      ),
-    [connections, filteredSiteIds]
-  );
+  }, [allSites, searchQuery]);
 
   return {
     loading,
     error,
     searchQuery,
-    filteredSites,
-    filteredConnections,
-    totalSiteCount: sites.length,
-    totalConnectionCount: connections.length,
+    sites: allSites,
+    connections: allConnections,
+    listSites,
+    totalSiteCount: allSites.length,
+    totalConnectionCount: allConnections.length,
     onSearchQueryChange: setSearchQuery
   };
 };

@@ -5,6 +5,10 @@ import { buildConnectedSiteLookup } from "../services/explorer-graph";
 type ExplorerSitesListProps = {
   sites: ExplorerSite[];
   connections: ExplorerConnection[];
+  totalSiteCount: number;
+  totalConnectionCount: number;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
 };
 
 const formatSiteAge = (value: string | null) => {
@@ -14,7 +18,14 @@ const formatSiteAge = (value: string | null) => {
   return new Date(parsed).toLocaleDateString();
 };
 
-export default function ExplorerSitesList({ sites, connections }: ExplorerSitesListProps) {
+export default function ExplorerSitesList({
+  sites,
+  connections,
+  totalSiteCount,
+  totalConnectionCount,
+  searchQuery,
+  onSearchQueryChange
+}: ExplorerSitesListProps) {
   const connectedBySiteId = useMemo(
     () => buildConnectedSiteLookup(connections),
     [connections]
@@ -33,9 +44,32 @@ export default function ExplorerSitesList({ sites, connections }: ExplorerSitesL
 
   return (
     <section className="explorer-panel">
-      <div className="section-header">
-        <h3>Sites</h3>
-        <p>All indexed sites with their direct connection counts.</p>
+      <div className="explorer-sites-top">
+        <p className="explorer-eyebrow">Public explorer</p>
+        <h2 className="explorer-title">Explore the connected sites graph</h2>
+        <p className="explorer-description">
+          This page is public and read-only. It visualizes sites in the database and approved
+          site-to-site connections between them.
+        </p>
+        <div className="explorer-stats">
+          <span>
+            <strong>{totalSiteCount}</strong> sites
+          </span>
+          <span>
+            <strong>{totalConnectionCount}</strong> connections
+          </span>
+          <span>
+            <strong>{sites.length}</strong> list matches
+          </span>
+        </div>
+        <label className="explorer-search-label">
+          <span>Filter site list</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            placeholder="Filter by title, description, or URL"
+          />
+        </label>
       </div>
 
       {!rankedSites.length && <p>No sites found.</p>}

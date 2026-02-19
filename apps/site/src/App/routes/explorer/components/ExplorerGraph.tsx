@@ -71,22 +71,14 @@ export default function ExplorerGraph({ sites, connections }: ExplorerGraphProps
 
   if (!sites.length) {
     return (
-      <section className="explorer-panel">
-        <div className="section-header">
-          <h3>Connection graph</h3>
-          <p>No sites to display yet.</p>
-        </div>
+      <section className="explorer-panel explorer-panel-graph">
+        <p>No sites to display yet.</p>
       </section>
     );
   }
 
   return (
-    <section className="explorer-panel">
-      <div className="section-header">
-        <h3>Connection graph</h3>
-        <p>Each node is a site. Lines show approved site-to-site connections.</p>
-      </div>
-
+    <section className="explorer-panel explorer-panel-graph">
       <div className="explorer-graph-shell" ref={shellRef}>
         <svg
           className="explorer-graph"
