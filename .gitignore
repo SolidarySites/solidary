@@ -2,13 +2,13 @@ node_modules/
 .DS_Store
 
 # Env
-apps/studio/.env
-apps/studio/.env.*
+apps/site/.env
+apps/site/.env.*
 apps/functions/.env
 apps/functions/.env.*
 
 # Vite
-apps/studio/dist/
+apps/site/dist/
 
 # Netlify
 .netlify/
