@@ -48,6 +48,17 @@ type GitHubPublishStatusResponse = {
   pagesUrl?: string;
 };
 
+type ProvisioningDiagnostics = {
+  capturedSessionUserId: string;
+  liveAuthUserId: string;
+  sessionExpiresAt: number | null;
+  nowUnixSeconds: number;
+  siteId: string;
+  repoFullName: string;
+};
+
+type DbWriteStage = "sites_insert" | "site_drafts_insert" | "site_draft_settings_upsert" | "site_draft_pages_insert";
+
 type ProvisionSiteDraftParams = {
   session: Session;
   providerToken: string;
@@ -88,6 +99,49 @@ const getPublishStep = (status: GitHubPublishStatusResponse) => {
     return "Waiting for GitHub Actions to start deployment...";
   }
   return status.message?.trim() || "Checking GitHub Pages deployment...";
+};
+
+const getSessionExpiresAt = (session: Session) => {
+  if (typeof session.expires_at === "number") {
+    return session.expires_at;
+  }
+  return null;
+};
+
+const logProvisioningDbError = ({
+  stage,
+  error,
+  diagnostics
+}: {
+  stage: DbWriteStage;
+  error: { message: string; code?: string; details?: string | null; hint?: string | null };
+  diagnostics: ProvisioningDiagnostics;
+}) => {
+  console.error(`[site-create] ${stage} failed`, {
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+    message: error.message,
+    diagnostics
+  });
+};
+
+const logProvisioningAuthMismatch = ({
+  capturedSessionUserId,
+  liveAuthUserId,
+  sessionExpiresAt,
+  nowUnixSeconds,
+  siteId,
+  repoFullName
+}: ProvisioningDiagnostics) => {
+  console.error("[site-create] auth user mismatch before database writes", {
+    capturedSessionUserId,
+    liveAuthUserId,
+    sessionExpiresAt,
+    nowUnixSeconds,
+    siteId,
+    repoFullName
+  });
 };
 
 async function waitForRepoProvisioningJob({
@@ -346,6 +400,7 @@ export const provisionSiteDraft = async ({
 }: ProvisionSiteDraftParams): Promise<string> => {
   const normalizedTitle = siteTitle.trim();
   const slug = computedSlug || `site-${Date.now()}`;
+  const capturedSessionUserId = session.user.id;
   const imagePath = siteImage
     ? `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image-${slug}.jpg`
     : DEFAULT_OG_IMAGE_PATH;
@@ -429,6 +484,40 @@ export const provisionSiteDraft = async ({
     onStep
   });
 
+  const { data: liveAuthUserData, error: liveAuthError } = await supabase.auth.getUser();
+  if (liveAuthError) {
+    console.error("[site-create] failed to resolve live auth user before database writes", {
+      message: liveAuthError.message,
+      status: liveAuthError.status ?? null,
+      siteId,
+      repoFullName
+    });
+    throw new Error("Could not verify your auth session. Please sign in again and retry.");
+  }
+
+  const liveAuthUserId = liveAuthUserData.user?.id;
+  if (!liveAuthUserId) {
+    console.error("[site-create] auth session missing before database writes", {
+      siteId,
+      repoFullName
+    });
+    throw new Error("Your auth session expired. Please sign in again and retry.");
+  }
+
+  const diagnostics: ProvisioningDiagnostics = {
+    capturedSessionUserId,
+    liveAuthUserId,
+    sessionExpiresAt: getSessionExpiresAt(session),
+    nowUnixSeconds: Math.floor(Date.now() / 1000),
+    siteId,
+    repoFullName
+  };
+
+  if (liveAuthUserId !== capturedSessionUserId) {
+    logProvisioningAuthMismatch(diagnostics);
+    throw new Error("Your auth session changed while creating the site. Please sign in again and retry.");
+  }
+
   onStep("Saving site metadata...");
   const { error: siteError } = await supabase.from("sites").insert({
     id: siteId,
@@ -442,30 +531,40 @@ export const provisionSiteDraft = async ({
     }
   });
   if (siteError) {
+    logProvisioningDbError({
+      stage: "sites_insert",
+      error: siteError,
+      diagnostics
+    });
     throw new Error(siteError.message);
   }
 
-  const { error: draftError } = await supabase.from("site_drafts").upsert(
-    {
-      id: siteId,
-      site_id: siteId,
-      owner_user_id: session.user.id,
-      repo_full_name: repoFullName,
-      branch: defaultBranch,
-      commit_sha: "",
-      files: {
-        [FILE_KEYS.solidary]: solidaryFile
-      },
-      draft_type: "owner",
-      source_owner_draft_id: null,
-      touched_sections: [],
-      touched_page_slugs: [],
-      deleted_page_slugs: []
+  const { error: draftError } = await supabase.from("site_drafts").insert({
+    id: siteId,
+    site_id: siteId,
+    owner_user_id: liveAuthUserId,
+    repo_full_name: repoFullName,
+    branch: defaultBranch,
+    commit_sha: "",
+    files: {
+      [FILE_KEYS.solidary]: solidaryFile
     },
-    { onConflict: "owner_user_id,repo_full_name" }
-  );
+    draft_type: "owner",
+    source_owner_draft_id: null,
+    touched_sections: [],
+    touched_page_slugs: [],
+    deleted_page_slugs: []
+  });
 
   if (draftError) {
+    logProvisioningDbError({
+      stage: "site_drafts_insert",
+      error: draftError,
+      diagnostics
+    });
+    if (draftError.code === "23505") {
+      throw new Error("A draft already exists for this repository and account. Open it from Studio instead.");
+    }
     throw new Error(draftError.message);
   }
 
@@ -497,6 +596,11 @@ export const provisionSiteDraft = async ({
   });
 
   if (settingsError) {
+    logProvisioningDbError({
+      stage: "site_draft_settings_upsert",
+      error: settingsError,
+      diagnostics
+    });
     throw new Error(settingsError.message);
   }
 
@@ -513,6 +617,11 @@ export const provisionSiteDraft = async ({
   );
 
   if (pagesError) {
+    logProvisioningDbError({
+      stage: "site_draft_pages_insert",
+      error: pagesError,
+      diagnostics
+    });
     throw new Error(pagesError.message);
   }
 
