@@ -1,0 +1,46 @@
+import type { RepoFileSet } from "../../../features/site-draft/types";
+
+export type StudioAccessRole = "owner" | "admin" | "editor" | "viewer";
+
+export type DraftItem = {
+  id: string;
+  site_id?: string;
+  repo_full_name: string;
+  branch: string;
+  files: RepoFileSet;
+  owner_user_id: string;
+  access_role: StudioAccessRole;
+  updated_at?: string;
+};
+
+export type PullRequestItem = {
+  id: string;
+  siteId: string;
+  siteTitle: string;
+  repoFullName: string;
+  prNumber: number;
+  prUrl: string;
+  updatedAt?: string;
+  editorUserId: string;
+  touchedSections: string[];
+  touchedPageSlugs: string[];
+};
+
+export type StudioSiteListItem = {
+  id: string;
+  title: string;
+  description: string;
+  repoFullName: string;
+  repoHtmlUrl: string;
+  siteUrl: string;
+  accessRole?: StudioAccessRole;
+  updatedAt?: string;
+};
+
+export type DeleteMode = "builder" | "github";
+
+export type DeleteTarget = {
+  id: string;
+  repoFullName: string;
+  title: string;
+};
