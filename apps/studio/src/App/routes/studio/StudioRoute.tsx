@@ -1,6 +1,5 @@
 import SiteHeader from "../../components/SiteHeader";
 import SiteFooter from "../../components/SiteFooter";
-import CollaborationPullRequestsSection from "./components/CollaborationPullRequestsSection";
 import DeleteSiteDialog from "./components/DeleteSiteDialog";
 import IndexesListSection from "./components/IndexesListSection";
 import SitesListSection from "./components/SitesListSection";
@@ -14,10 +13,6 @@ export default function StudioRoute() {
       <SiteHeader />
       <main className="main-content">
         {controller.shouldShowSections && <SitesListSection {...controller.ownedSitesProps} />}
-        {controller.shouldShowSections && <SitesListSection {...controller.sharedSitesProps} />}
-        {controller.shouldShowSections && (
-          <CollaborationPullRequestsSection {...controller.collaborationProps} />
-        )}
         {controller.shouldShowSections && <IndexesListSection {...controller.indexesProps} />}
       </main>
 

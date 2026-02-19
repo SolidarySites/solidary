@@ -1,13 +1,15 @@
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 
 type SiteListItem = {
   id: string;
   title: string;
   description: string;
+  imageUrl: string;
   repoFullName: string;
   repoHtmlUrl: string;
   siteUrl: string;
   accessRole?: "owner" | "admin" | "editor" | "viewer";
+  canDelete?: boolean;
   updatedAt?: string;
 };
 
@@ -19,6 +21,38 @@ type SitesListSectionProps = {
   onEdit: (id: string) => void;
   onDelete?: (item: SiteListItem) => void;
   onCreate?: () => void;
+  showThumbnails?: boolean;
+};
+
+type SiteCardThumbnailProps = {
+  imageUrl: string;
+  title: string;
+};
+
+function SiteCardThumbnail({ imageUrl, title }: SiteCardThumbnailProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const canShowImage = Boolean(imageUrl) && !imageFailed;
+
+  return (
+    <div className="site-card-thumbnail-shell" aria-hidden={!canShowImage}>
+      {canShowImage ? (
+        <img
+          className="site-card-thumbnail"
+          src={imageUrl}
+          alt={`${title} thumbnail`}
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="site-card-thumbnail-placeholder">No image</div>
+      )}
+    </div>
+  );
+}
+
+const formatRole = (role: SiteListItem["accessRole"]) => {
+  if (!role) return "Unknown";
+  return role.slice(0, 1).toUpperCase() + role.slice(1);
 };
 
 export default function SitesListSection({
@@ -28,7 +62,8 @@ export default function SitesListSection({
   loading,
   onEdit,
   onDelete,
-  onCreate
+  onCreate,
+  showThumbnails = false
 }: SitesListSectionProps) {
   if (loading) {
     return (
@@ -75,28 +110,31 @@ export default function SitesListSection({
       <div className="site-list-grid">
         {items.map((item) => (
           <article key={item.id} className="site-card">
-            <div>
-              <h3>{item.title || item.repoFullName}</h3>
-              {item.accessRole && item.accessRole !== "owner" && (
-                <p className="site-card-role">Role: {item.accessRole}</p>
+            <div className="site-card-main">
+              {showThumbnails && (
+                <SiteCardThumbnail imageUrl={item.imageUrl} title={item.title || item.repoFullName} />
               )}
-              {item.description && <p>{item.description}</p>}
-              <div className="site-card-meta">
-                {item.siteUrl && (
-                  <a href={item.siteUrl} target="_blank" rel="noreferrer">
-                    Visit site
+              <div className="site-card-body">
+                <h3>{item.title || item.repoFullName}</h3>
+                <p className="site-card-role">Role: {formatRole(item.accessRole)}</p>
+                {item.description && <p>{item.description}</p>}
+                <div className="site-card-meta">
+                  {item.siteUrl && (
+                    <a href={item.siteUrl} target="_blank" rel="noreferrer">
+                      Visit site
+                    </a>
+                  )}
+                  <a href={item.repoHtmlUrl} target="_blank" rel="noreferrer">
+                    GitHub repo
                   </a>
-                )}
-                <a href={item.repoHtmlUrl} target="_blank" rel="noreferrer">
-                  GitHub repo
-                </a>
+                </div>
               </div>
             </div>
             <div className="site-card-actions">
               <button className="ghost" onClick={() => onEdit(item.id)}>
                 Edit
               </button>
-              {onDelete && (
+              {onDelete && item.canDelete !== false && (
                 <button
                   className="ghost"
                   onClick={(event: MouseEvent) => {

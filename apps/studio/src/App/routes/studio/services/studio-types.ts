@@ -30,10 +30,12 @@ export type StudioSiteListItem = {
   id: string;
   title: string;
   description: string;
+  imageUrl: string;
   repoFullName: string;
   repoHtmlUrl: string;
   siteUrl: string;
   accessRole?: StudioAccessRole;
+  canDelete?: boolean;
   updatedAt?: string;
 };
 

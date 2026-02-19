@@ -253,10 +253,52 @@
 .site-card {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1.5rem;
   padding: 1.25rem;
   border: 1px solid rgba(31, 34, 28, 0.15);
   background: rgba(255, 255, 255, 0.85);
+}
+
+.site-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.site-card-thumbnail-shell {
+  flex: 0 0 148px;
+  width: 148px;
+}
+
+.site-card-thumbnail,
+.site-card-thumbnail-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgba(31, 34, 28, 0.16);
+  background: rgba(31, 34, 28, 0.05);
+}
+
+.site-card-thumbnail {
+  display: block;
+  object-fit: cover;
+}
+
+.site-card-thumbnail-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(31, 34, 28, 0.5);
+}
+
+.site-card-body {
+  min-width: 0;
 }
 
 .site-card h3 {
@@ -1442,6 +1484,16 @@ button:disabled {
 
   .site-card {
     flex-direction: column;
+  }
+
+  .site-card-main {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .site-card-thumbnail-shell {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .site-card-actions {

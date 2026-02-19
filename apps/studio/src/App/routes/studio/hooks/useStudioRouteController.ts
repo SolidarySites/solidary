@@ -22,7 +22,6 @@ export const useStudioRouteController = () => {
   const {
     ownedDraftItems,
     sharedDraftItems,
-    pendingPullRequests,
     draftsLoading,
     setOwnedDraftItems,
     setPendingPullRequests
@@ -32,7 +31,7 @@ export const useStudioRouteController = () => {
     setNoticeKind
   });
 
-  const { mergingPullRequestId, mergePullRequest, deleteDraft } = useStudioDraftActions({
+  const { deleteDraft } = useStudioDraftActions({
     session,
     setNotice,
     setNoticeKind,
@@ -49,6 +48,15 @@ export const useStudioRouteController = () => {
     () => sharedDraftItems.map((item) => mapDraftItemToSiteListItem(item)),
     [sharedDraftItems]
   );
+
+  const allSiteListItems = useMemo(() => {
+    const mergedItems = [...ownedListItems, ...sharedListItems];
+    return mergedItems.sort((left, right) => {
+      const leftTime = left.updatedAt ? Date.parse(left.updatedAt) : 0;
+      const rightTime = right.updatedAt ? Date.parse(right.updatedAt) : 0;
+      return rightTime - leftTime;
+    });
+  }, [ownedListItems, sharedListItems]);
 
   const closeDeleteDialog = () => {
     if (deleteBusy) return;
@@ -86,9 +94,10 @@ export const useStudioRouteController = () => {
     shouldShowSections: Boolean(session),
     ownedSitesProps: {
       title: "Your sites",
-      emptyMessage: "No saved sites yet. Create one to see it here.",
-      items: ownedListItems,
+      emptyMessage: "No sites yet. Create one to see it here.",
+      items: allSiteListItems,
       loading: draftsLoading,
+      showThumbnails: true,
       onEdit: (id: string) => navigate(`/site-builder?draftId=${id}`),
       onCreate: () => navigate("/site-create"),
       onDelete: (item: StudioSiteListItem) => {
@@ -99,21 +108,6 @@ export const useStudioRouteController = () => {
         });
         setDeleteMode(null);
         setDeleteConfirmText("");
-      }
-    },
-    sharedSitesProps: {
-      title: "Shared with you",
-      emptyMessage: "No collaborator sites yet.",
-      items: sharedListItems,
-      loading: draftsLoading,
-      onEdit: (id: string) => navigate(`/site-builder?draftId=${id}`)
-    },
-    collaborationProps: {
-      items: pendingPullRequests,
-      loading: draftsLoading,
-      mergingId: mergingPullRequestId,
-      onMerge: (item: (typeof pendingPullRequests)[number]) => {
-        void mergePullRequest(item);
       }
     },
     indexesProps: {

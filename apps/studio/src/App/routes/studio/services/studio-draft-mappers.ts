@@ -13,19 +13,61 @@ export const getDraftSiteTitle = (item: DraftItem) => {
   return solidary?.title ?? item.repo_full_name;
 };
 
+const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
+
+const resolveSiteImageUrl = (siteUrl: string, imageUrl: string) => {
+  const normalizedSiteUrl = siteUrl.trim();
+  const normalizedImageUrl = imageUrl.trim();
+
+  if (!normalizedSiteUrl || !normalizedImageUrl) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(normalizedImageUrl)) {
+    return normalizedImageUrl;
+  }
+
+  try {
+    const site = new URL(normalizedSiteUrl);
+    const siteBasePath = trimSlashes(site.pathname);
+    const normalizedPath = trimSlashes(normalizedImageUrl.replace(/^\.\//, ""));
+
+    if (!normalizedPath) {
+      return "";
+    }
+
+    if (siteBasePath && (normalizedPath === siteBasePath || normalizedPath.startsWith(`${siteBasePath}/`))) {
+      return `${site.origin}/${normalizedPath}`;
+    }
+
+    if (siteBasePath) {
+      return `${site.origin}/${siteBasePath}/${normalizedPath}`;
+    }
+
+    return `${site.origin}/${normalizedPath}`;
+  } catch {
+    return normalizedImageUrl;
+  }
+};
+
 export const mapDraftItemToSiteListItem = (
   item: DraftItem,
   options: { accessRole?: StudioAccessRole } = {}
 ): StudioSiteListItem => {
   const solidary = parseSolidaryJson(findSolidaryFile(item.files));
+  const siteUrl = solidary?.site_url ?? "";
+  const imageUrl = solidary?.image_url ?? "";
+  const accessRole = options.accessRole ?? item.access_role;
   return {
     id: item.id,
     title: solidary?.title ?? item.repo_full_name,
     description: solidary?.description ?? "",
+    imageUrl: resolveSiteImageUrl(siteUrl, imageUrl),
     repoFullName: item.repo_full_name,
     repoHtmlUrl: `https://github.com/${item.repo_full_name}`,
-    siteUrl: solidary?.site_url ?? "",
-    accessRole: options.accessRole ?? item.access_role,
+    siteUrl,
+    accessRole,
+    canDelete: accessRole === "owner",
     updatedAt: item.updated_at
   };
 };
