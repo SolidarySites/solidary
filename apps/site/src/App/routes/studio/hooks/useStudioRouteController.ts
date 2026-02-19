@@ -23,8 +23,7 @@ export const useStudioRouteController = () => {
     ownedDraftItems,
     sharedDraftItems,
     draftsLoading,
-    setOwnedDraftItems,
-    setPendingPullRequests
+    setOwnedDraftItems
   } = useStudioDraftData({
     session,
     setNotice,
@@ -35,8 +34,7 @@ export const useStudioRouteController = () => {
     session,
     setNotice,
     setNoticeKind,
-    setOwnedDraftItems,
-    setPendingPullRequests
+    setOwnedDraftItems
   });
 
   const ownedListItems = useMemo(

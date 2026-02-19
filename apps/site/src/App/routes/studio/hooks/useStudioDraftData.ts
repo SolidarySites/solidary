@@ -3,8 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import type { NoticeKind } from "../../../types/notice";
-import { getDraftSiteTitle } from "../services/studio-draft-mappers";
-import type { DraftItem, PullRequestItem, StudioAccessRole } from "../services/studio-types";
+import type { DraftItem, StudioAccessRole } from "../services/studio-types";
 
 type UseStudioDraftDataParams = {
   session: Session | null;
@@ -27,18 +26,6 @@ type SharedDraftRow = {
   updated_at?: string;
 };
 
-type CollaborationPullRequestRow = {
-  id: string;
-  site_id: string;
-  repo_full_name: string;
-  github_pr_number: number;
-  github_pr_url: string;
-  updated_at?: string;
-  editor_user_id: string;
-  touched_sections: unknown;
-  touched_page_slugs: unknown;
-};
-
 export const useStudioDraftData = ({
   session,
   setNotice,
@@ -46,14 +33,12 @@ export const useStudioDraftData = ({
 }: UseStudioDraftDataParams) => {
   const [ownedDraftItems, setOwnedDraftItems] = useState<DraftItem[]>([]);
   const [sharedDraftItems, setSharedDraftItems] = useState<DraftItem[]>([]);
-  const [pendingPullRequests, setPendingPullRequests] = useState<PullRequestItem[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
 
   useEffect(() => {
     if (!session) {
       setOwnedDraftItems([]);
       setSharedDraftItems([]);
-      setPendingPullRequests([]);
       return;
     }
 
@@ -205,64 +190,6 @@ export const useStudioDraftData = ({
           updated_at: row.updated_at
         }));
         setSharedDraftItems(mappedSharedItems);
-
-        const managedSiteIds = Array.from(
-          new Set([
-            ...ownedItems.map((item) => item.id),
-            ...resolvedSharedMemberships
-              .filter((membership) => membership.role === "admin")
-              .map((membership) => membership.site_id)
-          ])
-        );
-
-        if (!managedSiteIds.length) {
-          setPendingPullRequests([]);
-          return;
-        }
-
-        const { data: prData, error: prError } = await supabase
-          .from("site_collaboration_pull_requests")
-          .select(
-            "id, site_id, repo_full_name, github_pr_number, github_pr_url, updated_at, editor_user_id, touched_sections, touched_page_slugs"
-          )
-          .in("site_id", managedSiteIds)
-          .eq("status", "open")
-          .order("updated_at", { ascending: false });
-
-        if (!mounted) return;
-        if (prError) {
-          setNotice(prError.message);
-          setNoticeKind("error");
-          setPendingPullRequests([]);
-          return;
-        }
-
-        const siteTitleById = new Map<string, string>();
-        ownedItems.forEach((item) => {
-          siteTitleById.set(item.id, getDraftSiteTitle(item));
-        });
-        mappedSharedItems.forEach((item) => {
-          siteTitleById.set(item.id, getDraftSiteTitle(item));
-        });
-
-        setPendingPullRequests(
-          (prData as CollaborationPullRequestRow[] | null | undefined ?? []).map((row) => ({
-            id: row.id,
-            siteId: row.site_id,
-            siteTitle: siteTitleById.get(row.site_id) ?? row.repo_full_name,
-            repoFullName: row.repo_full_name,
-            prNumber: row.github_pr_number,
-            prUrl: row.github_pr_url,
-            updatedAt: row.updated_at,
-            editorUserId: row.editor_user_id,
-            touchedSections: Array.isArray(row.touched_sections)
-              ? row.touched_sections.filter((entry): entry is string => typeof entry === "string")
-              : [],
-            touchedPageSlugs: Array.isArray(row.touched_page_slugs)
-              ? row.touched_page_slugs.filter((entry): entry is string => typeof entry === "string")
-              : []
-          }))
-        );
       } finally {
         if (mounted) setDraftsLoading(false);
       }
@@ -278,9 +205,7 @@ export const useStudioDraftData = ({
   return {
     ownedDraftItems,
     sharedDraftItems,
-    pendingPullRequests,
     draftsLoading,
-    setOwnedDraftItems,
-    setPendingPullRequests
+    setOwnedDraftItems
   };
 };

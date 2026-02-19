@@ -13,19 +13,6 @@ export type DraftItem = {
   updated_at?: string;
 };
 
-export type PullRequestItem = {
-  id: string;
-  siteId: string;
-  siteTitle: string;
-  repoFullName: string;
-  prNumber: number;
-  prUrl: string;
-  updatedAt?: string;
-  editorUserId: string;
-  touchedSections: string[];
-  touchedPageSlugs: string[];
-};
-
 export type StudioSiteListItem = {
   id: string;
   title: string;

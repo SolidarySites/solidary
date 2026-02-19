@@ -1,68 +1,22 @@
-import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
-import type { DeleteMode, DraftItem, PullRequestItem } from "../services/studio-types";
+import type { DeleteMode, DraftItem } from "../services/studio-types";
 
 type UseStudioDraftActionsParams = {
   session: Session | null;
   setNotice: Dispatch<SetStateAction<string | null>>;
   setNoticeKind: Dispatch<SetStateAction<NoticeKind>>;
   setOwnedDraftItems: Dispatch<SetStateAction<DraftItem[]>>;
-  setPendingPullRequests: Dispatch<SetStateAction<PullRequestItem[]>>;
 };
 
 export const useStudioDraftActions = ({
   session,
   setNotice,
   setNoticeKind,
-  setOwnedDraftItems,
-  setPendingPullRequests
+  setOwnedDraftItems
 }: UseStudioDraftActionsParams) => {
-  const [mergingPullRequestId, setMergingPullRequestId] = useState<string | null>(null);
-
-  const mergePullRequest = async (item: PullRequestItem) => {
-    if (!session) return;
-
-    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
-      setNoticeKind("error");
-      return;
-    }
-
-    setMergingPullRequestId(item.id);
-    try {
-      const response = await fetch("/.netlify/functions/github-merge-collaboration-pr", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          siteId: item.siteId,
-          pullRequestNumber: item.prNumber,
-          githubToken: providerToken,
-          commitTitle: `Merge collaboration PR #${item.prNumber}`
-        })
-      });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error ?? "Failed to merge collaboration pull request.");
-      }
-
-      setPendingPullRequests((items) => items.filter((entry) => entry.id !== item.id));
-      setNotice(`Merged PR #${item.prNumber}.`);
-      setNoticeKind("notice");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Failed to merge collaboration pull request.");
-      setNoticeKind("error");
-    } finally {
-      setMergingPullRequestId(null);
-    }
-  };
-
   const deleteDraft = async (
     item: { id: string; repoFullName: string },
     mode: DeleteMode
@@ -127,8 +81,6 @@ export const useStudioDraftActions = ({
   };
 
   return {
-    mergingPullRequestId,
-    mergePullRequest,
     deleteDraft
   };
 };
