@@ -6,6 +6,10 @@ import "./ProfileRoute.css";
 export default function ProfileRoute() {
   const controller = useProfileRouteController();
   const githubUsername = controller.connectedGithub.username || "Unknown";
+  const solidaryAvatarFallback =
+    controller.displayName.slice(0, 1).toUpperCase() ||
+    githubUsername.slice(0, 1).toUpperCase() ||
+    "S";
 
   return (
     <div className="app-shell">
@@ -20,11 +24,11 @@ export default function ProfileRoute() {
 
           <section className="profile-github-card">
             <div className="profile-avatar-shell">
-              {controller.avatarUrl ? (
+              {controller.githubAvatarUrl ? (
                 <img
                   className="profile-avatar-image"
-                  src={controller.avatarUrl}
-                  alt={`${githubUsername} avatar`}
+                  src={controller.githubAvatarUrl}
+                  alt={`${githubUsername} GitHub avatar`}
                 />
               ) : (
                 <div className="profile-avatar-fallback" aria-hidden="true">
@@ -66,16 +70,44 @@ export default function ProfileRoute() {
                 id="profile-display-name"
                 type="text"
                 autoComplete="name"
+                className={controller.displayNameTooLong ? "profile-input-error" : undefined}
                 value={controller.displayName}
                 onChange={(event) =>
                   controller.onDisplayNameChange(event.target.value)
                 }
                 placeholder="How your name should appear"
               />
+              {controller.displayNameTooLong && (
+                <span className="profile-field-error">max 20 characters</span>
+              )}
             </label>
 
+            <div className="profile-solidary-avatar-row">
+              <div className="profile-avatar-shell profile-solidary-avatar-shell">
+                {controller.solidaryAvatarUrl ? (
+                  <img
+                    className="profile-avatar-image"
+                    src={controller.solidaryAvatarUrl}
+                    alt="Solidary avatar preview"
+                  />
+                ) : (
+                  <div className="profile-avatar-fallback" aria-hidden="true">
+                    {solidaryAvatarFallback}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="ghost profile-avatar-remove"
+                onClick={controller.onRemoveAvatar}
+                disabled={!controller.canRemoveAvatar || controller.saveBusy}
+              >
+                Remove
+              </button>
+            </div>
+
             <label htmlFor="profile-avatar-upload">
-              Solidary avatar
+              Upload Solidary avatar
               <input
                 id="profile-avatar-upload"
                 type="file"
@@ -85,21 +117,15 @@ export default function ProfileRoute() {
                 }
               />
               <span className="profile-avatar-help">
-                Any image type up to 1 MB. It is heavily compressed before upload.
+                Max file size 1MB.
               </span>
             </label>
-
-            {controller.selectedAvatarFilename && (
-              <p className="profile-avatar-selected">
-                Selected file: <strong>{controller.selectedAvatarFilename}</strong>
-              </p>
-            )}
 
             <div className="form-actions profile-settings-actions">
               <button
                 type="submit"
                 className="primary"
-                disabled={!controller.hasChanges || controller.saveBusy}
+                disabled={!controller.hasChanges || controller.saveBusy || controller.displayNameTooLong}
               >
                 {controller.saveBusy ? "Saving..." : "Save settings"}
               </button>

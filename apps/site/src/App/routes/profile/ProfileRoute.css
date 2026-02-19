@@ -91,16 +91,44 @@
   max-width: 680px;
 }
 
+.profile-solidary-avatar-row {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.9rem;
+  align-items: center;
+  border: 1px dashed rgba(31, 34, 28, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.75rem;
+  justify-content: start;
+}
+
+.profile-solidary-avatar-shell {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+.profile-avatar-remove {
+  min-width: 6rem;
+}
+
+.profile-input-error {
+  border-color: rgba(180, 60, 50, 0.85);
+  background: rgba(180, 60, 50, 0.06);
+}
+
+.profile-input-error:focus {
+  outline-color: rgba(180, 60, 50, 0.55);
+}
+
+.profile-field-error {
+  font-size: 0.78rem;
+  color: #7a1f17;
+}
+
 .profile-avatar-help {
   margin-top: -0.1rem;
   font-size: 0.78rem;
   color: rgba(31, 34, 28, 0.66);
-}
-
-.profile-avatar-selected {
-  margin: 0;
-  font-size: 0.82rem;
-  color: rgba(31, 34, 28, 0.8);
 }
 
 .profile-settings-actions {
@@ -113,6 +141,11 @@
   }
 
   .profile-github-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .profile-solidary-avatar-row {
     grid-template-columns: 1fr;
     justify-items: start;
   }

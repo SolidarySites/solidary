@@ -54,6 +54,7 @@ export const useProfileRouteController = () => {
   const [selectedAvatarPreviewUrl, setSelectedAvatarPreviewUrl] = useState<
     string | null
   >(null);
+  const [removeAvatarRequested, setRemoveAvatarRequested] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -63,6 +64,7 @@ export const useProfileRouteController = () => {
     setSavedDisplayName(profileData.settings.displayName);
     setAvatarPath(profileData.avatarPath);
     setSelectedAvatarFile(null);
+    setRemoveAvatarRequested(false);
     setNotice(null);
     setNoticeKind(null);
   }, [profileData.avatarPath, profileData.settings.displayName]);
@@ -85,17 +87,20 @@ export const useProfileRouteController = () => {
     () => getPublicProfileAvatarUrl(avatarPath),
     [avatarPath]
   );
-  const avatarUrl =
-    selectedAvatarPreviewUrl ||
-    savedAvatarPublicUrl ||
-    profileData.githubAvatarUrl ||
-    null;
+  const solidaryAvatarUrl = removeAvatarRequested
+    ? null
+    : selectedAvatarPreviewUrl || savedAvatarPublicUrl || null;
+  const githubAvatarUrl = profileData.githubAvatarUrl || null;
+  const displayNameTooLong = displayName.length > 20;
   const hasChanges =
-    displayName.trim() !== savedDisplayName.trim() || Boolean(selectedAvatarFile);
+    displayName.trim() !== savedDisplayName.trim() ||
+    Boolean(selectedAvatarFile) ||
+    (removeAvatarRequested && Boolean(avatarPath));
 
   const resetSettings = () => {
     setDisplayName(savedDisplayName);
     setSelectedAvatarFile(null);
+    setRemoveAvatarRequested(false);
     setNotice(null);
     setNoticeKind(null);
   };
@@ -114,6 +119,18 @@ export const useProfileRouteController = () => {
     }
 
     setSelectedAvatarFile(file);
+    setRemoveAvatarRequested(false);
+    setNotice(null);
+    setNoticeKind(null);
+  };
+
+  const onRemoveAvatar = () => {
+    if (!solidaryAvatarUrl) {
+      return;
+    }
+
+    setSelectedAvatarFile(null);
+    setRemoveAvatarRequested(true);
     setNotice(null);
     setNoticeKind(null);
   };
@@ -124,11 +141,16 @@ export const useProfileRouteController = () => {
       setNoticeKind("error");
       return;
     }
+    if (displayNameTooLong) {
+      setNotice("Display name must be 20 characters or fewer.");
+      setNoticeKind("error");
+      return;
+    }
 
     const trimmedDisplayName = displayName.trim();
     const previousAvatarPath = avatarPath;
     let uploadedAvatarPath: string | null = null;
-    let nextAvatarPath = avatarPath;
+    let nextAvatarPath = removeAvatarRequested ? "" : avatarPath;
 
     setSaveBusy(true);
     setNotice(null);
@@ -155,6 +177,7 @@ export const useProfileRouteController = () => {
       setSavedDisplayName(trimmedDisplayName);
       setAvatarPath(nextAvatarPath);
       setSelectedAvatarFile(null);
+      setRemoveAvatarRequested(false);
       setNotice("Profile settings saved.");
       setNoticeKind("notice");
 
@@ -179,7 +202,7 @@ export const useProfileRouteController = () => {
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hasChanges || saveBusy) {
+    if (!hasChanges || saveBusy || displayNameTooLong) {
       return;
     }
 
@@ -189,8 +212,10 @@ export const useProfileRouteController = () => {
   return {
     displayName,
     connectedGithub: profileData.connectedGithub,
-    avatarUrl,
-    selectedAvatarFilename: selectedAvatarFile?.name ?? "",
+    githubAvatarUrl,
+    solidaryAvatarUrl,
+    canRemoveAvatar: Boolean(solidaryAvatarUrl),
+    displayNameTooLong,
     hasChanges,
     saveBusy,
     notice,
@@ -198,6 +223,7 @@ export const useProfileRouteController = () => {
     onSubmit,
     onReset: resetSettings,
     onDisplayNameChange: setDisplayName,
-    onAvatarFileChange
+    onAvatarFileChange,
+    onRemoveAvatar
   };
 };
