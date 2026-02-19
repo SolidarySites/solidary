@@ -60,7 +60,8 @@ export const saveMetadataSection = async ({
     siteId: draftState.siteId,
     imageUrl,
     settingsInput: siteSettingsInput,
-    urlOverride: siteUrl
+    urlOverride: siteUrl,
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
   });
   const nowIso = new Date().toISOString();
   const editorUserId = sessionUserId;

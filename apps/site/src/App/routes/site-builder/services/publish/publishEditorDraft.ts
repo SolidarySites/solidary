@@ -2,6 +2,7 @@ import { supabase } from "../../../../lib/supabase";
 import { githubRequest } from "../../../../services/github";
 import { toBase64 } from "../../../../lib/base64";
 import { buildFiles } from "../build-files";
+import { FILE_KEYS } from "../constants";
 import { replaceDraftImageUrlsWithSitePaths } from "../draft-utils";
 import {
   buildEditorFileChanges,
@@ -105,7 +106,8 @@ export const publishEditorDraft = async ({
     templateSolidary,
     pages: normalizedPages,
     defaultHomeContent,
-    urlOverride: siteUrl
+    urlOverride: siteUrl,
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
   });
 
   const { upsertsByPath, deletePaths } = buildEditorFileChanges({

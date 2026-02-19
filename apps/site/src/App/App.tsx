@@ -8,6 +8,7 @@ import StudioRoute from "./routes/studio/StudioRoute";
 import SiteCreateRoute from "./routes/site-create/SiteCreateRoute";
 import SiteBuilderRoute from "./routes/site-builder/SiteBuilderRoute";
 import ProfileRoute from "./routes/profile/ProfileRoute";
+import ConnectionExplorerRoute from "./routes/site-connections/ConnectionExplorerRoute";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
 
@@ -78,6 +79,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <ProfileRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/site-connections"
+            element={
+              <RequireAuth>
+                <ConnectionExplorerRoute />
               </RequireAuth>
             }
           />

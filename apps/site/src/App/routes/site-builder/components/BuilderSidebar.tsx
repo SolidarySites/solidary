@@ -37,6 +37,7 @@ type BuilderSidebarProps = {
   selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
+  connectionExplorerHref: string | null;
   collaborators: ManagedCollaborator[];
   collaboratorsLoading: boolean;
   updatingCollaboratorUserId: string | null;
@@ -108,6 +109,7 @@ const BuilderSidebar = ({
   selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
+  connectionExplorerHref,
   collaborators,
   collaboratorsLoading,
   updatingCollaboratorUserId,
@@ -246,6 +248,7 @@ const BuilderSidebar = ({
               selectedCollaboratorSuggestion={selectedCollaboratorSuggestion}
               collaboratorSearchLoading={collaboratorSearchLoading}
               invitingCollaborator={invitingCollaborator}
+              connectionExplorerHref={connectionExplorerHref}
               collaborators={collaborators}
               collaboratorsLoading={collaboratorsLoading}
               updatingCollaboratorUserId={updatingCollaboratorUserId}

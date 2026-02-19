@@ -14,9 +14,11 @@ type BuilderTopbarProps = {
   accessRole: "owner" | "admin" | "editor" | "viewer" | null;
   activeCollaborators: string[];
   canOpenMetadataSettings: boolean;
+  canOpenConnections: boolean;
   metadataSettingsActive: boolean;
   isPreviewFullscreen: boolean;
   onOpenMetadataSettings: () => void;
+  onOpenConnections: () => void;
   onTogglePreviewFullscreen: () => void;
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
@@ -35,9 +37,11 @@ const BuilderTopbar = ({
   accessRole,
   activeCollaborators,
   canOpenMetadataSettings,
+  canOpenConnections,
   metadataSettingsActive,
   isPreviewFullscreen,
   onOpenMetadataSettings,
+  onOpenConnections,
   onTogglePreviewFullscreen,
   publishFeedback,
   onSaveDraft,
@@ -127,6 +131,15 @@ const BuilderTopbar = ({
               onClick={onOpenMetadataSettings}
             >
               Settings
+            </button>
+          )}
+          {canOpenConnections && (
+            <button
+              type="button"
+              className="builder-topbar-link-button"
+              onClick={onOpenConnections}
+            >
+              Connections
             </button>
           )}
           <button

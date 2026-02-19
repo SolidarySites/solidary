@@ -2,7 +2,7 @@ import { supabase } from "../../../../lib/supabase";
 import { githubRequest, listDirectory } from "../../../../services/github";
 import { toBase64 } from "../../../../lib/base64";
 import { buildFiles, buildSolidaryFile } from "../build-files";
-import { PAGE_PATH_PREFIX, PAGE_PATH_SUFFIX } from "../constants";
+import { FILE_KEYS, PAGE_PATH_PREFIX, PAGE_PATH_SUFFIX } from "../constants";
 import { buildDraftSaveSignature, replaceDraftImageUrlsWithSitePaths } from "../draft-utils";
 import { getPageSafeSlug } from "../utils";
 import {
@@ -63,7 +63,8 @@ export const publishOwnerDraft = async ({
     siteId: draftState.siteId,
     imageUrl,
     settingsInput: siteSettingsInput,
-    urlOverride: siteUrl
+    urlOverride: siteUrl,
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
   });
   const draftSignatureAfterSave = buildDraftSaveSignature({
     draftId: draftState.id,
@@ -121,7 +122,8 @@ export const publishOwnerDraft = async ({
     templateSolidary,
     pages: publishPages,
     defaultHomeContent,
-    urlOverride: siteUrl
+    urlOverride: siteUrl,
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
   });
 
   setProvisionStep("Preparing content changes...");

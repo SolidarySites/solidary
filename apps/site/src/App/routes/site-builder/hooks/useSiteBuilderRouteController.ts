@@ -223,6 +223,9 @@ export const useSiteBuilderRouteController = () => {
   const liveSiteUrl = toExternalUrl(publishedSiteBaseUrl ?? siteUrl);
   const githubRepoFullName = draftState?.repoFullName?.trim() ?? "";
   const githubRepoUrl = githubRepoFullName ? `https://github.com/${githubRepoFullName}` : null;
+  const connectionExplorerHref = draftState?.id
+    ? `/site-connections?draftId=${encodeURIComponent(draftState.id)}`
+    : null;
   const siteSettingsInput = useMemo(
     () => ({
       siteTitle,
@@ -637,6 +640,9 @@ export const useSiteBuilderRouteController = () => {
       accessRole: siteAccessRole,
       activeCollaborators: collaboratorPresenceNames,
       canOpenMetadataSettings: Boolean(isOwnerOnOwnerDraft),
+      canOpenConnections:
+        Boolean(connectionExplorerHref) &&
+        (siteAccessRole === "owner" || siteAccessRole === "admin"),
       metadataSettingsActive: showMetadataFullView,
       isPreviewFullscreen,
       onOpenMetadataSettings: () => {
@@ -649,6 +655,10 @@ export const useSiteBuilderRouteController = () => {
           return;
         }
         void handleSectionChange("content");
+      },
+      onOpenConnections: () => {
+        if (!connectionExplorerHref) return;
+        navigate(connectionExplorerHref);
       },
       onTogglePreviewFullscreen: () => setIsPreviewFullscreen((value) => !value),
       publishFeedback,
@@ -666,6 +676,7 @@ export const useSiteBuilderRouteController = () => {
       selectedCollaboratorSuggestion,
       collaboratorSearchLoading,
       invitingCollaborator,
+      connectionExplorerHref,
       collaborators: managedCollaborators,
       collaboratorsLoading: managedCollaboratorsLoading,
       updatingCollaboratorUserId,
@@ -701,6 +712,7 @@ export const useSiteBuilderRouteController = () => {
       selectedCollaboratorSuggestion,
       collaboratorSearchLoading,
       invitingCollaborator,
+      connectionExplorerHref,
       collaborators: managedCollaborators,
       collaboratorsLoading: managedCollaboratorsLoading,
       updatingCollaboratorUserId,

@@ -97,6 +97,20 @@ type BuildSolidaryFileInput = {
   imageUrl: string;
   settingsInput: SiteSettingsInput;
   urlOverride?: string;
+  previousSolidaryRaw?: string;
+};
+
+const parseSolidaryManifestObject = (raw: string): Record<string, unknown> | null => {
+  if (!raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 };
 
 export const buildSolidaryFile = ({
@@ -104,15 +118,40 @@ export const buildSolidaryFile = ({
   siteId,
   imageUrl,
   settingsInput,
-  urlOverride
+  urlOverride,
+  previousSolidaryRaw
 }: BuildSolidaryFileInput) => {
   const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
-  return templateSolidary
+
+  const templateRendered = templateSolidary
     .replaceAll("{{SITE_ID}}", siteId)
     .replaceAll("{{TITLE}}", settings.title)
     .replaceAll("{{DESCRIPTION}}", settings.description)
     .replaceAll("{{SITE_URL}}", settings.siteUrl)
     .replaceAll("{{IMAGE_URL}}", imageUrl);
+
+  const baseManifest = parseSolidaryManifestObject(templateRendered) ?? {};
+  const previousManifest = parseSolidaryManifestObject(previousSolidaryRaw ?? "");
+
+  const metadataManifest = {
+    ...baseManifest,
+    protocol_version: "1.0",
+    site_id: siteId,
+    site_url: settings.siteUrl,
+    title: settings.title,
+    image_url: imageUrl,
+    description: settings.description
+  };
+
+  const nextManifest =
+    previousManifest && Object.keys(previousManifest).length
+      ? {
+          ...previousManifest,
+          ...metadataManifest
+        }
+      : metadataManifest;
+
+  return `${JSON.stringify(nextManifest, null, 2)}\n`;
 };
 
 type BuildFilesInput = {
@@ -124,6 +163,7 @@ type BuildFilesInput = {
   pages: BuilderPage[];
   defaultHomeContent: string;
   urlOverride?: string;
+  previousSolidaryRaw?: string;
 };
 
 export const buildFiles = ({
@@ -134,7 +174,8 @@ export const buildFiles = ({
   templateSolidary,
   pages,
   defaultHomeContent,
-  urlOverride
+  urlOverride,
+  previousSolidaryRaw
 }: BuildFilesInput) => {
   const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
   const publishBasePath = getBasePathFromSiteUrl(settings.siteUrl);
@@ -146,7 +187,8 @@ export const buildFiles = ({
       siteId,
       imageUrl,
       settingsInput,
-      urlOverride
+      urlOverride,
+      previousSolidaryRaw
     })
   };
 

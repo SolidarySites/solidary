@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type {
   CollaboratorRole,
   CollaboratorSearchResult,
@@ -15,6 +16,7 @@ type BuilderContentSectionProps = {
   selectedCollaboratorSuggestion: CollaboratorSearchResult | null;
   collaboratorSearchLoading: boolean;
   invitingCollaborator: boolean;
+  connectionExplorerHref: string | null;
   collaborators: ManagedCollaborator[];
   collaboratorsLoading: boolean;
   updatingCollaboratorUserId: string | null;
@@ -41,6 +43,7 @@ const BuilderContentSection = ({
   selectedCollaboratorSuggestion,
   collaboratorSearchLoading,
   invitingCollaborator,
+  connectionExplorerHref,
   collaborators,
   collaboratorsLoading,
   updatingCollaboratorUserId,
@@ -85,6 +88,18 @@ const BuilderContentSection = ({
       />
     </label>
     {siteImagePreview && <img className="preview-image" src={siteImagePreview} alt="Preview" />}
+
+    {connectionExplorerHref && (
+      <div className="builder-section builder-connections-section">
+        <div className="section-header">
+          <h3>Site connections</h3>
+          <p>Invite other sites and review incoming connection requests.</p>
+        </div>
+        <Link className="builder-connections-link" to={connectionExplorerHref}>
+          Open connection explorer
+        </Link>
+      </div>
+    )}
 
     <div className="builder-section builder-collaborator-section">
       <div className="section-header">
