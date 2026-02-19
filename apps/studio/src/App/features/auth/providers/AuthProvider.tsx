@@ -1,18 +1,21 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode
+} from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
-import type { NoticeKind } from "../../../types/notice";
+import { AuthContext } from "../context/AuthContext";
 
-type UseSiteCreateAuthSessionParams = {
-  setNotice: (value: string | null) => void;
-  setNoticeKind: (value: NoticeKind) => void;
+type AuthProviderProps = {
+  children: ReactNode;
 };
 
-export const useSiteCreateAuthSession = ({
-  setNotice,
-  setNoticeKind
-}: UseSiteCreateAuthSessionParams) => {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionResolved, setSessionResolved] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -20,12 +23,14 @@ export const useSiteCreateAuthSession = ({
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
         setSession(data.session);
+        setSessionResolved(true);
       }
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (mounted) {
         setSession(nextSession);
+        setSessionResolved(true);
       }
     });
 
@@ -35,10 +40,7 @@ export const useSiteCreateAuthSession = ({
     };
   }, []);
 
-  const signInWithGitHub = async () => {
-    setNotice(null);
-    setNoticeKind(null);
-
+  const signInWithGitHub = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
@@ -48,18 +50,23 @@ export const useSiteCreateAuthSession = ({
     });
 
     if (error) {
-      setNotice(error.message);
-      setNoticeKind("error");
+      throw error;
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
 
-  return {
-    session,
-    signInWithGitHub,
-    signOut
-  };
-};
+  const value = useMemo(
+    () => ({
+      session,
+      sessionResolved,
+      signInWithGitHub,
+      signOut
+    }),
+    [session, sessionResolved, signInWithGitHub, signOut]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

@@ -4,7 +4,7 @@ import SiteHeader from "../../components/SiteHeader";
 export default function LandingRoute() {
   return (
     <div className="app-shell">
-      <SiteHeader session={null} />
+      <SiteHeader />
       <main className="main-content">
         <section className="landing-hero">
           <div>

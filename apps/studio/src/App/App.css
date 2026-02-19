@@ -20,27 +20,13 @@
   display: flex;
   gap: 0.9rem;
   align-items: center;
-}
-
-.site-nav {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.7rem;
-}
-
-.nav-link {
   text-decoration: none;
-  color: rgba(31, 34, 28, 0.8);
-  padding: 0.2rem 0.4rem;
-  border-bottom: 1px solid transparent;
+  color: #1f221c;
 }
 
-.nav-link.active {
-  border-bottom-color: rgba(31, 34, 28, 0.5);
-  color: #1f221c;
+.brand:focus-visible {
+  outline: 1px solid rgba(31, 34, 28, 0.4);
+  outline-offset: 4px;
 }
 
 .brand-mark {
@@ -50,6 +36,102 @@
 .brand-title {
   font-size: 1.1rem;
   letter-spacing: 0.02em;
+}
+
+.profile-menu {
+  position: relative;
+}
+
+.avatar-button {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 34, 28, 0.3);
+  padding: 0;
+  background: rgba(31, 34, 28, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.avatar-pill {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(31, 34, 28, 0.85);
+}
+
+.avatar-burger {
+  width: 0.9rem;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.13rem;
+}
+
+.avatar-burger span {
+  display: block;
+  width: 100%;
+  height: 1.5px;
+  border-radius: 999px;
+  background: rgba(31, 34, 28, 0.85);
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 220px;
+  border: 1px solid rgba(31, 34, 28, 0.2);
+  background: #fff;
+  box-shadow: 0 0.5rem 1.2rem rgba(31, 34, 28, 0.12);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.2rem;
+  z-index: 40;
+}
+
+.profile-dropdown-meta {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.35rem 0.45rem 0.55rem;
+  margin-bottom: 0.15rem;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.12);
+}
+
+.profile-name,
+.profile-email {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.profile-name {
+  color: rgba(31, 34, 28, 0.92);
+  font-weight: 600;
+}
+
+.profile-email {
+  color: rgba(31, 34, 28, 0.58);
+}
+
+.profile-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: rgba(31, 34, 28, 0.9);
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  text-align: left;
+  text-decoration: none;
+  padding: 0.45rem 0.5rem;
+}
+
+.profile-menu-item:hover,
+.profile-menu-item:focus-visible {
+  background: rgba(31, 34, 28, 0.08);
+  outline: none;
 }
 
 .main-content {
@@ -1351,8 +1433,7 @@ button:disabled {
 
 @media (max-width: 720px) {
   .site-header {
-    flex-direction: column;
-    align-items: flex-start;
+    padding: 0.8rem 1rem;
   }
 
   .landing-hero {

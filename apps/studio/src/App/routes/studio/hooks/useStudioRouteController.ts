@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../features/auth/hooks/useAuth";
 import type { NoticeKind } from "../../../types/notice";
-import { useStudioAuthSession } from "./useStudioAuthSession";
 import { useStudioDraftActions } from "./useStudioDraftActions";
 import { useStudioDraftData } from "./useStudioDraftData";
 import { mapDraftItemToSiteListItem } from "../services/studio-draft-mappers";
@@ -17,10 +17,7 @@ export const useStudioRouteController = () => {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const { session, signInWithGitHub, signOut } = useStudioAuthSession({
-    setNotice,
-    setNoticeKind
-  });
+  const { session } = useAuth();
 
   const {
     ownedDraftItems,
@@ -86,8 +83,6 @@ export const useStudioRouteController = () => {
     session,
     notice,
     noticeKind,
-    onSignIn: signInWithGitHub,
-    onSignOut: signOut,
     shouldShowSections: Boolean(session),
     ownedSitesProps: {
       title: "Your sites",

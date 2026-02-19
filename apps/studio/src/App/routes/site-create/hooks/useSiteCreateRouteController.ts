@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import templateSolidary from "../../../../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
+import { useAuth } from "../../../features/auth/hooks/useAuth";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
 import type { NoticeKind } from "../../../types/notice";
 import { provisionSiteDraft } from "../services/site-create-provisioning";
-import { useSiteCreateAuthSession } from "./useSiteCreateAuthSession";
 
 const INITIAL_PROVISION_STEP = "Preparing your site...";
 const INITIAL_SITE_TITLE = "New Astro Site";
@@ -34,10 +34,7 @@ export const useSiteCreateRouteController = () => {
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
 
-  const { session, signInWithGitHub, signOut } = useSiteCreateAuthSession({
-    setNotice,
-    setNoticeKind
-  });
+  const { session } = useAuth();
 
   const computedSlug = useMemo(() => slugify(siteTitle), [siteTitle]);
 
@@ -124,8 +121,6 @@ export const useSiteCreateRouteController = () => {
     siteTitle,
     siteDescription,
     siteImagePreview,
-    onSignIn: signInWithGitHub,
-    onSignOut: signOut,
     onSiteTitleChange: setSiteTitle,
     onSiteDescriptionChange: setSiteDescription,
     onSiteImageChange: setSiteImage,

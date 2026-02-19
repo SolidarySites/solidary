@@ -11,12 +11,7 @@ export default function SiteBuilderRoute() {
 
   return (
     <div className="app-shell builder-shell">
-      <SiteHeader
-        session={controller.session}
-        showAuthActions
-        onSignIn={controller.onSignIn}
-        onSignOut={controller.onSignOut}
-      />
+      <SiteHeader />
 
       <BuilderTopbar {...controller.topbarProps} />
 

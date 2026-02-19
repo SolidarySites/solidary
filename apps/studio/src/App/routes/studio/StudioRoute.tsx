@@ -11,12 +11,7 @@ export default function StudioRoute() {
 
   return (
     <div className="app-shell">
-      <SiteHeader
-        session={controller.session}
-        showAuthActions
-        onSignIn={controller.onSignIn}
-        onSignOut={controller.onSignOut}
-      />
+      <SiteHeader />
       <main className="main-content">
         {controller.shouldShowSections && <SitesListSection {...controller.ownedSitesProps} />}
         {controller.shouldShowSections && <SitesListSection {...controller.sharedSitesProps} />}

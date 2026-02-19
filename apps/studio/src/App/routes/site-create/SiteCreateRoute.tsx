@@ -9,12 +9,7 @@ export default function SiteCreateRoute() {
 
   return (
     <div className="app-shell">
-      <SiteHeader
-        session={controller.session}
-        showAuthActions
-        onSignIn={controller.onSignIn}
-        onSignOut={controller.onSignOut}
-      />
+      <SiteHeader />
 
       <main className="main-content">
         {controller.isProvisioning ? (

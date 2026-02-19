@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { supabase } from "../../../lib/supabase";
 import {
   FILE_KEYS
@@ -74,7 +75,6 @@ import templateSolidary from "../../../../templates/astro/solidary-links.json?ra
 import homeTemplate from "../../../../../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
 import { slugify } from "../../../lib/slugify";
-import { useBuilderAuthSession } from "./useBuilderAuthSession";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
 import { useBuilderPreviewEditor } from "./useBuilderPreviewEditor";
@@ -88,10 +88,7 @@ export const useSiteBuilderRouteController = () => {
 
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
-  const { session, sessionResolved, signInWithGitHub, signOut } = useBuilderAuthSession({
-    setNotice,
-    setNoticeKind
-  });
+  const { session, sessionResolved } = useAuth();
   const [activeSection, setActiveSection] = useState<BuilderSection>("menu");
   const [activeSettingsSection, setActiveSettingsSection] = useState<BuilderSettingsSection>("pages");
   const [isPageEditingMode, setIsPageEditingMode] = useState(false);
@@ -1196,8 +1193,6 @@ export const useSiteBuilderRouteController = () => {
     bodyClassName: `builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""} ${
       showMetadataFullView ? "is-settings-full" : ""
     }`.trim(),
-    onSignIn: signInWithGitHub,
-    onSignOut: signOut,
     topbarProps: {
       savingDraft,
       isProvisioning,
