@@ -8,6 +8,13 @@
   background: rgba(255, 255, 255, 0.75);
 }
 
+.site-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  min-width: 0;
+}
+
 .brand {
   display: flex;
   gap: 0.9rem;
@@ -28,6 +35,33 @@
 .brand-title {
   font-size: 1.1rem;
   letter-spacing: 0.02em;
+}
+
+.site-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.site-header-nav-link {
+  border: 1px solid rgba(31, 34, 28, 0.28);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(31, 34, 28, 0.9);
+  text-decoration: none;
+  padding: 0.4rem 0.7rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.site-header-nav-link:hover {
+  background: rgba(31, 34, 28, 0.09);
+}
+
+.site-header-nav-link.is-active {
+  background: #1f221c;
+  color: #f8f5ef;
 }
 
 .profile-menu {
@@ -136,5 +170,15 @@
 @media (max-width: 720px) {
   .site-header {
     padding: 0.8rem 1rem;
+    gap: 0.8rem;
+  }
+
+  .site-header-left {
+    gap: 0.7rem;
+  }
+
+  .site-header-nav-link {
+    padding: 0.34rem 0.56rem;
+    font-size: 0.63rem;
   }
 }

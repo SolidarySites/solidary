@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/hooks/useAuth";
 import {
   getSessionAvatarUrl,
@@ -10,6 +10,7 @@ import "./SiteHeader.css";
 export default function SiteHeader() {
   const { session, signInWithGitHub, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -63,10 +64,21 @@ export default function SiteHeader() {
 
   return (
     <header className="site-header">
-      <Link className="brand" to="/" aria-label="Solidary home">
-        <span className="brand-mark">●</span>
-        <div className="brand-title">Solidary</div>
-      </Link>
+      <div className="site-header-left">
+        <Link className="brand" to="/" aria-label="Solidary home">
+          <span className="brand-mark">●</span>
+          <div className="brand-title">Solidary</div>
+        </Link>
+
+        <nav className="site-header-nav" aria-label="Primary">
+          <Link
+            className={`site-header-nav-link ${location.pathname === "/explorer" ? "is-active" : ""}`.trim()}
+            to="/explorer"
+          >
+            Explorer
+          </Link>
+        </nav>
+      </div>
 
       <div className="profile-menu" ref={menuRef}>
         <button
