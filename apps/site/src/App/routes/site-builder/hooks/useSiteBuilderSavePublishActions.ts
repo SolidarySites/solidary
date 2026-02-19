@@ -36,6 +36,7 @@ import type {
   PublishFeedback
 } from "../services/types";
 import { normalizePageSlug } from "../services/utils";
+import { requireFreshGithubAuth } from "../../../features/auth/services/github-auth";
 import type { NoticeKind } from "../../../types/notice";
 
 type UseSiteBuilderSavePublishActionsParams = {
@@ -336,12 +337,17 @@ export const useSiteBuilderSavePublishActions = ({
       return;
     }
 
-    const providerToken = (session as { provider_token?: string }).provider_token;
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
       setNoticeKind("error");
       return;
     }
+
+    const { providerToken, supabaseAccessToken } = freshAuth;
 
     if (!siteTitle.trim() || !siteDescription.trim()) {
       setNotice("Title and description are required.");
@@ -409,7 +415,7 @@ export const useSiteBuilderSavePublishActions = ({
           templateSolidary,
           defaultHomeContent,
           setProvisionStep,
-          sessionAccessToken: session.access_token ?? null,
+          sessionAccessToken: supabaseAccessToken,
           sessionDisplayName,
           setDraftImageUrl,
           setDraftState,

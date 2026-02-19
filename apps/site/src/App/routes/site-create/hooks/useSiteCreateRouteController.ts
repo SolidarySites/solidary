@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import templateSolidary from "../../../../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
+import { requireFreshGithubAuth } from "../../../features/auth/services/github-auth";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
 import type { NoticeKind } from "../../../types/notice";
@@ -54,25 +55,21 @@ export const useSiteCreateRouteController = () => {
     setNotice(null);
     setNoticeKind(null);
 
-    if (!session) {
-      setNotice("Sign in with GitHub to continue.");
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
       setNoticeKind("error");
       return;
     }
 
-    const providerToken = (session as { provider_token?: string }).provider_token;
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
-      setNoticeKind("error");
-      return;
-    }
-
-    const supabaseAccessToken = session.access_token?.trim();
-    if (!supabaseAccessToken) {
-      setNotice("Supabase session missing. Please sign in again.");
-      setNoticeKind("error");
-      return;
-    }
+    const {
+      session: freshSession,
+      providerToken,
+      supabaseAccessToken
+    } = freshAuth;
 
     if (!siteTitle.trim() || !siteDescription.trim()) {
       setNotice("Title and description are required.");
@@ -85,7 +82,7 @@ export const useSiteCreateRouteController = () => {
     try {
       const siteId = crypto.randomUUID();
       await provisionSiteDraft({
-        session,
+        session: freshSession,
         providerToken,
         supabaseAccessToken,
         siteId,

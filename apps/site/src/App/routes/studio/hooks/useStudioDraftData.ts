@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { getFreshGithubAuthSnapshot } from "../../../features/auth/services/github-auth";
 import { supabase } from "../../../lib/supabase";
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import type { NoticeKind } from "../../../types/notice";
@@ -92,10 +93,19 @@ export const useStudioDraftData = ({
               membership.role === "viewer")
         );
 
-        const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
+        let providerToken = "";
+        let supabaseAccessToken = "";
+        try {
+          const freshAuth = await getFreshGithubAuthSnapshot();
+          providerToken = freshAuth.providerToken;
+          supabaseAccessToken = freshAuth.supabaseAccessToken;
+        } catch {
+          providerToken = "";
+          supabaseAccessToken = "";
+        }
         let resolvedSharedMemberships = sharedMemberships;
 
-        if (providerToken) {
+        if (providerToken && supabaseAccessToken) {
           const adminMemberships = sharedMemberships.filter((membership) => membership.role === "admin");
           if (adminMemberships.length) {
             const syncResults = await Promise.all(
@@ -105,7 +115,7 @@ export const useStudioDraftData = ({
                     method: "POST",
                     headers: {
                       "content-type": "application/json",
-                      Authorization: `Bearer ${session.access_token}`
+                      Authorization: `Bearer ${supabaseAccessToken}`
                     },
                     body: JSON.stringify({
                       siteId: membership.site_id,

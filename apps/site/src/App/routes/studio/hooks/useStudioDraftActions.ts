@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { requireFreshGithubAuth } from "../../../features/auth/services/github-auth";
 import { supabase } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
 import type { DeleteMode, DraftItem } from "../services/studio-types";
@@ -34,12 +35,17 @@ export const useStudioDraftActions = ({
       return;
     }
 
-    const providerToken = (session as { provider_token?: string }).provider_token;
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
       setNoticeKind("error");
       return;
     }
+
+    const { providerToken, supabaseAccessToken } = freshAuth;
 
     const [owner, repo] = item.repoFullName.split("/");
     if (!owner || !repo) {
@@ -56,7 +62,7 @@ export const useStudioDraftActions = ({
           token: providerToken,
           owner,
           repo,
-          supabase_access_token: session.access_token
+          supabase_access_token: supabaseAccessToken
         })
       }).then(async (response) => {
         if (!response.ok) {

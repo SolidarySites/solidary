@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
+  getFreshGithubAuthSnapshot,
+  requireFreshGithubAuth
+} from "../../../features/auth/services/github-auth";
+import {
   mapCollaboratorSearchRows,
   mapManagedCollaboratorRows,
   normalizeCollaboratorIdentifier,
@@ -57,8 +61,24 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
-    if (!providerToken || !session?.access_token) {
+    if (!session) {
+      setManagedCollaborators([]);
+      setManagedCollaboratorsLoading(false);
+      return;
+    }
+
+    let providerToken = "";
+    let supabaseAccessToken = "";
+    try {
+      const freshAuth = await getFreshGithubAuthSnapshot();
+      providerToken = freshAuth.providerToken;
+      supabaseAccessToken = freshAuth.supabaseAccessToken;
+    } catch {
+      providerToken = "";
+      supabaseAccessToken = "";
+    }
+
+    if (!providerToken || !supabaseAccessToken) {
       setManagedCollaborators([]);
       setManagedCollaboratorsLoading(false);
       return;
@@ -72,7 +92,7 @@ export const useBuilderCollaborators = ({
         method: "POST",
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
+          Authorization: `Bearer ${supabaseAccessToken}`
         },
         body: JSON.stringify({
           draftId,
@@ -180,13 +200,23 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    const providerToken = (session as { provider_token?: string } | null)?.provider_token;
-    if (!providerToken) {
-      setNotice("GitHub token missing. Please sign in again.");
+    if (!session) {
+      setNotice("Sign in with GitHub to continue.");
       setNoticeKind("error");
       return;
     }
 
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
+      setNoticeKind("error");
+      return;
+    }
+
+    const { providerToken, supabaseAccessToken } = freshAuth;
     const identifierInput = collaboratorQuery.trim();
     if (!identifierInput) {
       setNotice("Enter a GitHub username or email.");
@@ -237,7 +267,7 @@ export const useBuilderCollaborators = ({
         method: "POST",
         headers: {
           "content-type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+          Authorization: `Bearer ${supabaseAccessToken}`
         },
         body: JSON.stringify({
           draftId,
@@ -283,13 +313,23 @@ export const useBuilderCollaborators = ({
     role: CollaboratorRole
   ) => {
     if (!draftId || !isOwnerOnOwnerDraft) return;
-    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
-    if (!providerToken || !session?.access_token) {
-      setNotice("GitHub token missing. Please sign in again.");
+    if (!session) {
+      setNotice("Sign in with GitHub to continue.");
       setNoticeKind("error");
       return;
     }
 
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
+      setNoticeKind("error");
+      return;
+    }
+
+    const { providerToken, supabaseAccessToken } = freshAuth;
     const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
     if (!collaborator || collaborator.role === role) return;
 
@@ -299,7 +339,7 @@ export const useBuilderCollaborators = ({
         method: "POST",
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
+          Authorization: `Bearer ${supabaseAccessToken}`
         },
         body: JSON.stringify({
           action: "update_role",
@@ -344,13 +384,23 @@ export const useBuilderCollaborators = ({
 
   const handleCollaboratorRemove = async (collaboratorUserId: string) => {
     if (!draftId || !isOwnerOnOwnerDraft) return;
-    const providerToken = (session as { provider_token?: string } | null)?.provider_token?.trim() ?? "";
-    if (!providerToken || !session?.access_token) {
-      setNotice("GitHub token missing. Please sign in again.");
+    if (!session) {
+      setNotice("Sign in with GitHub to continue.");
       setNoticeKind("error");
       return;
     }
 
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshGithubAuth();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
+      setNotice(message);
+      setNoticeKind("error");
+      return;
+    }
+
+    const { providerToken, supabaseAccessToken } = freshAuth;
     const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
     if (!collaborator) return;
 
@@ -360,7 +410,7 @@ export const useBuilderCollaborators = ({
         method: "POST",
         headers: {
           "content-type": "application/json",
-          Authorization: `Bearer ${session.access_token}`
+          Authorization: `Bearer ${supabaseAccessToken}`
         },
         body: JSON.stringify({
           action: "remove",
