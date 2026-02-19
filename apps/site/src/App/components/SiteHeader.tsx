@@ -1,26 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/hooks/useAuth";
+import {
+  getSessionAvatarUrl,
+  getSessionDisplayName
+} from "../features/auth/services/user-profile";
 import "./SiteHeader.css";
-
-const getUserDisplayName = (session: Session | null) => {
-  const metadata = session?.user.user_metadata as Record<string, unknown> | undefined;
-  const candidates = [
-    metadata?.user_name,
-    metadata?.preferred_username,
-    metadata?.name,
-    session?.user.email
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  return "Guest";
-};
 
 export default function SiteHeader() {
   const { session, signInWithGitHub, signOut } = useAuth();
@@ -28,7 +13,8 @@ export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const displayName = useMemo(() => getUserDisplayName(session), [session]);
+  const displayName = useMemo(() => getSessionDisplayName(session), [session]);
+  const avatarImageUrl = useMemo(() => getSessionAvatarUrl(session), [session]);
   const avatarText = useMemo(() => displayName.slice(0, 1).toUpperCase() || "?", [displayName]);
 
   useEffect(() => {
@@ -92,7 +78,15 @@ export default function SiteHeader() {
           onClick={() => setMenuOpen((value) => !value)}
         >
           {session ? (
-            <span className="avatar-pill">{avatarText}</span>
+            avatarImageUrl ? (
+              <img
+                className="avatar-image"
+                src={avatarImageUrl}
+                alt={`${displayName} avatar`}
+              />
+            ) : (
+              <span className="avatar-pill">{avatarText}</span>
+            )
           ) : (
             <span className="avatar-burger" aria-hidden="true">
               <span />
@@ -108,6 +102,16 @@ export default function SiteHeader() {
               <p className="profile-name">{session ? displayName : "Signed out"}</p>
               {session?.user.email && <p className="profile-email">{session.user.email}</p>}
             </div>
+            {session && (
+              <Link
+                className="profile-menu-item"
+                to="/profile"
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+              >
+                Profile settings
+              </Link>
+            )}
             {session && (
               <Link className="profile-menu-item" to="/studio" role="menuitem" onClick={() => setMenuOpen(false)}>
                 Studio

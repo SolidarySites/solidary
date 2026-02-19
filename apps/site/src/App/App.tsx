@@ -6,6 +6,7 @@ import LandingRoute from "./routes/landing/LandingRoute";
 import StudioRoute from "./routes/studio/StudioRoute";
 import SiteCreateRoute from "./routes/site-create/SiteCreateRoute";
 import SiteBuilderRoute from "./routes/site-builder/SiteBuilderRoute";
+import ProfileRoute from "./routes/profile/ProfileRoute";
 
 export default function App() {
   return (
@@ -34,6 +35,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <SiteBuilderRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <ProfileRoute />
               </RequireAuth>
             }
           />
