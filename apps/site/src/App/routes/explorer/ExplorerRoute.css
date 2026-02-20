@@ -149,6 +149,10 @@
   height: 100% !important;
 }
 
+.explorer-graph-shell.explorer-graph-shell-point-hovered canvas {
+  cursor: pointer !important;
+}
+
 .explorer-viewer-beacon {
   position: absolute;
   top: 0;

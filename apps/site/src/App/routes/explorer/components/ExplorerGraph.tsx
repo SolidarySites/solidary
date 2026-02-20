@@ -218,6 +218,7 @@ export default function ExplorerGraph({
     anchorY: number;
     nonce: number;
   } | null>(null);
+  const [isPointHovered, setIsPointHovered] = useState(false);
 
   const siteById = useMemo(() => {
     const map: Record<string, ExplorerSite> = {};
@@ -315,6 +316,7 @@ export default function ExplorerGraph({
       pointDefaultSize: 4,
       pointOpacity: 0.96,
       pointSizeScale: 1,
+      hoveredPointCursor: "pointer",
       renderLinks: true,
       linkDefaultColor: [31, 34, 28, 0.24],
       linkDefaultWidth: 1,
@@ -361,6 +363,15 @@ export default function ExplorerGraph({
       onPointClick: (index, _pointPosition, event) => {
         markUserInteracted();
         openSiteInfoByPointIndex(index, event);
+      },
+      onPointMouseOver: () => {
+        setIsPointHovered((current) => (current ? current : true));
+      },
+      onPointMouseOut: () => {
+        setIsPointHovered((current) => (current ? false : current));
+      },
+      onDragStart: () => {
+        setIsPointHovered(false);
       }
     };
 
@@ -625,7 +636,11 @@ export default function ExplorerGraph({
 
   return (
     <section className="explorer-panel explorer-panel-graph">
-      <div className="explorer-graph-shell" ref={shellRef} onPointerDownCapture={handleShellPointerDown}>
+      <div
+        className={`explorer-graph-shell${isPointHovered ? " explorer-graph-shell-point-hovered" : ""}`}
+        ref={shellRef}
+        onPointerDownCapture={handleShellPointerDown}
+      >
         <div className="explorer-viewer-beacon" aria-hidden="true" ref={viewerBeaconRef}>
           <span />
           <span />
