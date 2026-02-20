@@ -32,6 +32,10 @@ type ExplorerConnectionRow = {
   responded_at: string | null;
 };
 
+type ViewerSiteRow = {
+  site_id: string | null;
+};
+
 export type ExplorerData = {
   sites: ExplorerSite[];
   connections: ExplorerConnection[];
@@ -107,4 +111,27 @@ export const loadExplorerData = async (): Promise<ExplorerData> => {
   );
 
   return { sites, connections };
+};
+
+export const loadViewerSiteIdsForUser = async (userId: string): Promise<string[]> => {
+  const trimmedUserId = userId.trim();
+  if (!trimmedUserId) return [];
+
+  const { data, error } = await supabase
+    .from("site_drafts")
+    .select("site_id")
+    .eq("owner_user_id", trimmedUserId)
+    .eq("draft_type", "owner");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const ids = new Set<string>();
+  ((data ?? []) as ViewerSiteRow[]).forEach((row) => {
+    const siteId = typeof row.site_id === "string" ? row.site_id.trim() : "";
+    if (!siteId) return;
+    ids.add(siteId);
+  });
+  return Array.from(ids);
 };

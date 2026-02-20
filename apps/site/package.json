@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@cosmos.gl/graph": "^2.6.4",
     "@solidary/protocol": "0.0.0",
     "@supabase/supabase-js": "^2.93.3",
     "@uiw/react-md-editor": "^4.0.6",

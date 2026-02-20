@@ -5,6 +5,7 @@ import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
 import LandingRoute from "./routes/landing/LandingRoute";
 import ExplorerRoute from "./routes/explorer/ExplorerRoute";
+import SearchRoute from "./routes/search/SearchRoute";
 import StudioRoute from "./routes/studio/StudioRoute";
 import SiteCreateRoute from "./routes/site-create/SiteCreateRoute";
 import SiteBuilderRoute from "./routes/site-builder/SiteBuilderRoute";
@@ -52,6 +53,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingRoute />} />
           <Route path="/explorer" element={<ExplorerRoute />} />
+          <Route path="/search" element={<SearchRoute />} />
           <Route
             path="/studio"
             element={

@@ -1,45 +1,81 @@
-import SiteFooter from "../../components/SiteFooter";
+import { useEffect, useState } from "react";
+import { useAuth } from "../../features/auth/hooks/useAuth";
 import ExplorerGraph from "./components/ExplorerGraph";
-import ExplorerSitesList from "./components/ExplorerSitesList";
 import { useExplorerRouteController } from "./hooks/useExplorerRouteController";
+import { loadViewerSiteIdsForUser } from "./services/explorer-data";
 import "./ExplorerRoute.css";
 
 export default function ExplorerRoute() {
+  const { session, sessionResolved } = useAuth();
   const controller = useExplorerRouteController();
+  const [viewerSiteIds, setViewerSiteIds] = useState<string[]>([]);
+  const [viewerSitesResolved, setViewerSitesResolved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!sessionResolved) {
+      setViewerSiteIds([]);
+      setViewerSitesResolved(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!session) {
+      setViewerSiteIds([]);
+      setViewerSitesResolved(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setViewerSitesResolved(false);
+    void (async () => {
+      try {
+        const ownedSiteIds = await loadViewerSiteIdsForUser(session.user.id);
+        if (cancelled) return;
+        setViewerSiteIds(ownedSiteIds);
+      } catch {
+        if (cancelled) return;
+        setViewerSiteIds([]);
+      } finally {
+        if (!cancelled) {
+          setViewerSitesResolved(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, sessionResolved]);
+
+  const isGraphReady =
+    !controller.loading && !controller.error && viewerSitesResolved;
+  const isLoading = !controller.error && (!viewerSitesResolved || controller.loading);
 
   return (
-    <div className="app-shell">
-      <main className="main-content">
-        {controller.loading && (
-          <section className="explorer-panel">
-            <p>Loading explorer data...</p>
-          </section>
+    <div className="app-shell explorer-app-shell">
+      <main className="main-content explorer-main-content">
+        {isGraphReady && (
+          <ExplorerGraph
+            sites={controller.sites}
+            connections={controller.connections}
+            viewerSiteIds={viewerSiteIds}
+          />
         )}
-
-        {!controller.loading && controller.error && (
+        {controller.error && (
           <section className="explorer-panel">
             <p className="explorer-error">{controller.error}</p>
           </section>
         )}
-
-        {!controller.loading && !controller.error && (
-          <>
-            <ExplorerGraph
-              sites={controller.sites}
-              connections={controller.connections}
-            />
-            <ExplorerSitesList
-              sites={controller.listSites}
-              connections={controller.connections}
-              totalSiteCount={controller.totalSiteCount}
-              totalConnectionCount={controller.totalConnectionCount}
-              searchQuery={controller.searchQuery}
-              onSearchQueryChange={controller.onSearchQueryChange}
-            />
-          </>
+        {isLoading && (
+          <section className="explorer-panel explorer-loading-panel">
+            <p>Loading graph data...</p>
+          </section>
         )}
       </main>
-      <SiteFooter notice={null} noticeKind={null} />
     </div>
   );
 }

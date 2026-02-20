@@ -77,6 +77,12 @@ export default function SiteHeader() {
           >
             Explorer
           </Link>
+          <Link
+            className={`site-header-nav-link ${location.pathname === "/search" ? "is-active" : ""}`.trim()}
+            to="/search"
+          >
+            Search
+          </Link>
         </nav>
       </div>
 
