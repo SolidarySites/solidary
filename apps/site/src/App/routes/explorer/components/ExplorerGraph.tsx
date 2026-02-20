@@ -31,16 +31,46 @@ const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
 const GRAPH_SPACE_SIZE = 8192;
-const INITIAL_ZOOM_LEVEL = 4.5;
-const INITIAL_SIMULATION_ALPHA = 0.035;
-const UPDATE_SIMULATION_ALPHA = 0.012;
+// Zoom floor for dense graphs. Practical range: 1-10.
+const MIN_INITIAL_ZOOM_LEVEL = 5;
+// Zoom ceiling for sparse graphs. Practical range: 1-10.
+const MAX_INITIAL_ZOOM_LEVEL = 10;
+// How fast initial zoom scales down as node count doubles.
+// Range: 0+ (typical 0.4-1.2). Higher = faster zooming out.
+const ZOOM_DECAY_PER_DOUBLING = 0.4;
+// Initial simulation energy when graph first appears.
+// Range: 0-1 (typical 0.01-0.08). Higher = faster/more visible drift.
+const INITIAL_SIMULATION_ALPHA = 0.016;
+// Simulation energy injected on later updates.
+// Range: 0-1 (typical 0.002-0.03). Higher = more ongoing movement.
+const UPDATE_SIMULATION_ALPHA = 0.005;
+// Low ambient pulse so clusters keep subtle firefly-like motion over time.
+// Range: 0-1 (typical 0.001-0.01). Lower = calmer drift.
+const AMBIENT_SIMULATION_ALPHA = 0.0035;
+// How often ambient motion pulses are injected.
+// Range: milliseconds >= 100 (typical 800-4000). Higher = less frequent movement.
+const AMBIENT_SIMULATION_INTERVAL_MS = 1800;
+// Number of pre-render simulation ticks before first frame.
+// Range: integer >= 0 (typical 16-120). Higher = calmer initial frame.
 const INITIAL_SETTLE_STEPS = 72;
 const POINT_CLOUD_RADIUS = GRAPH_SPACE_SIZE * 0.2;
+// Delay before auto-pan logic starts.
+// Range: milliseconds >= 0 (typical 0-3000).
 const AUTO_PAN_INITIAL_DELAY_MS = 900;
+// Length of the auto-pan camera move.
+// Range: milliseconds >= 0 (typical 500-20000).
 const AUTO_PAN_DURATION_MS = 9000;
+// How often we check if a node has settled before panning.
+// Range: milliseconds >= 16 (typical 100-500).
 const AUTO_PAN_SETTLE_CHECK_MS = 260;
+// Hard timeout for settle waiting.
+// Range: milliseconds >= 0 (typical 2000-30000).
 const AUTO_PAN_SETTLE_MAX_WAIT_MS = 12000;
-const AUTO_PAN_SETTLE_STABLE_SAMPLES = 2;
+// Number of consecutive low-motion samples required before pan.
+// Range: integer >= 1 (typical 1-10). Higher = stricter settle requirement.
+const AUTO_PAN_SETTLE_STABLE_SAMPLES = 5;
+// Motion threshold (in graph-space units) treated as "stable."
+// Range: >= 0 (typical 0.5-12). Lower = less drift tolerated.
 const AUTO_PAN_SETTLE_DISTANCE_EPSILON = 6.2;
 const DEFAULT_POINT_RGBA: [number, number, number, number] = [
   76 / 255,
@@ -48,12 +78,15 @@ const DEFAULT_POINT_RGBA: [number, number, number, number] = [
   104 / 255,
   1
 ];
-const VIEWER_POINT_RGBA: [number, number, number, number] = [
-  242 / 255,
-  212 / 255,
-  81 / 255,
-  1
-];
+
+const getInitialZoomLevelForNodeCount = (nodeCount: number) => {
+  if (nodeCount <= 1) {
+    return MAX_INITIAL_ZOOM_LEVEL;
+  }
+  const zoomLevel =
+    MAX_INITIAL_ZOOM_LEVEL - Math.log2(nodeCount) * ZOOM_DECAY_PER_DOUBLING;
+  return clamp(zoomLevel, MIN_INITIAL_ZOOM_LEVEL, MAX_INITIAL_ZOOM_LEVEL);
+};
 
 const truncateLabel = (value: string) => {
   if (value.length <= 40) return value;
@@ -78,6 +111,11 @@ const buildDeterministicPointPositions = (sites: ExplorerSite[], radius: number)
   const positions = new Float32Array(sites.length * 2);
   if (!sites.length) return positions;
   const center = GRAPH_SPACE_SIZE / 2;
+  if (sites.length === 1) {
+    positions[0] = center;
+    positions[1] = center;
+    return positions;
+  }
   const maxUint32 = 0xffffffff;
 
   for (let index = 0; index < sites.length; index += 1) {
@@ -122,11 +160,10 @@ const buildPreparedGraphData = ({
     if (isViewerSite) {
       viewerPointIndices.push(index);
     }
-    const color = isViewerSite ? VIEWER_POINT_RGBA : DEFAULT_POINT_RGBA;
-    pointColors[index * 4] = color[0];
-    pointColors[index * 4 + 1] = color[1];
-    pointColors[index * 4 + 2] = color[2];
-    pointColors[index * 4 + 3] = color[3];
+    pointColors[index * 4] = DEFAULT_POINT_RGBA[0];
+    pointColors[index * 4 + 1] = DEFAULT_POINT_RGBA[1];
+    pointColors[index * 4 + 2] = DEFAULT_POINT_RGBA[2];
+    pointColors[index * 4 + 3] = DEFAULT_POINT_RGBA[3];
 
     const degree = connectedBySiteId[site.id]?.size ?? 0;
     pointSizes[index] = clamp(4 + Math.log2(degree + 1) * 1.3, 4, 13);
@@ -168,8 +205,11 @@ export default function ExplorerGraph({
   const hasInitializedDataRef = useRef(false);
   const autoPanTimeoutRef = useRef<number | null>(null);
   const autoPanSettleIntervalRef = useRef<number | null>(null);
+  const ambientSimulationIntervalRef = useRef<number | null>(null);
+  const viewerBeaconFrameRef = useRef<number | null>(null);
   const userInteractedRef = useRef(false);
   const infoCardRef = useRef<HTMLElement | null>(null);
+  const viewerBeaconRef = useRef<HTMLDivElement | null>(null);
   const pointSiteIdsRef = useRef<string[]>([]);
   const [shellSize, setShellSize] = useState({ width: 960, height: 620 });
   const [selectedPointInfo, setSelectedPointInfo] = useState<{
@@ -236,6 +276,28 @@ export default function ExplorerGraph({
     }
   }, []);
 
+  const clearAmbientSimulationLoop = useCallback(() => {
+    if (ambientSimulationIntervalRef.current === null) return;
+    window.clearInterval(ambientSimulationIntervalRef.current);
+    ambientSimulationIntervalRef.current = null;
+  }, []);
+
+  const clearViewerBeaconLoop = useCallback(() => {
+    if (viewerBeaconFrameRef.current !== null) {
+      window.cancelAnimationFrame(viewerBeaconFrameRef.current);
+      viewerBeaconFrameRef.current = null;
+    }
+  }, []);
+
+  const startAmbientSimulationLoop = useCallback(() => {
+    clearAmbientSimulationLoop();
+    ambientSimulationIntervalRef.current = window.setInterval(() => {
+      const graph = graphRef.current;
+      if (!graph) return;
+      graph.start(AMBIENT_SIMULATION_ALPHA);
+    }, AMBIENT_SIMULATION_INTERVAL_MS);
+  }, [clearAmbientSimulationLoop]);
+
   const markUserInteracted = useCallback(() => {
     userInteractedRef.current = true;
     clearAutoPanTimers();
@@ -265,13 +327,31 @@ export default function ExplorerGraph({
       enableDrag: true,
       enableSimulationDuringZoom: true,
       fitViewOnInit: false,
-      initialZoomLevel: INITIAL_ZOOM_LEVEL,
-      simulationDecay: 4200,
-      simulationRepulsion: 0.52,
-      simulationGravity: 0.1,
-      simulationCenter: 0.025,
-      simulationLinkSpring: 0.32,
-      simulationLinkDistance: 18,
+      initialZoomLevel: MAX_INITIAL_ZOOM_LEVEL,
+      // Controls how quickly simulation energy decays.
+      // Range: > 0 (typical 500-10000). Higher = drift lasts longer.
+      simulationDecay: 24000,
+      // Node-to-node repulsion force.
+      // Range: >= 0 (typical 0.2-2.5). Higher = stronger push-apart motion.
+      simulationRepulsion: 0.42,
+      // Global pull toward center.
+      // Range: >= 0 (typical 0-0.4). Higher = faster inward drift.
+      simulationGravity: 0,
+      // Additional centering bias.
+      // Range: >= 0 (typical 0-0.15). Higher = tighter center lock.
+      simulationCenter: 0,
+      // Link spring stiffness.
+      // Range: >= 0 (typical 0.1-1.2). Higher = links pull harder/faster.
+      simulationLinkSpring: 0.72,
+      // Target link length in graph-space units.
+      // Range: > 0 (typical 4-80). Larger values spread linked nodes farther.
+      simulationLinkDistance: 11,
+      // Link-length randomization range.
+      // Range: [min, max], both > 0 (typical [0.8, 1.6]).
+      simulationLinkDistRandomVariationRange: [0.82, 1.75],
+      // Velocity damping per tick.
+      // Range: 0-1 (0 = heavy damping, 1 = almost no damping).
+      simulationFriction: 0.97,
       onClick: (index) => {
         markUserInteracted();
         if (!Number.isInteger(index)) {
@@ -288,11 +368,20 @@ export default function ExplorerGraph({
     graphRef.current = graph;
     return () => {
       clearAutoPanTimers();
+      clearAmbientSimulationLoop();
+      clearViewerBeaconLoop();
       hasInitializedDataRef.current = false;
       graphRef.current = null;
       graph.destroy();
     };
-  }, [clearAutoPanTimers, clearSelectedInfo, markUserInteracted, openSiteInfoByPointIndex]);
+  }, [
+    clearAutoPanTimers,
+    clearAmbientSimulationLoop,
+    clearViewerBeaconLoop,
+    clearSelectedInfo,
+    markUserInteracted,
+    openSiteInfoByPointIndex
+  ]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -347,6 +436,7 @@ export default function ExplorerGraph({
     if (!graph) return;
 
     clearAutoPanTimers();
+    clearAmbientSimulationLoop();
     pointSiteIdsRef.current = graphData.pointSiteIds;
     graph.setPointPositions(graphData.pointPositions);
     graph.setPointColors(graphData.pointColors);
@@ -362,14 +452,24 @@ export default function ExplorerGraph({
     if (!hasInitializedDataRef.current) {
       userInteractedRef.current = false;
       graph.stop();
+      if (graphData.pointSiteIds.length === 1) {
+        graph.zoomToPointByIndex(0, 0, MAX_INITIAL_ZOOM_LEVEL, false);
+        graph.render(0);
+        hasInitializedDataRef.current = true;
+        return;
+      }
+      const initialZoomLevel = getInitialZoomLevelForNodeCount(
+        graphData.pointSiteIds.length
+      );
       // Start broad, then gently travel toward the user's site.
       graph.fitView(0, 0.16);
-      graph.setZoomLevel(INITIAL_ZOOM_LEVEL, 0);
+      graph.setZoomLevel(initialZoomLevel, 0);
       for (let stepIndex = 0; stepIndex < INITIAL_SETTLE_STEPS; stepIndex += 1) {
         graph.step();
       }
       graph.render(0);
       graph.start(INITIAL_SIMULATION_ALPHA);
+      startAmbientSimulationLoop();
       if (graphData.viewerPointIndices.length) {
         const targetIndex = graphData.viewerPointIndices[0] ?? -1;
         if (targetIndex >= 0) {
@@ -442,7 +542,47 @@ export default function ExplorerGraph({
 
     // New batch arrived: preserve camera and just inject a little energy for subtle rearrangement.
     graph.start(UPDATE_SIMULATION_ALPHA);
-  }, [clearAutoPanTimers, graphData]);
+    if (graphData.pointSiteIds.length > 1) {
+      startAmbientSimulationLoop();
+    }
+  }, [clearAutoPanTimers, clearAmbientSimulationLoop, graphData, startAmbientSimulationLoop]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    const beacon = viewerBeaconRef.current;
+    if (!graph || !beacon) return;
+
+    clearViewerBeaconLoop();
+    const beaconIndex = graphData.viewerPointIndices[0];
+    if (!Number.isInteger(beaconIndex)) {
+      beacon.style.opacity = "0";
+      return;
+    }
+
+    const frame = () => {
+      const activeGraph = graphRef.current;
+      const activeBeacon = viewerBeaconRef.current;
+      if (!activeGraph || !activeBeacon) {
+        return;
+      }
+      const positions = activeGraph.getPointPositions();
+      const x = positions[beaconIndex * 2];
+      const y = positions[beaconIndex * 2 + 1];
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        const [screenX, screenY] = activeGraph.spaceToScreenPosition([x, y]);
+        activeBeacon.style.transform = `translate(${Math.round(screenX)}px, ${Math.round(screenY)}px)`;
+        activeBeacon.style.opacity = "1";
+      } else {
+        activeBeacon.style.opacity = "0";
+      }
+      viewerBeaconFrameRef.current = window.requestAnimationFrame(frame);
+    };
+
+    viewerBeaconFrameRef.current = window.requestAnimationFrame(frame);
+    return () => {
+      clearViewerBeaconLoop();
+    };
+  }, [clearViewerBeaconLoop, graphData.viewerPointIndices]);
 
   const selectedSite = selectedPointInfo ? siteById[selectedPointInfo.siteId] : null;
   const infoCardStyle: CSSProperties | undefined = useMemo(() => {
@@ -486,6 +626,10 @@ export default function ExplorerGraph({
   return (
     <section className="explorer-panel explorer-panel-graph">
       <div className="explorer-graph-shell" ref={shellRef} onPointerDownCapture={handleShellPointerDown}>
+        <div className="explorer-viewer-beacon" aria-hidden="true" ref={viewerBeaconRef}>
+          <span />
+          <span />
+        </div>
         {selectedSite && selectedPointInfo && (
           <article
             className="explorer-hover-card"
