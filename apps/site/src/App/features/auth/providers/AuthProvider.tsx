@@ -2,11 +2,17 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
+import {
+  cacheGithubProviderTokenFromSession,
+  clearCachedGithubProviderTokenForUser,
+  GITHUB_OAUTH_SCOPES
+} from "../services/github-auth";
 import { AuthContext } from "../context/AuthContext";
 
 type AuthProviderProps = {
@@ -16,19 +22,29 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionResolved, setSessionResolved] = useState(false);
+  const sessionUserIdRef = useRef<string>("");
 
   useEffect(() => {
     let mounted = true;
 
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
+        cacheGithubProviderTokenFromSession(data.session);
+        sessionUserIdRef.current = data.session?.user?.id?.trim() ?? "";
         setSession(data.session);
         setSessionResolved(true);
       }
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
+        const previousUserId = sessionUserIdRef.current;
+        if (event === "SIGNED_OUT" && previousUserId) {
+          clearCachedGithubProviderTokenForUser(previousUserId);
+        }
+
+        cacheGithubProviderTokenFromSession(nextSession);
+        sessionUserIdRef.current = nextSession?.user?.id?.trim() ?? "";
         setSession(nextSession);
         setSessionResolved(true);
       }
@@ -44,8 +60,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: window.location.origin,
-        scopes: "repo delete_repo workflow"
+        redirectTo: window.location.href,
+        scopes: GITHUB_OAUTH_SCOPES
       }
     });
 
@@ -55,6 +71,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = sessionUserIdRef.current;
+    if (userId) {
+      clearCachedGithubProviderTokenForUser(userId);
+    }
     await supabase.auth.signOut();
   }, []);
 

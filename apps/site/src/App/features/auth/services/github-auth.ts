@@ -6,6 +6,9 @@ type SessionWithProviderToken = Session & {
 };
 
 const GITHUB_PROVIDER_TOKEN_STORAGE_PREFIX = "solidary:github-provider-token:";
+const GITHUB_REAUTH_LAST_ATTEMPT_STORAGE_KEY = "solidary:github-reauth-last-at";
+const GITHUB_REAUTH_COOLDOWN_MS = 2 * 60 * 1000;
+export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
 
 export type FreshGithubAuthSnapshot = {
   session: Session | null;
@@ -29,6 +32,10 @@ const getSessionProviderToken = (session: Session | null): string => {
 
 const getSessionSupabaseAccessToken = (session: Session | null): string => {
   return session?.access_token?.trim() ?? "";
+};
+
+const getSessionUserId = (session: Session | null): string => {
+  return session?.user?.id?.trim() ?? "";
 };
 
 const getGithubProviderTokenStorageKey = (userId: string) =>
@@ -59,6 +66,17 @@ const writeStoredProviderToken = (userId: string, providerToken: string) => {
   }
 };
 
+const removeStoredProviderToken = (userId: string) => {
+  const storage = getLocalStorage();
+  if (!storage) return;
+
+  try {
+    storage.removeItem(getGithubProviderTokenStorageKey(userId));
+  } catch {
+    // Ignore storage write failures (private mode/quota/permissions).
+  }
+};
+
 const readStoredProviderToken = (userId: string): string => {
   const storage = getLocalStorage();
   if (!storage) return "";
@@ -68,6 +86,91 @@ const readStoredProviderToken = (userId: string): string => {
   } catch {
     return "";
   }
+};
+
+const readLastGithubReauthAttemptAt = (): number => {
+  const storage = getLocalStorage();
+  if (!storage) return 0;
+
+  try {
+    const rawValue = storage.getItem(GITHUB_REAUTH_LAST_ATTEMPT_STORAGE_KEY);
+    if (!rawValue) return 0;
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const writeLastGithubReauthAttemptAt = (timestampMs: number) => {
+  const storage = getLocalStorage();
+  if (!storage) return;
+
+  try {
+    storage.setItem(GITHUB_REAUTH_LAST_ATTEMPT_STORAGE_KEY, String(timestampMs));
+  } catch {
+    // Ignore storage write failures (private mode/quota/permissions).
+  }
+};
+
+const clearLastGithubReauthAttemptAt = () => {
+  const storage = getLocalStorage();
+  if (!storage) return;
+
+  try {
+    storage.removeItem(GITHUB_REAUTH_LAST_ATTEMPT_STORAGE_KEY);
+  } catch {
+    // Ignore storage write failures (private mode/quota/permissions).
+  }
+};
+
+const shouldThrottleGithubReauth = (nowMs: number): boolean => {
+  const lastAttemptAt = readLastGithubReauthAttemptAt();
+  return nowMs - lastAttemptAt < GITHUB_REAUTH_COOLDOWN_MS;
+};
+
+export const cacheGithubProviderTokenFromSession = (session: Session | null) => {
+  const userId = getSessionUserId(session);
+  if (!userId) return;
+
+  const providerToken = getSessionProviderToken(session);
+  if (providerToken) {
+    writeStoredProviderToken(userId, providerToken);
+  }
+};
+
+export const clearCachedGithubProviderTokenForUser = (userId: string) => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return;
+  removeStoredProviderToken(normalizedUserId);
+};
+
+export const reconnectGitHubOAuth = async ({
+  redirectTo
+}: {
+  redirectTo?: string;
+} = {}): Promise<boolean> => {
+  if (typeof window === "undefined") return false;
+
+  const nowMs = Date.now();
+  if (shouldThrottleGithubReauth(nowMs)) return false;
+  writeLastGithubReauthAttemptAt(nowMs);
+
+  const targetRedirectTo = redirectTo?.trim() || window.location.href;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "github",
+    options: {
+      redirectTo: targetRedirectTo,
+      scopes: GITHUB_OAUTH_SCOPES
+    }
+  });
+
+  if (error) {
+    clearLastGithubReauthAttemptAt();
+    throw new Error(error.message);
+  }
+
+  return true;
 };
 
 const resolveFreshSessionWithProviderToken = async (session: Session | null) => {
@@ -86,7 +189,7 @@ const resolveFreshSessionWithProviderToken = async (session: Session | null) => 
     }
   }
 
-  const userId = resolvedSession?.user?.id?.trim() ?? "";
+  const userId = getSessionUserId(resolvedSession);
   if (userId) {
     if (providerToken) {
       writeStoredProviderToken(userId, providerToken);
@@ -124,7 +227,8 @@ export const requireFreshGithubAuth = async (): Promise<FreshGithubAuth> => {
   }
 
   if (!providerToken) {
-    throw new Error("GitHub token missing. Please sign in again.");
+    await reconnectGitHubOAuth().catch(() => false);
+    throw new Error("GitHub token missing. Reconnect with GitHub to continue.");
   }
 
   if (!supabaseAccessToken) {
