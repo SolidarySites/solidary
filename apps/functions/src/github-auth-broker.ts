@@ -174,24 +174,51 @@ export const upsertGitHubAppUserCredentials = async ({
     throw new Error("Cannot store empty GitHub App access token.");
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: userId,
-    github_user_id: input.githubUserId ?? null,
-    github_login: input.githubLogin?.trim() || null,
-    installation_id: input.installationId ?? null,
-    installation_account_login: input.installationAccountLogin?.trim() || null,
-    installation_account_type: input.installationAccountType?.trim() || null,
     access_token_encrypted: encryptTokenValue(accessToken),
     access_token_expires_at: input.accessTokenExpiresAt ?? null,
-    refresh_token_encrypted: input.refreshToken?.trim()
-      ? encryptTokenValue(input.refreshToken)
-      : null,
-    refresh_token_expires_at: input.refreshTokenExpiresAt ?? null,
     token_encryption_key_version: getTokenEncryptionVersion(),
-    token_type: input.tokenType?.trim() || null,
-    scope: input.scope?.trim() || null,
     connected_at: new Date().toISOString()
   };
+
+  if (typeof input.githubUserId !== "undefined") {
+    payload.github_user_id = input.githubUserId;
+  }
+
+  if (typeof input.githubLogin !== "undefined") {
+    payload.github_login = input.githubLogin?.trim() || null;
+  }
+
+  if (typeof input.installationId !== "undefined") {
+    payload.installation_id = input.installationId;
+  }
+
+  if (typeof input.installationAccountLogin !== "undefined") {
+    payload.installation_account_login = input.installationAccountLogin?.trim() || null;
+  }
+
+  if (typeof input.installationAccountType !== "undefined") {
+    payload.installation_account_type = input.installationAccountType?.trim() || null;
+  }
+
+  if (typeof input.refreshToken !== "undefined") {
+    payload.refresh_token_encrypted = input.refreshToken?.trim()
+      ? encryptTokenValue(input.refreshToken)
+      : null;
+  }
+
+  if (typeof input.refreshTokenExpiresAt !== "undefined") {
+    payload.refresh_token_expires_at = input.refreshTokenExpiresAt;
+  }
+
+  if (typeof input.tokenType !== "undefined") {
+    payload.token_type = input.tokenType?.trim() || null;
+  }
+
+  if (typeof input.scope !== "undefined") {
+    payload.scope = input.scope?.trim() || null;
+  }
 
   const { error } = await supabase.from("github_app_user_tokens").upsert(payload, {
     onConflict: "user_id"

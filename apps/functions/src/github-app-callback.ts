@@ -215,8 +215,10 @@ export const handler: Handler = async (event) => {
         installationAccountType: installation?.account?.type ?? null,
         accessToken: exchanged.accessToken,
         accessTokenExpiresAt: exchanged.accessTokenExpiresAt,
-        refreshToken: exchanged.refreshToken,
-        refreshTokenExpiresAt: exchanged.refreshTokenExpiresAt,
+        refreshToken: exchanged.refreshToken || undefined,
+        refreshTokenExpiresAt: exchanged.refreshToken
+          ? exchanged.refreshTokenExpiresAt
+          : undefined,
         tokenType: exchanged.tokenType,
         scope: exchanged.scope
       }

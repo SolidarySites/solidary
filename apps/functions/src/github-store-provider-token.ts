@@ -108,9 +108,8 @@ export const handler: Handler = async (event) => {
         githubUserId: githubUser?.id ?? null,
         githubLogin: githubUser?.login ?? null,
         accessToken: providerToken,
-        refreshToken: providerRefreshToken || null,
-        tokenType: "bearer",
-        scope: null
+        refreshToken: providerRefreshToken || undefined,
+        tokenType: "bearer"
       }
     });
   } catch (error) {
