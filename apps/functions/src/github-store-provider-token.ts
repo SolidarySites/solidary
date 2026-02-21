@@ -6,6 +6,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const GITHUB_API = "https://api.github.com";
+const GITHUB_OAUTH_CLIENT_ID =
+  process.env.GITHUB_OAUTH_CLIENT_ID ?? process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_OAUTH_CLIENT_SECRET =
+  process.env.GITHUB_OAUTH_CLIENT_SECRET ?? process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type StoreProviderTokenBody = {
@@ -19,6 +23,16 @@ type StoreProviderTokenBody = {
 type GitHubUserPayload = {
   id?: number;
   login?: string;
+};
+
+type GitHubOAuthTokenCheckPayload = {
+  token?: string;
+  expires_at?: string | null;
+  app?: {
+    name?: string;
+    client_id?: string;
+  };
+  message?: string;
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {
@@ -59,6 +73,60 @@ const fetchGitHubUser = async (providerToken: string): Promise<GitHubUserPayload
     return (await response.json().catch(() => null)) as GitHubUserPayload | null;
   } catch {
     return null;
+  }
+};
+
+const checkGitHubOAuthToken = async (providerToken: string) => {
+  if (!GITHUB_OAUTH_CLIENT_ID || !GITHUB_OAUTH_CLIENT_SECRET) {
+    return {
+      configured: false,
+      checked: false
+    } as const;
+  }
+
+  const basicAuth = Buffer.from(
+    `${GITHUB_OAUTH_CLIENT_ID}:${GITHUB_OAUTH_CLIENT_SECRET}`,
+    "utf8"
+  ).toString("base64");
+
+  try {
+    const response = await fetch(
+      `${GITHUB_API}/applications/${encodeURIComponent(GITHUB_OAUTH_CLIENT_ID)}/token`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          access_token: providerToken
+        })
+      }
+    );
+
+    const payload = (await response
+      .json()
+      .catch(() => ({}))) as GitHubOAuthTokenCheckPayload;
+
+    return {
+      configured: true,
+      checked: true,
+      status: response.status,
+      ok: response.ok,
+      appClientId: payload.app?.client_id ?? null,
+      appName: payload.app?.name ?? null,
+      expiresAt: payload.expires_at ?? null,
+      hasTokenInResponse: Boolean(payload.token?.trim()),
+      message: payload.message?.trim() ?? null
+    } as const;
+  } catch (error) {
+    return {
+      configured: true,
+      checked: false,
+      error: error instanceof Error ? error.message : "unknown error"
+    } as const;
   }
 };
 
@@ -112,9 +180,17 @@ export const handler: Handler = async (event) => {
     trigger: body.debug_trigger ?? "unknown",
     sessionHasProviderToken: body.session_has_provider_token ?? null,
     sessionHasProviderRefreshToken: body.session_has_provider_refresh_token ?? null,
+    providerTokenPrefix: providerToken.slice(0, 4),
     providerTokenLength: providerToken.length,
     hasProviderRefreshToken: Boolean(providerRefreshToken)
   });
+
+  const tokenCheck = GITHUB_TOKEN_DEBUG
+    ? await checkGitHubOAuthToken(providerToken)
+    : { configured: false, checked: false };
+  if (GITHUB_TOKEN_DEBUG) {
+    debugLog("oauth token check", tokenCheck as Record<string, unknown>);
+  }
 
   const githubUser = await fetchGitHubUser(providerToken);
 
