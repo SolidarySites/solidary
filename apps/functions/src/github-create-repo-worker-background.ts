@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { existsSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { resolveGitHubTokenForUser } from "./github-auth-broker";
 
 const GITHUB_API = "https://api.github.com";
 const TEMPLATE_DIR = "templates/astro-baseline";
@@ -141,7 +142,7 @@ class HttpError extends Error {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const WORKFLOW_SCOPE_ERROR_MESSAGE =
-  "GitHub token is missing permission to write workflow files. Sign out and sign in again so GitHub grants the 'workflow' scope.";
+  "GitHub token is missing permission to write workflow files. Reconnect GitHub and verify workflow access.";
 
 function safeJson(statusCode: number, body: unknown) {
   return {
@@ -844,13 +845,13 @@ export const handler: Handler = async (event) => {
 
   const jobId = payload.jobId?.trim() ?? "";
   const ownerUserId = payload.ownerUserId?.trim() ?? "";
-  const parsedToken = payload.token?.trim() ?? "";
+  const legacyToken = payload.token?.trim() ?? "";
   const parsedName = payload.name?.trim() ?? "";
   const rawSiteImageStoragePath = payload.siteImageStoragePath?.trim() ?? "";
 
-  if (!jobId || !ownerUserId || !parsedToken || !parsedName) {
+  if (!jobId || !ownerUserId || !parsedName) {
     return safeJson(400, {
-      error: "Missing jobId, ownerUserId, token, or name."
+      error: "Missing jobId, ownerUserId, or name."
     });
   }
 
@@ -890,7 +891,7 @@ export const handler: Handler = async (event) => {
 
   let createdOwner = "";
   let createdRepo = "";
-  let userToken = parsedToken;
+  let userToken = "";
 
   await updateJob({
     status: "running",
@@ -900,6 +901,19 @@ export const handler: Handler = async (event) => {
   });
 
   try {
+    const resolvedGitHubAuth = await resolveGitHubTokenForUser({
+      supabase,
+      userId: ownerUserId,
+      fallbackToken: legacyToken
+    });
+    if (!resolvedGitHubAuth?.token) {
+      throw new HttpError(
+        412,
+        "GitHub authorization missing. Connect your GitHub App from account menu, then retry."
+      );
+    }
+    userToken = resolvedGitHubAuth.token;
+
     const name = parsedName;
     const description = typeof payload.description === "string" ? payload.description : "";
     const isPrivate = payload.private === undefined ? false : Boolean(payload.private);

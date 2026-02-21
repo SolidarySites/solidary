@@ -5,6 +5,7 @@ export type AuthContextValue = {
   session: Session | null;
   sessionResolved: boolean;
   signInWithGitHub: () => Promise<void>;
+  connectGitHubApp: (returnTo?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 

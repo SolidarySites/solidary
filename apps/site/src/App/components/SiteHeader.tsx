@@ -8,7 +8,7 @@ import {
 import "./SiteHeader.css";
 
 export default function SiteHeader() {
-  const { session, signInWithGitHub, signOut } = useAuth();
+  const { session, signInWithGitHub, connectGitHubApp, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,6 +42,28 @@ export default function SiteHeader() {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const githubAppStatus = params.get("github_app")?.trim() ?? "";
+    const githubAppMessage = params.get("github_app_message")?.trim() ?? "";
+    if (!githubAppStatus) return;
+
+    params.delete("github_app");
+    params.delete("github_app_message");
+    const nextSearch = params.toString();
+    navigate(
+      `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`,
+      { replace: true }
+    );
+
+    if (githubAppStatus === "connected") {
+      window.alert("GitHub App connected.");
+      return;
+    }
+
+    window.alert(githubAppMessage || "Could not connect GitHub App.");
+  }, [location.hash, location.pathname, location.search, navigate]);
+
   const handleSignIn = () => {
     setMenuOpen(false);
     void signInWithGitHub().catch((error) => {
@@ -60,6 +82,15 @@ export default function SiteHeader() {
         const message = error instanceof Error ? error.message : "Could not sign out.";
         window.alert(message);
       });
+  };
+
+  const handleConnectGitHubApp = () => {
+    setMenuOpen(false);
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    void connectGitHubApp(returnTo).catch((error) => {
+      const message = error instanceof Error ? error.message : "Could not start GitHub App connection.";
+      window.alert(message);
+    });
   };
 
   return (
@@ -134,6 +165,16 @@ export default function SiteHeader() {
               <Link className="profile-menu-item" to="/studio" role="menuitem" onClick={() => setMenuOpen(false)}>
                 Studio
               </Link>
+            )}
+            {session && (
+              <button
+                className="profile-menu-item"
+                type="button"
+                role="menuitem"
+                onClick={handleConnectGitHubApp}
+              >
+                Connect GitHub App
+              </button>
             )}
             {!session ? (
               <button className="profile-menu-item" type="button" role="menuitem" onClick={handleSignIn}>

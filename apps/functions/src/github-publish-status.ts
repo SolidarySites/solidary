@@ -1,7 +1,12 @@
 import type { Handler } from "@netlify/functions";
+import { createClient } from "@supabase/supabase-js";
+import { resolveGitHubTokenForUser } from "./github-auth-broker";
 
 const GITHUB_API = "https://api.github.com";
 const SESSION_LOOKBACK_BUFFER_MS = 30_000;
+const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 
 type GitHubWorkflowRun = {
   id: number;
@@ -182,6 +187,7 @@ export const handler: Handler = async (event) => {
   try {
     const {
       token,
+      supabase_access_token,
       owner,
       repo,
       headSha,
@@ -193,19 +199,54 @@ export const handler: Handler = async (event) => {
     const parsedHeadSha = typeof headSha === "string" ? headSha.trim() : "";
     const parsedBranch = typeof branch === "string" ? branch.trim() : "";
     const parsedPublishStartedAt = typeof publishStartedAt === "string" ? publishStartedAt.trim() : "";
+    const directToken = typeof token === "string" ? token.trim() : "";
+    const supabaseAccessToken =
+      typeof supabase_access_token === "string" ? supabase_access_token.trim() : "";
 
-    if (!token || !owner || !repo || (!parsedHeadSha && (!parsedBranch || !parsedPublishStartedAt))) {
+    if (!owner || !repo || (!parsedHeadSha && (!parsedBranch || !parsedPublishStartedAt))) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Missing parameters." })
       };
     }
 
+    let requestToken = directToken;
+    if (!requestToken && supabaseAccessToken && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser(supabaseAccessToken);
+      if (userError || !user) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ error: "Invalid Supabase session." })
+        };
+      }
+      const resolved = await resolveGitHubTokenForUser({
+        supabase,
+        userId: user.id,
+        fallbackToken: directToken
+      });
+      requestToken = resolved?.token ?? "";
+    }
+
+    if (!requestToken) {
+      return {
+        statusCode: 412,
+        body: JSON.stringify({
+          error: "GitHub authorization missing. Connect your GitHub App from account menu, then retry."
+        })
+      };
+    }
+
     const [runs, pages] = await Promise.all([
       parsedHeadSha
-        ? findWorkflowRunsByHeadSha(token, owner, repo, parsedHeadSha, workflow)
-        : findWorkflowRunsByBranch(token, owner, repo, parsedBranch, workflow),
-      fetchPagesMetadata(token, owner, repo)
+        ? findWorkflowRunsByHeadSha(requestToken, owner, repo, parsedHeadSha, workflow)
+        : findWorkflowRunsByBranch(requestToken, owner, repo, parsedBranch, workflow),
+      fetchPagesMetadata(requestToken, owner, repo)
     ]);
 
     const pagesUrl = pages?.html_url;

@@ -93,12 +93,14 @@ const waitForRepoProvisioningJob = async ({
 
 const waitForBranchAvailability = async ({
   token,
+  supabaseAccessToken,
   owner,
   repo,
   branch,
   onStep
 }: {
-  token: string;
+  token?: string;
+  supabaseAccessToken: string;
   owner: string;
   repo: string;
   branch: string;
@@ -116,6 +118,7 @@ const waitForBranchAvailability = async ({
     try {
       const branchPayload = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
         token,
+        supabase_access_token: supabaseAccessToken,
         owner,
         repo,
         branch
@@ -134,13 +137,15 @@ const waitForBranchAvailability = async ({
 
 const waitForInitialDeployment = async ({
   token,
+  supabaseAccessToken,
   owner,
   repo,
   branch,
   publishStartedAt,
   onStep
 }: {
-  token: string;
+  token?: string;
+  supabaseAccessToken: string;
   owner: string;
   repo: string;
   branch: string;
@@ -156,6 +161,7 @@ const waitForInitialDeployment = async ({
     try {
       status = await githubRequest<GitHubPublishStatusResponse>("/.netlify/functions/github-publish-status", {
         token,
+        supabase_access_token: supabaseAccessToken,
         owner,
         repo,
         branch,
@@ -216,7 +222,7 @@ export const provisionGitHubRepository = async ({
   siteImageContentB64,
   onStep
 }: {
-  providerToken: string;
+  providerToken?: string;
   supabaseAccessToken: string;
   siteId: string;
   siteTitle: string;
@@ -264,6 +270,7 @@ export const provisionGitHubRepository = async ({
 
   await waitForBranchAvailability({
     token: providerToken,
+    supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,
     branch: defaultBranch,
@@ -273,6 +280,7 @@ export const provisionGitHubRepository = async ({
   onStep("Enabling GitHub Pages...");
   await githubRequest("/.netlify/functions/github-enable-pages", {
     token: providerToken,
+    supabase_access_token: supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,
     branch: defaultBranch
@@ -281,6 +289,7 @@ export const provisionGitHubRepository = async ({
   onStep("Waiting for GitHub Pages deployment...");
   await waitForInitialDeployment({
     token: providerToken,
+    supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,
     branch: defaultBranch,

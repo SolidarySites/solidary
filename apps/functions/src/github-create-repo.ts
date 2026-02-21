@@ -1,5 +1,6 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import { resolveGitHubTokenForUser } from "./github-auth-broker";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
@@ -91,7 +92,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const userToken = body.token?.trim();
+  const legacyUserToken = body.token?.trim();
   const name = body.name?.trim();
   const description = typeof body.description === "string" ? body.description : "";
   const isPrivate = body.private === undefined ? false : Boolean(body.private);
@@ -103,9 +104,9 @@ export const handler: Handler = async (event) => {
   const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
   const siteImageContentB64 = body.site_image_content_b64?.trim();
 
-  if (!userToken || !name || !supabaseAccessToken) {
+  if (!name || !supabaseAccessToken) {
     return safeJson(400, {
-      error: "Missing token, name, or supabase_access_token."
+      error: "Missing name or supabase_access_token."
     });
   }
 
@@ -126,6 +127,18 @@ export const handler: Handler = async (event) => {
 
     if (userError || !user) {
       return safeJson(401, { error: "Invalid Supabase session." });
+    }
+
+    const resolvedGitHubAuth = await resolveGitHubTokenForUser({
+      supabase,
+      userId: user.id,
+      fallbackToken: legacyUserToken
+    });
+    if (!resolvedGitHubAuth?.token) {
+      return safeJson(412, {
+        error:
+          "GitHub authorization missing. Connect your GitHub App from account menu, then retry."
+      });
     }
 
     if (rawSiteImageStoragePath) {
@@ -207,7 +220,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           jobId: job.id,
           ownerUserId: user.id,
-          token: userToken,
+          token: resolvedGitHubAuth.token,
           name,
           description,
           private: isPrivate,

@@ -2,51 +2,53 @@ import type { Session } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMocks = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  refreshSession: vi.fn(),
-  signInWithOAuth: vi.fn()
+  getSession: vi.fn()
 }));
 
 vi.mock("../../../lib/supabase", () => ({
   supabase: {
     auth: {
-      getSession: authMocks.getSession,
-      refreshSession: authMocks.refreshSession,
-      signInWithOAuth: authMocks.signInWithOAuth
+      getSession: authMocks.getSession
     }
   }
 }));
 
 import {
-  cacheGithubProviderTokenFromSession,
-  clearCachedGithubProviderTokenForUser,
+  cacheGithubProviderCredentialsFromSession,
+  clearCachedGithubProviderCredentialsForUser,
   getFreshGithubAuthSnapshot,
-  requireFreshGithubAuth
+  requireFreshGithubAuth,
+  syncGithubAuthSnapshotFromSession
 } from "./github-auth";
 
 type MockSession = Session & {
   provider_token?: string | null;
+  provider_refresh_token?: string | null;
 };
 
 const PROVIDER_TOKEN_STORAGE_KEY = "solidary:github-provider-token:user-1";
+const PROVIDER_REFRESH_TOKEN_STORAGE_KEY = "solidary:github-provider-refresh-token:user-1";
 
 const buildSession = ({
   userId = "user-1",
   supabaseAccessToken = "supabase-access-token",
-  providerToken = null
+  providerToken = null,
+  providerRefreshToken = null
 }: {
   userId?: string;
   supabaseAccessToken?: string;
   providerToken?: string | null;
+  providerRefreshToken?: string | null;
 } = {}): MockSession =>
   ({
     access_token: supabaseAccessToken,
-    refresh_token: "refresh-token",
+    refresh_token: "supabase-refresh-token",
     token_type: "bearer",
     expires_in: 3600,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
     user: { id: userId } as Session["user"],
-    provider_token: providerToken
+    provider_token: providerToken,
+    provider_refresh_token: providerRefreshToken
   } as unknown as MockSession);
 
 const createLocalStorageMock = (): Storage => {
@@ -69,143 +71,171 @@ const createLocalStorageMock = (): Storage => {
   };
 };
 
-const stubWindowWithLocalStorage = (href = "https://example.com/site-create") => {
+const stubWindowWithLocalStorage = () => {
   const localStorage = createLocalStorageMock();
-  vi.stubGlobal(
-    "window",
-    {
-      localStorage,
-      location: {
-        href
-      }
-    } as unknown as Window
-  );
+  vi.stubGlobal("window", { localStorage } as unknown as Window);
   return localStorage;
 };
 
 describe("getFreshGithubAuthSnapshot", () => {
   beforeEach(() => {
     authMocks.getSession.mockReset();
-    authMocks.refreshSession.mockReset();
-    authMocks.signInWithOAuth.mockReset();
+    clearCachedGithubProviderCredentialsForUser("user-1");
+    syncGithubAuthSnapshotFromSession(null);
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
-  it("uses provider token from session without refresh and stores it", async () => {
+  it("reuses in-memory session snapshot without calling getSession", async () => {
+    stubWindowWithLocalStorage();
+    syncGithubAuthSnapshotFromSession(buildSession({ providerToken: "gh-token-1" }));
+
+    const snapshot = await getFreshGithubAuthSnapshot();
+
+    expect(authMocks.getSession).not.toHaveBeenCalled();
+    expect(snapshot.providerToken).toBe("gh-token-1");
+    expect(snapshot.supabaseAccessToken).toBe("supabase-access-token");
+  });
+
+  it("falls back to cached provider token from localStorage", async () => {
     const localStorage = stubWindowWithLocalStorage();
-    const session = buildSession({ providerToken: "gh-token-1" });
+    localStorage.setItem(PROVIDER_TOKEN_STORAGE_KEY, "cached-gh-token");
     authMocks.getSession.mockResolvedValue({
-      data: { session },
+      data: { session: buildSession({ providerToken: null, providerRefreshToken: null }) },
       error: null
     });
 
     const snapshot = await getFreshGithubAuthSnapshot();
 
-    expect(authMocks.refreshSession).not.toHaveBeenCalled();
-    expect(snapshot.providerToken).toBe("gh-token-1");
-    expect(snapshot.supabaseAccessToken).toBe("supabase-access-token");
-    expect(localStorage.getItem(PROVIDER_TOKEN_STORAGE_KEY)).toBe("gh-token-1");
+    expect(snapshot.providerToken).toBe("cached-gh-token");
   });
 
-  it("refreshes session when provider token is missing", async () => {
-    stubWindowWithLocalStorage();
+  it("refreshes GitHub provider token server-side when refresh token exists", async () => {
+    const localStorage = stubWindowWithLocalStorage();
     authMocks.getSession.mockResolvedValue({
-      data: { session: buildSession({ providerToken: null }) },
-      error: null
-    });
-    authMocks.refreshSession.mockResolvedValue({
       data: {
         session: buildSession({
-          providerToken: "gh-token-2",
-          supabaseAccessToken: "refreshed-supabase-token"
+          providerToken: null,
+          providerRefreshToken: "provider-refresh-token-1"
+        })
+      },
+      error: null
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          provider_token: "refreshed-provider-token",
+          provider_refresh_token: "provider-refresh-token-2"
+        })
+      })) as unknown as typeof fetch
+    );
+
+    const snapshot = await getFreshGithubAuthSnapshot();
+
+    expect(snapshot.providerToken).toBe("refreshed-provider-token");
+    expect(localStorage.getItem(PROVIDER_TOKEN_STORAGE_KEY)).toBe("refreshed-provider-token");
+    expect(localStorage.getItem(PROVIDER_REFRESH_TOKEN_STORAGE_KEY)).toBe(
+      "provider-refresh-token-2"
+    );
+  });
+
+  it("throttles repeated provider refresh attempts after a failed refresh", async () => {
+    stubWindowWithLocalStorage();
+    authMocks.getSession.mockResolvedValue({
+      data: {
+        session: buildSession({
+          providerToken: null,
+          providerRefreshToken: "provider-refresh-token-1"
         })
       },
       error: null
     });
 
-    const snapshot = await getFreshGithubAuthSnapshot();
+    const fetchMock = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: "Refresh failed."
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-    expect(authMocks.refreshSession).toHaveBeenCalledTimes(1);
-    expect(snapshot.providerToken).toBe("gh-token-2");
-    expect(snapshot.supabaseAccessToken).toBe("refreshed-supabase-token");
-  });
+    const firstSnapshot = await getFreshGithubAuthSnapshot();
+    const secondSnapshot = await getFreshGithubAuthSnapshot();
 
-  it("falls back to cached provider token when refresh still has no provider token", async () => {
-    const localStorage = stubWindowWithLocalStorage();
-    localStorage.setItem(PROVIDER_TOKEN_STORAGE_KEY, "cached-gh-token");
-
-    authMocks.getSession.mockResolvedValue({
-      data: { session: buildSession({ providerToken: null }) },
-      error: null
-    });
-    authMocks.refreshSession.mockResolvedValue({
-      data: { session: buildSession({ providerToken: null }) },
-      error: null
-    });
-
-    const snapshot = await getFreshGithubAuthSnapshot();
-
-    expect(authMocks.refreshSession).toHaveBeenCalledTimes(1);
-    expect(snapshot.providerToken).toBe("cached-gh-token");
+    expect(firstSnapshot.providerToken).toBe("");
+    expect(secondSnapshot.providerToken).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
-describe("github provider token cache helpers", () => {
+describe("provider credential cache helpers", () => {
   beforeEach(() => {
+    clearCachedGithubProviderCredentialsForUser("user-1");
+    syncGithubAuthSnapshotFromSession(null);
     vi.unstubAllGlobals();
   });
 
-  it("stores provider token from session", () => {
+  it("stores both provider token and provider refresh token from session", () => {
     const localStorage = stubWindowWithLocalStorage();
 
-    cacheGithubProviderTokenFromSession(buildSession({ providerToken: "stored-gh-token" }));
+    cacheGithubProviderCredentialsFromSession(
+      buildSession({
+        providerToken: "stored-provider-token",
+        providerRefreshToken: "stored-provider-refresh-token"
+      })
+    );
 
-    expect(localStorage.getItem(PROVIDER_TOKEN_STORAGE_KEY)).toBe("stored-gh-token");
+    expect(localStorage.getItem(PROVIDER_TOKEN_STORAGE_KEY)).toBe("stored-provider-token");
+    expect(localStorage.getItem(PROVIDER_REFRESH_TOKEN_STORAGE_KEY)).toBe(
+      "stored-provider-refresh-token"
+    );
   });
 
-  it("clears provider token cache for a user", () => {
+  it("clears provider token and refresh token cache for a user", () => {
     const localStorage = stubWindowWithLocalStorage();
-    localStorage.setItem(PROVIDER_TOKEN_STORAGE_KEY, "stored-gh-token");
+    localStorage.setItem(PROVIDER_TOKEN_STORAGE_KEY, "stored-provider-token");
+    localStorage.setItem(PROVIDER_REFRESH_TOKEN_STORAGE_KEY, "stored-provider-refresh-token");
 
-    clearCachedGithubProviderTokenForUser("user-1");
+    clearCachedGithubProviderCredentialsForUser("user-1");
 
     expect(localStorage.getItem(PROVIDER_TOKEN_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(PROVIDER_REFRESH_TOKEN_STORAGE_KEY)).toBeNull();
   });
 });
 
 describe("requireFreshGithubAuth", () => {
   beforeEach(() => {
     authMocks.getSession.mockReset();
-    authMocks.refreshSession.mockReset();
-    authMocks.signInWithOAuth.mockReset();
+    clearCachedGithubProviderCredentialsForUser("user-1");
+    syncGithubAuthSnapshotFromSession(null);
     vi.unstubAllGlobals();
   });
 
-  it("starts GitHub OAuth reconnect when provider token remains missing", async () => {
+  it("returns provider token auth when available", async () => {
+    stubWindowWithLocalStorage();
+    syncGithubAuthSnapshotFromSession(
+      buildSession({
+        providerToken: "gh-token-1"
+      })
+    );
+
+    const auth = await requireFreshGithubAuth();
+
+    expect(auth.providerToken).toBe("gh-token-1");
+  });
+
+  it("throws a reconnect message instead of redirecting or signing out", async () => {
     stubWindowWithLocalStorage();
     authMocks.getSession.mockResolvedValue({
-      data: { session: buildSession({ providerToken: null }) },
-      error: null
-    });
-    authMocks.refreshSession.mockResolvedValue({
-      data: { session: buildSession({ providerToken: null }) },
-      error: null
-    });
-    authMocks.signInWithOAuth.mockResolvedValue({
-      data: { provider: "github", url: "https://github.com/login/oauth/authorize" },
+      data: { session: buildSession({ providerToken: null, providerRefreshToken: null }) },
       error: null
     });
 
     await expect(requireFreshGithubAuth()).rejects.toThrow(
-      "GitHub token missing. Reconnect with GitHub to continue."
+      "GitHub authorization missing. Reconnect GitHub from the header and retry."
     );
-
-    expect(authMocks.signInWithOAuth).toHaveBeenCalledWith({
-      provider: "github",
-      options: {
-        redirectTo: "https://example.com/site-create",
-        scopes: "repo delete_repo workflow"
-      }
-    });
   });
 });

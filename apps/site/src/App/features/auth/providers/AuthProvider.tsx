@@ -9,9 +9,10 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../../../lib/supabase";
 import {
-  cacheGithubProviderTokenFromSession,
-  clearCachedGithubProviderTokenForUser,
-  GITHUB_OAUTH_SCOPES
+  clearCachedGithubProviderCredentialsForUser,
+  connectGitHubAppForCurrentUser,
+  GITHUB_OAUTH_SCOPES,
+  syncGithubAuthSnapshotFromSession
 } from "../services/github-auth";
 import { AuthContext } from "../context/AuthContext";
 
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
-        cacheGithubProviderTokenFromSession(data.session);
+        syncGithubAuthSnapshotFromSession(data.session);
         sessionUserIdRef.current = data.session?.user?.id?.trim() ?? "";
         setSession(data.session);
         setSessionResolved(true);
@@ -40,10 +41,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (mounted) {
         const previousUserId = sessionUserIdRef.current;
         if (event === "SIGNED_OUT" && previousUserId) {
-          clearCachedGithubProviderTokenForUser(previousUserId);
+          clearCachedGithubProviderCredentialsForUser(previousUserId);
         }
 
-        cacheGithubProviderTokenFromSession(nextSession);
+        syncGithubAuthSnapshotFromSession(nextSession);
         sessionUserIdRef.current = nextSession?.user?.id?.trim() ?? "";
         setSession(nextSession);
         setSessionResolved(true);
@@ -73,9 +74,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = useCallback(async () => {
     const userId = sessionUserIdRef.current;
     if (userId) {
-      clearCachedGithubProviderTokenForUser(userId);
+      clearCachedGithubProviderCredentialsForUser(userId);
     }
+    syncGithubAuthSnapshotFromSession(null);
     await supabase.auth.signOut();
+  }, []);
+
+  const connectGitHubApp = useCallback(async (returnTo?: string) => {
+    await connectGitHubAppForCurrentUser({ returnTo });
   }, []);
 
   const value = useMemo(
@@ -83,9 +89,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       session,
       sessionResolved,
       signInWithGitHub,
+      connectGitHubApp,
       signOut
     }),
-    [session, sessionResolved, signInWithGitHub, signOut]
+    [connectGitHubApp, session, sessionResolved, signInWithGitHub, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

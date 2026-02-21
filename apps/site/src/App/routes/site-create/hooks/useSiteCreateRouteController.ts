@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import templateSolidary from "../../../../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
-import { requireFreshGithubAuth } from "../../../features/auth/services/github-auth";
+import { requireFreshSupabaseAuth } from "../../../features/auth/services/github-auth";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
 import type { NoticeKind } from "../../../types/notice";
@@ -57,7 +57,7 @@ export const useSiteCreateRouteController = () => {
 
     let freshAuth;
     try {
-      freshAuth = await requireFreshGithubAuth();
+      freshAuth = await requireFreshSupabaseAuth();
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Sign in with GitHub to continue.";
       setNotice(message);
@@ -67,7 +67,6 @@ export const useSiteCreateRouteController = () => {
 
     const {
       session: freshSession,
-      providerToken,
       supabaseAccessToken
     } = freshAuth;
 
@@ -83,7 +82,6 @@ export const useSiteCreateRouteController = () => {
       const siteId = crypto.randomUUID();
       await provisionSiteDraft({
         session: freshSession,
-        providerToken,
         supabaseAccessToken,
         siteId,
         siteTitle,
