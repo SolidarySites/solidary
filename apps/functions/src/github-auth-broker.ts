@@ -5,10 +5,10 @@ import {
   getTokenEncryptionVersion
 } from "./github-token-crypto";
 
-const GITHUB_OAUTH_CLIENT_ID =
-  process.env.GITHUB_APP_CLIENT_ID ?? process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET =
-  process.env.GITHUB_APP_CLIENT_SECRET ?? process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
+const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
@@ -28,6 +28,8 @@ type GitHubTokenPayload = {
   error?: string;
   error_description?: string;
 };
+
+type GitHubOAuthCredentialSource = "github_app" | "legacy_oauth";
 
 type StoredCredentialRow = {
   user_id: string;
@@ -119,10 +121,32 @@ const parseGitHubTokenPayload = (payload: GitHubTokenPayload): GitHubAppTokenExc
   };
 };
 
-const postGitHubTokenExchange = async (params: URLSearchParams): Promise<GitHubAppTokenExchange> => {
-  if (!GITHUB_OAUTH_CLIENT_ID || !GITHUB_OAUTH_CLIENT_SECRET) {
+const getGitHubOAuthClientCredentials = (source: GitHubOAuthCredentialSource) => {
+  if (source === "github_app") {
+    return {
+      clientId: GITHUB_APP_CLIENT_ID.trim(),
+      clientSecret: GITHUB_APP_CLIENT_SECRET.trim()
+    };
+  }
+  return {
+    clientId: GITHUB_OAUTH_CLIENT_ID.trim(),
+    clientSecret: GITHUB_OAUTH_CLIENT_SECRET.trim()
+  };
+};
+
+const postGitHubTokenExchange = async ({
+  params,
+  source
+}: {
+  params: URLSearchParams;
+  source: GitHubOAuthCredentialSource;
+}): Promise<GitHubAppTokenExchange> => {
+  const { clientId, clientSecret } = getGitHubOAuthClientCredentials(source);
+  if (!clientId || !clientSecret) {
     throw new Error(
-      "Missing GitHub client credentials (set GITHUB_APP_CLIENT_ID/GITHUB_APP_CLIENT_SECRET or legacy GITHUB_OAUTH_CLIENT_ID/GITHUB_OAUTH_CLIENT_SECRET)."
+      source === "github_app"
+        ? "Missing GitHub App client credentials (GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
+        : "Missing GitHub OAuth client credentials (GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET)."
     );
   }
 
@@ -143,26 +167,31 @@ const postGitHubTokenExchange = async (params: URLSearchParams): Promise<GitHubA
 };
 
 export const exchangeCodeForGitHubAppUserToken = async (code: string): Promise<GitHubAppTokenExchange> => {
-  return postGitHubTokenExchange(
-    new URLSearchParams({
-      client_id: GITHUB_OAUTH_CLIENT_ID,
-      client_secret: GITHUB_OAUTH_CLIENT_SECRET,
+  const { clientId, clientSecret } = getGitHubOAuthClientCredentials("github_app");
+  return postGitHubTokenExchange({
+    source: "github_app",
+    params: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
       code
     })
-  );
+  });
 };
 
 export const refreshGitHubAppUserToken = async (
-  refreshToken: string
+  refreshToken: string,
+  source: GitHubOAuthCredentialSource
 ): Promise<GitHubAppTokenExchange> => {
-  return postGitHubTokenExchange(
-    new URLSearchParams({
-      client_id: GITHUB_OAUTH_CLIENT_ID,
-      client_secret: GITHUB_OAUTH_CLIENT_SECRET,
+  const { clientId, clientSecret } = getGitHubOAuthClientCredentials(source);
+  return postGitHubTokenExchange({
+    source,
+    params: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: "refresh_token",
       refresh_token: refreshToken
     })
-  );
+  });
 };
 
 export const upsertGitHubAppUserCredentials = async ({
@@ -331,36 +360,67 @@ export const resolveGitHubTokenForUser = async ({
       return { token: storedAccessToken, source: "github_app" };
     }
 
-    if (storedRefreshToken) {
-      try {
-        const refreshed = await refreshGitHubAppUserToken(storedRefreshToken);
-        await upsertGitHubAppUserCredentials({
-          supabase,
-          input: {
-            userId: normalizedUserId,
-            githubUserId: credential.github_user_id,
-            githubLogin: credential.github_login,
-            installationId: credential.installation_id,
-            installationAccountLogin: credential.installation_account_login,
-            installationAccountType: credential.installation_account_type,
-            accessToken: refreshed.accessToken,
-            accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-            refreshToken: refreshed.refreshToken || storedRefreshToken,
-            refreshTokenExpiresAt:
-              refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
-            tokenType: refreshed.tokenType,
-            scope: refreshed.scope,
-            source: "refresh_flow"
-          }
-        });
-        return { token: refreshed.accessToken, source: "github_app" };
-      } catch (error) {
-        debugLog("refresh flow failed", {
-          userId: normalizedUserId,
-          message: error instanceof Error ? error.message : "unknown error"
-        });
-        // Fall through to legacy fallback if available.
+    const resolveRefreshSourceCandidates = (): GitHubOAuthCredentialSource[] => {
+      const candidates: GitHubOAuthCredentialSource[] = [];
+      if (storedAccessToken.startsWith("ghu_")) {
+        candidates.push("github_app");
+      } else if (storedAccessToken.startsWith("gho_")) {
+        candidates.push("legacy_oauth");
+      } else if (
+        typeof credential.installation_id === "number" ||
+        Boolean(credential.installation_account_login?.trim())
+      ) {
+        candidates.push("github_app");
+      } else {
+        candidates.push("legacy_oauth");
       }
+
+      if (!candidates.includes("legacy_oauth")) {
+        candidates.push("legacy_oauth");
+      }
+      if (!candidates.includes("github_app")) {
+        candidates.push("github_app");
+      }
+      return candidates;
+    };
+
+    if (storedRefreshToken) {
+      const candidates = resolveRefreshSourceCandidates();
+      for (const refreshSource of candidates) {
+        try {
+          const refreshed = await refreshGitHubAppUserToken(storedRefreshToken, refreshSource);
+          await upsertGitHubAppUserCredentials({
+            supabase,
+            input: {
+              userId: normalizedUserId,
+              githubUserId: credential.github_user_id,
+              githubLogin: credential.github_login,
+              installationId: credential.installation_id,
+              installationAccountLogin: credential.installation_account_login,
+              installationAccountType: credential.installation_account_type,
+              accessToken: refreshed.accessToken,
+              accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+              refreshToken: refreshed.refreshToken || storedRefreshToken,
+              refreshTokenExpiresAt:
+                refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
+              tokenType: refreshed.tokenType,
+              scope: refreshed.scope,
+              source: `refresh_flow:${refreshSource}`
+            }
+          });
+          return {
+            token: refreshed.accessToken,
+            source: refreshSource === "legacy_oauth" ? "legacy_oauth" : "github_app"
+          };
+        } catch (error) {
+          debugLog("refresh flow failed", {
+            userId: normalizedUserId,
+            refreshSource,
+            message: error instanceof Error ? error.message : "unknown error"
+          });
+        }
+      }
+      // Fall through to legacy fallback if available.
     }
   }
 
