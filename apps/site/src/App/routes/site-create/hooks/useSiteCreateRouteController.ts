@@ -67,6 +67,7 @@ export const useSiteCreateRouteController = () => {
 
     const {
       session: freshSession,
+      providerToken,
       supabaseAccessToken
     } = freshAuth;
 
@@ -82,6 +83,7 @@ export const useSiteCreateRouteController = () => {
       const siteId = crypto.randomUUID();
       await provisionSiteDraft({
         session: freshSession,
+        providerToken,
         supabaseAccessToken,
         siteId,
         siteTitle,
