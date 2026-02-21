@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-20T03:03:46.000Z",
-  "latest_commit_sha": "977e7aa341c7e26260cc085afa718b5320289f30",
+  "generated_at": "2026-02-21T03:02:15.000Z",
+  "latest_commit_sha": "5667f7e31308251c31e68eaa78499a42640d6b71",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -79,6 +79,10 @@
     {
       "path": "src/App/routes",
       "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded)."
+    },
+    {
+      "path": "src/App/routes/search",
+      "description": "Public search route module that reuses explorer list UI to filter sites."
     },
     {
       "path": "src/App/routes/explorer",
@@ -212,7 +216,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 704
+      "LOC": 887
     },
     {
       "path": "eslint.config.js",
@@ -226,8 +230,8 @@
     },
     {
       "path": "package.json",
-      "description": "App workspace package manifest (still named `studio`) defining local scripts and React/Supabase tooling dependencies.",
-      "LOC": 38
+      "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
+      "LOC": 39
     },
     {
       "path": "public/vite.svg",
@@ -236,13 +240,13 @@
     },
     {
       "path": "src/App/App.css",
-      "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, and reusable loading styles) consumed across routes.",
-      "LOC": 102
+      "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
+      "LOC": 104
     },
     {
       "path": "src/App/App.tsx",
-      "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer, profile, and connection explorer.",
-      "LOC": 99
+      "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
+      "LOC": 101
     },
     {
       "path": "src/App/components/SiteFooter.css",
@@ -261,8 +265,8 @@
     },
     {
       "path": "src/App/components/SiteHeader.tsx",
-      "description": "Global header with brand link, explorer nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
-      "LOC": 146
+      "description": "Global header with brand link, explorer/search nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
+      "LOC": 152
     },
     {
       "path": "src/App/features/auth/components/RequireAuth.tsx",
@@ -341,18 +345,18 @@
     },
     {
       "path": "src/App/routes/explorer/ExplorerRoute.css",
-      "description": "Explorer route styles for graph layout, site list, stats, and responsive layout.",
-      "LOC": 168
+      "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
+      "LOC": 378
     },
     {
       "path": "src/App/routes/explorer/ExplorerRoute.tsx",
-      "description": "Public explorer route shell that loads graph/list data and renders loading or error states.",
-      "LOC": 45
+      "description": "Explorer route that renders a full-screen graph, loads viewer-owned site IDs for highlight beacons, and shows loading/error overlays.",
+      "LOC": 81
     },
     {
       "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
-      "description": "SVG graph renderer that lays out site nodes and connections with hover highlighting.",
-      "LOC": 145
+      "description": "Canvas-driven interactive explorer graph using @cosmos.gl/graph with hover cards, viewer beacons, and deterministic point placement.",
+      "LOC": 642
     },
     {
       "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
@@ -371,13 +375,13 @@
     },
     {
       "path": "src/App/routes/explorer/services/explorer-data.ts",
-      "description": "Supabase data loader and row mappers for explorer sites and approved connections.",
-      "LOC": 110
+      "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
+      "LOC": 176
     },
     {
       "path": "src/App/routes/explorer/services/explorer-graph.ts",
-      "description": "Graph layout helpers for explorer visualization (radial layout, edges, connected-site lookup).",
-      "LOC": 156
+      "description": "Explorer graph layout/index utilities, random placement + expansion helpers, and optional quantum random fallback for large graphs.",
+      "LOC": 1037
     },
     {
       "path": "src/App/routes/landing/LandingRoute.css",
@@ -868,6 +872,16 @@
       "path": "vite.config.ts",
       "description": "Vite config for the app: React plugin, fixed local dev host/port, and proxying `/.netlify/functions` calls to Netlify dev on port 8888.",
       "LOC": 17
+    },
+    {
+      "path": "src/App/routes/search/SearchRoute.tsx",
+      "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
+      "LOC": 38
+    },
+    {
+      "path": "src/App/routes/search/index.ts",
+      "description": "Route barrel re-export for the search route entry component.",
+      "LOC": 1
     }
   ]
 }
