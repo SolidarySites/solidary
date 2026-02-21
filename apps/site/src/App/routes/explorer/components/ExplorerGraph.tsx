@@ -32,12 +32,15 @@ const clamp = (value: number, min: number, max: number) =>
 
 const GRAPH_SPACE_SIZE = 8192;
 // Zoom floor for dense graphs. Practical range: 1-10.
-const MIN_INITIAL_ZOOM_LEVEL = 5;
+const MIN_INITIAL_ZOOM_LEVEL = 1;
 // Zoom ceiling for sparse graphs. Practical range: 1-10.
 const MAX_INITIAL_ZOOM_LEVEL = 10;
 // How fast initial zoom scales down as node count doubles.
 // Range: 0+ (typical 0.4-1.2). Higher = faster zooming out.
 const ZOOM_DECAY_PER_DOUBLING = 0.4;
+// Small baseline zoom-out applied only for multi-node graphs.
+// Range: >= 0 (typical 0.2-4). Higher = wider initial framing.
+const MULTI_NODE_INITIAL_ZOOM_OUT_OFFSET = 4;
 // Initial simulation energy when graph first appears.
 // Range: 0-1 (typical 0.01-0.08). Higher = faster/more visible drift.
 const INITIAL_SIMULATION_ALPHA = 0.016;
@@ -50,28 +53,16 @@ const AMBIENT_SIMULATION_ALPHA = 0.0035;
 // How often ambient motion pulses are injected.
 // Range: milliseconds >= 100 (typical 800-4000). Higher = less frequent movement.
 const AMBIENT_SIMULATION_INTERVAL_MS = 1800;
+const SMALL_GRAPH_NODE_COUNT = 12;
+const SMALL_GRAPH_SIMULATION_CENTER = 0.06;
+const SMALL_GRAPH_SIMULATION_GRAVITY = 0.08;
+const SMALL_GRAPH_INITIAL_SIMULATION_ALPHA = 0.007;
 // Number of pre-render simulation ticks before first frame.
 // Range: integer >= 0 (typical 16-120). Higher = calmer initial frame.
 const INITIAL_SETTLE_STEPS = 72;
-const POINT_CLOUD_RADIUS = GRAPH_SPACE_SIZE * 0.2;
-// Delay before auto-pan logic starts.
-// Range: milliseconds >= 0 (typical 0-3000).
-const AUTO_PAN_INITIAL_DELAY_MS = 900;
-// Length of the auto-pan camera move.
-// Range: milliseconds >= 0 (typical 500-20000).
-const AUTO_PAN_DURATION_MS = 9000;
-// How often we check if a node has settled before panning.
-// Range: milliseconds >= 16 (typical 100-500).
-const AUTO_PAN_SETTLE_CHECK_MS = 260;
-// Hard timeout for settle waiting.
-// Range: milliseconds >= 0 (typical 2000-30000).
-const AUTO_PAN_SETTLE_MAX_WAIT_MS = 12000;
-// Number of consecutive low-motion samples required before pan.
-// Range: integer >= 1 (typical 1-10). Higher = stricter settle requirement.
-const AUTO_PAN_SETTLE_STABLE_SAMPLES = 5;
-// Motion threshold (in graph-space units) treated as "stable."
-// Range: >= 0 (typical 0.5-12). Lower = less drift tolerated.
-const AUTO_PAN_SETTLE_DISTANCE_EPSILON = 6.2;
+const MIN_POINT_CLOUD_RADIUS = GRAPH_SPACE_SIZE * 0.035;
+const MAX_POINT_CLOUD_RADIUS = GRAPH_SPACE_SIZE * 0.24;
+const POINT_CLOUD_RADIUS_DOUBLINGS_TO_MAX = 12;
 const DEFAULT_POINT_RGBA: [number, number, number, number] = [
   76 / 255,
   143 / 255,
@@ -84,9 +75,39 @@ const getInitialZoomLevelForNodeCount = (nodeCount: number) => {
     return MAX_INITIAL_ZOOM_LEVEL;
   }
   const zoomLevel =
-    MAX_INITIAL_ZOOM_LEVEL - Math.log2(nodeCount) * ZOOM_DECAY_PER_DOUBLING;
+    MAX_INITIAL_ZOOM_LEVEL -
+    MULTI_NODE_INITIAL_ZOOM_OUT_OFFSET -
+    Math.log2(nodeCount) * ZOOM_DECAY_PER_DOUBLING;
   return clamp(zoomLevel, MIN_INITIAL_ZOOM_LEVEL, MAX_INITIAL_ZOOM_LEVEL);
 };
+
+const getPointCloudRadiusForNodeCount = (nodeCount: number) => {
+  if (nodeCount <= 1) return 0;
+  const growth = clamp(
+    Math.log2(nodeCount) / POINT_CLOUD_RADIUS_DOUBLINGS_TO_MAX,
+    0,
+    1
+  );
+  return (
+    MIN_POINT_CLOUD_RADIUS +
+    (MAX_POINT_CLOUD_RADIUS - MIN_POINT_CLOUD_RADIUS) * growth
+  );
+};
+
+const getInitialFitPaddingForNodeCount = (nodeCount: number) => {
+  if (nodeCount <= 4) return 0.4;
+  if (nodeCount <= 20) return 0.2;
+  if (nodeCount <= 200) return 0.17;
+  return 0.14;
+};
+
+const getInitialSettleStepsForNodeCount = (nodeCount: number) => {
+  if (nodeCount <= 8) return 0;
+  if (nodeCount <= 64) return 24;
+  return INITIAL_SETTLE_STEPS;
+};
+
+const shouldRunAmbientMotion = (nodeCount: number) => nodeCount > 24;
 
 const truncateLabel = (value: string) => {
   if (value.length <= 40) return value;
@@ -166,7 +187,7 @@ const buildPreparedGraphData = ({
     pointColors[index * 4 + 3] = DEFAULT_POINT_RGBA[3];
 
     const degree = connectedBySiteId[site.id]?.size ?? 0;
-    pointSizes[index] = clamp(4 + Math.log2(degree + 1) * 1.3, 4, 13);
+    pointSizes[index] = clamp(5.2 + Math.log2(degree + 1) * 1.45, 5.2, 15);
   });
 
   const linkValues: number[] = [];
@@ -186,7 +207,10 @@ const buildPreparedGraphData = ({
 
   return {
     pointSiteIds,
-    pointPositions: buildDeterministicPointPositions(sites, POINT_CLOUD_RADIUS),
+    pointPositions: buildDeterministicPointPositions(
+      sites,
+      getPointCloudRadiusForNodeCount(sites.length)
+    ),
     pointColors,
     pointSizes,
     links: new Float32Array(linkValues),
@@ -203,13 +227,10 @@ export default function ExplorerGraph({
   const shellRef = useRef<HTMLDivElement | null>(null);
   const graphRef = useRef<Graph | null>(null);
   const hasInitializedDataRef = useRef(false);
-  const autoPanTimeoutRef = useRef<number | null>(null);
-  const autoPanSettleIntervalRef = useRef<number | null>(null);
   const ambientSimulationIntervalRef = useRef<number | null>(null);
   const viewerBeaconFrameRef = useRef<number | null>(null);
-  const userInteractedRef = useRef(false);
   const infoCardRef = useRef<HTMLElement | null>(null);
-  const viewerBeaconRef = useRef<HTMLDivElement | null>(null);
+  const viewerBeaconRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pointSiteIdsRef = useRef<string[]>([]);
   const [shellSize, setShellSize] = useState({ width: 960, height: 620 });
   const [selectedPointInfo, setSelectedPointInfo] = useState<{
@@ -266,17 +287,6 @@ export default function ExplorerGraph({
     setSelectedPointInfo((current) => (current ? null : current));
   }, []);
 
-  const clearAutoPanTimers = useCallback(() => {
-    if (autoPanTimeoutRef.current !== null) {
-      window.clearTimeout(autoPanTimeoutRef.current);
-      autoPanTimeoutRef.current = null;
-    }
-    if (autoPanSettleIntervalRef.current !== null) {
-      window.clearInterval(autoPanSettleIntervalRef.current);
-      autoPanSettleIntervalRef.current = null;
-    }
-  }, []);
-
   const clearAmbientSimulationLoop = useCallback(() => {
     if (ambientSimulationIntervalRef.current === null) return;
     window.clearInterval(ambientSimulationIntervalRef.current);
@@ -298,11 +308,6 @@ export default function ExplorerGraph({
       graph.start(AMBIENT_SIMULATION_ALPHA);
     }, AMBIENT_SIMULATION_INTERVAL_MS);
   }, [clearAmbientSimulationLoop]);
-
-  const markUserInteracted = useCallback(() => {
-    userInteractedRef.current = true;
-    clearAutoPanTimers();
-  }, [clearAutoPanTimers]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -355,13 +360,11 @@ export default function ExplorerGraph({
       // Range: 0-1 (0 = heavy damping, 1 = almost no damping).
       simulationFriction: 0.97,
       onClick: (index) => {
-        markUserInteracted();
         if (!Number.isInteger(index)) {
           clearSelectedInfo();
         }
       },
       onPointClick: (index, _pointPosition, event) => {
-        markUserInteracted();
         openSiteInfoByPointIndex(index, event);
       },
       onPointMouseOver: () => {
@@ -378,7 +381,6 @@ export default function ExplorerGraph({
     const graph = new Graph(shell, config);
     graphRef.current = graph;
     return () => {
-      clearAutoPanTimers();
       clearAmbientSimulationLoop();
       clearViewerBeaconLoop();
       hasInitializedDataRef.current = false;
@@ -386,33 +388,11 @@ export default function ExplorerGraph({
       graph.destroy();
     };
   }, [
-    clearAutoPanTimers,
     clearAmbientSimulationLoop,
     clearViewerBeaconLoop,
     clearSelectedInfo,
-    markUserInteracted,
     openSiteInfoByPointIndex
   ]);
-
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-
-    const onUserPointerDown = () => {
-      markUserInteracted();
-    };
-    const onUserWheel = () => {
-      markUserInteracted();
-    };
-
-    shell.addEventListener("pointerdown", onUserPointerDown);
-    shell.addEventListener("wheel", onUserWheel, { passive: true });
-
-    return () => {
-      shell.removeEventListener("pointerdown", onUserPointerDown);
-      shell.removeEventListener("wheel", onUserWheel);
-    };
-  }, [markUserInteracted]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -446,8 +426,13 @@ export default function ExplorerGraph({
     const graph = graphRef.current;
     if (!graph) return;
 
-    clearAutoPanTimers();
     clearAmbientSimulationLoop();
+    const nodeCount = graphData.pointSiteIds.length;
+    const isSmallGraph = nodeCount > 1 && nodeCount <= SMALL_GRAPH_NODE_COUNT;
+    graph.setConfig({
+      simulationCenter: isSmallGraph ? SMALL_GRAPH_SIMULATION_CENTER : 0,
+      simulationGravity: isSmallGraph ? SMALL_GRAPH_SIMULATION_GRAVITY : 0
+    });
     pointSiteIdsRef.current = graphData.pointSiteIds;
     graph.setPointPositions(graphData.pointPositions);
     graph.setPointColors(graphData.pointColors);
@@ -461,7 +446,6 @@ export default function ExplorerGraph({
     }
 
     if (!hasInitializedDataRef.current) {
-      userInteractedRef.current = false;
       graph.stop();
       if (graphData.pointSiteIds.length === 1) {
         graph.zoomToPointByIndex(0, 0, MAX_INITIAL_ZOOM_LEVEL, false);
@@ -469,83 +453,23 @@ export default function ExplorerGraph({
         hasInitializedDataRef.current = true;
         return;
       }
-      const initialZoomLevel = getInitialZoomLevelForNodeCount(
-        graphData.pointSiteIds.length
-      );
-      // Start broad, then gently travel toward the user's site.
-      graph.fitView(0, 0.16);
-      graph.setZoomLevel(initialZoomLevel, 0);
-      for (let stepIndex = 0; stepIndex < INITIAL_SETTLE_STEPS; stepIndex += 1) {
+      const initialZoomLevel = getInitialZoomLevelForNodeCount(nodeCount);
+      const fitPadding = getInitialFitPaddingForNodeCount(nodeCount);
+      const initialSettleSteps = getInitialSettleStepsForNodeCount(nodeCount);
+      for (let stepIndex = 0; stepIndex < initialSettleSteps; stepIndex += 1) {
         graph.step();
       }
+      // Fit after initial settle so small graphs don't drift off-screen before first view.
+      graph.fitView(0, fitPadding);
+      if (!isSmallGraph) {
+        const fitZoomLevel = graph.getZoomLevel();
+        // Never zoom in tighter than the current fitted view.
+        graph.setZoomLevel(Math.min(initialZoomLevel, fitZoomLevel), 0);
+      }
       graph.render(0);
-      graph.start(INITIAL_SIMULATION_ALPHA);
-      startAmbientSimulationLoop();
-      if (graphData.viewerPointIndices.length) {
-        const targetIndex = graphData.viewerPointIndices[0] ?? -1;
-        if (targetIndex >= 0) {
-          autoPanTimeoutRef.current = window.setTimeout(() => {
-            autoPanTimeoutRef.current = null;
-            if (userInteractedRef.current) return;
-            const settleStartedAt = performance.now();
-            let stableSamples = 0;
-            let previousX: number | null = null;
-            let previousY: number | null = null;
-
-            const maybePanToTarget = () => {
-              if (userInteractedRef.current) {
-                clearAutoPanTimers();
-                return;
-              }
-
-              const activeGraph = graphRef.current;
-              if (!activeGraph) {
-                clearAutoPanTimers();
-                return;
-              }
-
-              const positions = activeGraph.getPointPositions();
-              const x = positions[targetIndex * 2];
-              const y = positions[targetIndex * 2 + 1];
-              if (Number.isFinite(x) && Number.isFinite(y) && previousX !== null && previousY !== null) {
-                const motion = Math.hypot(x - previousX, y - previousY);
-                stableSamples =
-                  motion <= AUTO_PAN_SETTLE_DISTANCE_EPSILON ? stableSamples + 1 : 0;
-              }
-
-              if (Number.isFinite(x) && Number.isFinite(y)) {
-                previousX = x;
-                previousY = y;
-              }
-
-              const hitMaxWait =
-                performance.now() - settleStartedAt >= AUTO_PAN_SETTLE_MAX_WAIT_MS;
-              const settledEnough = stableSamples >= AUTO_PAN_SETTLE_STABLE_SAMPLES;
-              if (!hitMaxWait && !settledEnough) {
-                return;
-              }
-
-              if (autoPanSettleIntervalRef.current !== null) {
-                window.clearInterval(autoPanSettleIntervalRef.current);
-                autoPanSettleIntervalRef.current = null;
-              }
-
-              const currentZoomLevel = activeGraph.getZoomLevel();
-              activeGraph.zoomToPointByIndex(
-                targetIndex,
-                AUTO_PAN_DURATION_MS,
-                currentZoomLevel,
-                false
-              );
-            };
-
-            autoPanSettleIntervalRef.current = window.setInterval(
-              maybePanToTarget,
-              AUTO_PAN_SETTLE_CHECK_MS
-            );
-            maybePanToTarget();
-          }, AUTO_PAN_INITIAL_DELAY_MS);
-        }
+      graph.start(isSmallGraph ? SMALL_GRAPH_INITIAL_SIMULATION_ALPHA : INITIAL_SIMULATION_ALPHA);
+      if (shouldRunAmbientMotion(nodeCount)) {
+        startAmbientSimulationLoop();
       }
       hasInitializedDataRef.current = true;
       return;
@@ -553,39 +477,57 @@ export default function ExplorerGraph({
 
     // New batch arrived: preserve camera and just inject a little energy for subtle rearrangement.
     graph.start(UPDATE_SIMULATION_ALPHA);
-    if (graphData.pointSiteIds.length > 1) {
+    if (shouldRunAmbientMotion(nodeCount)) {
       startAmbientSimulationLoop();
     }
-  }, [clearAutoPanTimers, clearAmbientSimulationLoop, graphData, startAmbientSimulationLoop]);
+  }, [clearAmbientSimulationLoop, graphData, startAmbientSimulationLoop]);
 
   useEffect(() => {
     const graph = graphRef.current;
-    const beacon = viewerBeaconRef.current;
-    if (!graph || !beacon) return;
+    if (!graph) return;
 
     clearViewerBeaconLoop();
-    const beaconIndex = graphData.viewerPointIndices[0];
-    if (!Number.isInteger(beaconIndex)) {
-      beacon.style.opacity = "0";
+    const targets = graphData.viewerPointIndices
+      .map((index) => ({
+        index,
+        siteId: graphData.pointSiteIds[index] ?? ""
+      }))
+      .filter((target) => target.siteId.length > 0);
+
+    if (!targets.length) {
+      Object.values(viewerBeaconRefs.current).forEach((beacon) => {
+        if (!beacon) return;
+        beacon.style.opacity = "0";
+      });
       return;
     }
 
     const frame = () => {
       const activeGraph = graphRef.current;
-      const activeBeacon = viewerBeaconRef.current;
-      if (!activeGraph || !activeBeacon) {
+      if (!activeGraph) {
         return;
       }
       const positions = activeGraph.getPointPositions();
-      const x = positions[beaconIndex * 2];
-      const y = positions[beaconIndex * 2 + 1];
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        const [screenX, screenY] = activeGraph.spaceToScreenPosition([x, y]);
-        activeBeacon.style.transform = `translate(${Math.round(screenX)}px, ${Math.round(screenY)}px)`;
-        activeBeacon.style.opacity = "1";
-      } else {
-        activeBeacon.style.opacity = "0";
-      }
+      const activeSiteIds = new Set(targets.map((target) => target.siteId));
+      Object.entries(viewerBeaconRefs.current).forEach(([siteId, beacon]) => {
+        if (!beacon) return;
+        if (!activeSiteIds.has(siteId)) {
+          beacon.style.opacity = "0";
+        }
+      });
+      targets.forEach((target) => {
+        const beacon = viewerBeaconRefs.current[target.siteId];
+        if (!beacon) return;
+        const x = positions[target.index * 2];
+        const y = positions[target.index * 2 + 1];
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          const [screenX, screenY] = activeGraph.spaceToScreenPosition([x, y]);
+          beacon.style.transform = `translate(${Math.round(screenX)}px, ${Math.round(screenY)}px)`;
+          beacon.style.opacity = "1";
+        } else {
+          beacon.style.opacity = "0";
+        }
+      });
       viewerBeaconFrameRef.current = window.requestAnimationFrame(frame);
     };
 
@@ -593,7 +535,7 @@ export default function ExplorerGraph({
     return () => {
       clearViewerBeaconLoop();
     };
-  }, [clearViewerBeaconLoop, graphData.viewerPointIndices]);
+  }, [clearViewerBeaconLoop, graphData.pointSiteIds, graphData.viewerPointIndices]);
 
   const selectedSite = selectedPointInfo ? siteById[selectedPointInfo.siteId] : null;
   const infoCardStyle: CSSProperties | undefined = useMemo(() => {
@@ -641,10 +583,23 @@ export default function ExplorerGraph({
         ref={shellRef}
         onPointerDownCapture={handleShellPointerDown}
       >
-        <div className="explorer-viewer-beacon" aria-hidden="true" ref={viewerBeaconRef}>
-          <span />
-          <span />
-        </div>
+        {graphData.viewerPointIndices.map((index) => {
+          const siteId = graphData.pointSiteIds[index] ?? "";
+          if (!siteId) return null;
+          return (
+            <div
+              className="explorer-viewer-beacon"
+              aria-hidden="true"
+              key={siteId}
+              ref={(element) => {
+                viewerBeaconRefs.current[siteId] = element;
+              }}
+            >
+              <span />
+              <span />
+            </div>
+          );
+        })}
         {selectedSite && selectedPointInfo && (
           <article
             className="explorer-hover-card"
