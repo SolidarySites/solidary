@@ -1,5 +1,9 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import {
+  HttpError,
+  authorizeGitHubRepoAction
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -94,11 +98,11 @@ export const handler: Handler = async (event) => {
       : "Studio collaboration update";
   const body = typeof payload.body === "string" ? payload.body : "";
 
-  if (!draftId || !githubToken) {
+  if (!draftId) {
     return {
       statusCode: 400,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: "Missing draftId or githubToken." })
+      body: JSON.stringify({ error: "Missing draftId." })
     };
   }
 
@@ -189,6 +193,34 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  let authorizedGitHubToken = githubToken;
+  try {
+    const authorized = await authorizeGitHubRepoAction({
+      functionName: "github-upsert-collaboration-pr",
+      action: "upsert_collaboration_pr",
+      owner,
+      repo,
+      directToken: githubToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+    authorizedGitHubToken = authorized.githubToken;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return {
+        statusCode: error.statusCode,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ error: error.message })
+      };
+    }
+    return {
+      statusCode: 500,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : "Could not authorize GitHub access."
+      })
+    };
+  }
+
   const headBranch = (typedDraft.editor_branch ?? typedDraft.branch ?? "").trim();
   const baseBranch = (ownerDraft.branch ?? "").trim();
   if (!headBranch || !baseBranch) {
@@ -219,7 +251,7 @@ export const handler: Handler = async (event) => {
   const patchPull = async (number: number) => {
     const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pulls/${number}`, {
       method: "PATCH",
-      headers: githubHeaders(githubToken),
+      headers: githubHeaders(authorizedGitHubToken),
       body: JSON.stringify({
         title,
         body
@@ -238,7 +270,7 @@ export const handler: Handler = async (event) => {
     } else {
       const createResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pulls`, {
         method: "POST",
-        headers: githubHeaders(githubToken),
+        headers: githubHeaders(authorizedGitHubToken),
         body: JSON.stringify({
           title,
           body,
@@ -267,7 +299,7 @@ export const handler: Handler = async (event) => {
           `${GITHUB_API}/repos/${owner}/${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${headBranch}`)}&base=${encodeURIComponent(baseBranch)}&per_page=1`,
           {
             method: "GET",
-            headers: githubHeaders(githubToken)
+            headers: githubHeaders(authorizedGitHubToken)
           }
         );
         const listPayload = (await listResponse.json().catch(() => [])) as PullPayload[];

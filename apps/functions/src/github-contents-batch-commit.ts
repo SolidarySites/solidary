@@ -1,4 +1,8 @@
 import type { Handler } from "@netlify/functions";
+import {
+  authorizeGitHubRepoAction,
+  safeJson
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const RETRYABLE_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
@@ -6,6 +10,7 @@ const RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000];
 
 type BatchCommitBody = {
   token?: string;
+  supabase_access_token?: string;
   owner?: string;
   repo?: string;
   branch?: string;
@@ -42,12 +47,6 @@ type TreePayload = {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const safeJson = (statusCode: number, body: unknown) => ({
-  statusCode,
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify(body)
-});
 
 const getGhErrorMessage = (payload: unknown, fallback: string) => {
   const p = payload as GhErrorPayload;
@@ -149,13 +148,14 @@ export const handler: Handler = async (event) => {
   }
 
   const token = body.token?.trim();
+  const supabaseAccessToken = body.supabase_access_token?.trim();
   const owner = body.owner?.trim();
   const repo = body.repo?.trim();
   const branch = body.branch?.trim();
   const commitMessage = body.message?.trim() || "Publish site content";
 
-  if (!token || !owner || !repo || !branch) {
-    return safeJson(400, { error: "Missing token, owner, repo, or branch." });
+  if (!owner || !repo || !branch) {
+    return safeJson(400, { error: "Missing owner, repo, or branch." });
   }
 
   const upserts = Array.isArray(body.upserts) ? body.upserts : [];
@@ -165,6 +165,16 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    const { githubToken } = await authorizeGitHubRepoAction({
+      functionName: "github-contents-batch-commit",
+      action: "batch_commit_contents",
+      owner,
+      repo,
+      directToken: token,
+      supabaseAccessToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+
     const dedupedUpserts = new Map<
       string,
       {
@@ -198,8 +208,10 @@ export const handler: Handler = async (event) => {
     }
 
     const branchUrl = `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`;
-    const { res: branchRes, data: branchData } = await ghRequestWithRetry<BranchPayload | GhErrorPayload>({
-      token,
+    const { res: branchRes, data: branchData } = await ghRequestWithRetry<
+      BranchPayload | GhErrorPayload
+    >({
+      token: githubToken,
       url: branchUrl,
       shouldRetry: (statusCode) => RETRYABLE_STATUS.has(statusCode)
     });
@@ -213,8 +225,10 @@ export const handler: Handler = async (event) => {
       throw new HttpError(500, `Branch ${branch} does not have a head commit SHA.`);
     }
 
-    const { res: headCommitRes, data: headCommitData } = await ghRequestWithRetry<CommitPayload | GhErrorPayload>({
-      token,
+    const { res: headCommitRes, data: headCommitData } = await ghRequestWithRetry<
+      CommitPayload | GhErrorPayload
+    >({
+      token: githubToken,
       url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits/${headSha}`,
       shouldRetry: (statusCode) => RETRYABLE_STATUS.has(statusCode)
     });
@@ -236,8 +250,10 @@ export const handler: Handler = async (event) => {
     }> = [];
 
     for (const upsert of dedupedUpserts.values()) {
-      const { res: blobRes, data: blobData } = await ghRequestWithRetry<BlobPayload | GhErrorPayload>({
-        token,
+      const { res: blobRes, data: blobData } = await ghRequestWithRetry<
+        BlobPayload | GhErrorPayload
+      >({
+        token: githubToken,
         url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs`,
         init: {
           method: "POST",
@@ -273,8 +289,10 @@ export const handler: Handler = async (event) => {
       });
     }
 
-    const { res: treeRes, data: treeData } = await ghRequestWithRetry<TreePayload | GhErrorPayload>({
-      token,
+    const { res: treeRes, data: treeData } = await ghRequestWithRetry<
+      TreePayload | GhErrorPayload
+    >({
+      token: githubToken,
       url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees`,
       init: {
         method: "POST",
@@ -300,8 +318,10 @@ export const handler: Handler = async (event) => {
       });
     }
 
-    const { res: commitRes, data: commitData } = await ghRequestWithRetry<CommitPayload | GhErrorPayload>({
-      token,
+    const { res: commitRes, data: commitData } = await ghRequestWithRetry<
+      CommitPayload | GhErrorPayload
+    >({
+      token: githubToken,
       url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits`,
       init: {
         method: "POST",
@@ -322,7 +342,7 @@ export const handler: Handler = async (event) => {
     }
 
     const { res: refRes, data: refData } = await ghRequestWithRetry<any>({
-      token,
+      token: githubToken,
       url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
       init: {
         method: "PATCH",

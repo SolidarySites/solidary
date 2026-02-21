@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { resolveGitHubTokenForUser } from "./github-auth-broker";
+import { auditGitHubRepoAction } from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const TEMPLATE_DIR = "templates/astro-baseline";
@@ -1042,6 +1043,18 @@ export const handler: Handler = async (event) => {
       completed_at: new Date().toISOString()
     });
 
+    await auditGitHubRepoAction({
+      supabase,
+      userId: ownerUserId,
+      functionName: "github-create-repo-worker-background",
+      action: "create_repo",
+      owner,
+      repo,
+      decision: "allowed",
+      tokenSource: resolvedGitHubAuth.source,
+      httpStatus: 200
+    });
+
     return safeJson(202, {
       status: "accepted",
       jobId
@@ -1072,6 +1085,20 @@ export const handler: Handler = async (event) => {
         error: message,
         completed_at: new Date().toISOString()
       });
+      if (createdOwner && createdRepo) {
+        await auditGitHubRepoAction({
+          supabase,
+          userId: ownerUserId,
+          functionName: "github-create-repo-worker-background",
+          action: "create_repo",
+          owner: createdOwner,
+          repo: createdRepo,
+          decision: "error",
+          tokenSource: "none",
+          httpStatus: error.statusCode,
+          message
+        });
+      }
       return safeJson(202, {
         status: "accepted",
         jobId
@@ -1090,6 +1117,20 @@ export const handler: Handler = async (event) => {
       error: message,
       completed_at: new Date().toISOString()
     });
+    if (createdOwner && createdRepo) {
+      await auditGitHubRepoAction({
+        supabase,
+        userId: ownerUserId,
+        functionName: "github-create-repo-worker-background",
+        action: "create_repo",
+        owner: createdOwner,
+        repo: createdRepo,
+        decision: "error",
+        tokenSource: "none",
+        httpStatus: 500,
+        message
+      });
+    }
     return safeJson(202, {
       status: "accepted",
       jobId

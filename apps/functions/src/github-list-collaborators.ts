@@ -1,5 +1,9 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import {
+  HttpError,
+  authorizeGitHubRepoAction
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -218,11 +222,11 @@ export const handler: Handler = async (event) => {
   const draftId = typeof payload.draftId === "string" ? payload.draftId.trim() : "";
   const githubToken = typeof payload.githubToken === "string" ? payload.githubToken.trim() : "";
   const syncRoles = payload.syncRoles !== false;
-  if (!draftId || !githubToken) {
+  if (!draftId) {
     return {
       statusCode: 400,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: "Missing draftId or githubToken." })
+      body: JSON.stringify({ error: "Missing draftId." })
     };
   }
 
@@ -282,8 +286,36 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  let authorizedGitHubToken = githubToken;
+  try {
+    const authorized = await authorizeGitHubRepoAction({
+      functionName: "github-list-collaborators",
+      action: "list_collaborators",
+      owner,
+      repo,
+      directToken: githubToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+    authorizedGitHubToken = authorized.githubToken;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return {
+        statusCode: error.statusCode,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ error: error.message })
+      };
+    }
+    return {
+      statusCode: 500,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : "Could not authorize GitHub access."
+      })
+    };
+  }
+
   const pendingInviteLogins = await listPendingInviteLogins({
-    githubToken,
+    githubToken: authorizedGitHubToken,
     owner,
     repo
   });
@@ -328,7 +360,7 @@ export const handler: Handler = async (event) => {
       `${GITHUB_API}/repos/${owner}/${repo}/collaborators/${encodeURIComponent(githubLogin)}/permission`,
       {
         method: "GET",
-        headers: githubHeaders(githubToken)
+        headers: githubHeaders(authorizedGitHubToken)
       }
     );
 

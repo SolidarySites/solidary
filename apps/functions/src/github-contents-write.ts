@@ -1,4 +1,9 @@
 import type { Handler } from "@netlify/functions";
+import {
+  HttpError,
+  authorizeGitHubRepoAction,
+  safeJson
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const GITHUB_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
@@ -16,10 +21,30 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { token, owner, repo, path, message, content, sha, branch } = JSON.parse(event.body ?? "{}");
-    if (!token || !owner || !repo || !path || !message || !content) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
+    const {
+      token,
+      owner,
+      repo,
+      path,
+      message,
+      content,
+      sha,
+      branch,
+      supabase_access_token
+    } = JSON.parse(event.body ?? "{}");
+    if (!owner || !repo || !path || !message || !content) {
+      return safeJson(400, { error: "Missing parameters." });
     }
+
+    const { githubToken } = await authorizeGitHubRepoAction({
+      functionName: "github-contents-write",
+      action: "write_contents",
+      owner,
+      repo,
+      directToken: token,
+      supabaseAccessToken: supabase_access_token,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
 
     const byteLength = getBase64ByteLength(String(content));
     if (byteLength > GITHUB_MAX_FILE_SIZE_BYTES) {
@@ -39,17 +64,22 @@ export const handler: Handler = async (event) => {
       }
       const readResponse = await fetch(url.toString(), {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28"
         }
       });
       if (readResponse.ok) {
-        const readPayload = await readResponse.json().catch(() => ({}));
+        const readPayload = (await readResponse.json().catch(() => ({}))) as {
+          sha?: string;
+          message?: string;
+        };
         resolvedSha = readPayload?.sha;
         console.log(`${logPrefix} read sha`, { sha: resolvedSha, branch });
       } else if (readResponse.status !== 404) {
-        const readPayload = await readResponse.json().catch(() => ({}));
+        const readPayload = (await readResponse.json().catch(() => ({}))) as {
+          message?: string;
+        };
         console.log(`${logPrefix} read failed`, {
           status: readResponse.status,
           message: readPayload?.message,
@@ -68,7 +98,7 @@ export const handler: Handler = async (event) => {
       fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
           "Content-Type": "application/json"
@@ -82,7 +112,12 @@ export const handler: Handler = async (event) => {
       });
 
     let response = await writeOnce();
-    let payload = await response.json().catch(() => ({}));
+    let payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      sha?: string;
+      content?: unknown;
+      commit?: unknown;
+    };
     console.log(`${logPrefix} write attempt`, {
       status: response.status,
       message: payload?.message,
@@ -96,19 +131,26 @@ export const handler: Handler = async (event) => {
       }
       const readResponse = await fetch(url.toString(), {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28"
         }
       });
       if (readResponse.ok) {
-        const readPayload = await readResponse.json().catch(() => ({}));
+        const readPayload = (await readResponse.json().catch(() => ({}))) as {
+          sha?: string;
+        };
         console.log(`${logPrefix} retry read sha`, {
           sha: readPayload?.sha,
           branch
         });
         response = await writeOnce(readPayload?.sha);
-        payload = await response.json().catch(() => ({}));
+        payload = (await response.json().catch(() => ({}))) as {
+          message?: string;
+          sha?: string;
+          content?: unknown;
+          commit?: unknown;
+        };
         console.log(`${logPrefix} retry write`, {
           status: response.status,
           message: payload?.message,
@@ -126,7 +168,11 @@ export const handler: Handler = async (event) => {
       for (let attempt = 0; attempt < 3 && !response.ok; attempt += 1) {
         await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
         response = await writeOnce();
-        payload = await response.json().catch(() => ({}));
+        payload = (await response.json().catch(() => ({}))) as {
+          message?: string;
+          content?: unknown;
+          commit?: unknown;
+        };
         console.log(`${logPrefix} empty-repo retry`, {
           attempt: attempt + 1,
           status: response.status,
@@ -155,6 +201,9 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ content: payload.content, commit: payload.commit })
     };
   } catch (error) {
+    if (error instanceof HttpError) {
+      return safeJson(error.statusCode, { error: error.message });
+    }
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" })

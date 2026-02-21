@@ -1,5 +1,9 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import {
+  HttpError,
+  authorizeGitHubRepoAction
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -83,11 +87,11 @@ export const handler: Handler = async (event) => {
       : "Merge collaboration changes";
   const commitMessage = typeof payload.commitMessage === "string" ? payload.commitMessage.trim() : "";
 
-  if (!siteId || !Number.isFinite(pullRequestNumber) || pullRequestNumber < 1 || !githubToken) {
+  if (!siteId || !Number.isFinite(pullRequestNumber) || pullRequestNumber < 1) {
     return {
       statusCode: 400,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: "Missing siteId, pullRequestNumber, or githubToken." })
+      body: JSON.stringify({ error: "Missing siteId or pullRequestNumber." })
     };
   }
 
@@ -167,6 +171,34 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  let authorizedGitHubToken = githubToken;
+  try {
+    const authorized = await authorizeGitHubRepoAction({
+      functionName: "github-merge-collaboration-pr",
+      action: "merge_collaboration_pr",
+      owner,
+      repo,
+      directToken: githubToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+    authorizedGitHubToken = authorized.githubToken;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return {
+        statusCode: error.statusCode,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ error: error.message })
+      };
+    }
+    return {
+      statusCode: 500,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : "Could not authorize GitHub access."
+      })
+    };
+  }
+
   const { data: prRow, error: prRowError } = await supabase
     .from("site_collaboration_pull_requests")
     .select("id, editor_draft_id, editor_user_id, github_pr_url, status")
@@ -210,7 +242,7 @@ export const handler: Handler = async (event) => {
     `${GITHUB_API}/repos/${owner}/${repo}/pulls/${pullRequestNumber}/merge`,
     {
       method: "PUT",
-      headers: githubHeaders(githubToken),
+      headers: githubHeaders(authorizedGitHubToken),
       body: JSON.stringify({
         commit_title: commitTitle,
         ...(commitMessage ? { commit_message: commitMessage } : {})

@@ -1,4 +1,9 @@
 import type { Handler } from "@netlify/functions";
+import {
+  HttpError,
+  authorizeGitHubRepoAction,
+  safeJson
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -8,10 +13,28 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { token, owner, repo, path, message, branch } = JSON.parse(event.body ?? "{}");
-    if (!token || !owner || !repo || !path) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing parameters." }) };
+    const {
+      token,
+      owner,
+      repo,
+      path,
+      message,
+      branch,
+      supabase_access_token
+    } = JSON.parse(event.body ?? "{}");
+    if (!owner || !repo || !path) {
+      return safeJson(400, { error: "Missing owner, repo, or path." });
     }
+
+    const { githubToken } = await authorizeGitHubRepoAction({
+      functionName: "github-contents-delete",
+      action: "delete_contents",
+      owner,
+      repo,
+      directToken: token,
+      supabaseAccessToken: supabase_access_token,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
 
     const logPrefix = `[github-contents-delete] ${owner}/${repo}:${path}`;
 
@@ -22,7 +45,7 @@ export const handler: Handler = async (event) => {
 
     const readResponse = await fetch(url.toString(), {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${githubToken}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28"
       }
@@ -38,7 +61,9 @@ export const handler: Handler = async (event) => {
     }
 
     if (!readResponse.ok) {
-      const readPayload = await readResponse.json().catch(() => ({}));
+      const readPayload = (await readResponse.json().catch(() => ({}))) as {
+        message?: string;
+      };
       console.log(`${logPrefix} read failed`, {
         status: readResponse.status,
         message: readPayload?.message,
@@ -50,13 +75,15 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const readPayload = await readResponse.json().catch(() => ({}));
+    const readPayload = (await readResponse.json().catch(() => ({}))) as {
+      sha?: string;
+    };
     const sha = readPayload?.sha;
 
     const deleteResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`, {
       method: "DELETE",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${githubToken}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json"
@@ -68,7 +95,9 @@ export const handler: Handler = async (event) => {
       })
     });
 
-    const deletePayload = await deleteResponse.json().catch(() => ({}));
+    const deletePayload = (await deleteResponse.json().catch(() => ({}))) as {
+      message?: string;
+    };
     console.log(`${logPrefix} delete`, {
       status: deleteResponse.status,
       message: deletePayload?.message,
@@ -88,6 +117,9 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ deleted: true })
     };
   } catch (error) {
+    if (error instanceof HttpError) {
+      return safeJson(error.statusCode, { error: error.message });
+    }
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" })

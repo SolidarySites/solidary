@@ -1,12 +1,11 @@
 import type { Handler } from "@netlify/functions";
-import { createClient } from "@supabase/supabase-js";
-import { resolveGitHubTokenForUser } from "./github-auth-broker";
+import {
+  HttpError,
+  authorizeGitHubRepoAction
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 const SESSION_LOOKBACK_BUFFER_MS = 30_000;
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
-const SUPABASE_SERVICE_KEY =
-  process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 
 type GitHubWorkflowRun = {
   id: number;
@@ -210,37 +209,15 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    let requestToken = directToken;
-    if (!requestToken && supabaseAccessToken && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      });
-      const {
-        data: { user },
-        error: userError
-      } = await supabase.auth.getUser(supabaseAccessToken);
-      if (userError || !user) {
-        return {
-          statusCode: 401,
-          body: JSON.stringify({ error: "Invalid Supabase session." })
-        };
-      }
-      const resolved = await resolveGitHubTokenForUser({
-        supabase,
-        userId: user.id,
-        fallbackToken: directToken
-      });
-      requestToken = resolved?.token ?? "";
-    }
-
-    if (!requestToken) {
-      return {
-        statusCode: 412,
-        body: JSON.stringify({
-          error: "GitHub authorization missing. Connect your GitHub App from account menu, then retry."
-        })
-      };
-    }
+    const { githubToken: requestToken } = await authorizeGitHubRepoAction({
+      functionName: "github-publish-status",
+      action: "read_publish_status",
+      owner,
+      repo,
+      directToken,
+      supabaseAccessToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
 
     const [runs, pages] = await Promise.all([
       parsedHeadSha
@@ -378,6 +355,12 @@ export const handler: Handler = async (event) => {
       })
     };
   } catch (error) {
+    if (error instanceof HttpError) {
+      return {
+        statusCode: error.statusCode,
+        body: JSON.stringify({ error: error.message })
+      };
+    }
     return {
       statusCode: 500,
       body: JSON.stringify({

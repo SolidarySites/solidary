@@ -15,8 +15,10 @@ type ConnectStartBody = {
 
 type StoredGitHubAppCredential = {
   access_token?: string | null;
+  access_token_encrypted?: string | null;
   access_token_expires_at?: string | null;
   refresh_token?: string | null;
+  refresh_token_encrypted?: string | null;
 };
 
 const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
@@ -61,7 +63,9 @@ const hasExistingGitHubAppConnection = async ({
 }): Promise<boolean> => {
   const { data, error } = await supabase
     .from("github_app_user_tokens")
-    .select("access_token, access_token_expires_at, refresh_token")
+    .select(
+      "access_token, access_token_encrypted, access_token_expires_at, refresh_token, refresh_token_encrypted"
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -74,8 +78,10 @@ const hasExistingGitHubAppConnection = async ({
   }
 
   const credential = data as StoredGitHubAppCredential;
-  const accessToken = credential.access_token?.trim() ?? "";
-  const refreshToken = credential.refresh_token?.trim() ?? "";
+  const accessToken =
+    credential.access_token_encrypted?.trim() || credential.access_token?.trim() || "";
+  const refreshToken =
+    credential.refresh_token_encrypted?.trim() || credential.refresh_token?.trim() || "";
 
   if (hasUsableAccessToken(accessToken, credential.access_token_expires_at)) {
     return true;

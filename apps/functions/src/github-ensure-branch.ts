@@ -1,4 +1,9 @@
 import type { Handler } from "@netlify/functions";
+import {
+  HttpError,
+  authorizeGitHubRepoAction,
+  safeJson
+} from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -31,6 +36,10 @@ export const handler: Handler = async (event) => {
   }
 
   const token = typeof payload.token === "string" ? payload.token.trim() : "";
+  const supabaseAccessToken =
+    typeof payload.supabase_access_token === "string"
+      ? payload.supabase_access_token.trim()
+      : "";
   const owner = typeof payload.owner === "string" ? payload.owner.trim() : "";
   const repo = typeof payload.repo === "string" ? payload.repo.trim() : "";
   const branch = typeof payload.branch === "string" ? payload.branch.trim() : "";
@@ -39,20 +48,16 @@ export const handler: Handler = async (event) => {
       ? payload.baseBranch.trim()
       : "main";
 
-  if (!token || !owner || !repo || !branch) {
-    return {
-      statusCode: 400,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: "Missing token, owner, repo, or branch." })
-    };
+  if (!owner || !repo || !branch) {
+    return safeJson(400, { error: "Missing owner, repo, or branch." });
   }
 
-  const readBranch = async (targetBranch: string) => {
+  const readBranch = async (targetBranch: string, githubToken: string) => {
     const response = await fetch(
       `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(targetBranch)}`,
       {
         method: "GET",
-        headers: githubHeaders(token)
+        headers: githubHeaders(githubToken)
       }
     );
     const data = (await response.json().catch(() => ({}))) as {
@@ -63,7 +68,17 @@ export const handler: Handler = async (event) => {
   };
 
   try {
-    const existing = await readBranch(branch);
+    const { githubToken } = await authorizeGitHubRepoAction({
+      functionName: "github-ensure-branch",
+      action: "ensure_branch",
+      owner,
+      repo,
+      directToken: token,
+      supabaseAccessToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+
+    const existing = await readBranch(branch, githubToken);
     if (existing.response.ok) {
       return {
         statusCode: 200,
@@ -85,7 +100,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const base = await readBranch(baseBranch);
+    const base = await readBranch(baseBranch, githubToken);
     if (!base.response.ok) {
       return {
         statusCode: base.response.status,
@@ -107,7 +122,7 @@ export const handler: Handler = async (event) => {
 
     const createResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/git/refs`, {
       method: "POST",
-      headers: githubHeaders(token),
+      headers: githubHeaders(githubToken),
       body: JSON.stringify({
         ref: `refs/heads/${branch}`,
         sha: baseSha
@@ -128,7 +143,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const finalBranch = await readBranch(branch);
+    const finalBranch = await readBranch(branch, githubToken);
     if (!finalBranch.response.ok) {
       return {
         statusCode: finalBranch.response.status,
@@ -149,12 +164,11 @@ export const handler: Handler = async (event) => {
       })
     };
   } catch (error) {
-    return {
-      statusCode: 500,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error."
-      })
-    };
+    if (error instanceof HttpError) {
+      return safeJson(error.statusCode, { error: error.message });
+    }
+    return safeJson(500, {
+      error: error instanceof Error ? error.message : "Unknown error."
+    });
   }
 };

@@ -282,6 +282,7 @@ Protocol ingestion must remain GitHub-API-independent.
 - Set `GITHUB_APP_CLIENT_ID` + `GITHUB_APP_CLIENT_SECRET`
 - Set `GITHUB_APP_SLUG` (your GitHub App slug from settings)
 - Set `GITHUB_APP_STATE_SECRET` (random long secret for callback state signing)
+- Set `TOKEN_ENCRYPTION_KEY` (32-byte secret for encrypting stored GitHub tokens)
 - Optional legacy refresh support: `GITHUB_OAUTH_CLIENT_ID` + `GITHUB_OAUTH_CLIENT_SECRET`
 
 3) Install + run

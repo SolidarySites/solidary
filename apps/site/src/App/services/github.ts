@@ -1,15 +1,33 @@
 import { toBase64 } from "../lib/base64";
+import { getFreshSupabaseAuthSnapshot } from "../features/auth/services/github-auth";
 
 export async function githubRequest<T>(
   path: string,
   body: Record<string, unknown>
 ): Promise<T> {
+  const payloadBody: Record<string, unknown> = { ...body };
+  const existingSupabaseAccessToken =
+    typeof payloadBody.supabase_access_token === "string"
+      ? payloadBody.supabase_access_token.trim()
+      : "";
+  if (!existingSupabaseAccessToken) {
+    try {
+      const snapshot = await getFreshSupabaseAuthSnapshot();
+      const supabaseAccessToken = snapshot.supabaseAccessToken?.trim() ?? "";
+      if (supabaseAccessToken) {
+        payloadBody.supabase_access_token = supabaseAccessToken;
+      }
+    } catch {
+      // Caller-level auth checks will still surface clearer errors if session is missing.
+    }
+  }
+
   const response = await fetch(path, {
     method: "POST",
     headers: {
       "content-type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(payloadBody)
   });
 
   const payload = await response.json().catch(() => ({}));
