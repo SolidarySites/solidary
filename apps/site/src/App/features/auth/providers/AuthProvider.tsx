@@ -12,6 +12,7 @@ import {
   clearCachedGithubProviderCredentialsForUser,
   connectGitHubAppForCurrentUser,
   GITHUB_OAUTH_SCOPES,
+  syncGithubProviderTokenToServer,
   syncGithubAuthSnapshotFromSession
 } from "../services/github-auth";
 import { AuthContext } from "../context/AuthContext";
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
         syncGithubAuthSnapshotFromSession(data.session);
+        void syncGithubProviderTokenToServer(data.session);
         sessionUserIdRef.current = data.session?.user?.id?.trim() ?? "";
         setSession(data.session);
         setSessionResolved(true);
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         syncGithubAuthSnapshotFromSession(nextSession);
+        void syncGithubProviderTokenToServer(nextSession);
         const nextUserId = nextSession?.user?.id?.trim() ?? "";
         sessionUserIdRef.current = nextUserId;
         setSession(nextSession);

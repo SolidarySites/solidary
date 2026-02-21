@@ -45,6 +45,7 @@ type RefreshProviderTokenResponse = {
 };
 
 const providerTokenRefreshAttemptAtByUserId = new Map<string, number>();
+const providerTokenSyncFingerprintByUserId = new Map<string, string>();
 let inMemorySnapshot: InternalGithubAuthSnapshot | null = null;
 
 const getSessionProviderToken = (session: Session | null): string => {
@@ -200,6 +201,7 @@ export const clearCachedGithubProviderCredentialsForUser = (userId: string) => {
   const normalizedUserId = userId.trim();
   if (!normalizedUserId) return;
   providerTokenRefreshAttemptAtByUserId.delete(normalizedUserId);
+  providerTokenSyncFingerprintByUserId.delete(normalizedUserId);
   removeStoredProviderCredentials(normalizedUserId);
 };
 
@@ -372,4 +374,43 @@ export const connectGitHubAppForCurrentUser = async ({
     connected: false,
     redirected: true
   } satisfies ConnectGitHubAppResult;
+};
+
+export const syncGithubProviderTokenToServer = async (session: Session | null) => {
+  const userId = getSessionUserId(session);
+  if (!userId) return;
+
+  const supabaseAccessToken = getSessionSupabaseAccessToken(session);
+  if (!supabaseAccessToken) return;
+
+  const providerToken = getSessionProviderToken(session) || readStoredProviderToken(userId);
+  if (!providerToken) return;
+
+  const providerRefreshToken =
+    getSessionProviderRefreshToken(session) || readStoredProviderRefreshToken(userId);
+  const fingerprint = `${providerToken}|${providerRefreshToken}`;
+  if (providerTokenSyncFingerprintByUserId.get(userId) === fingerprint) {
+    return;
+  }
+
+  providerTokenSyncFingerprintByUserId.set(userId, fingerprint);
+  try {
+    const response = await fetch("/.netlify/functions/github-store-provider-token", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${supabaseAccessToken}`
+      },
+      body: JSON.stringify({
+        provider_token: providerToken,
+        provider_refresh_token: providerRefreshToken || undefined
+      })
+    });
+
+    if (!response.ok) {
+      providerTokenSyncFingerprintByUserId.delete(userId);
+    }
+  } catch {
+    providerTokenSyncFingerprintByUserId.delete(userId);
+  }
 };

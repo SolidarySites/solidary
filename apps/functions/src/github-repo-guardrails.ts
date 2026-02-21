@@ -77,6 +77,27 @@ const isRepoLinkedToUser = async ({
     return true;
   }
 
+  const { data: provisionJobs, error: provisionJobsError } = await supabase
+    .from("repo_provision_jobs")
+    .select("repo_full_name")
+    .eq("owner_user_id", userId)
+    .in("status", ["queued", "running", "succeeded"])
+    .not("repo_full_name", "is", null);
+
+  if (provisionJobsError) {
+    throw new HttpError(500, provisionJobsError.message);
+  }
+
+  if (
+    (provisionJobs ?? []).some(
+      (row) =>
+        typeof row.repo_full_name === "string" &&
+        row.repo_full_name.trim().toLowerCase() === repoFullName
+    )
+  ) {
+    return true;
+  }
+
   const { data: memberships, error: membershipError } = await supabase
     .from("site_admins")
     .select("site_id")
