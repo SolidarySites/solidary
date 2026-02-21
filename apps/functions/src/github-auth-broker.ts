@@ -25,10 +25,8 @@ type GitHubTokenPayload = {
 
 type StoredCredentialRow = {
   user_id: string;
-  access_token: string | null;
   access_token_encrypted: string | null;
   access_token_expires_at: string | null;
-  refresh_token: string | null;
   refresh_token_encrypted: string | null;
   refresh_token_expires_at: string | null;
   token_encryption_key_version: string | null;
@@ -183,10 +181,8 @@ export const upsertGitHubAppUserCredentials = async ({
     installation_id: input.installationId ?? null,
     installation_account_login: input.installationAccountLogin?.trim() || null,
     installation_account_type: input.installationAccountType?.trim() || null,
-    access_token: null,
     access_token_encrypted: encryptTokenValue(accessToken),
     access_token_expires_at: input.accessTokenExpiresAt ?? null,
-    refresh_token: null,
     refresh_token_encrypted: input.refreshToken?.trim()
       ? encryptTokenValue(input.refreshToken)
       : null,
@@ -217,10 +213,8 @@ const getStoredCredential = async ({
     .select(
       [
         "user_id",
-        "access_token",
         "access_token_encrypted",
         "access_token_expires_at",
-        "refresh_token",
         "refresh_token_encrypted",
         "refresh_token_expires_at",
         "token_encryption_key_version",
@@ -268,10 +262,10 @@ export const resolveGitHubTokenForUser = async ({
   if (credential) {
     const storedAccessToken = credential.access_token_encrypted?.trim()
       ? decryptTokenValue(credential.access_token_encrypted)
-      : credential.access_token?.trim() ?? "";
+      : "";
     const storedRefreshToken = credential.refresh_token_encrypted?.trim()
       ? decryptTokenValue(credential.refresh_token_encrypted)
-      : credential.refresh_token?.trim() ?? "";
+      : "";
 
     if (storedAccessToken && isTokenStillUsable(credential.access_token_expires_at)) {
       return { token: storedAccessToken, source: "github_app" };

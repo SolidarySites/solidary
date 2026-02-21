@@ -137,7 +137,7 @@ export const handler: Handler = async (event) => {
     if (!resolvedGitHubAuth?.token) {
       return safeJson(412, {
         error:
-          "GitHub authorization missing. Sign in with GitHub again from account menu and retry."
+          "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
       });
     }
 

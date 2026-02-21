@@ -235,7 +235,7 @@ describe("requireFreshGithubAuth", () => {
     });
 
     await expect(requireFreshGithubAuth()).rejects.toThrow(
-      "GitHub authorization missing. Reconnect GitHub from the header and retry."
+      "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
     );
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { getPublicProfileAvatarUrl } from "../../../features/auth/services/user-profile";
 import type { NoticeKind } from "../../../types/notice";
@@ -34,7 +35,9 @@ const getFileValidationError = (file: File): string | null => {
 };
 
 export const useProfileRouteController = () => {
-  const { session } = useAuth();
+  const { session, connectGitHubApp } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const profileData = useMemo(
     () => getProfileSessionData(session),
@@ -58,6 +61,7 @@ export const useProfileRouteController = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [connectBusy, setConnectBusy] = useState(false);
 
   useEffect(() => {
     setDisplayName(profileData.settings.displayName);
@@ -82,6 +86,30 @@ export const useProfileRouteController = () => {
       URL.revokeObjectURL(objectUrl);
     };
   }, [selectedAvatarFile]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const githubAppStatus = params.get("github_app")?.trim() ?? "";
+    const githubAppMessage = params.get("github_app_message")?.trim() ?? "";
+    if (!githubAppStatus) return;
+
+    params.delete("github_app");
+    params.delete("github_app_message");
+    const nextSearch = params.toString();
+    navigate(
+      `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`,
+      { replace: true }
+    );
+
+    if (githubAppStatus === "connected") {
+      setNotice("GitHub App connected.");
+      setNoticeKind("notice");
+      return;
+    }
+
+    setNotice(githubAppMessage || "Could not connect GitHub App.");
+    setNoticeKind("error");
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   const savedAvatarPublicUrl = useMemo(
     () => getPublicProfileAvatarUrl(avatarPath),
@@ -209,6 +237,30 @@ export const useProfileRouteController = () => {
     void saveSettings();
   };
 
+  const onConnectGitHubApp = () => {
+    if (!session) {
+      setNotice("Sign in with GitHub to connect your GitHub App installation.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setConnectBusy(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    void connectGitHubApp(returnTo)
+      .catch((error) => {
+        const message =
+          error instanceof Error ? error.message : "Could not start GitHub App connection.";
+        setNotice(message);
+        setNoticeKind("error");
+      })
+      .finally(() => {
+        setConnectBusy(false);
+      });
+  };
+
   return {
     displayName,
     connectedGithub: profileData.connectedGithub,
@@ -218,12 +270,14 @@ export const useProfileRouteController = () => {
     displayNameTooLong,
     hasChanges,
     saveBusy,
+    connectBusy,
     notice,
     noticeKind,
     onSubmit,
     onReset: resetSettings,
     onDisplayNameChange: setDisplayName,
     onAvatarFileChange,
-    onRemoveAvatar
+    onRemoveAvatar,
+    onConnectGitHubApp
   };
 };

@@ -57,6 +57,27 @@ export default function ProfileRoute() {
             </div>
           </section>
 
+          <section className="profile-github-security">
+            <h3>GitHub security</h3>
+            <p>
+              By default, Solidary stores your GitHub token in encrypted form, enforces repo
+              allowlist checks on every GitHub function call, and writes audit logs for
+              GitHub-triggered actions.
+            </p>
+            <p>
+              Installing the Solidary GitHub App adds installation-scoped permissions so access can
+              be restricted to repositories where the app is installed.
+            </p>
+            <button
+              type="button"
+              className="ghost profile-connect-github-app"
+              onClick={controller.onConnectGitHubApp}
+              disabled={controller.connectBusy}
+            >
+              {controller.connectBusy ? "Connecting..." : "Connect GitHub App"}
+            </button>
+          </section>
+
           <form
             className="form-grid profile-settings-form"
             onSubmit={controller.onSubmit}

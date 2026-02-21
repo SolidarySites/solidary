@@ -295,7 +295,7 @@ export const authorizeGitHubRepoAction = async ({
       });
       throw new HttpError(
         412,
-        "GitHub authorization missing. Reconnect GitHub from account menu and retry."
+        "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
       );
     }
   }

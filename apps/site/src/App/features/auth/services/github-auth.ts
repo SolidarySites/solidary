@@ -288,7 +288,9 @@ export const requireFreshGithubAuth = async (): Promise<FreshGithubAuth> => {
   }
 
   if (!providerToken) {
-    throw new Error("GitHub authorization missing. Reconnect GitHub from the header and retry.");
+    throw new Error(
+      "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
+    );
   }
 
   if (!supabaseAccessToken) {
