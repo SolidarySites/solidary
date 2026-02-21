@@ -220,7 +220,8 @@ export const handler: Handler = async (event) => {
           ? exchanged.refreshTokenExpiresAt
           : undefined,
         tokenType: exchanged.tokenType,
-        scope: exchanged.scope
+        scope: exchanged.scope,
+        source: "github_app_callback"
       }
     });
 

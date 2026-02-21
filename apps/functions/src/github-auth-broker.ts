@@ -11,6 +11,12 @@ const GITHUB_OAUTH_CLIENT_SECRET =
   process.env.GITHUB_APP_CLIENT_SECRET ?? process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
+const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
+
+const debugLog = (message: string, details: Record<string, unknown>) => {
+  if (!GITHUB_TOKEN_DEBUG) return;
+  console.log("[github-auth-broker]", message, details);
+};
 
 type GitHubTokenPayload = {
   access_token?: string;
@@ -68,6 +74,7 @@ export type UpsertGitHubAppUserCredentialsInput = {
   refreshTokenExpiresAt?: string | null;
   tokenType?: string | null;
   scope?: string | null;
+  source?: string;
 };
 
 const normalizePositiveInt = (value: unknown): number => {
@@ -177,10 +184,13 @@ export const upsertGitHubAppUserCredentials = async ({
   const payload: Record<string, unknown> = {
     user_id: userId,
     access_token_encrypted: encryptTokenValue(accessToken),
-    access_token_expires_at: input.accessTokenExpiresAt ?? null,
     token_encryption_key_version: getTokenEncryptionVersion(),
     connected_at: new Date().toISOString()
   };
+
+  if (typeof input.accessTokenExpiresAt !== "undefined") {
+    payload.access_token_expires_at = input.accessTokenExpiresAt;
+  }
 
   if (typeof input.githubUserId !== "undefined") {
     payload.github_user_id = input.githubUserId;
@@ -219,6 +229,21 @@ export const upsertGitHubAppUserCredentials = async ({
   if (typeof input.scope !== "undefined") {
     payload.scope = input.scope?.trim() || null;
   }
+
+  debugLog("upserting credentials", {
+    userId,
+    source: input.source ?? "unknown",
+    hasAccessTokenExpiresAt:
+      typeof input.accessTokenExpiresAt === "undefined"
+        ? "unchanged"
+        : Boolean(input.accessTokenExpiresAt),
+    hasRefreshToken:
+      typeof input.refreshToken === "undefined" ? "unchanged" : Boolean(input.refreshToken?.trim()),
+    hasRefreshTokenExpiresAt:
+      typeof input.refreshTokenExpiresAt === "undefined"
+        ? "unchanged"
+        : Boolean(input.refreshTokenExpiresAt)
+  });
 
   const { error } = await supabase.from("github_app_user_tokens").upsert(payload, {
     onConflict: "user_id"
@@ -294,6 +319,14 @@ export const resolveGitHubTokenForUser = async ({
       ? decryptTokenValue(credential.refresh_token_encrypted)
       : "";
 
+    debugLog("resolved stored credential", {
+      userId: normalizedUserId,
+      hasAccessToken: Boolean(storedAccessToken),
+      hasRefreshToken: Boolean(storedRefreshToken),
+      accessTokenExpiresAt: credential.access_token_expires_at,
+      refreshTokenExpiresAt: credential.refresh_token_expires_at
+    });
+
     if (storedAccessToken && isTokenStillUsable(credential.access_token_expires_at)) {
       return { token: storedAccessToken, source: "github_app" };
     }
@@ -316,11 +349,16 @@ export const resolveGitHubTokenForUser = async ({
             refreshTokenExpiresAt:
               refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
             tokenType: refreshed.tokenType,
-            scope: refreshed.scope
+            scope: refreshed.scope,
+            source: "refresh_flow"
           }
         });
         return { token: refreshed.accessToken, source: "github_app" };
-      } catch {
+      } catch (error) {
+        debugLog("refresh flow failed", {
+          userId: normalizedUserId,
+          message: error instanceof Error ? error.message : "unknown error"
+        });
         // Fall through to legacy fallback if available.
       }
     }

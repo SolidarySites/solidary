@@ -6,15 +6,24 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const GITHUB_API = "https://api.github.com";
+const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type StoreProviderTokenBody = {
   provider_token?: string;
   provider_refresh_token?: string;
+  debug_trigger?: string;
+  session_has_provider_token?: boolean;
+  session_has_provider_refresh_token?: boolean;
 };
 
 type GitHubUserPayload = {
   id?: number;
   login?: string;
+};
+
+const debugLog = (message: string, details: Record<string, unknown>) => {
+  if (!GITHUB_TOKEN_DEBUG) return;
+  console.log("[github-store-provider-token]", message, details);
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -98,6 +107,15 @@ export const handler: Handler = async (event) => {
     return safeJson(401, { error: "Invalid Supabase session." });
   }
 
+  debugLog("received sync request", {
+    userId: user.id,
+    trigger: body.debug_trigger ?? "unknown",
+    sessionHasProviderToken: body.session_has_provider_token ?? null,
+    sessionHasProviderRefreshToken: body.session_has_provider_refresh_token ?? null,
+    providerTokenLength: providerToken.length,
+    hasProviderRefreshToken: Boolean(providerRefreshToken)
+  });
+
   const githubUser = await fetchGitHubUser(providerToken);
 
   try {
@@ -109,7 +127,8 @@ export const handler: Handler = async (event) => {
         githubLogin: githubUser?.login ?? null,
         accessToken: providerToken,
         refreshToken: providerRefreshToken || undefined,
-        tokenType: "bearer"
+        tokenType: "bearer",
+        source: "provider_sync"
       }
     });
   } catch (error) {
@@ -118,5 +137,51 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  return safeJson(200, { ok: true });
+  const { data: storedRow, error: storedRowError } = await supabase
+    .from("github_app_user_tokens")
+    .select(
+      "access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, updated_at"
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const storedRowObject =
+    storedRow && typeof storedRow === "object" && !Array.isArray(storedRow)
+      ? (storedRow as {
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          access_token_expires_at?: string | null;
+          refresh_token_expires_at?: string | null;
+          updated_at?: string | null;
+        })
+      : null;
+
+  if (!storedRowError && storedRowObject) {
+    debugLog("stored row after sync", {
+      userId: user.id,
+      hasAccessTokenEncrypted: Boolean(storedRowObject.access_token_encrypted?.trim()),
+      hasRefreshTokenEncrypted: Boolean(storedRowObject.refresh_token_encrypted?.trim()),
+      accessTokenExpiresAt: storedRowObject.access_token_expires_at ?? null,
+      refreshTokenExpiresAt: storedRowObject.refresh_token_expires_at ?? null,
+      updatedAt: storedRowObject.updated_at ?? null
+    });
+  } else if (storedRowError) {
+    debugLog("failed to read stored row", {
+      userId: user.id,
+      message: storedRowError.message
+    });
+  }
+
+  return safeJson(200, {
+    ok: true,
+    debug: GITHUB_TOKEN_DEBUG
+      ? {
+          trigger: body.debug_trigger ?? "unknown",
+          has_provider_refresh_token: Boolean(providerRefreshToken),
+          stored_refresh_token_encrypted: Boolean(storedRowObject?.refresh_token_encrypted?.trim()),
+          access_token_expires_at: storedRowObject?.access_token_expires_at ?? null,
+          refresh_token_expires_at: storedRowObject?.refresh_token_expires_at ?? null
+        }
+      : undefined
+  });
 };

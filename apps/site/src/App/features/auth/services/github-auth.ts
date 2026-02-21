@@ -9,6 +9,9 @@ type SessionWithProviderCredentials = Session & {
 const GITHUB_PROVIDER_TOKEN_STORAGE_PREFIX = "solidary:github-provider-token:";
 const GITHUB_PROVIDER_REFRESH_TOKEN_STORAGE_PREFIX = "solidary:github-provider-refresh-token:";
 const GITHUB_PROVIDER_TOKEN_REFRESH_COOLDOWN_MS = 60 * 1000;
+const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
+  String(import.meta.env.VITE_GITHUB_TOKEN_DEBUG ?? "")
+);
 
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
 
@@ -44,9 +47,18 @@ type RefreshProviderTokenResponse = {
   provider_refresh_token?: string;
 };
 
+type SyncProviderTokenOptions = {
+  trigger?: string;
+};
+
 const providerTokenRefreshAttemptAtByUserId = new Map<string, number>();
 const providerTokenSyncFingerprintByUserId = new Map<string, string>();
 let inMemorySnapshot: InternalGithubAuthSnapshot | null = null;
+
+const debugLog = (message: string, details: Record<string, unknown>) => {
+  if (!GITHUB_TOKEN_DEBUG) return;
+  console.log("[github-auth]", message, details);
+};
 
 const getSessionProviderToken = (session: Session | null): string => {
   if (!session) return "";
@@ -378,22 +390,35 @@ export const connectGitHubAppForCurrentUser = async ({
   } satisfies ConnectGitHubAppResult;
 };
 
-export const syncGithubProviderTokenToServer = async (session: Session | null) => {
+export const syncGithubProviderTokenToServer = async (
+  session: Session | null,
+  options: SyncProviderTokenOptions = {}
+) => {
   const userId = getSessionUserId(session);
   if (!userId) return;
+  const trigger = options.trigger?.trim() || "unknown";
 
   const supabaseAccessToken = getSessionSupabaseAccessToken(session);
   if (!supabaseAccessToken) return;
 
-  const providerToken = getSessionProviderToken(session) || readStoredProviderToken(userId);
+  const sessionProviderToken = getSessionProviderToken(session);
+  const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
+  const providerToken = sessionProviderToken || readStoredProviderToken(userId);
   if (!providerToken) return;
 
-  const providerRefreshToken =
-    getSessionProviderRefreshToken(session) || readStoredProviderRefreshToken(userId);
+  const providerRefreshToken = sessionProviderRefreshToken || readStoredProviderRefreshToken(userId);
   const fingerprint = `${providerToken}|${providerRefreshToken}`;
   if (providerTokenSyncFingerprintByUserId.get(userId) === fingerprint) {
     return;
   }
+
+  debugLog("syncing provider token to server", {
+    userId,
+    trigger,
+    hasSessionProviderToken: Boolean(sessionProviderToken),
+    hasSessionProviderRefreshToken: Boolean(sessionProviderRefreshToken),
+    hasEffectiveProviderRefreshToken: Boolean(providerRefreshToken)
+  });
 
   providerTokenSyncFingerprintByUserId.set(userId, fingerprint);
   try {
@@ -405,8 +430,24 @@ export const syncGithubProviderTokenToServer = async (session: Session | null) =
       },
       body: JSON.stringify({
         provider_token: providerToken,
-        provider_refresh_token: providerRefreshToken || undefined
+        provider_refresh_token: providerRefreshToken || undefined,
+        debug_trigger: trigger,
+        session_has_provider_token: Boolean(sessionProviderToken),
+        session_has_provider_refresh_token: Boolean(sessionProviderRefreshToken)
       })
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      debug?: Record<string, unknown>;
+    };
+
+    debugLog("provider token sync response", {
+      userId,
+      trigger,
+      status: response.status,
+      ok: response.ok,
+      debug: payload.debug ?? null,
+      error: payload.error ?? null
     });
 
     if (!response.ok) {

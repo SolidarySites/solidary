@@ -32,7 +32,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     supabase.auth.getSession().then(({ data }) => {
       if (mounted) {
         syncGithubAuthSnapshotFromSession(data.session);
-        void syncGithubProviderTokenToServer(data.session);
+        void syncGithubProviderTokenToServer(data.session, {
+          trigger: "initial_get_session"
+        });
         sessionUserIdRef.current = data.session?.user?.id?.trim() ?? "";
         setSession(data.session);
         setSessionResolved(true);
@@ -47,7 +49,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         syncGithubAuthSnapshotFromSession(nextSession);
-        void syncGithubProviderTokenToServer(nextSession);
+        void syncGithubProviderTokenToServer(nextSession, {
+          trigger: `auth_event:${event}`
+        });
         const nextUserId = nextSession?.user?.id?.trim() ?? "";
         sessionUserIdRef.current = nextUserId;
         setSession(nextSession);

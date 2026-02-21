@@ -4,8 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
-const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_OAUTH_CLIENT_ID =
+  process.env.GITHUB_OAUTH_CLIENT_ID ?? process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_OAUTH_CLIENT_SECRET =
+  process.env.GITHUB_OAUTH_CLIENT_SECRET ?? process.env.GITHUB_APP_CLIENT_SECRET ?? "";
+const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type RefreshProviderTokenBody = {
   provider_refresh_token?: string;
@@ -20,6 +23,11 @@ type GitHubTokenRefreshResponse = {
   token_type?: string;
   error?: string;
   error_description?: string;
+};
+
+const debugLog = (message: string, details: Record<string, unknown>) => {
+  if (!GITHUB_TOKEN_DEBUG) return;
+  console.log("[github-refresh-provider-token]", message, details);
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -88,6 +96,11 @@ export const handler: Handler = async (event) => {
     return safeJson(401, { error: "Invalid Supabase session." });
   }
 
+  debugLog("refresh requested", {
+    userId: user.id,
+    providerRefreshTokenLength: providerRefreshToken.length
+  });
+
   let githubResponse: Response;
   try {
     githubResponse = await fetch("https://github.com/login/oauth/access_token", {
@@ -121,6 +134,14 @@ export const handler: Handler = async (event) => {
       error: errorMessage
     });
   }
+
+  debugLog("refresh succeeded", {
+    userId: user.id,
+    hasNextProviderToken: Boolean(providerToken),
+    hasNextProviderRefreshToken: Boolean(nextProviderRefreshToken),
+    expiresIn: payload.expires_in ?? null,
+    refreshTokenExpiresIn: payload.refresh_token_expires_in ?? null
+  });
 
   return safeJson(200, {
     provider_token: providerToken,
