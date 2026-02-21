@@ -24,6 +24,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionResolved, setSessionResolved] = useState(false);
   const sessionUserIdRef = useRef<string>("");
+  const autoConnectAttemptedUsersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -42,12 +43,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const previousUserId = sessionUserIdRef.current;
         if (event === "SIGNED_OUT" && previousUserId) {
           clearCachedGithubProviderCredentialsForUser(previousUserId);
+          autoConnectAttemptedUsersRef.current.delete(previousUserId);
         }
 
         syncGithubAuthSnapshotFromSession(nextSession);
-        sessionUserIdRef.current = nextSession?.user?.id?.trim() ?? "";
+        const nextUserId = nextSession?.user?.id?.trim() ?? "";
+        sessionUserIdRef.current = nextUserId;
         setSession(nextSession);
         setSessionResolved(true);
+
+        if (event === "SIGNED_IN" && nextUserId && !autoConnectAttemptedUsersRef.current.has(nextUserId)) {
+          autoConnectAttemptedUsersRef.current.add(nextUserId);
+          const returnTo =
+            typeof window === "undefined"
+              ? "/studio"
+              : `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          void connectGitHubAppForCurrentUser({
+            returnTo,
+            force: false
+          }).catch(() => {
+            // Keep sign-in flow non-blocking; user can still connect manually.
+          });
+        }
       }
     });
 
@@ -81,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const connectGitHubApp = useCallback(async (returnTo?: string) => {
-    await connectGitHubAppForCurrentUser({ returnTo });
+    await connectGitHubAppForCurrentUser({ returnTo, force: true });
   }, []);
 
   const value = useMemo(

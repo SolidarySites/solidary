@@ -30,6 +30,11 @@ export type FreshSupabaseAuth = {
   providerToken: string;
 };
 
+export type ConnectGitHubAppResult = {
+  connected: boolean;
+  redirected: boolean;
+};
+
 type InternalGithubAuthSnapshot = FreshGithubAuthSnapshot & {
   providerRefreshToken: string;
 };
@@ -314,9 +319,11 @@ export const requireFreshSupabaseAuth = async (): Promise<FreshSupabaseAuth> => 
 };
 
 export const connectGitHubAppForCurrentUser = async ({
-  returnTo
+  returnTo,
+  force = false
 }: {
   returnTo?: string;
+  force?: boolean;
 } = {}) => {
   const { supabaseAccessToken } = await requireFreshSupabaseAuth();
   const defaultReturnTo =
@@ -331,16 +338,25 @@ export const connectGitHubAppForCurrentUser = async ({
       Authorization: `Bearer ${supabaseAccessToken}`
     },
     body: JSON.stringify({
-      return_to: returnTo?.trim() || defaultReturnTo
+      return_to: returnTo?.trim() || defaultReturnTo,
+      force
     })
   });
 
   const payload = (await response.json().catch(() => ({}))) as {
+    connected?: boolean;
     url?: string;
     error?: string;
   };
   if (!response.ok) {
     throw new Error(payload.error ?? "Could not start GitHub App connection.");
+  }
+
+  if (payload.connected) {
+    return {
+      connected: true,
+      redirected: false
+    } satisfies ConnectGitHubAppResult;
   }
 
   const url = payload.url?.trim() ?? "";
@@ -351,4 +367,9 @@ export const connectGitHubAppForCurrentUser = async ({
   if (typeof window !== "undefined") {
     window.location.assign(url);
   }
+
+  return {
+    connected: false,
+    redirected: true
+  } satisfies ConnectGitHubAppResult;
 };

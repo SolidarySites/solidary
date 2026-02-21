@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createGitHubAppState } from "./github-app-state";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -10,7 +10,16 @@ const GITHUB_APP_STATE_SECRET = process.env.GITHUB_APP_STATE_SECRET ?? SUPABASE_
 
 type ConnectStartBody = {
   return_to?: string;
+  force?: boolean;
 };
+
+type StoredGitHubAppCredential = {
+  access_token?: string | null;
+  access_token_expires_at?: string | null;
+  refresh_token?: string | null;
+};
+
+const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
 
 const safeJson = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -30,6 +39,49 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   const header = authorizationHeader?.trim() ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() ?? "";
+};
+
+const hasUsableAccessToken = (
+  accessToken: string,
+  accessTokenExpiresAt: string | null | undefined
+) => {
+  if (!accessToken) return false;
+  if (!accessTokenExpiresAt) return true;
+  const expiresAtMs = Date.parse(accessTokenExpiresAt);
+  if (!Number.isFinite(expiresAtMs)) return false;
+  return expiresAtMs - Date.now() > TOKEN_EXPIRY_SKEW_MS;
+};
+
+const hasExistingGitHubAppConnection = async ({
+  supabase,
+  userId
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from("github_app_user_tokens")
+    .select("access_token, access_token_expires_at, refresh_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data || typeof data !== "object" || Array.isArray(data) || "error" in data) {
+    return false;
+  }
+
+  const credential = data as StoredGitHubAppCredential;
+  const accessToken = credential.access_token?.trim() ?? "";
+  const refreshToken = credential.refresh_token?.trim() ?? "";
+
+  if (hasUsableAccessToken(accessToken, credential.access_token_expires_at)) {
+    return true;
+  }
+
+  return Boolean(refreshToken);
 };
 
 export const handler: Handler = async (event) => {
@@ -82,10 +134,24 @@ export const handler: Handler = async (event) => {
     secret: GITHUB_APP_STATE_SECRET
   });
 
+  const forceConnect = Boolean(body.force);
+  if (!forceConnect) {
+    const connected = await hasExistingGitHubAppConnection({
+      supabase,
+      userId: user.id
+    });
+    if (connected) {
+      return safeJson(200, {
+        connected: true
+      });
+    }
+  }
+
   const connectUrl = new URL(`https://github.com/apps/${encodeURIComponent(GITHUB_APP_SLUG)}/installations/new`);
   connectUrl.searchParams.set("state", state);
 
   return safeJson(200, {
+    connected: false,
     url: connectUrl.toString()
   });
 };
