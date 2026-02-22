@@ -7,10 +7,8 @@ import {
 
 const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
-const GITHUB_CONNECT_APP_CLIENT_ID =
-  process.env.GITHUB_CONNECT_APP_CLIENT_ID ?? process.env.GITHUB_APP_CLIENT_ID ?? "";
-const GITHUB_CONNECT_APP_CLIENT_SECRET =
-  process.env.GITHUB_CONNECT_APP_CLIENT_SECRET ?? process.env.GITHUB_APP_CLIENT_SECRET ?? "";
+const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
+const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
@@ -126,13 +124,13 @@ const parseGitHubTokenPayload = (payload: GitHubTokenPayload): GitHubAppTokenExc
 const getGitHubOAuthClientCredentials = (source: GitHubOAuthCredentialSource) => {
   if (source === "github_app") {
     return {
-      clientId: GITHUB_CONNECT_APP_CLIENT_ID.trim(),
-      clientSecret: GITHUB_CONNECT_APP_CLIENT_SECRET.trim()
+      clientId: GITHUB_APP_CLIENT_ID.trim(),
+      clientSecret: GITHUB_APP_CLIENT_SECRET.trim()
     };
   }
   return {
-    clientId: GITHUB_APP_CLIENT_ID.trim(),
-    clientSecret: GITHUB_APP_CLIENT_SECRET.trim()
+    clientId: GITHUB_OAUTH_CLIENT_ID.trim(),
+    clientSecret: GITHUB_OAUTH_CLIENT_SECRET.trim()
   };
 };
 
@@ -147,8 +145,8 @@ const postGitHubTokenExchange = async ({
   if (!clientId || !clientSecret) {
     throw new Error(
       source === "github_app"
-        ? "Missing GitHub App connect credentials (set GITHUB_CONNECT_APP_CLIENT_ID / GITHUB_CONNECT_APP_CLIENT_SECRET, or fall back to GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
-        : "Missing GitHub OAuth client credentials (GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
+        ? "Missing GitHub App connect credentials (GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
+        : "Missing GitHub OAuth credentials (GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET)."
     );
   }
 
