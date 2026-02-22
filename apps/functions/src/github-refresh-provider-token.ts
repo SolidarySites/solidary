@@ -4,8 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
-const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type RefreshProviderTokenBody = {
@@ -57,10 +57,10 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  if (!GITHUB_OAUTH_CLIENT_ID || !GITHUB_OAUTH_CLIENT_SECRET) {
+  if (!GITHUB_APP_CLIENT_ID || !GITHUB_APP_CLIENT_SECRET) {
     return safeJson(500, {
       error:
-        "GitHub OAuth refresh is not configured. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET."
+        "GitHub OAuth refresh is not configured. Set GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET."
     });
   }
 
@@ -109,8 +109,8 @@ export const handler: Handler = async (event) => {
         "content-type": "application/x-www-form-urlencoded"
       },
       body: new URLSearchParams({
-        client_id: GITHUB_OAUTH_CLIENT_ID,
-        client_secret: GITHUB_OAUTH_CLIENT_SECRET,
+        client_id: GITHUB_APP_CLIENT_ID,
+        client_secret: GITHUB_APP_CLIENT_SECRET,
         grant_type: "refresh_token",
         refresh_token: providerRefreshToken
       })

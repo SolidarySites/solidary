@@ -6,8 +6,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
 const GITHUB_API = "https://api.github.com";
-const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type StoreProviderTokenBody = {
@@ -75,7 +75,7 @@ const fetchGitHubUser = async (providerToken: string): Promise<GitHubUserPayload
 };
 
 const checkGitHubOAuthToken = async (providerToken: string) => {
-  if (!GITHUB_OAUTH_CLIENT_ID || !GITHUB_OAUTH_CLIENT_SECRET) {
+  if (!GITHUB_APP_CLIENT_ID || !GITHUB_APP_CLIENT_SECRET) {
     return {
       configured: false,
       checked: false
@@ -83,13 +83,13 @@ const checkGitHubOAuthToken = async (providerToken: string) => {
   }
 
   const basicAuth = Buffer.from(
-    `${GITHUB_OAUTH_CLIENT_ID}:${GITHUB_OAUTH_CLIENT_SECRET}`,
+    `${GITHUB_APP_CLIENT_ID}:${GITHUB_APP_CLIENT_SECRET}`,
     "utf8"
   ).toString("base64");
 
   try {
     const response = await fetch(
-      `${GITHUB_API}/applications/${encodeURIComponent(GITHUB_OAUTH_CLIENT_ID)}/token`,
+      `${GITHUB_API}/applications/${encodeURIComponent(GITHUB_APP_CLIENT_ID)}/token`,
       {
         method: "POST",
         headers: {

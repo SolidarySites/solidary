@@ -5,8 +5,8 @@ import {
   getTokenEncryptionVersion
 } from "./github-token-crypto";
 
-const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
+const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_APP_CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const GITHUB_APP_CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
@@ -129,8 +129,8 @@ const getGitHubOAuthClientCredentials = (source: GitHubOAuthCredentialSource) =>
     };
   }
   return {
-    clientId: GITHUB_OAUTH_CLIENT_ID.trim(),
-    clientSecret: GITHUB_OAUTH_CLIENT_SECRET.trim()
+    clientId: GITHUB_APP_CLIENT_ID.trim(),
+    clientSecret: GITHUB_APP_CLIENT_SECRET.trim()
   };
 };
 
@@ -146,7 +146,7 @@ const postGitHubTokenExchange = async ({
     throw new Error(
       source === "github_app"
         ? "Missing GitHub App client credentials (GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
-        : "Missing GitHub OAuth client credentials (GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET)."
+        : "Missing GitHub OAuth client credentials (GITHUB_APP_CLIENT_ID / GITHUB_APP_CLIENT_SECRET)."
     );
   }
 
