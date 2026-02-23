@@ -394,21 +394,49 @@ export const syncGithubProviderTokenToServer = async (
   session: Session | null,
   options: SyncProviderTokenOptions = {}
 ) => {
-  const userId = getSessionUserId(session);
-  if (!userId) return;
   const trigger = options.trigger?.trim() || "unknown";
+  const userId = getSessionUserId(session);
+  if (!userId) {
+    debugLog("skipping provider token sync", {
+      trigger,
+      reason: "missing_user_id"
+    });
+    return;
+  }
 
   const supabaseAccessToken = getSessionSupabaseAccessToken(session);
-  if (!supabaseAccessToken) return;
+  if (!supabaseAccessToken) {
+    debugLog("skipping provider token sync", {
+      userId,
+      trigger,
+      reason: "missing_supabase_access_token"
+    });
+    return;
+  }
 
   const sessionProviderToken = getSessionProviderToken(session);
   const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
-  const providerToken = sessionProviderToken || readStoredProviderToken(userId);
-  if (!providerToken) return;
+  const storedProviderToken = readStoredProviderToken(userId);
+  const providerToken = sessionProviderToken || storedProviderToken;
+  if (!providerToken) {
+    debugLog("skipping provider token sync", {
+      userId,
+      trigger,
+      reason: "missing_provider_token",
+      hasSessionProviderToken: Boolean(sessionProviderToken),
+      hasStoredProviderToken: Boolean(storedProviderToken)
+    });
+    return;
+  }
 
   const providerRefreshToken = sessionProviderRefreshToken || readStoredProviderRefreshToken(userId);
   const fingerprint = `${providerToken}|${providerRefreshToken}`;
   if (providerTokenSyncFingerprintByUserId.get(userId) === fingerprint) {
+    debugLog("skipping provider token sync", {
+      userId,
+      trigger,
+      reason: "duplicate_fingerprint"
+    });
     return;
   }
 

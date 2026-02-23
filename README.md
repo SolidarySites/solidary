@@ -1,6 +1,6 @@
 # Solidary Links
 
-Solidary Links is a protocol + toolchain for building **interconnected static sites** and **server-backed archives** without central content hosting.
+Solidary Links is a protocol + toolchain for building **interconnected static sites** and **server-backed archives**.
 
 - **Sites are autonomous**: fully static, deployable anywhere (GitHub Pages, Netlify, custom domains).
 - **Archives are indexers**: they crawl sites via HTTP, verify published datasets via hashes, and build a queryable graph in Postgres.
@@ -279,11 +279,6 @@ Protocol ingestion must remain GitHub-API-independent.
 2) Functions env
 - `cp apps/functions/.env.example apps/functions/.env`
 - Set `SUPABASE_URL` + `CREATE_SITE_SUPABASE_API_KEY`
-- Set `GITHUB_OAUTH_CLIENT_ID` + `GITHUB_OAUTH_CLIENT_SECRET` (Supabase GitHub OAuth provider creds)
-- Set `GITHUB_APP_CLIENT_ID` + `GITHUB_APP_CLIENT_SECRET` (GitHub App connect/callback creds)
-- Set `GITHUB_APP_SLUG` (your GitHub App slug from settings)
-- Set `GITHUB_APP_STATE_SECRET` (random long secret for callback state signing)
-- Set `TOKEN_ENCRYPTION_KEY` (32-byte secret for encrypting stored GitHub tokens)
 
 3) Install + run
 - `npm install`
