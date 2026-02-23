@@ -227,15 +227,16 @@ describe("requireFreshGithubAuth", () => {
     expect(auth.providerToken).toBe("gh-token-1");
   });
 
-  it("throws a reconnect message instead of redirecting or signing out", async () => {
+  it("returns Supabase auth even when provider token is unavailable", async () => {
     stubWindowWithLocalStorage();
     authMocks.getSession.mockResolvedValue({
       data: { session: buildSession({ providerToken: null, providerRefreshToken: null }) },
       error: null
     });
 
-    await expect(requireFreshGithubAuth()).rejects.toThrow(
-      "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
-    );
+    const auth = await requireFreshGithubAuth();
+
+    expect(auth.supabaseAccessToken).toBe("supabase-access-token");
+    expect(auth.providerToken).toBe("");
   });
 });

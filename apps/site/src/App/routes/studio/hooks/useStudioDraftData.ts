@@ -105,7 +105,7 @@ export const useStudioDraftData = ({
         }
         let resolvedSharedMemberships = sharedMemberships;
 
-        if (providerToken && supabaseAccessToken) {
+        if (supabaseAccessToken) {
           const adminMemberships = sharedMemberships.filter((membership) => membership.role === "admin");
           if (adminMemberships.length) {
             const syncResults = await Promise.all(
@@ -119,7 +119,7 @@ export const useStudioDraftData = ({
                     },
                     body: JSON.stringify({
                       siteId: membership.site_id,
-                      githubToken: providerToken
+                      githubToken: providerToken || undefined
                     })
                   });
                   const payload = (await response.json().catch(() => ({}))) as {

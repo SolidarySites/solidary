@@ -1,5 +1,6 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import { resolveGitHubTokenForUser } from "./github-auth-broker";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -83,11 +84,11 @@ export const handler: Handler = async (event) => {
   const draftId = typeof payload.draftId === "string" ? payload.draftId.trim() : "";
   const siteIdFromPayload = typeof payload.siteId === "string" ? payload.siteId.trim() : "";
   const githubToken = typeof payload.githubToken === "string" ? payload.githubToken.trim() : "";
-  if ((!draftId && !siteIdFromPayload) || !githubToken) {
+  if (!draftId && !siteIdFromPayload) {
     return {
       statusCode: 400,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ error: "Missing draftId/siteId or githubToken." })
+      body: JSON.stringify({ error: "Missing draftId or siteId." })
     };
   }
 
@@ -194,11 +195,27 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  const resolvedGitHubAuth = await resolveGitHubTokenForUser({
+    supabase,
+    userId: user.id,
+    fallbackToken: githubToken
+  });
+  const resolvedGitHubToken = resolvedGitHubAuth?.token?.trim() ?? "";
+  if (!resolvedGitHubToken) {
+    return {
+      statusCode: 412,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error: "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
+      })
+    };
+  }
+
   const permissionResponse = await fetch(
     `${GITHUB_API}/repos/${owner}/${repo}/collaborators/${encodeURIComponent(githubLogin)}/permission`,
     {
       method: "GET",
-      headers: githubHeaders(githubToken)
+      headers: githubHeaders(resolvedGitHubToken)
     }
   );
 

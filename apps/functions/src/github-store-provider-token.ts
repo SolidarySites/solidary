@@ -183,11 +183,14 @@ export const handler: Handler = async (event) => {
     hasProviderRefreshToken: Boolean(providerRefreshToken)
   });
 
-  const tokenCheck = GITHUB_TOKEN_DEBUG
-    ? await checkGitHubOAuthToken(providerToken)
-    : { configured: false, checked: false };
+  const tokenCheck = await checkGitHubOAuthToken(providerToken);
   if (GITHUB_TOKEN_DEBUG) {
     debugLog("oauth token check", tokenCheck as Record<string, unknown>);
+  }
+
+  let accessTokenExpiresAt: string | null | undefined;
+  if (tokenCheck.configured && tokenCheck.checked) {
+    accessTokenExpiresAt = tokenCheck.expiresAt ?? null;
   }
 
   const githubUser = await fetchGitHubUser(providerToken);
@@ -200,6 +203,7 @@ export const handler: Handler = async (event) => {
         githubUserId: githubUser?.id ?? null,
         githubLogin: githubUser?.login ?? null,
         accessToken: providerToken,
+        accessTokenExpiresAt,
         refreshToken: providerRefreshToken || undefined,
         tokenType: "bearer",
         source: "provider_sync"

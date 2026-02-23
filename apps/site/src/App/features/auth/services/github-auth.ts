@@ -299,14 +299,15 @@ export const requireFreshGithubAuth = async (): Promise<FreshGithubAuth> => {
     throw new Error("Sign in with GitHub to continue.");
   }
 
-  if (!providerToken) {
-    throw new Error(
-      "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
-    );
-  }
-
   if (!supabaseAccessToken) {
     throw new Error("Supabase session missing. Please sign in again.");
+  }
+
+  if (!providerToken) {
+    debugLog("proceeding without client provider token", {
+      userId: getSessionUserId(session),
+      reason: "will_rely_on_server_side_token_resolution"
+    });
   }
 
   return {

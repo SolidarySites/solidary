@@ -78,7 +78,7 @@ export const useBuilderCollaborators = ({
       supabaseAccessToken = "";
     }
 
-    if (!providerToken || !supabaseAccessToken) {
+    if (!supabaseAccessToken) {
       setManagedCollaborators([]);
       setManagedCollaboratorsLoading(false);
       return;
@@ -96,7 +96,7 @@ export const useBuilderCollaborators = ({
         },
         body: JSON.stringify({
           draftId,
-          githubToken: providerToken,
+          githubToken: providerToken || undefined,
           syncRoles
         })
       });
@@ -271,7 +271,7 @@ export const useBuilderCollaborators = ({
         },
         body: JSON.stringify({
           draftId,
-          githubToken: providerToken,
+          githubToken: providerToken || undefined,
           identifier: normalizedIdentifier,
           role: collaboratorRole,
           solidaryUserId: selectedSuggestion?.userId ?? null,
@@ -344,7 +344,7 @@ export const useBuilderCollaborators = ({
         body: JSON.stringify({
           action: "update_role",
           draftId,
-          githubToken: providerToken,
+          githubToken: providerToken || undefined,
           collaboratorUserId,
           role
         })
@@ -415,7 +415,7 @@ export const useBuilderCollaborators = ({
         body: JSON.stringify({
           action: "remove",
           draftId,
-          githubToken: providerToken,
+          githubToken: providerToken || undefined,
           collaboratorUserId
         })
       });
