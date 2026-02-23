@@ -5,3 +5,33 @@
   display: grid;
   gap: 1.5rem;
 }
+
+.site-create-input-error {
+  border-color: #b42318;
+  color: #b42318;
+}
+
+.site-create-input-error:focus {
+  outline-color: #b42318;
+}
+
+.site-create-field-error {
+  color: #b42318;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.site-create-field-error a {
+  color: inherit;
+}
+
+.site-create-field-hint {
+  color: rgba(31, 34, 28, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.provisioning-warning {
+  color: rgba(31, 34, 28, 0.86);
+  max-width: 44ch;
+}

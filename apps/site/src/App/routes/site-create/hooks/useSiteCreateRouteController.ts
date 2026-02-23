@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import templateSolidary from "../../../../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
@@ -21,6 +21,20 @@ const INITIAL_PAGES: AstroPageDraft[] = [
   }
 ];
 
+type SiteTitleRepoConflict = {
+  repoName: string;
+  repoUrl: string;
+  repositoriesUrl: string;
+};
+
+type RepoNameCheckPayload = {
+  exists?: boolean;
+  owner_login?: string;
+  repo_name?: string;
+  repo_url?: string;
+  repositories_url?: string;
+};
+
 export const useSiteCreateRouteController = () => {
   const navigate = useNavigate();
 
@@ -34,6 +48,11 @@ export const useSiteCreateRouteController = () => {
   const [siteUrl, setSiteUrl] = useState("");
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
+  const [siteTitleRepoConflict, setSiteTitleRepoConflict] = useState<SiteTitleRepoConflict | null>(
+    null
+  );
+  const [siteTitleRepoCheckInFlight, setSiteTitleRepoCheckInFlight] = useState(false);
+  const siteTitleRepoCheckRequestIdRef = useRef(0);
 
   const { session } = useAuth();
 
@@ -50,6 +69,83 @@ export const useSiteCreateRouteController = () => {
 
     return () => URL.revokeObjectURL(url);
   }, [siteImage]);
+
+  const checkRepoNameConflict = async ({
+    repoName,
+    providerToken,
+    supabaseAccessToken
+  }: {
+    repoName: string;
+    providerToken: string;
+    supabaseAccessToken: string;
+  }): Promise<SiteTitleRepoConflict | null> => {
+    const response = await fetch("/.netlify/functions/github-check-repo-name", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${supabaseAccessToken}`
+      },
+      body: JSON.stringify({
+        name: repoName,
+        token: providerToken || undefined
+      })
+    });
+    const payload = (await response.json().catch(() => ({}))) as RepoNameCheckPayload;
+    if (!response.ok || !payload.exists) {
+      return null;
+    }
+
+    const ownerLogin = payload.owner_login?.trim() ?? "";
+    const normalizedRepoName = payload.repo_name?.trim() || repoName;
+    const repositoriesUrl =
+      payload.repositories_url?.trim() ||
+      (ownerLogin ? `https://github.com/${ownerLogin}?tab=repositories` : "https://github.com");
+    const repoUrl =
+      payload.repo_url?.trim() ||
+      (ownerLogin
+        ? `https://github.com/${ownerLogin}/${normalizedRepoName}`
+        : `https://github.com/${normalizedRepoName}`);
+
+    return {
+      repoName: normalizedRepoName,
+      repoUrl,
+      repositoriesUrl
+    };
+  };
+
+  const handleSiteTitleBlur = async () => {
+    const repoName = slugify(siteTitle);
+    if (!repoName) {
+      setSiteTitleRepoConflict(null);
+      return;
+    }
+
+    let freshAuth;
+    try {
+      freshAuth = await requireFreshSupabaseAuth();
+    } catch {
+      return;
+    }
+
+    const requestId = ++siteTitleRepoCheckRequestIdRef.current;
+    setSiteTitleRepoCheckInFlight(true);
+    try {
+      const conflict = await checkRepoNameConflict({
+        repoName,
+        providerToken: freshAuth.providerToken,
+        supabaseAccessToken: freshAuth.supabaseAccessToken
+      });
+      if (siteTitleRepoCheckRequestIdRef.current !== requestId) return;
+      setSiteTitleRepoConflict(conflict);
+    } catch {
+      if (siteTitleRepoCheckRequestIdRef.current !== requestId) return;
+      setSiteTitleRepoConflict(null);
+    } finally {
+      if (siteTitleRepoCheckRequestIdRef.current === requestId) {
+        setSiteTitleRepoCheckInFlight(false);
+      }
+    }
+  };
 
   const handleProvision = async () => {
     setNotice(null);
@@ -75,6 +171,31 @@ export const useSiteCreateRouteController = () => {
       setNotice("Title and description are required.");
       setNoticeKind("error");
       return;
+    }
+
+    if (siteTitleRepoCheckInFlight) {
+      setNotice("Please wait while we finish checking your repository name.");
+      setNoticeKind("error");
+      return;
+    }
+
+    try {
+      const repoNameConflict = await checkRepoNameConflict({
+        repoName: computedSlug,
+        providerToken,
+        supabaseAccessToken
+      });
+      if (repoNameConflict) {
+        setSiteTitleRepoConflict(repoNameConflict);
+        setNotice(
+          "Pick a different site title. You already have a GitHub repository with that name."
+        );
+        setNoticeKind("error");
+        return;
+      }
+      setSiteTitleRepoConflict(null);
+    } catch {
+      // Skip blocking create if preflight check fails unexpectedly.
     }
 
     setIsProvisioning(true);
@@ -118,7 +239,17 @@ export const useSiteCreateRouteController = () => {
     siteTitle,
     siteDescription,
     siteImagePreview,
-    onSiteTitleChange: setSiteTitle,
+    siteTitleRepoConflict,
+    siteTitleRepoCheckInFlight,
+    onSiteTitleChange: (value: string) => {
+      siteTitleRepoCheckRequestIdRef.current += 1;
+      setSiteTitleRepoCheckInFlight(false);
+      setSiteTitleRepoConflict(null);
+      setSiteTitle(value);
+    },
+    onSiteTitleBlur: () => {
+      void handleSiteTitleBlur();
+    },
     onSiteDescriptionChange: setSiteDescription,
     onSiteImageChange: setSiteImage,
     onBackToStudio: () => navigate("/studio"),

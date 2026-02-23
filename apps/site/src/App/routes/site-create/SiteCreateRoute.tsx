@@ -17,7 +17,10 @@ export default function SiteCreateRoute() {
             siteTitle={controller.siteTitle}
             siteDescription={controller.siteDescription}
             siteImagePreview={controller.siteImagePreview}
+            siteTitleRepoConflict={controller.siteTitleRepoConflict}
+            siteTitleRepoCheckInFlight={controller.siteTitleRepoCheckInFlight}
             onSiteTitleChange={controller.onSiteTitleChange}
+            onSiteTitleBlur={controller.onSiteTitleBlur}
             onSiteDescriptionChange={controller.onSiteDescriptionChange}
             onSiteImageChange={controller.onSiteImageChange}
             onBackToStudio={controller.onBackToStudio}
