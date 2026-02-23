@@ -13,8 +13,6 @@ const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DE
 type StoreProviderTokenBody = {
   provider_token?: string;
   provider_refresh_token?: string;
-  provider_access_token_expires_at?: string;
-  provider_refresh_token_expires_at?: string;
   debug_trigger?: string;
   session_has_provider_token?: boolean;
   session_has_provider_refresh_token?: boolean;
@@ -152,9 +150,6 @@ export const handler: Handler = async (event) => {
 
   const providerToken = body.provider_token?.trim() ?? "";
   const providerRefreshToken = body.provider_refresh_token?.trim() ?? "";
-  const providerAccessTokenExpiresAt = body.provider_access_token_expires_at?.trim() ?? "";
-  const providerRefreshTokenExpiresAt = body.provider_refresh_token_expires_at?.trim() ?? "";
-
   if (!providerToken) {
     return safeJson(400, { error: "Missing provider_token." });
   }
@@ -185,9 +180,7 @@ export const handler: Handler = async (event) => {
     sessionHasProviderRefreshToken: body.session_has_provider_refresh_token ?? null,
     providerTokenPrefix: providerToken.slice(0, 4),
     providerTokenLength: providerToken.length,
-    hasProviderRefreshToken: Boolean(providerRefreshToken),
-    hasProviderAccessTokenExpiresAt: Boolean(providerAccessTokenExpiresAt),
-    hasProviderRefreshTokenExpiresAt: Boolean(providerRefreshTokenExpiresAt)
+    hasProviderRefreshToken: Boolean(providerRefreshToken)
   });
 
   const tokenCheck = await checkGitHubOAuthToken(providerToken);
@@ -196,9 +189,7 @@ export const handler: Handler = async (event) => {
   }
 
   let accessTokenExpiresAt: string | null | undefined;
-  if (providerAccessTokenExpiresAt) {
-    accessTokenExpiresAt = providerAccessTokenExpiresAt;
-  } else if (tokenCheck.configured && tokenCheck.checked && tokenCheck.ok) {
+  if (tokenCheck.configured && tokenCheck.checked) {
     accessTokenExpiresAt = tokenCheck.expiresAt ?? null;
   }
 
@@ -214,9 +205,8 @@ export const handler: Handler = async (event) => {
         accessToken: providerToken,
         accessTokenExpiresAt,
         refreshToken: providerRefreshToken || undefined,
-        refreshTokenExpiresAt: providerRefreshTokenExpiresAt || undefined,
         tokenType: "bearer",
-        source: `provider_sync:${body.debug_trigger ?? "unknown"}`
+        source: "provider_sync"
       }
     });
   } catch (error) {

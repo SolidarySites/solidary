@@ -28,8 +28,6 @@ type MockSession = Session & {
 
 const PROVIDER_TOKEN_STORAGE_KEY = "solidary:github-provider-token:user-1";
 const PROVIDER_REFRESH_TOKEN_STORAGE_KEY = "solidary:github-provider-refresh-token:user-1";
-const PROVIDER_ACCESS_TOKEN_EXPIRES_AT_STORAGE_KEY = "solidary:github-provider-access-token-expires-at:user-1";
-const PROVIDER_REFRESH_TOKEN_EXPIRES_AT_STORAGE_KEY = "solidary:github-provider-refresh-token-expires-at:user-1";
 
 const buildSession = ({
   userId = "user-1",

@@ -8,8 +8,6 @@ type SessionWithProviderCredentials = Session & {
 
 const GITHUB_PROVIDER_TOKEN_STORAGE_PREFIX = "solidary:github-provider-token:";
 const GITHUB_PROVIDER_REFRESH_TOKEN_STORAGE_PREFIX = "solidary:github-provider-refresh-token:";
-const GITHUB_PROVIDER_ACCESS_TOKEN_EXPIRES_AT_STORAGE_PREFIX = "solidary:github-provider-access-token-expires-at:";
-const GITHUB_PROVIDER_REFRESH_TOKEN_EXPIRES_AT_STORAGE_PREFIX = "solidary:github-provider-refresh-token-expires-at:";
 const GITHUB_PROVIDER_TOKEN_REFRESH_COOLDOWN_MS = 60 * 1000;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
   String(import.meta.env.VITE_GITHUB_TOKEN_DEBUG ?? "")
@@ -42,15 +40,11 @@ export type ConnectGitHubAppResult = {
 
 type InternalGithubAuthSnapshot = FreshGithubAuthSnapshot & {
   providerRefreshToken: string;
-  providerAccessTokenExpiresAt: string;
-  providerRefreshTokenExpiresAt: string;
 };
 
 type RefreshProviderTokenResponse = {
   provider_token?: string;
   provider_refresh_token?: string;
-  access_token_expires_at?: string;
-  refresh_token_expires_at?: string;
 };
 
 type SyncProviderTokenOptions = {
@@ -99,12 +93,6 @@ const getGithubProviderTokenStorageKey = (userId: string) =>
 const getGithubProviderRefreshTokenStorageKey = (userId: string) =>
   `${GITHUB_PROVIDER_REFRESH_TOKEN_STORAGE_PREFIX}${userId}`;
 
-const getGithubProviderAccessTokenExpiresAtStorageKey = (userId: string) =>
-  `${GITHUB_PROVIDER_ACCESS_TOKEN_EXPIRES_AT_STORAGE_PREFIX}${userId}`;
-
-const getGithubProviderRefreshTokenExpiresAtStorageKey = (userId: string) =>
-  `${GITHUB_PROVIDER_REFRESH_TOKEN_EXPIRES_AT_STORAGE_PREFIX}${userId}`;
-
 const writeStorageValue = (key: string, value: string) => {
   const storage = getLocalStorage();
   if (!storage) return;
@@ -147,29 +135,11 @@ const readStoredProviderRefreshToken = (userId: string): string => {
   return readStorageValue(getGithubProviderRefreshTokenStorageKey(userId));
 };
 
-const writeStoredProviderAccessTokenExpiresAt = (userId: string, expiresAt: string) => {
-  writeStorageValue(getGithubProviderAccessTokenExpiresAtStorageKey(userId), expiresAt);
-};
-
-const readStoredProviderAccessTokenExpiresAt = (userId: string): string => {
-  return readStorageValue(getGithubProviderAccessTokenExpiresAtStorageKey(userId));
-};
-
-const writeStoredProviderRefreshTokenExpiresAt = (userId: string, expiresAt: string) => {
-  writeStorageValue(getGithubProviderRefreshTokenExpiresAtStorageKey(userId), expiresAt);
-};
-
-const readStoredProviderRefreshTokenExpiresAt = (userId: string): string => {
-  return readStorageValue(getGithubProviderRefreshTokenExpiresAtStorageKey(userId));
-};
-
 const removeStoredProviderCredentials = (userId: string) => {
   const normalizedUserId = userId.trim();
   if (!normalizedUserId) return;
   writeStoredProviderToken(normalizedUserId, "");
   writeStoredProviderRefreshToken(normalizedUserId, "");
-  writeStoredProviderAccessTokenExpiresAt(normalizedUserId, "");
-  writeStoredProviderRefreshTokenExpiresAt(normalizedUserId, "");
 };
 
 const createSnapshotFromSession = (session: Session | null): InternalGithubAuthSnapshot => {
@@ -178,15 +148,11 @@ const createSnapshotFromSession = (session: Session | null): InternalGithubAuthS
   const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
   const storedProviderToken = userId ? readStoredProviderToken(userId) : "";
   const storedProviderRefreshToken = userId ? readStoredProviderRefreshToken(userId) : "";
-  const storedAccessTokenExpiresAt = userId ? readStoredProviderAccessTokenExpiresAt(userId) : "";
-  const storedRefreshTokenExpiresAt = userId ? readStoredProviderRefreshTokenExpiresAt(userId) : "";
 
   return {
     session,
     providerToken: sessionProviderToken || storedProviderToken,
     providerRefreshToken: sessionProviderRefreshToken || storedProviderRefreshToken,
-    providerAccessTokenExpiresAt: storedAccessTokenExpiresAt,
-    providerRefreshTokenExpiresAt: storedRefreshTokenExpiresAt,
     supabaseAccessToken: getSessionSupabaseAccessToken(session)
   };
 };
@@ -301,27 +267,16 @@ export const getFreshGithubAuthSnapshot = async (): Promise<FreshGithubAuthSnaps
       const nextProviderToken = refreshed?.provider_token?.trim() ?? "";
       const nextProviderRefreshToken =
         refreshed?.provider_refresh_token?.trim() ?? snapshot.providerRefreshToken;
-      const nextAccessTokenExpiresAt = refreshed?.access_token_expires_at?.trim() ?? "";
-      const nextRefreshTokenExpiresAt = refreshed?.refresh_token_expires_at?.trim() ?? "";
 
       if (nextProviderToken) {
         writeStoredProviderToken(userId, nextProviderToken);
         if (nextProviderRefreshToken) {
           writeStoredProviderRefreshToken(userId, nextProviderRefreshToken);
         }
-        if (nextAccessTokenExpiresAt) {
-          writeStoredProviderAccessTokenExpiresAt(userId, nextAccessTokenExpiresAt);
-        }
-        if (nextRefreshTokenExpiresAt) {
-          writeStoredProviderRefreshTokenExpiresAt(userId, nextRefreshTokenExpiresAt);
-        }
-
         snapshot = {
           ...snapshot,
           providerToken: nextProviderToken,
-          providerRefreshToken: nextProviderRefreshToken,
-          providerAccessTokenExpiresAt: nextAccessTokenExpiresAt || snapshot.providerAccessTokenExpiresAt,
-          providerRefreshTokenExpiresAt: nextRefreshTokenExpiresAt || snapshot.providerRefreshTokenExpiresAt
+          providerRefreshToken: nextProviderRefreshToken
         };
         inMemorySnapshot = snapshot;
       }
@@ -460,22 +415,23 @@ export const syncGithubProviderTokenToServer = async (
     return;
   }
 
-  const snapshot = inMemorySnapshot || createSnapshotFromSession(session);
-  const providerToken = snapshot.providerToken;
+  const sessionProviderToken = getSessionProviderToken(session);
+  const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
+  const storedProviderToken = readStoredProviderToken(userId);
+  const providerToken = sessionProviderToken || storedProviderToken;
   if (!providerToken) {
     debugLog("skipping provider token sync", {
       userId,
       trigger,
-      reason: "missing_provider_token"
+      reason: "missing_provider_token",
+      hasSessionProviderToken: Boolean(sessionProviderToken),
+      hasStoredProviderToken: Boolean(storedProviderToken)
     });
     return;
   }
 
-  const providerRefreshToken = snapshot.providerRefreshToken;
-  const providerAccessTokenExpiresAt = snapshot.providerAccessTokenExpiresAt;
-  const providerRefreshTokenExpiresAt = snapshot.providerRefreshTokenExpiresAt;
-
-  const fingerprint = `${providerToken}|${providerRefreshToken}|${providerAccessTokenExpiresAt}|${providerRefreshTokenExpiresAt}`;
+  const providerRefreshToken = sessionProviderRefreshToken || readStoredProviderRefreshToken(userId);
+  const fingerprint = `${providerToken}|${providerRefreshToken}`;
   if (providerTokenSyncFingerprintByUserId.get(userId) === fingerprint) {
     debugLog("skipping provider token sync", {
       userId,
@@ -488,9 +444,9 @@ export const syncGithubProviderTokenToServer = async (
   debugLog("syncing provider token to server", {
     userId,
     trigger,
-    hasEffectiveProviderRefreshToken: Boolean(providerRefreshToken),
-    hasEffectiveProviderAccessTokenExpiresAt: Boolean(providerAccessTokenExpiresAt),
-    hasEffectiveProviderRefreshTokenExpiresAt: Boolean(providerRefreshTokenExpiresAt)
+    hasSessionProviderToken: Boolean(sessionProviderToken),
+    hasSessionProviderRefreshToken: Boolean(sessionProviderRefreshToken),
+    hasEffectiveProviderRefreshToken: Boolean(providerRefreshToken)
   });
 
   providerTokenSyncFingerprintByUserId.set(userId, fingerprint);
@@ -504,11 +460,9 @@ export const syncGithubProviderTokenToServer = async (
       body: JSON.stringify({
         provider_token: providerToken,
         provider_refresh_token: providerRefreshToken || undefined,
-        provider_access_token_expires_at: providerAccessTokenExpiresAt || undefined,
-        provider_refresh_token_expires_at: providerRefreshTokenExpiresAt || undefined,
         debug_trigger: trigger,
-        session_has_provider_token: Boolean(getSessionProviderToken(session)),
-        session_has_provider_refresh_token: Boolean(getSessionProviderRefreshToken(session))
+        session_has_provider_token: Boolean(sessionProviderToken),
+        session_has_provider_refresh_token: Boolean(sessionProviderRefreshToken)
       })
     });
     const payload = (await response.json().catch(() => ({}))) as {

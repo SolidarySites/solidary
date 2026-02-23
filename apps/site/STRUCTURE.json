@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-23T03:04:13.000Z",
-  "latest_commit_sha": "03dd243856c51f6dd2d67c03f427f4e765d6dd49",
+  "generated_at": "2026-02-21T03:02:15.000Z",
+  "latest_commit_sha": "5667f7e31308251c31e68eaa78499a42640d6b71",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -105,18 +105,6 @@
       "description": "Public landing route module for first-touch marketing copy and entry into authenticated app flows."
     },
     {
-      "path": "src/App/routes/landing/components",
-      "description": "Landing route presentation components (currently empty placeholder folder)."
-    },
-    {
-      "path": "src/App/routes/landing/hooks",
-      "description": "Landing route hooks (currently empty placeholder folder)."
-    },
-    {
-      "path": "src/App/routes/landing/services",
-      "description": "Landing route services (currently empty placeholder folder)."
-    },
-    {
       "path": "src/App/routes/profile",
       "description": "Authenticated profile settings route for account metadata and avatar management."
     },
@@ -177,10 +165,6 @@
       "description": "Provisioning service layer that coordinates GitHub repo/job/publish setup and writes initial site draft data into Supabase."
     },
     {
-      "path": "src/App/routes/site-create/services/provisioning",
-      "description": "Site-create provisioning helpers for GitHub repo setup, content templating, and Supabase persistence."
-    },
-    {
       "path": "src/App/routes/studio",
       "description": "Authenticated dashboard route that aggregates owned + shared sites into a single list with role visibility, delete actions, and placeholder index tooling."
     },
@@ -217,12 +201,7 @@
     {
       "path": ".gitignore",
       "description": "App-level git ignore rules for logs, local files, editor metadata, and build output.",
-      "LOC": 25
-    },
-    {
-      "path": ".env.example",
-      "description": "Sample environment variables for Supabase config and GitHub OAuth/App credentials used by local dev and Netlify functions.",
-      "LOC": 19
+      "LOC": 24
     },
     {
       "path": "AGENTS.md",
@@ -237,7 +216,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 948
+      "LOC": 887
     },
     {
       "path": "eslint.config.js",
@@ -262,7 +241,7 @@
     {
       "path": "src/App/App.css",
       "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
-      "LOC": 105
+      "LOC": 104
     },
     {
       "path": "src/App/App.tsx",
@@ -296,8 +275,8 @@
     },
     {
       "path": "src/App/features/auth/context/AuthContext.ts",
-      "description": "Auth context contract exposing session state, GitHub OAuth sign-in, GitHub App connect, and sign-out actions.",
-      "LOC": 12
+      "description": "Defines the global auth context shape (`session`, `sessionResolved`, `signInWithGitHub`, `signOut`) and exports the nullable React context instance.",
+      "LOC": 11
     },
     {
       "path": "src/App/features/auth/hooks/useAuth.ts",
@@ -306,18 +285,13 @@
     },
     {
       "path": "src/App/features/auth/providers/AuthProvider.tsx",
-      "description": "Auth provider that hydrates Supabase session state, scrubs OAuth callback params, syncs GitHub provider tokens, and exposes sign-in/out plus GitHub App connect actions.",
-      "LOC": 218
+      "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
+      "LOC": 72
     },
     {
       "path": "src/App/features/auth/services/github-auth.ts",
-      "description": "Supabase/GitHub auth helpers that cache provider tokens, refresh them via Netlify, sync to server, and expose fresh-auth snapshots plus GitHub App connect flow.",
-      "LOC": 488
-    },
-    {
-      "path": "src/App/features/auth/services/github-auth.test.ts",
-      "description": "Vitest coverage for GitHub auth snapshot caching, token refresh cooldowns, and provider-token sync behavior.",
-      "LOC": 242
+      "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
+      "LOC": 65
     },
     {
       "path": "src/App/features/auth/services/user-profile.ts",
@@ -366,8 +340,8 @@
     },
     {
       "path": "src/App/lib/supabase.ts",
-      "description": "Supabase client bootstrap that supports explicit URL/anon keys or project-id/publishable-key fallbacks and exposes a configuration check.",
-      "LOC": 20
+      "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
+      "LOC": 15
     },
     {
       "path": "src/App/routes/explorer/ExplorerRoute.css",
@@ -425,34 +399,19 @@
       "LOC": 1
     },
     {
-      "path": "src/App/routes/landing/components/.gitkeep",
-      "description": "Placeholder file to keep the landing components directory in git.",
-      "LOC": 0
-    },
-    {
-      "path": "src/App/routes/landing/hooks/.gitkeep",
-      "description": "Placeholder file to keep the landing hooks directory in git.",
-      "LOC": 0
-    },
-    {
-      "path": "src/App/routes/landing/services/.gitkeep",
-      "description": "Placeholder file to keep the landing services directory in git.",
-      "LOC": 0
-    },
-    {
       "path": "src/App/routes/profile/ProfileRoute.css",
-      "description": "Profile settings route styles for account cards, GitHub security section, avatar rows, and form layout.",
-      "LOC": 174
+      "description": "Profile settings route styles for account cards, avatars, and form layout.",
+      "LOC": 152
     },
     {
       "path": "src/App/routes/profile/ProfileRoute.tsx",
-      "description": "Profile settings route with connected GitHub account summary, GitHub App connect CTA, and display-name/avatar form.",
-      "LOC": 166
+      "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
+      "LOC": 145
     },
     {
       "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
-      "description": "Controller hook for profile form state, avatar upload/removal, GitHub App connect flow, and save/reset notices.",
-      "LOC": 283
+      "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
+      "LOC": 229
     },
     {
       "path": "src/App/routes/profile/index.ts",
@@ -761,28 +720,28 @@
     },
     {
       "path": "src/App/routes/site-create/SiteCreateRoute.css",
-      "description": "Site-create route styles for the metadata form, repo-name conflict/error states, and provisioning warning text.",
-      "LOC": 37
+      "description": "Site-create route stylesheet for the form surface wrapper.",
+      "LOC": 7
     },
     {
       "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
-      "description": "Route shell that switches between create form and provisioning progress while wiring controller state.",
-      "LOC": 35
+      "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
+      "LOC": 32
     },
     {
       "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
-      "description": "Create-site form UI for title/description/image with repo-name availability feedback and actions.",
-      "LOC": 103
+      "description": "Controlled form section for initial site title/description/JPEG image with actions to return to Studio or start provisioning.",
+      "LOC": 66
     },
     {
       "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
-      "description": "Provisioning progress UI with spinner and step messaging.",
-      "LOC": 19
+      "description": "Minimal progress section that shows a spinner and the current provisioning step label.",
+      "LOC": 15
     },
     {
       "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
-      "description": "Controller hook for site-create form state, image previews, GitHub repo name checks, and provisioning workflow.",
-      "LOC": 260
+      "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
+      "LOC": 129
     },
     {
       "path": "src/App/routes/site-create/index.ts",
@@ -793,26 +752,6 @@
       "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
       "description": "End-to-end create-site workflow service that starts and polls async GitHub repo provisioning, enables Pages, waits for deployment, verifies live auth identity consistency, and inserts initial `sites`/`site_drafts`/`site_draft_settings`/`site_draft_pages` rows with structured diagnostic logging.",
       "LOC": 93
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/content.ts",
-      "description": "Provisioning content helpers for site URL resolution, settings defaults, and Solidary file templating.",
-      "LOC": 90
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
-      "description": "GitHub provisioning workflow to create repo, wait for branch readiness, and poll Pages deployment status.",
-      "LOC": 307
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
-      "description": "Supabase persistence for provisioned site drafts with auth verification and diagnostic logging.",
-      "LOC": 228
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/types.ts",
-      "description": "Types for provisioning responses, diagnostics, and repository metadata.",
-      "LOC": 57
     },
     {
       "path": "src/App/routes/studio/StudioRoute.css",
@@ -846,7 +785,7 @@
     },
     {
       "path": "src/App/routes/studio/hooks/useStudioDraftData.ts",
-      "description": "Studio data hook that loads owned/shared drafts, syncs admin roles via GitHub, and merges access roles.",
+      "description": "Data hook that loads owned drafts, resolves shared-access memberships/roles (including optional GitHub-admin role sync), fetches shared owner drafts, and loads open collaboration PR metadata.",
       "LOC": 221
     },
     {
@@ -871,8 +810,8 @@
     },
     {
       "path": "src/App/services/github.ts",
-      "description": "GitHub Netlify-function adapter that auto-injects Supabase access tokens and provides read/list/write/delete helpers.",
-      "LOC": 112
+      "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
+      "LOC": 94
     },
     {
       "path": "src/App/types/notice.ts",
