@@ -73,7 +73,7 @@ export const provisionSiteDraft = async ({
     urlOverride: provisionedRepo.siteUrlResolved
   });
 
-  onStep("Saving site metadata...");
+  onStep("Launching your site...");
   await saveProvisionedSiteDraft({
     session,
     siteId,

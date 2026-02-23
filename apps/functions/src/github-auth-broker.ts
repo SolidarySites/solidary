@@ -159,6 +159,10 @@ const postGitHubTokenExchange = async ({
     body: params
   });
   const payload = (await response.json().catch(() => ({}))) as GitHubTokenPayload;
+  debugLog("GitHub token exchange response", {
+    status: response.status,
+    payload
+  });
   if (!response.ok) {
     const description = payload.error_description?.trim() || payload.error?.trim();
     throw new Error(description || `GitHub token exchange failed (${response.status}).`);
@@ -262,16 +266,17 @@ export const upsertGitHubAppUserCredentials = async ({
   debugLog("upserting credentials", {
     userId,
     source: input.source ?? "unknown",
-    hasAccessTokenExpiresAt:
-      typeof input.accessTokenExpiresAt === "undefined"
-        ? "unchanged"
-        : Boolean(input.accessTokenExpiresAt),
-    hasRefreshToken:
-      typeof input.refreshToken === "undefined" ? "unchanged" : Boolean(input.refreshToken?.trim()),
-    hasRefreshTokenExpiresAt:
-      typeof input.refreshTokenExpiresAt === "undefined"
-        ? "unchanged"
-        : Boolean(input.refreshTokenExpiresAt)
+    accessToken: input.accessToken,
+    accessTokenExpiresAt: input.accessTokenExpiresAt,
+    refreshToken: input.refreshToken,
+    refreshTokenExpiresAt: input.refreshTokenExpiresAt,
+    tokenType: input.tokenType,
+    scope: input.scope,
+    githubUserId: input.githubUserId,
+    githubLogin: input.githubLogin,
+    installationId: input.installationId,
+    installationAccountLogin: input.installationAccountLogin,
+    installationAccountType: input.installationAccountType
   });
 
   const { error } = await supabase.from("github_app_user_tokens").upsert(payload, {
