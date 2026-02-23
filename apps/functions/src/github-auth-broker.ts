@@ -80,6 +80,10 @@ export type UpsertGitHubAppUserCredentialsInput = {
 };
 
 const normalizePositiveInt = (value: unknown): number => {
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  }
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
   return Math.floor(value);
 };

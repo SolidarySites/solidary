@@ -1,26 +1,17 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
+import {
+  refreshGitHubAppUserToken,
+  upsertGitHubAppUserCredentials
+} from "./github-auth-broker";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? process.env.CREATE_SITE_SUPABASE_API_KEY ?? "";
-const GITHUB_OAUTH_CLIENT_ID = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
-const GITHUB_OAUTH_CLIENT_SECRET = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(process.env.GITHUB_TOKEN_DEBUG ?? "");
 
 type RefreshProviderTokenBody = {
   provider_refresh_token?: string;
-};
-
-type GitHubTokenRefreshResponse = {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  refresh_token_expires_in?: number;
-  scope?: string;
-  token_type?: string;
-  error?: string;
-  error_description?: string;
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {
@@ -54,13 +45,6 @@ export const handler: Handler = async (event) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return safeJson(500, {
       error: "Missing SUPABASE_URL or service-role API key."
-    });
-  }
-
-  if (!GITHUB_OAUTH_CLIENT_ID || !GITHUB_OAUTH_CLIENT_SECRET) {
-    return safeJson(500, {
-      error:
-        "GitHub OAuth refresh is not configured. Set GITHUB_OAUTH_CLIENT_ID and GITHUB_OAUTH_CLIENT_SECRET."
     });
   }
 
@@ -100,52 +84,39 @@ export const handler: Handler = async (event) => {
     providerRefreshTokenLength: providerRefreshToken.length
   });
 
-  let githubResponse: Response;
   try {
-    githubResponse = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "content-type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        client_id: GITHUB_OAUTH_CLIENT_ID,
-        client_secret: GITHUB_OAUTH_CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: providerRefreshToken
-      })
+    const refreshed = await refreshGitHubAppUserToken(providerRefreshToken, "legacy_oauth");
+
+    debugLog("refresh succeeded", {
+      userId: user.id,
+      hasNextProviderToken: Boolean(refreshed.accessToken),
+      hasNextProviderRefreshToken: Boolean(refreshed.refreshToken),
+      accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+      refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt
+    });
+
+    await upsertGitHubAppUserCredentials({
+      supabase,
+      input: {
+        userId: user.id,
+        accessToken: refreshed.accessToken,
+        accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+        refreshToken: refreshed.refreshToken || providerRefreshToken,
+        refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt,
+        tokenType: refreshed.tokenType,
+        scope: refreshed.scope,
+        source: "refresh_provider_token_function"
+      }
+    });
+
+    return safeJson(200, {
+      provider_token: refreshed.accessToken,
+      provider_refresh_token: refreshed.refreshToken || providerRefreshToken,
+      access_token_expires_at: refreshed.accessTokenExpiresAt,
+      refresh_token_expires_at: refreshed.refreshTokenExpiresAt
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to contact GitHub OAuth endpoint.";
+    const message = error instanceof Error ? error.message : "GitHub token refresh failed.";
     return safeJson(502, { error: message });
   }
-
-  const payload = (await githubResponse.json().catch(() => ({}))) as GitHubTokenRefreshResponse;
-  const providerToken = payload.access_token?.trim() ?? "";
-  const nextProviderRefreshToken = payload.refresh_token?.trim() ?? providerRefreshToken;
-
-  if (!githubResponse.ok || !providerToken) {
-    const errorMessage =
-      payload.error_description?.trim() ||
-      payload.error?.trim() ||
-      "GitHub did not return a refreshed access token.";
-    return safeJson(githubResponse.status === 400 || githubResponse.status === 401 ? 401 : 502, {
-      error: errorMessage
-    });
-  }
-
-  debugLog("refresh succeeded", {
-    userId: user.id,
-    hasNextProviderToken: Boolean(providerToken),
-    hasNextProviderRefreshToken: Boolean(nextProviderRefreshToken),
-    expiresIn: payload.expires_in ?? null,
-    refreshTokenExpiresIn: payload.refresh_token_expires_in ?? null
-  });
-
-  return safeJson(200, {
-    provider_token: providerToken,
-    provider_refresh_token: nextProviderRefreshToken,
-    expires_in: payload.expires_in,
-    refresh_token_expires_in: payload.refresh_token_expires_in
-  });
 };
