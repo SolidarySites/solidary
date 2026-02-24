@@ -4,15 +4,15 @@
   publish = "apps/site/dist"
 
 [functions]
-  directory = "apps/functions/src"
+  directory = "apps/_shared_functions/src"
   node_bundler = "esbuild"
 
 [functions."github-create-repo-worker-background"]
   included_files = ["templates/astro-baseline/**", "../../templates/astro-baseline/**"]
 
 [dev]
-  command = "npm -w apps/site run dev"
-  functions = "apps/functions/src"
+  command = "npm --workspace studio run dev"
+  functions = "apps/_shared_functions/src"
   port = 8888
 
 [[redirects]]

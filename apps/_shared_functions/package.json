@@ -1,7 +1,6 @@
 {
   "name": "@solidary/functions",
   "private": true,
-  "type": "module",
   "scripts": {
     "lint": "echo \"(no lint configured)\""
   },

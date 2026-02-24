@@ -2,16 +2,15 @@ node_modules/
 .DS_Store
 
 # Env
-apps/site/.env
-apps/site/.env.*
-apps/functions/.env
-apps/functions/.env.*
+.env
+.env.*
 
 # Vite
 apps/site/dist/
 
 # Netlify
 .netlify/
+deno.lock
 
 # Supabase
 .supabase/
@@ -27,3 +26,4 @@ lerna-debug.log*
 .codex/
 .mcp.json
 CLAUDE.md
+.claude/

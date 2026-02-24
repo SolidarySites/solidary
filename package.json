@@ -6,9 +6,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm -w apps/site run dev",
+    "dev": "./scripts/dev-with-netlify-functions.sh",
+    "dev:no-netlify": "npm -w apps/site run dev -- --strictPort",
     "build": "npm -w packages/protocol run build && npm -w apps/site run build",
     "lint": "npm -w apps/site run lint",
-    "functions:dev": "netlify dev --dir apps/functions"
+    "functions:dev": "./scripts/serve-functions.sh",
+    "functions:build": "netlify functions:build --filter studio --src apps/_shared_functions/src --functions .netlify/functions",
+    "netlify:dev": "npm run dev",
+    "netlify:clean": "rm -rf .netlify apps/site/.netlify apps/_shared_functions/.netlify apps/studio/.netlify apps/site/apps apps/_shared_functions/apps"
   }
 }

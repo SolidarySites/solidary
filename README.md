@@ -173,7 +173,7 @@ This repo is organized as:
   - CodeMirror-based advanced editor
   - Supabase auth (GitHub) for identity
 
-- `apps/functions/`
+- `apps/_shared_functions/`
   - Netlify Functions (crawler/indexer + provisioning)
   - HTTP ingestion pipeline for site manifests/snapshots/feeds
   - Writes to Supabase with service role key
@@ -272,18 +272,26 @@ Protocol ingestion must remain GitHub-API-independent.
 
 ## Local setup
 
-1) Studio env
-- `cp apps/site/.env.example apps/site/.env`
-- Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
-
-2) Functions env
-- `cp apps/functions/.env.example apps/functions/.env`
-- Set `SUPABASE_URL` + `CREATE_SITE_SUPABASE_API_KEY`
+1) Env
+- `cp apps/site/.env.example .env`
+- Set frontend keys (`VITE_*`) and backend keys (`SUPABASE_URL`, `CREATE_SITE_SUPABASE_API_KEY`, etc.) in root `.env`
 
 3) Install + run
 - `npm install`
-- `npm run dev` (studio)
-- `npm run functions:dev` (functions)
+- `npm run dev` (default; starts Netlify Functions + frontend Vite together)
+- Optional no-Netlify frontend-only mode: `npm run dev:no-netlify`
+- Alias: `npm run netlify:dev` (same as `npm run dev`)
+
+If function endpoints look stale or return unexpected 404s after function changes:
+- `npm run netlify:clean`
+- `npm run functions:build`
+- restart dev (`npm run dev`)
+
+Notes:
+- `npm run dev` uses `netlify functions:serve` (not `netlify dev`) because `netlify dev` can fail to spawn the app command on some local environments.
+- Frontend requests still use `/.netlify/functions/*` via Vite proxy to `:8888`.
+- Root `.env` is the default env location for both frontend and functions in local development.
+- Dev scripts use strict Vite port behavior; if `5173` is already occupied, stop the existing process instead of silently moving to `5174`.
 
 4) Supabase migrations
 - `supabase db push`
