@@ -177,7 +177,8 @@ export const exchangeCodeForGitHubAppUserToken = async (code: string): Promise<G
     params: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
-      code
+      code,
+      access_type: "offline"
     })
   });
 };
