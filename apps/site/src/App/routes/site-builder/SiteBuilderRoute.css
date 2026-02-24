@@ -728,6 +728,11 @@
   justify-content: space-between;
   gap: var(--space-3);
   flex-direction: column;
+  position: sticky;
+  top: calc(
+    var(--builder-topbar-sticky-top) + var(--builder-topbar-sticky-height) +
+      var(--builder-sidebar-sticky-gap)
+  );
 }
 
 @media (min-width: 768px) {
