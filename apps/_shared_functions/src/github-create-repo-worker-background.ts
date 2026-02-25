@@ -128,6 +128,24 @@ const resolveSiteUrlForRepo = (owner: string, repo: string) => {
   return isUserSite ? pagesRootUrl : `${pagesRootUrl}/${repo}`;
 };
 
+const normalizePublicAssetPath = (assetPath: string) =>
+  `/${assetPath.trim().replace(/^public\//, "").replace(/^\/+/, "")}`;
+
+const resolveAbsoluteAssetUrl = ({ siteUrl, assetPath }: { siteUrl: string; assetPath: string }) => {
+  const normalizedAssetPath = normalizePublicAssetPath(assetPath);
+
+  try {
+    const base = new URL(siteUrl);
+    const basePath = base.pathname.replace(/\/$/, "");
+    base.pathname = `${basePath}${normalizedAssetPath}`.replace(/\/{2,}/g, "/");
+    base.search = "";
+    base.hash = "";
+    return base.toString();
+  } catch {
+    return normalizedAssetPath;
+  }
+};
+
 const normalizeRepoImagePath = (pathValue: string, label = "Image") => {
   const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized) {
@@ -264,9 +282,10 @@ function applyCreateFlowOverridesToTemplateFiles({
     : "";
   const ogImageRelPath = ogImagePath ? normalizeRepoImagePath(ogImagePath, "OG image") : "";
   const imageRelPathForMetadata = ogImageRelPath || siteImageRelPath;
-  const imageUrl = imageRelPathForMetadata
-    ? `/${imageRelPathForMetadata.replace(/^public\//, "")}`
-    : DEFAULT_OG_IMAGE_URL;
+  const imageUrl = resolveAbsoluteAssetUrl({
+    siteUrl,
+    assetPath: imageRelPathForMetadata || DEFAULT_OG_IMAGE_URL
+  });
 
   const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
 

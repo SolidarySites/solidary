@@ -10,7 +10,7 @@ import {
 import {
   buildSolidaryFile,
   DEFAULT_OG_IMAGE_PATH,
-  DEFAULT_OG_IMAGE_URL,
+  resolveAbsoluteAssetUrl,
   SITE_IMAGE_PATH,
   SITE_IMAGE_THUMB_PATH
 } from "./provisioning/content";
@@ -74,8 +74,6 @@ export const provisionSiteDraft = async ({
   }
 
   const slug = computedSlug || `site-${Date.now()}`;
-  const imageUrl = DEFAULT_OG_IMAGE_URL;
-
   let siteImageContentB64: string | undefined;
   let siteImageThumbContentB64: string | undefined;
   let ogImageContentB64: string | undefined;
@@ -109,6 +107,10 @@ export const provisionSiteDraft = async ({
     onStep
   });
   onSiteUrlResolved(provisionedRepo.siteUrlResolved);
+  const imageUrl = resolveAbsoluteAssetUrl({
+    siteUrl: provisionedRepo.siteUrlResolved,
+    assetPath: DEFAULT_OG_IMAGE_PATH
+  });
 
   const solidaryFile = buildSolidaryFile({
     templateSolidary,
