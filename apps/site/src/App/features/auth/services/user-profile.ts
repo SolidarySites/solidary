@@ -3,6 +3,7 @@ import { supabase } from "../../../lib/supabase";
 
 export const PROFILE_AVATAR_BUCKET = "profile";
 export const PROFILE_AVATAR_METADATA_KEY = "avatar_path";
+export const PROFILE_AVATAR_PATHS_METADATA_KEY = "avatar_paths";
 
 type UserMetadata = Record<string, unknown>;
 
@@ -69,7 +70,35 @@ export const getSessionGithubAvatarUrl = (session: Session | null): string => {
 
 export const getSessionProfileAvatarPath = (session: Session | null): string => {
   const metadata = getUserMetadata(session);
-  return getTrimmedString(metadata[PROFILE_AVATAR_METADATA_KEY]);
+  if (Object.prototype.hasOwnProperty.call(metadata, PROFILE_AVATAR_METADATA_KEY)) {
+    return getTrimmedString(metadata[PROFILE_AVATAR_METADATA_KEY]);
+  }
+
+  const avatarPaths = getSessionProfileAvatarPaths(session);
+  return avatarPaths[0] ?? "";
+};
+
+export const getSessionProfileAvatarPaths = (session: Session | null): string[] => {
+  const metadata = getUserMetadata(session);
+  const rawPaths = metadata[PROFILE_AVATAR_PATHS_METADATA_KEY];
+  const fromArray = Array.isArray(rawPaths)
+    ? rawPaths
+        .map((entry) => getTrimmedString(entry))
+        .filter(Boolean)
+    : [];
+  const legacyPath = getTrimmedString(metadata[PROFILE_AVATAR_METADATA_KEY]);
+
+  const unique = new Set<string>();
+  const normalized = [...fromArray, legacyPath]
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter((entry) => {
+      if (unique.has(entry)) return false;
+      unique.add(entry);
+      return true;
+    });
+
+  return normalized;
 };
 
 export const getPublicProfileAvatarUrl = (

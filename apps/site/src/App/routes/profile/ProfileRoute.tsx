@@ -1,14 +1,29 @@
+import { useRef, type ChangeEvent } from "react";
 import SiteFooter from "../../components/SiteFooter";
 import { useProfileRouteController } from "./hooks/useProfileRouteController";
 import "./ProfileRoute.css";
 
 export default function ProfileRoute() {
   const controller = useProfileRouteController();
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const githubUsername = controller.connectedGithub.username || "Unknown";
   const solidaryAvatarFallback =
     controller.displayName.slice(0, 1).toUpperCase() ||
     githubUsername.slice(0, 1).toUpperCase() ||
     "S";
+
+  const onAvatarFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    controller.onAvatarFileChange(event.target.files?.[0] ?? null);
+    event.target.value = "";
+  };
+
+  const onAddAvatar = () => {
+    if (!controller.canAddAvatar || controller.saveBusy || controller.avatarAddBusy) {
+      return;
+    }
+
+    avatarFileInputRef.current?.click();
+  };
 
   return (
     <div className="app-shell">
@@ -101,56 +116,85 @@ export default function ProfileRoute() {
             </label>
 
             <div className="profile-solidary-avatar-row">
-              <div className="profile-avatar-shell profile-solidary-avatar-shell">
-                {controller.solidaryAvatarUrl ? (
-                  <img
-                    className="profile-avatar-image"
-                    src={controller.solidaryAvatarUrl}
-                    alt="Solidary avatar preview"
+              <div className="profile-solidary-avatar-current">
+                <div className="profile-avatar-shell profile-solidary-avatar-shell">
+                  {controller.solidaryAvatarUrl ? (
+                    <img
+                      className="profile-avatar-image"
+                      src={controller.solidaryAvatarUrl}
+                      alt="Solidary avatar preview"
+                    />
+                  ) : (
+                    <div className="profile-avatar-fallback" aria-hidden="true">
+                      {solidaryAvatarFallback}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-solidary-avatar-actions">
+                  <button
+                    type="button"
+                    className="profile-avatar-link"
+                    onClick={onAddAvatar}
+                    disabled={!controller.canAddAvatar || controller.saveBusy || controller.avatarAddBusy}
+                  >
+                    add
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-avatar-link"
+                    onClick={controller.onRemoveAvatar}
+                    disabled={!controller.canRemoveAvatar || controller.saveBusy || controller.avatarAddBusy}
+                  >
+                    remove
+                  </button>
+                  <input
+                    ref={avatarFileInputRef}
+                    id="profile-avatar-upload"
+                    className="profile-avatar-file-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={onAvatarFileInputChange}
                   />
-                ) : (
-                  <div className="profile-avatar-fallback" aria-hidden="true">
-                    {solidaryAvatarFallback}
-                  </div>
-                )}
+                </div>
               </div>
-              <button
-                type="button"
-                className="ghost profile-avatar-remove"
-                onClick={controller.onRemoveAvatar}
-                disabled={!controller.canRemoveAvatar || controller.saveBusy}
-              >
-                Remove
-              </button>
-            </div>
 
-            <label htmlFor="profile-avatar-upload">
-              Upload Solidary avatar
-              <input
-                id="profile-avatar-upload"
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  controller.onAvatarFileChange(event.target.files?.[0] ?? null)
-                }
-              />
-              <span className="profile-avatar-help">
-                Max file size 1MB.
-              </span>
-            </label>
+              <div className="profile-solidary-avatar-pills" aria-label="Avatar options">
+                {controller.avatarPills.map((pill) => (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    className="profile-avatar-pill"
+                    onClick={() => controller.onSelectAvatar(pill.path)}
+                    disabled={controller.saveBusy || controller.avatarAddBusy}
+                  >
+                    {pill.imageUrl ? (
+                      <img
+                        className="profile-avatar-image"
+                        src={pill.imageUrl}
+                        alt="Avatar option"
+                      />
+                    ) : (
+                      <span className="profile-avatar-fallback" aria-hidden="true">
+                        {solidaryAvatarFallback}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="form-actions profile-settings-actions">
               <button
                 type="submit"
                 className="primary"
-                disabled={!controller.hasChanges || controller.saveBusy || controller.displayNameTooLong}
+                disabled={!controller.hasChanges || controller.saveBusy || controller.avatarAddBusy || controller.displayNameTooLong}
               >
                 {controller.saveBusy ? "Saving..." : "Save settings"}
               </button>
               <button
                 type="button"
                 className="ghost"
-                disabled={!controller.hasChanges || controller.saveBusy}
+                disabled={!controller.hasChanges || controller.saveBusy || controller.avatarAddBusy}
                 onClick={controller.onReset}
               >
                 Reset

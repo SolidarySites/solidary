@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase";
+import { resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
 
 export type ExplorerSite = {
   id: string;
@@ -41,43 +42,6 @@ export type ExplorerData = {
   connections: ExplorerConnection[];
 };
 
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
-
-const resolveSiteImageUrl = (siteUrl: string, imageUrl: string) => {
-  const normalizedSiteUrl = siteUrl.trim();
-  const normalizedImageUrl = imageUrl.trim();
-
-  if (!normalizedSiteUrl || !normalizedImageUrl) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(normalizedImageUrl)) {
-    return normalizedImageUrl;
-  }
-
-  try {
-    const site = new URL(normalizedSiteUrl);
-    const siteBasePath = trimSlashes(site.pathname);
-    const normalizedPath = trimSlashes(normalizedImageUrl.replace(/^\.\//, ""));
-
-    if (!normalizedPath) {
-      return "";
-    }
-
-    if (siteBasePath && (normalizedPath === siteBasePath || normalizedPath.startsWith(`${siteBasePath}/`))) {
-      return `${site.origin}/${normalizedPath}`;
-    }
-
-    if (siteBasePath) {
-      return `${site.origin}/${siteBasePath}/${normalizedPath}`;
-    }
-
-    return `${site.origin}/${normalizedPath}`;
-  } catch {
-    return normalizedImageUrl;
-  }
-};
-
 const mapSiteRows = (rows: ExplorerSiteRow[] | null | undefined): ExplorerSite[] =>
   (rows ?? [])
     .map((row) => {
@@ -93,7 +57,7 @@ const mapSiteRows = (rows: ExplorerSiteRow[] | null | undefined): ExplorerSite[]
             : "Untitled site",
         description: typeof row.description === "string" ? row.description : "",
         canonicalUrl,
-        imageUrl: resolveSiteImageUrl(canonicalUrl, imageUrl),
+        imageUrl: resolveSiteThumbnailUrl({ siteUrl: canonicalUrl, fallbackImageUrl: imageUrl }),
         updatedAt: typeof row.updated_at === "string" ? row.updated_at : null
       } satisfies ExplorerSite;
     })

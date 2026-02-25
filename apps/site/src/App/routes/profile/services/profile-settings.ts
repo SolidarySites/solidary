@@ -5,9 +5,11 @@ import {
   getSessionGithubAvatarUrl,
   getSessionGithubEmail,
   getSessionGithubProfileUrl,
+  getSessionProfileAvatarPaths,
   getSessionGithubUsername,
   getSessionProfileAvatarPath,
-  PROFILE_AVATAR_METADATA_KEY
+  PROFILE_AVATAR_METADATA_KEY,
+  PROFILE_AVATAR_PATHS_METADATA_KEY
 } from "../../../features/auth/services/user-profile";
 
 export type ProfileSettings = {
@@ -25,6 +27,7 @@ export type ProfileSessionData = {
   connectedGithub: ConnectedGithubAccount;
   githubAvatarUrl: string;
   avatarPath: string;
+  avatarPaths: string[];
 };
 
 export const getProfileSessionData = (
@@ -42,17 +45,20 @@ export const getProfileSessionData = (
       email: getSessionGithubEmail(session)
     },
     githubAvatarUrl: getSessionGithubAvatarUrl(session),
-    avatarPath: getSessionProfileAvatarPath(session)
+    avatarPath: getSessionProfileAvatarPath(session),
+    avatarPaths: getSessionProfileAvatarPaths(session)
   };
 };
 
 export const saveProfileSettings = async (
   settings: ProfileSettings,
-  avatarPath: string
+  avatarPath: string,
+  avatarPaths: string[]
 ): Promise<void> => {
-  const payload: Record<string, string> = {
+  const payload: Record<string, string | string[]> = {
     name: settings.displayName.trim(),
-    [PROFILE_AVATAR_METADATA_KEY]: avatarPath.trim()
+    [PROFILE_AVATAR_METADATA_KEY]: avatarPath.trim(),
+    [PROFILE_AVATAR_PATHS_METADATA_KEY]: avatarPaths.map((entry) => entry.trim()).filter(Boolean)
   };
 
   const { error } = await supabase.auth.updateUser({ data: payload });

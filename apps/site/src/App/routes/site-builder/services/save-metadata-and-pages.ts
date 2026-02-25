@@ -54,7 +54,7 @@ export const saveMetadataSection = async ({
 
   const imageUrl = siteImage
     ? draftImageUrl || DEFAULT_OG_IMAGE_URL
-    : siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
+    : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
   const solidaryFile = buildSolidaryFile({
     templateSolidary,
     siteId: draftState.siteId,

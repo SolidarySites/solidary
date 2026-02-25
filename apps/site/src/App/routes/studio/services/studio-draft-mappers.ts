@@ -1,5 +1,6 @@
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import { parseSolidaryJson } from "../../../features/site-draft/services/solidary";
+import { resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
 import type { DraftItem, StudioAccessRole, StudioSiteListItem } from "./studio-types";
 
 export const findSolidaryFile = (files: RepoFileSet) =>
@@ -11,43 +12,6 @@ export const findSolidaryFile = (files: RepoFileSet) =>
 export const getDraftSiteTitle = (item: DraftItem) => {
   const solidary = parseSolidaryJson(findSolidaryFile(item.files));
   return solidary?.title ?? item.repo_full_name;
-};
-
-const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
-
-const resolveSiteImageUrl = (siteUrl: string, imageUrl: string) => {
-  const normalizedSiteUrl = siteUrl.trim();
-  const normalizedImageUrl = imageUrl.trim();
-
-  if (!normalizedSiteUrl || !normalizedImageUrl) {
-    return "";
-  }
-
-  if (/^https?:\/\//i.test(normalizedImageUrl)) {
-    return normalizedImageUrl;
-  }
-
-  try {
-    const site = new URL(normalizedSiteUrl);
-    const siteBasePath = trimSlashes(site.pathname);
-    const normalizedPath = trimSlashes(normalizedImageUrl.replace(/^\.\//, ""));
-
-    if (!normalizedPath) {
-      return "";
-    }
-
-    if (siteBasePath && (normalizedPath === siteBasePath || normalizedPath.startsWith(`${siteBasePath}/`))) {
-      return `${site.origin}/${normalizedPath}`;
-    }
-
-    if (siteBasePath) {
-      return `${site.origin}/${siteBasePath}/${normalizedPath}`;
-    }
-
-    return `${site.origin}/${normalizedPath}`;
-  } catch {
-    return normalizedImageUrl;
-  }
 };
 
 export const mapDraftItemToSiteListItem = (
@@ -62,7 +26,7 @@ export const mapDraftItemToSiteListItem = (
     id: item.id,
     title: solidary?.title ?? item.repo_full_name,
     description: solidary?.description ?? "",
-    imageUrl: resolveSiteImageUrl(siteUrl, imageUrl),
+    imageUrl: resolveSiteThumbnailUrl({ siteUrl, fallbackImageUrl: imageUrl }),
     repoFullName: item.repo_full_name,
     repoHtmlUrl: `https://github.com/${item.repo_full_name}`,
     siteUrl,

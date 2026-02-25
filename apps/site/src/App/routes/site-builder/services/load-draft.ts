@@ -1,6 +1,7 @@
 import { supabase } from "../../../lib/supabase";
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import { parseSolidaryJson } from "../../../features/site-draft/services/solidary";
+import { resolveSiteImageUrl, resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
 import { FILE_KEYS } from "./constants";
 import type {
   BuilderPage,
@@ -12,7 +13,7 @@ import type {
   HeaderOptions,
   SiteAccessRole
 } from "./types";
-import { getPageSafeSlug, resolveImagePreviewUrl } from "./utils";
+import { getPageSafeSlug } from "./utils";
 
 export type LoadedDraftResult = {
   draftState: DraftState;
@@ -339,8 +340,11 @@ export const loadDraftById = async ({
 
   if (solidary?.image_url) {
     const canonicalUrl = solidary.site_url ?? "";
-    result.siteImagePreview = resolveImagePreviewUrl(solidary.image_url, canonicalUrl);
-    result.draftImageUrl = solidary.image_url;
+    result.siteImagePreview = resolveSiteThumbnailUrl({
+      siteUrl: canonicalUrl,
+      fallbackImageUrl: solidary.image_url
+    });
+    result.draftImageUrl = resolveSiteImageUrl(canonicalUrl, solidary.image_url);
   }
 
   return result;
