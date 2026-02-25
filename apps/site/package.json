@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run sync:structure && vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "sync:structure": "node ./scripts/sync-structure.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

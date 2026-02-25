@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-25T01:25:03.000Z",
-  "latest_commit_sha": "6a1339c2d5e5f69485031fa3e572ff239c80b84a",
+  "generated_at": "2026-02-25T01:32:48.326Z",
+  "latest_commit_sha": "6441fa81a60f44d2fd2901b1fd5ddc96b024beab",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -15,6 +15,10 @@
     {
       "path": "public",
       "description": "Public static assets served as-is by Vite and the deployed site."
+    },
+    {
+      "path": "scripts",
+      "description": "?"
     },
     {
       "path": "src",
@@ -81,10 +85,6 @@
       "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded)."
     },
     {
-      "path": "src/App/routes/search",
-      "description": "Public search route module that reuses explorer list UI to filter sites."
-    },
-    {
       "path": "src/App/routes/explorer",
       "description": "Public explorer route module for browsing the site connection graph."
     },
@@ -105,6 +105,18 @@
       "description": "Public landing route module for first-touch marketing copy and entry into authenticated app flows."
     },
     {
+      "path": "src/App/routes/landing/components",
+      "description": "?"
+    },
+    {
+      "path": "src/App/routes/landing/hooks",
+      "description": "?"
+    },
+    {
+      "path": "src/App/routes/landing/services",
+      "description": "?"
+    },
+    {
       "path": "src/App/routes/profile",
       "description": "Authenticated profile settings route for account metadata and avatar management."
     },
@@ -115,6 +127,10 @@
     {
       "path": "src/App/routes/profile/services",
       "description": "Profile services for settings persistence and avatar upload."
+    },
+    {
+      "path": "src/App/routes/search",
+      "description": "Public search route module that reuses explorer list UI to filter sites."
     },
     {
       "path": "src/App/routes/site-builder",
@@ -211,24 +227,19 @@
   ],
   "files": [
     {
+      "path": ".env.example",
+      "description": "?",
+      "LOC": 19
+    },
+    {
       "path": ".gitignore",
       "description": "App-level git ignore rules for logs, local files, editor metadata, and build output.",
-      "LOC": 24
+      "LOC": 25
     },
     {
       "path": "AGENTS.md",
       "description": "Maintainability and architecture rules for this app.",
       "LOC": 140
-    },
-    {
-      "path": "README.md",
-      "description": "Default Vite React+TypeScript README retained from initial scaffold.",
-      "LOC": 73
-    },
-    {
-      "path": "STRUCTURE.json",
-      "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 994
     },
     {
       "path": "eslint.config.js",
@@ -243,17 +254,27 @@
     {
       "path": "package.json",
       "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-      "LOC": 40
+      "LOC": 41
     },
     {
       "path": "public/vite.svg",
       "description": "Vite scaffold favicon served as a static public asset.",
-      "LOC": 1
+      "LOC": 0
+    },
+    {
+      "path": "README.md",
+      "description": "Default Vite React+TypeScript README retained from initial scaffold.",
+      "LOC": 73
+    },
+    {
+      "path": "scripts/sync-structure.mjs",
+      "description": "?",
+      "LOC": 188
     },
     {
       "path": "src/App/App.css",
       "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
-      "LOC": 104
+      "LOC": 105
     },
     {
       "path": "src/App/App.tsx",
@@ -288,7 +309,7 @@
     {
       "path": "src/App/features/auth/context/AuthContext.ts",
       "description": "Defines the global auth context shape (`session`, `sessionResolved`, `signInWithGitHub`, `signOut`) and exports the nullable React context instance.",
-      "LOC": 11
+      "LOC": 12
     },
     {
       "path": "src/App/features/auth/hooks/useAuth.ts",
@@ -298,12 +319,17 @@
     {
       "path": "src/App/features/auth/providers/AuthProvider.tsx",
       "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
-      "LOC": 72
+      "LOC": 218
+    },
+    {
+      "path": "src/App/features/auth/services/github-auth.test.ts",
+      "description": "?",
+      "LOC": 242
     },
     {
       "path": "src/App/features/auth/services/github-auth.ts",
       "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-      "LOC": 65
+      "LOC": 488
     },
     {
       "path": "src/App/features/auth/services/user-profile.ts",
@@ -311,14 +337,14 @@
       "LOC": 102
     },
     {
-      "path": "src/App/features/site-draft/services/astro-builders.ts",
-      "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-      "LOC": 39
-    },
-    {
       "path": "src/App/features/site-draft/services/astro-builders.test.ts",
       "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
       "LOC": 65
+    },
+    {
+      "path": "src/App/features/site-draft/services/astro-builders.ts",
+      "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
+      "LOC": 39
     },
     {
       "path": "src/App/features/site-draft/services/solidary.test.ts",
@@ -358,17 +384,7 @@
     {
       "path": "src/App/lib/supabase.ts",
       "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
-      "LOC": 15
-    },
-    {
-      "path": "src/App/routes/explorer/ExplorerRoute.css",
-      "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
-      "LOC": 378
-    },
-    {
-      "path": "src/App/routes/explorer/ExplorerRoute.tsx",
-      "description": "Explorer route that renders a full-screen graph, loads viewer-owned site IDs for highlight beacons, and shows loading/error overlays.",
-      "LOC": 81
+      "LOC": 20
     },
     {
       "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
@@ -379,6 +395,16 @@
       "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
       "description": "Explorer list panel with filtering, stats, and per-site cards with connection counts.",
       "LOC": 103
+    },
+    {
+      "path": "src/App/routes/explorer/ExplorerRoute.css",
+      "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
+      "LOC": 378
+    },
+    {
+      "path": "src/App/routes/explorer/ExplorerRoute.tsx",
+      "description": "Explorer route that renders a full-screen graph, loads viewer-owned site IDs for highlight beacons, and shows loading/error overlays.",
+      "LOC": 81
     },
     {
       "path": "src/App/routes/explorer/hooks/useExplorerRouteController.ts",
@@ -401,6 +427,21 @@
       "LOC": 1037
     },
     {
+      "path": "src/App/routes/landing/components/.gitkeep",
+      "description": "?",
+      "LOC": 0
+    },
+    {
+      "path": "src/App/routes/landing/hooks/.gitkeep",
+      "description": "?",
+      "LOC": 0
+    },
+    {
+      "path": "src/App/routes/landing/index.ts",
+      "description": "Route barrel re-export for the landing route entry component.",
+      "LOC": 1
+    },
+    {
       "path": "src/App/routes/landing/LandingRoute.css",
       "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
       "LOC": 78
@@ -411,29 +452,29 @@
       "LOC": 42
     },
     {
-      "path": "src/App/routes/landing/index.ts",
-      "description": "Route barrel re-export for the landing route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/profile/ProfileRoute.css",
-      "description": "Profile settings route styles for account cards, avatars, and form layout.",
-      "LOC": 152
-    },
-    {
-      "path": "src/App/routes/profile/ProfileRoute.tsx",
-      "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-      "LOC": 145
+      "path": "src/App/routes/landing/services/.gitkeep",
+      "description": "?",
+      "LOC": 0
     },
     {
       "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
       "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-      "LOC": 229
+      "LOC": 283
     },
     {
       "path": "src/App/routes/profile/index.ts",
       "description": "Route barrel re-export for the profile route entry component.",
       "LOC": 1
+    },
+    {
+      "path": "src/App/routes/profile/ProfileRoute.css",
+      "description": "Profile settings route styles for account cards, avatars, and form layout.",
+      "LOC": 174
+    },
+    {
+      "path": "src/App/routes/profile/ProfileRoute.tsx",
+      "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
+      "LOC": 166
     },
     {
       "path": "src/App/routes/profile/services/profile-avatar-upload.ts",
@@ -446,14 +487,14 @@
       "LOC": 62
     },
     {
-      "path": "src/App/routes/site-builder/SiteBuilderRoute.css",
-      "description": "Site-builder route stylesheet covering builder layout/topbar/sidebar/panels, collaborator and lock affordances, Astro preview skinning, and responsive builder breakpoints.",
-      "LOC": 998
+      "path": "src/App/routes/search/index.ts",
+      "description": "Route barrel re-export for the search route entry component.",
+      "LOC": 1
     },
     {
-      "path": "src/App/routes/site-builder/SiteBuilderRoute.tsx",
-      "description": "Site builder route orchestrator that composes topbar, sidebar/content sections, preview panel, and metadata full-view lock state.",
-      "LOC": 45
+      "path": "src/App/routes/search/SearchRoute.tsx",
+      "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
+      "LOC": 38
     },
     {
       "path": "src/App/routes/site-builder/components/AstroTemplatePreview.tsx",
@@ -631,14 +672,14 @@
       "LOC": 8
     },
     {
-      "path": "src/App/routes/site-builder/services/publish/editor-helpers.ts",
-      "description": "Editor-publish helpers for building touched-file diffs across markdown content/runtime templates, creating collaboration PRs, and loading latest touched state from Supabase.",
-      "LOC": 155
-    },
-    {
       "path": "src/App/routes/site-builder/services/publish/editor-helpers.test.ts",
       "description": "Unit tests for editor touched-file mapping, including metadata/runtime upserts and page-only touched filtering behavior.",
       "LOC": 67
+    },
+    {
+      "path": "src/App/routes/site-builder/services/publish/editor-helpers.ts",
+      "description": "Editor-publish helpers for building touched-file diffs across markdown content/runtime templates, creating collaboration PRs, and loading latest touched state from Supabase.",
+      "LOC": 155
     },
     {
       "path": "src/App/routes/site-builder/services/publish/index.ts",
@@ -716,6 +757,16 @@
       "LOC": 72
     },
     {
+      "path": "src/App/routes/site-builder/SiteBuilderRoute.css",
+      "description": "Site-builder route stylesheet covering builder layout/topbar/sidebar/panels, collaborator and lock affordances, Astro preview skinning, and responsive builder breakpoints.",
+      "LOC": 1003
+    },
+    {
+      "path": "src/App/routes/site-builder/SiteBuilderRoute.tsx",
+      "description": "Site builder route orchestrator that composes topbar, sidebar/content sections, preview panel, and metadata full-view lock state.",
+      "LOC": 45
+    },
+    {
       "path": "src/App/routes/site-connections/ConnectionExplorerRoute.css",
       "description": "Connection explorer route styles for panels, search results, and request lists.",
       "LOC": 118
@@ -741,16 +792,6 @@
       "LOC": 360
     },
     {
-      "path": "src/App/routes/site-create/SiteCreateRoute.css",
-      "description": "Site-create route stylesheet for the form surface wrapper.",
-      "LOC": 7
-    },
-    {
-      "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
-      "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
-      "LOC": 32
-    },
-    {
       "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
       "description": "Controlled create-site form section for title/description/image input, repo-name conflict feedback, and create/back actions.",
       "LOC": 103
@@ -758,7 +799,7 @@
     {
       "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
       "description": "Minimal progress section that shows a spinner and the current provisioning step label.",
-      "LOC": 15
+      "LOC": 19
     },
     {
       "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
@@ -769,11 +810,6 @@
       "path": "src/App/routes/site-create/index.ts",
       "description": "Route barrel re-export for the default site-create route component.",
       "LOC": 1
-    },
-    {
-      "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
-      "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-      "LOC": 141
     },
     {
       "path": "src/App/routes/site-create/services/provisioning/content.ts",
@@ -796,14 +832,19 @@
       "LOC": 57
     },
     {
-      "path": "src/App/routes/studio/StudioRoute.css",
-      "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
-      "LOC": 221
+      "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
+      "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
+      "LOC": 141
     },
     {
-      "path": "src/App/routes/studio/StudioRoute.tsx",
-      "description": "Thin Studio route shell that composes global header/footer, renders \"Your sites\" plus the current index placeholder section, and mounts the delete dialog.",
-      "LOC": 22
+      "path": "src/App/routes/site-create/SiteCreateRoute.css",
+      "description": "Site-create route stylesheet for the form surface wrapper.",
+      "LOC": 37
+    },
+    {
+      "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
+      "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
+      "LOC": 35
     },
     {
       "path": "src/App/routes/studio/components/DeleteSiteDialog.tsx",
@@ -849,6 +890,16 @@
       "path": "src/App/routes/studio/services/studio-types.ts",
       "description": "Route-local types for draft rows, access roles, collaboration PR cards, rendered site cards, and delete-dialog mode/target state.",
       "LOC": 35
+    },
+    {
+      "path": "src/App/routes/studio/StudioRoute.css",
+      "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
+      "LOC": 221
+    },
+    {
+      "path": "src/App/routes/studio/StudioRoute.tsx",
+      "description": "Thin Studio route shell that composes global header/footer, renders \"Your sites\" plus the current index placeholder section, and mounts the delete dialog.",
+      "LOC": 22
     },
     {
       "path": "src/App/services/github.ts",
@@ -961,6 +1012,11 @@
       "LOC": 12
     },
     {
+      "path": "STRUCTURE.json",
+      "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
+      "LOC": 1040
+    },
+    {
       "path": "tsconfig.app.json",
       "description": "Strict TypeScript config for browser app source (`src`), using bundler module resolution and React JSX with no emitted output.",
       "LOC": 28
@@ -978,17 +1034,7 @@
     {
       "path": "vite.config.ts",
       "description": "Vite config for the app: React plugin, fixed local dev host/port, and proxying `/.netlify/functions` calls to Netlify dev on port 8888.",
-      "LOC": 17
-    },
-    {
-      "path": "src/App/routes/search/SearchRoute.tsx",
-      "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
-      "LOC": 38
-    },
-    {
-      "path": "src/App/routes/search/index.ts",
-      "description": "Route barrel re-export for the search route entry component.",
-      "LOC": 1
+      "LOC": 18
     }
   ]
 }
