@@ -5,7 +5,9 @@ export const FILE_KEYS = {
 } as const;
 
 export const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images";
-export const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-default.jpg`;
+export const SITE_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image.jpg`;
+export const SITE_IMAGE_THUMB_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image_thumb.jpg`;
+export const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-home.jpg`;
 export const DEFAULT_OG_IMAGE_URL = `/${DEFAULT_OG_IMAGE_PATH.replace(/^public\//, "")}`;
 
 export const normalizeSiteUrl = (value: string) => value.trim().replace(/\/+$/, "");

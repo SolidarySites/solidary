@@ -2,10 +2,17 @@ import type { Session } from "@supabase/supabase-js";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { toBase64 } from "../../../lib/base64";
 import {
+  BYTES_100_KB,
+  BYTES_1_MB,
+  BYTES_500_KB,
+  processImageVariantsFromOriginal
+} from "../../../services/image-processing/picsquish";
+import {
   buildSolidaryFile,
   DEFAULT_OG_IMAGE_PATH,
   DEFAULT_OG_IMAGE_URL,
-  SOLIDARY_MEDIA_IMAGE_ROOT
+  SITE_IMAGE_PATH,
+  SITE_IMAGE_THUMB_PATH
 } from "./provisioning/content";
 import { provisionGitHubRepository } from "./provisioning/github-provisioning";
 import { saveProvisionedSiteDraft } from "./provisioning/persistence";
@@ -27,6 +34,26 @@ type ProvisionSiteDraftParams = {
   onSiteUrlResolved: (value: string) => void;
 };
 
+const SITE_CREATE_IMAGE_VARIANTS = [
+  {
+    key: "siteImage",
+    label: "Site image",
+    maxBytes: BYTES_1_MB
+  },
+  {
+    key: "siteImageThumb",
+    label: "Site thumbnail",
+    maxBytes: BYTES_100_KB,
+    maxDimensionLimit: 320
+  },
+  {
+    key: "ogImage",
+    label: "OG image",
+    maxBytes: BYTES_500_KB,
+    maxDimensionLimit: 1200
+  }
+] as const;
+
 export const provisionSiteDraft = async ({
   session,
   providerToken,
@@ -43,12 +70,29 @@ export const provisionSiteDraft = async ({
   onStep,
   onSiteUrlResolved
 }: ProvisionSiteDraftParams): Promise<string> => {
+  if (siteImage && siteImage.type && !siteImage.type.startsWith("image/")) {
+    throw new Error("Site image must be an image file.");
+  }
+
   const slug = computedSlug || `site-${Date.now()}`;
-  const imagePath = siteImage
-    ? `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image-${slug}.jpg`
-    : DEFAULT_OG_IMAGE_PATH;
-  const imageUrl = siteImage ? `/${imagePath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
-  const siteImageContentB64 = siteImage ? toBase64(await siteImage.arrayBuffer()) : undefined;
+  const imageUrl = DEFAULT_OG_IMAGE_URL;
+
+  let siteImageContentB64: string | undefined;
+  let siteImageThumbContentB64: string | undefined;
+  let ogImageContentB64: string | undefined;
+
+  if (siteImage) {
+    onStep("Optimizing site images...");
+    const processedImages = await processImageVariantsFromOriginal({
+      sourceImage: siteImage,
+      variants: SITE_CREATE_IMAGE_VARIANTS,
+      jpegQuality: 0.9,
+      jpegDpi: 72
+    });
+    siteImageContentB64 = toBase64(await processedImages.siteImage.arrayBuffer());
+    siteImageThumbContentB64 = toBase64(await processedImages.siteImageThumb.arrayBuffer());
+    ogImageContentB64 = toBase64(await processedImages.ogImage.arrayBuffer());
+  }
 
   const provisionedRepo = await provisionGitHubRepository({
     providerToken,
@@ -57,8 +101,12 @@ export const provisionSiteDraft = async ({
     siteTitle,
     siteDescription,
     slug,
-    siteImagePath: siteImage ? imagePath : undefined,
+    siteImagePath: siteImage ? SITE_IMAGE_PATH : undefined,
     siteImageContentB64,
+    siteImageThumbPath: siteImage ? SITE_IMAGE_THUMB_PATH : undefined,
+    siteImageThumbContentB64,
+    ogImagePath: siteImage ? DEFAULT_OG_IMAGE_PATH : undefined,
+    ogImageContentB64,
     onStep
   });
   onSiteUrlResolved(provisionedRepo.siteUrlResolved);

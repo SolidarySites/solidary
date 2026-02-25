@@ -20,6 +20,10 @@ type StartRepoProvisionBody = {
   site_image_path?: string;
   site_image_storage_path?: string;
   site_image_content_b64?: string;
+  site_image_thumb_path?: string;
+  site_image_thumb_content_b64?: string;
+  og_image_path?: string;
+  og_image_content_b64?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -103,6 +107,10 @@ export const handler: Handler = async (event) => {
   const siteImagePath = body.site_image_path?.trim();
   const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
   const siteImageContentB64 = body.site_image_content_b64?.trim();
+  const siteImageThumbPath = body.site_image_thumb_path?.trim();
+  const siteImageThumbContentB64 = body.site_image_thumb_content_b64?.trim();
+  const ogImagePath = body.og_image_path?.trim();
+  const ogImageContentB64 = body.og_image_content_b64?.trim();
 
   if (!name || !supabaseAccessToken) {
     return safeJson(400, {
@@ -228,7 +236,11 @@ export const handler: Handler = async (event) => {
           siteTitle,
           siteDescription,
           siteImagePath,
-          siteImageStoragePath
+          siteImageStoragePath,
+          siteImageThumbPath,
+          siteImageThumbContentB64,
+          ogImagePath,
+          ogImageContentB64
         })
       });
     } catch (error) {

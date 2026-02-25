@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-24T23:08:48.000Z",
-  "latest_commit_sha": "af5f3313f02269414ced8045da913cf17b75db44",
+  "generated_at": "2026-02-25T01:25:03.000Z",
+  "latest_commit_sha": "6a1339c2d5e5f69485031fa3e572ff239c80b84a",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -162,7 +162,11 @@
     },
     {
       "path": "src/App/routes/site-create/services",
-      "description": "Provisioning service layer that coordinates GitHub repo/job/publish setup and writes initial site draft data into Supabase."
+      "description": "Create-route orchestration services that validate inputs, process uploaded images, provision GitHub-backed site repositories, and persist initial draft records."
+    },
+    {
+      "path": "src/App/routes/site-create/services/provisioning",
+      "description": "Create-flow provisioning modules split by concern: markdown/file templating, GitHub/Pages/background-job orchestration, and Supabase draft persistence."
     },
     {
       "path": "src/App/routes/studio",
@@ -182,7 +186,11 @@
     },
     {
       "path": "src/App/services",
-      "description": "App-wide network adapters (currently GitHub Netlify-function wrappers for repository file operations)."
+      "description": "App-wide services including GitHub Netlify-function adapters and reusable client-side image processing utilities."
+    },
+    {
+      "path": "src/App/services/image-processing",
+      "description": "Reusable client-side image processing services (picsquish-based resize/compression helpers) configured by callers for route-specific byte/dimension targets."
     },
     {
       "path": "src/App/types",
@@ -220,7 +228,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 961
+      "LOC": 994
     },
     {
       "path": "eslint.config.js",
@@ -235,7 +243,7 @@
     {
       "path": "package.json",
       "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-      "LOC": 39
+      "LOC": 40
     },
     {
       "path": "public/vite.svg",
@@ -744,8 +752,8 @@
     },
     {
       "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
-      "description": "Controlled form section for initial site title/description/JPEG image with actions to return to Studio or start provisioning.",
-      "LOC": 66
+      "description": "Controlled create-site form section for title/description/image input, repo-name conflict feedback, and create/back actions.",
+      "LOC": 103
     },
     {
       "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
@@ -755,7 +763,7 @@
     {
       "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
       "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-      "LOC": 129
+      "LOC": 254
     },
     {
       "path": "src/App/routes/site-create/index.ts",
@@ -764,8 +772,28 @@
     },
     {
       "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
-      "description": "End-to-end create-site workflow service that starts and polls async GitHub repo provisioning, enables Pages, waits for deployment, verifies live auth identity consistency, and inserts initial `sites`/`site_drafts`/`site_draft_settings`/`site_draft_pages` rows with structured diagnostic logging.",
-      "LOC": 93
+      "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
+      "LOC": 141
+    },
+    {
+      "path": "src/App/routes/site-create/services/provisioning/content.ts",
+      "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
+      "LOC": 92
+    },
+    {
+      "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
+      "description": "GitHub provisioning client for create flow: starts background repo job, polls status, enables Pages, waits for deploy readiness, and returns resolved repo metadata.",
+      "LOC": 319
+    },
+    {
+      "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
+      "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
+      "LOC": 228
+    },
+    {
+      "path": "src/App/routes/site-create/services/provisioning/types.ts",
+      "description": "Type contracts shared across create-flow provisioning modules (GitHub payloads, polling states, and persisted draft metadata).",
+      "LOC": 57
     },
     {
       "path": "src/App/routes/studio/StudioRoute.css",
@@ -825,7 +853,12 @@
     {
       "path": "src/App/services/github.ts",
       "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
-      "LOC": 94
+      "LOC": 112
+    },
+    {
+      "path": "src/App/services/image-processing/picsquish.ts",
+      "description": "Shared picsquish-backed image variant processor that re-renders each reduction attempt from the original image and enforces caller-defined byte/dimension limits.",
+      "LOC": 261
     },
     {
       "path": "src/App/types/notice.ts",

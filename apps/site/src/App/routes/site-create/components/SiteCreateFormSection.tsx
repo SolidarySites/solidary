@@ -74,10 +74,10 @@ export default function SiteCreateFormSection({
         </label>
 
         <label>
-          Site image (JPEG)
+          Site image
           <input
             type="file"
-            accept="image/jpeg"
+            accept="image/*"
             onChange={(event) => onSiteImageChange(event.target.files?.[0] ?? null)}
           />
         </label>

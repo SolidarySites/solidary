@@ -11,7 +11,7 @@ export const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 export const SOLIDARY_MEDIA_IMAGES_BASE_PATH = "/solidary-media/images";
 export const SOLIDARY_MEDIA_UPLOADS_BASE_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/uploads`;
-export const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-default.jpg`;
+export const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-home.jpg`;
 export const DEFAULT_FOOTER_MODULES: FooterModule[] = [
   { content: "%copyright%", alignment: "left" },
   { content: "", alignment: "center" },

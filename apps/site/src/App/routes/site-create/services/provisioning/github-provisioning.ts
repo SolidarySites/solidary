@@ -220,6 +220,10 @@ export const provisionGitHubRepository = async ({
   slug,
   siteImagePath,
   siteImageContentB64,
+  siteImageThumbPath,
+  siteImageThumbContentB64,
+  ogImagePath,
+  ogImageContentB64,
   onStep
 }: {
   providerToken?: string;
@@ -230,6 +234,10 @@ export const provisionGitHubRepository = async ({
   slug: string;
   siteImagePath?: string;
   siteImageContentB64?: string;
+  siteImageThumbPath?: string;
+  siteImageThumbContentB64?: string;
+  ogImagePath?: string;
+  ogImageContentB64?: string;
   onStep: (value: string) => void;
 }): Promise<ProvisionedRepository> => {
   onStep("Queueing repository provisioning...");
@@ -243,7 +251,11 @@ export const provisionGitHubRepository = async ({
     site_title: siteTitle.trim(),
     site_description: siteDescription.trim(),
     site_image_path: siteImagePath,
-    site_image_content_b64: siteImageContentB64
+    site_image_content_b64: siteImageContentB64,
+    site_image_thumb_path: siteImageThumbPath,
+    site_image_thumb_content_b64: siteImageThumbContentB64,
+    og_image_path: ogImagePath,
+    og_image_content_b64: ogImageContentB64
   });
 
   const jobId = startResponse.job?.id?.trim() ?? "";

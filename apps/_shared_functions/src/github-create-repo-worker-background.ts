@@ -24,7 +24,7 @@ const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";
 const FOOTER_CONTENT_FILE_REL_PATH = "src/content/footer.md";
 const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary-links.json";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
-const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-default.jpg";
+const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-home.jpg";
 
 const SOLIDARY_LINKS_TEMPLATE = `{
   "protocol_version": "1.0",
@@ -82,6 +82,10 @@ type ProvisionWorkerBody = {
   siteImagePath?: string;
   siteImageStoragePath?: string;
   siteImageContentB64?: string;
+  siteImageThumbPath?: string;
+  siteImageThumbContentB64?: string;
+  ogImagePath?: string;
+  ogImageContentB64?: string;
 };
 
 class HttpError extends Error {
@@ -122,16 +126,16 @@ const resolveSiteUrlForRepo = (owner: string, repo: string) => {
   return isUserSite ? pagesRootUrl : `${pagesRootUrl}/${repo}`;
 };
 
-const normalizeRepoImagePath = (pathValue: string) => {
+const normalizeRepoImagePath = (pathValue: string, label = "Image") => {
   const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized) {
-    throw new Error("Site image path is empty.");
+    throw new Error(`${label} path is empty.`);
   }
   if (!normalized.startsWith(SOLIDARY_MEDIA_IMAGE_ROOT)) {
-    throw new Error(`Site image path must start with ${SOLIDARY_MEDIA_IMAGE_ROOT}.`);
+    throw new Error(`${label} path must start with ${SOLIDARY_MEDIA_IMAGE_ROOT}.`);
   }
   if (normalized.split("/").includes("..")) {
-    throw new Error("Site image path contains invalid segments.");
+    throw new Error(`${label} path contains invalid segments.`);
   }
   return normalized;
 };
@@ -219,7 +223,11 @@ function applyCreateFlowOverridesToTemplateFiles({
   siteTitle,
   siteDescription,
   siteImagePath,
-  siteImageContentB64
+  siteImageContentB64,
+  siteImageThumbPath,
+  siteImageThumbContentB64,
+  ogImagePath,
+  ogImageContentB64
 }: {
   files: FileRecord[];
   owner: string;
@@ -231,6 +239,10 @@ function applyCreateFlowOverridesToTemplateFiles({
   siteDescription: string;
   siteImagePath: string;
   siteImageContentB64: string;
+  siteImageThumbPath: string;
+  siteImageThumbContentB64: string;
+  ogImagePath: string;
+  ogImageContentB64: string;
 }) {
   if (!siteId) {
     return files;
@@ -239,8 +251,15 @@ function applyCreateFlowOverridesToTemplateFiles({
   const resolvedTitle = siteTitle || fallbackTitle;
   const resolvedDescription = siteDescription || fallbackDescription;
   const siteUrl = resolveSiteUrlForRepo(owner, repo);
-  const imageRelPath = siteImagePath ? normalizeRepoImagePath(siteImagePath) : "";
-  const imageUrl = imageRelPath ? `/${imageRelPath.replace(/^public\//, "")}` : DEFAULT_OG_IMAGE_URL;
+  const siteImageRelPath = siteImagePath ? normalizeRepoImagePath(siteImagePath, "Site image") : "";
+  const siteImageThumbRelPath = siteImageThumbPath
+    ? normalizeRepoImagePath(siteImageThumbPath, "Site image thumbnail")
+    : "";
+  const ogImageRelPath = ogImagePath ? normalizeRepoImagePath(ogImagePath, "OG image") : "";
+  const imageRelPathForMetadata = ogImageRelPath || siteImageRelPath;
+  const imageUrl = imageRelPathForMetadata
+    ? `/${imageRelPathForMetadata.replace(/^public\//, "")}`
+    : DEFAULT_OG_IMAGE_URL;
 
   const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
 
@@ -289,11 +308,25 @@ function applyCreateFlowOverridesToTemplateFiles({
     ).toString("base64")
   });
 
-  if (imageRelPath && siteImageContentB64) {
-    nextByPath.set(imageRelPath, {
-      relPath: imageRelPath,
+  if (siteImageRelPath && siteImageContentB64) {
+    nextByPath.set(siteImageRelPath, {
+      relPath: siteImageRelPath,
       mode: "100644",
       contentB64: siteImageContentB64
+    });
+  }
+  if (siteImageThumbRelPath && siteImageThumbContentB64) {
+    nextByPath.set(siteImageThumbRelPath, {
+      relPath: siteImageThumbRelPath,
+      mode: "100644",
+      contentB64: siteImageThumbContentB64
+    });
+  }
+  if (ogImageRelPath && ogImageContentB64) {
+    nextByPath.set(ogImageRelPath, {
+      relPath: ogImageRelPath,
+      mode: "100644",
+      contentB64: ogImageContentB64
     });
   }
 
@@ -907,7 +940,11 @@ export const handler: Handler = async (event) => {
     const siteTitle = payload.siteTitle?.trim() ?? "";
     const siteDescription = payload.siteDescription?.trim() ?? "";
     const siteImagePath = payload.siteImagePath?.trim() ?? "";
+    const siteImageThumbPath = payload.siteImageThumbPath?.trim() ?? "";
+    const ogImagePath = payload.ogImagePath?.trim() ?? "";
     const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
+    const siteImageThumbContentB64 = payload.siteImageThumbContentB64?.trim() ?? "";
+    const ogImageContentB64 = payload.ogImageContentB64?.trim() ?? "";
     const siteImageContentB64 =
       siteImageContentB64Raw ||
       (siteImageStoragePath
@@ -988,7 +1025,11 @@ export const handler: Handler = async (event) => {
       siteTitle,
       siteDescription,
       siteImagePath,
-      siteImageContentB64
+      siteImageContentB64,
+      siteImageThumbPath,
+      siteImageThumbContentB64,
+      ogImagePath,
+      ogImageContentB64
     });
 
     await updateJob({
