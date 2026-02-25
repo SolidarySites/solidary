@@ -43,8 +43,7 @@ const SITE_CREATE_IMAGE_VARIANTS = [
   {
     key: "siteImageThumb",
     label: "Site thumbnail",
-    maxBytes: BYTES_100_KB,
-    maxDimensionLimit: 320
+    maxBytes: BYTES_100_KB
   },
   {
     key: "ogImage",

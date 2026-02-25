@@ -45,38 +45,6 @@ type RenderVariantParams = {
 
 const toKilobytes = (bytes: number) => Math.ceil(bytes / 1024);
 
-const buildDimensionLimits = ({
-  start,
-  minDimensionLimit,
-  dimensionReductionFactor,
-  maxDimensionAttempts
-}: {
-  start: number;
-  minDimensionLimit: number;
-  dimensionReductionFactor: number;
-  maxDimensionAttempts: number;
-}): number[] => {
-  const limits: number[] = [];
-  let current = Math.max(minDimensionLimit, Math.floor(start));
-
-  for (let attempt = 0; attempt < maxDimensionAttempts; attempt += 1) {
-    if (!limits.includes(current)) {
-      limits.push(current);
-    }
-    if (current <= minDimensionLimit) break;
-
-    const next = Math.max(minDimensionLimit, Math.floor(current * dimensionReductionFactor));
-    if (next === current) break;
-    current = next;
-  }
-
-  if (!limits.includes(minDimensionLimit)) {
-    limits.push(minDimensionLimit);
-  }
-
-  return limits;
-};
-
 const ensureCanvasBlob = async (canvas: HTMLCanvasElement, jpegQuality: number): Promise<Blob> =>
   new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -168,19 +136,26 @@ const renderVariantFromOriginal = async ({
   jpegQuality,
   jpegDpi,
   minDimensionLimit,
-  dimensionReductionFactor,
+  dimensionReductionFactor: _dimensionReductionFactor,
   maxDimensionAttempts
 }: RenderVariantParams): Promise<Blob> => {
-  const dimensionLimits = buildDimensionLimits({
-    start: initialDimensionLimit,
-    minDimensionLimit,
-    dimensionReductionFactor,
-    maxDimensionAttempts
-  });
-  let smallestBlob: Blob | null = null;
+  const normalizedStart = Math.max(minDimensionLimit, Math.floor(initialDimensionLimit));
+  const normalizedMin = Math.max(1, Math.floor(minDimensionLimit));
+  const encodedByDimension = new Map<number, Blob>();
+  const state: {
+    smallestBlob: Blob | null;
+    bestUnderLimit: { dimension: number; blob: Blob } | null;
+  } = {
+    smallestBlob: null,
+    bestUnderLimit: null
+  };
 
-  for (const dimensionLimit of dimensionLimits) {
-    const result = await squish(sourceImage, dimensionLimit);
+  const encodeAtDimension = async (dimension: number) => {
+    const normalizedDimension = Math.max(normalizedMin, Math.floor(dimension));
+    const cached = encodedByDimension.get(normalizedDimension);
+    if (cached) return cached;
+
+    const result = await squish(sourceImage, normalizedDimension);
     if (
       !result ||
       typeof result !== "object" ||
@@ -200,17 +175,76 @@ const renderVariantFromOriginal = async ({
       jpegQuality
     );
     const jpegWithDpi = await withJpegDpi(jpegBlob, jpegDpi);
+    encodedByDimension.set(normalizedDimension, jpegWithDpi);
+    return jpegWithDpi;
+  };
 
-    if (!smallestBlob || jpegWithDpi.size < smallestBlob.size) {
-      smallestBlob = jpegWithDpi;
+  const considerCandidate = (dimension: number, blob: Blob) => {
+    if (!state.smallestBlob || blob.size < state.smallestBlob.size) {
+      state.smallestBlob = blob;
     }
-    if (jpegWithDpi.size < variant.maxBytes) {
-      return jpegWithDpi;
+    if (blob.size > variant.maxBytes) {
+      return;
+    }
+    if (
+      !state.bestUnderLimit ||
+      blob.size > state.bestUnderLimit.blob.size ||
+      (blob.size === state.bestUnderLimit.blob.size && dimension > state.bestUnderLimit.dimension)
+    ) {
+      state.bestUnderLimit = {
+        dimension,
+        blob
+      };
+    }
+  };
+
+  const startBlob = await encodeAtDimension(normalizedStart);
+  considerCandidate(normalizedStart, startBlob);
+  if (startBlob.size <= variant.maxBytes) {
+    return startBlob;
+  }
+
+  const minBlob = await encodeAtDimension(normalizedMin);
+  considerCandidate(normalizedMin, minBlob);
+  if (minBlob.size > variant.maxBytes) {
+    const largestAllowedKb = toKilobytes(variant.maxBytes);
+    const actualKb = toKilobytes(minBlob.size);
+    throw new Error(`${variant.label} must be smaller than ${largestAllowedKb}KB (currently ${actualKb}KB).`);
+  }
+
+  let left = normalizedMin;
+  let right = Math.max(normalizedMin, normalizedStart - 1);
+  let iteration = 0;
+  while (left <= right && iteration < Math.max(1, maxDimensionAttempts)) {
+    iteration += 1;
+    const mid = Math.floor((left + right) / 2);
+    const midBlob = await encodeAtDimension(mid);
+    considerCandidate(mid, midBlob);
+
+    if (midBlob.size <= variant.maxBytes) {
+      left = mid + 1;
+      continue;
+    }
+    right = mid - 1;
+  }
+
+  // Compression can be slightly non-monotonic; probe around the best match for tighter fit.
+  if (state.bestUnderLimit) {
+    const refineRadius = Math.max(4, Math.min(32, Math.floor(maxDimensionAttempts / 2)));
+    const refineStart = Math.max(normalizedMin, state.bestUnderLimit.dimension - refineRadius);
+    const refineEnd = Math.min(normalizedStart, state.bestUnderLimit.dimension + refineRadius);
+    for (let dimension = refineStart; dimension <= refineEnd; dimension += 1) {
+      const blob = await encodeAtDimension(dimension);
+      considerCandidate(dimension, blob);
     }
   }
 
+  if (state.bestUnderLimit) {
+    return state.bestUnderLimit.blob;
+  }
+
   const largestAllowedKb = toKilobytes(variant.maxBytes);
-  const actualKb = toKilobytes(smallestBlob?.size ?? 0);
+  const actualKb = toKilobytes(state.smallestBlob?.size ?? 0);
   throw new Error(`${variant.label} must be smaller than ${largestAllowedKb}KB (currently ${actualKb}KB).`);
 };
 

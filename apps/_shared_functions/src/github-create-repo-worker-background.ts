@@ -163,7 +163,8 @@ const renderFrontmatter = (updates: Record<string, unknown>) =>
 const replaceFrontmatterFields = (content: string, updates: Record<string, unknown>) => {
   const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
   if (!match) {
-    throw new Error("Template markdown file is missing a frontmatter block.");
+    const normalizedBody = content.trim().length ? `\n${content}` : "\n";
+    return `---\n${renderFrontmatter(updates)}\n---${normalizedBody}`;
   }
 
   const body = match[2] ?? "\n";
@@ -183,7 +184,12 @@ const updateTemplateMarkdownFrontmatter = ({
 }) => {
   const current = filesByPath.get(relPath);
   if (!current) {
-    throw new Error(`Template file missing: ${relPath}`);
+    filesByPath.set(relPath, {
+      relPath,
+      mode: "100644",
+      contentB64: Buffer.from(`---\n${renderFrontmatter(updates)}\n---\n`, "utf8").toString("base64")
+    });
+    return;
   }
 
   const source = Buffer.from(current.contentB64, "base64").toString("utf8");
@@ -246,10 +252,7 @@ function applyCreateFlowOverridesToTemplateFiles({
   ogImagePath: string;
   ogImageContentB64: string;
 }) {
-  if (!siteId) {
-    return files;
-  }
-
+  const resolvedSiteId = siteId || crypto.randomUUID();
   const resolvedTitle = siteTitle || fallbackTitle;
   const resolvedDescription = siteDescription || fallbackDescription;
   const siteUrl = resolveSiteUrlForRepo(owner, repo);
@@ -300,7 +303,7 @@ function applyCreateFlowOverridesToTemplateFiles({
     mode: "100644",
     contentB64: Buffer.from(
       renderSolidaryLinksFile({
-        siteId,
+        siteId: resolvedSiteId,
         title: resolvedTitle,
         description: resolvedDescription,
         siteUrl,
