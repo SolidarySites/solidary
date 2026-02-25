@@ -173,12 +173,6 @@ export const useSiteCreateRouteController = () => {
       return;
     }
 
-    if (siteTitleRepoCheckInFlight) {
-      setNotice("Please wait while we finish checking your repository name.");
-      setNoticeKind("error");
-      return;
-    }
-
     try {
       const repoNameConflict = await checkRepoNameConflict({
         repoName: computedSlug,

@@ -93,7 +93,7 @@ export default function SiteCreateFormSection({
           className="primary"
           type="button"
           onClick={onCreateSite}
-          disabled={siteTitleRepoCheckInFlight || Boolean(siteTitleRepoConflict)}
+          disabled={Boolean(siteTitleRepoConflict)}
         >
           Create site
         </button>
