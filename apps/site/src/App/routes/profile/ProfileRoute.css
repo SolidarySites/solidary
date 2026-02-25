@@ -64,6 +64,65 @@
   color: rgba(31, 34, 28, 0.9);
 }
 
+.profile-github-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.profile-github-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-github-help-trigger {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 34, 28, 0.35);
+  padding: 0;
+  background: rgba(31, 34, 28, 0.06);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1;
+  position: relative;
+}
+
+.profile-github-help-tooltip {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: min(18rem, 72vw);
+  padding: 0.6rem 0.68rem;
+  border: 1px solid rgba(31, 34, 28, 0.2);
+  background: #fff;
+  color: rgba(31, 34, 28, 0.88);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 8px 22px rgba(31, 34, 28, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.profile-github-help-trigger:hover .profile-github-help-tooltip,
+.profile-github-help-trigger:focus-visible .profile-github-help-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .profile-github-field {
   margin: 0;
   display: grid;
@@ -87,26 +146,9 @@
   font-weight: 500;
 }
 
-.profile-github-security {
-  border: 1px solid rgba(31, 34, 28, 0.12);
-  background: rgba(255, 255, 255, 0.72);
-  padding: 1rem;
-  display: grid;
-  gap: 0.7rem;
-}
-
-.profile-github-security h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.profile-github-security p {
-  margin: 0;
-  color: rgba(31, 34, 28, 0.82);
-}
-
 .profile-connect-github-app {
-  justify-self: start;
+  justify-self: auto;
+  white-space: nowrap;
 }
 
 .profile-settings-form {

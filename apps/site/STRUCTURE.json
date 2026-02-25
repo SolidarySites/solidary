@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-25T02:58:12.108Z",
-  "latest_commit_sha": "a180d1ec6d786e0b3c7391af16ec03c917cb8ed5",
+  "generated_at": "2026-02-25T23:52:01.944Z",
+  "latest_commit_sha": "2331ab2d28f58c2310bc33deac4a80fcc0b9ded6",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -119,6 +119,10 @@
     {
       "path": "src/App/routes/profile",
       "description": "Authenticated profile settings route for account metadata and avatar management."
+    },
+    {
+      "path": "src/App/routes/profile/components",
+      "description": "?"
     },
     {
       "path": "src/App/routes/profile/hooks",
@@ -334,7 +338,7 @@
     {
       "path": "src/App/features/auth/services/user-profile.ts",
       "description": "User metadata helpers for display name, GitHub profile info, and profile avatar path/public URL lookup.",
-      "LOC": 102
+      "LOC": 131
     },
     {
       "path": "src/App/features/site-draft/services/astro-builders.test.ts",
@@ -375,6 +379,11 @@
       "path": "src/App/lib/external-image-loading.ts",
       "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
       "LOC": 194
+    },
+    {
+      "path": "src/App/lib/site-image-url.ts",
+      "description": "?",
+      "LOC": 61
     },
     {
       "path": "src/App/lib/slugify.ts",
@@ -419,7 +428,7 @@
     {
       "path": "src/App/routes/explorer/services/explorer-data.ts",
       "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
-      "LOC": 176
+      "LOC": 140
     },
     {
       "path": "src/App/routes/explorer/services/explorer-graph.ts",
@@ -457,9 +466,24 @@
       "LOC": 0
     },
     {
+      "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
+      "description": "?",
+      "LOC": 75
+    },
+    {
+      "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
+      "description": "?",
+      "LOC": 165
+    },
+    {
+      "path": "src/App/routes/profile/hooks/useProfileAvatarController.ts",
+      "description": "?",
+      "LOC": 363
+    },
+    {
       "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
       "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-      "LOC": 283
+      "LOC": 210
     },
     {
       "path": "src/App/routes/profile/index.ts",
@@ -469,22 +493,22 @@
     {
       "path": "src/App/routes/profile/ProfileRoute.css",
       "description": "Profile settings route styles for account cards, avatars, and form layout.",
-      "LOC": 174
+      "LOC": 277
     },
     {
       "path": "src/App/routes/profile/ProfileRoute.tsx",
       "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-      "LOC": 166
+      "LOC": 58
     },
     {
       "path": "src/App/routes/profile/services/profile-avatar-upload.ts",
       "description": "Avatar upload pipeline that validates, compresses, uploads, and removes profile images in Supabase storage.",
-      "LOC": 190
+      "LOC": 119
     },
     {
       "path": "src/App/routes/profile/services/profile-settings.ts",
       "description": "Profile settings services that map session metadata and persist display name/avatar path to Supabase auth.",
-      "LOC": 62
+      "LOC": 68
     },
     {
       "path": "src/App/routes/search/index.ts",
@@ -654,7 +678,7 @@
     {
       "path": "src/App/routes/site-builder/services/load-draft.ts",
       "description": "Loads draft state from Supabase, resolves access role/editor draft fallback, and hydrates pages/settings/images into controller-ready structures.",
-      "LOC": 347
+      "LOC": 351
     },
     {
       "path": "src/App/routes/site-builder/services/locks.test.ts",
@@ -884,7 +908,7 @@
     {
       "path": "src/App/routes/studio/services/studio-draft-mappers.ts",
       "description": "Mapper utilities that locate and parse Solidary metadata files in draft payloads, derive display title/description/site URL, and normalize thumbnail image URLs.",
-      "LOC": 73
+      "LOC": 37
     },
     {
       "path": "src/App/routes/studio/services/studio-types.ts",
@@ -1014,7 +1038,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 1040
+      "LOC": 1064
     },
     {
       "path": "tsconfig.app.json",

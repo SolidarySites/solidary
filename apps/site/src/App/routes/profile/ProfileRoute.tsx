@@ -1,29 +1,16 @@
-import { useRef, type ChangeEvent } from "react";
 import SiteFooter from "../../components/SiteFooter";
+import ProfileConnectedGithubCard from "./components/ProfileConnectedGithubCard";
+import ProfileSettingsFormSection from "./components/ProfileSettingsFormSection";
 import { useProfileRouteController } from "./hooks/useProfileRouteController";
 import "./ProfileRoute.css";
 
 export default function ProfileRoute() {
   const controller = useProfileRouteController();
-  const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const githubUsername = controller.connectedGithub.username || "Unknown";
   const solidaryAvatarFallback =
     controller.displayName.slice(0, 1).toUpperCase() ||
     githubUsername.slice(0, 1).toUpperCase() ||
     "S";
-
-  const onAvatarFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    controller.onAvatarFileChange(event.target.files?.[0] ?? null);
-    event.target.value = "";
-  };
-
-  const onAddAvatar = () => {
-    if (!controller.canAddAvatar || controller.saveBusy || controller.avatarAddBusy) {
-      return;
-    }
-
-    avatarFileInputRef.current?.click();
-  };
 
   return (
     <div className="app-shell">
@@ -34,173 +21,34 @@ export default function ProfileRoute() {
             <h2>Profile settings</h2>
           </div>
 
-          <section className="profile-github-card">
-            <div className="profile-avatar-shell">
-              {controller.githubAvatarUrl ? (
-                <img
-                  className="profile-avatar-image"
-                  src={controller.githubAvatarUrl}
-                  alt={`${githubUsername} GitHub avatar`}
-                />
-              ) : (
-                <div className="profile-avatar-fallback" aria-hidden="true">
-                  {githubUsername.slice(0, 1).toUpperCase() || "?"}
-                </div>
-              )}
-            </div>
+          <ProfileConnectedGithubCard
+            githubAvatarUrl={controller.githubAvatarUrl}
+            githubUsername={githubUsername}
+            profileUrl={controller.connectedGithub.profileUrl}
+            email={controller.connectedGithub.email}
+            connectBusy={controller.connectBusy}
+            onConnectGitHubApp={controller.onConnectGitHubApp}
+          />
 
-            <div className="profile-github-details">
-              <p className="profile-github-title">Connected to GitHub account</p>
-              <p className="profile-github-field">
-                <span>Username</span>
-                {controller.connectedGithub.profileUrl ? (
-                  <a
-                    href={controller.connectedGithub.profileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    @{githubUsername}
-                  </a>
-                ) : (
-                  <strong>@{githubUsername}</strong>
-                )}
-              </p>
-              <p className="profile-github-field">
-                <span>Email</span>
-                <strong>{controller.connectedGithub.email || "Unknown"}</strong>
-              </p>
-            </div>
-          </section>
-
-          <section className="profile-github-security">
-            <h3>GitHub security</h3>
-            <p>
-              By default, Solidary stores your GitHub token in encrypted form, enforces repo
-              allowlist checks on every GitHub function call, and writes audit logs for
-              GitHub-triggered actions.
-            </p>
-            <p>
-              Installing the Solidary GitHub App adds installation-scoped permissions so access can
-              be restricted to repositories where the app is installed.
-            </p>
-            <button
-              type="button"
-              className="ghost profile-connect-github-app"
-              onClick={controller.onConnectGitHubApp}
-              disabled={controller.connectBusy}
-            >
-              {controller.connectBusy ? "Connecting..." : "Connect GitHub App"}
-            </button>
-          </section>
-
-          <form
-            className="form-grid profile-settings-form"
+          <ProfileSettingsFormSection
+            displayName={controller.displayName}
+            displayNameTooLong={controller.displayNameTooLong}
+            solidaryAvatarUrl={controller.solidaryAvatarUrl}
+            solidaryAvatarFallback={solidaryAvatarFallback}
+            avatarPills={controller.avatarPills}
+            canAddAvatar={controller.canAddAvatar}
+            canRemoveAvatar={controller.canRemoveAvatar}
+            hasChanges={controller.hasChanges}
+            saveBusy={controller.saveBusy}
+            avatarAddBusy={controller.avatarAddBusy}
+            avatarRemoveBusy={controller.avatarRemoveBusy}
             onSubmit={controller.onSubmit}
-          >
-            <label htmlFor="profile-display-name">
-              Display name
-              <input
-                id="profile-display-name"
-                type="text"
-                autoComplete="name"
-                className={controller.displayNameTooLong ? "profile-input-error" : undefined}
-                value={controller.displayName}
-                onChange={(event) =>
-                  controller.onDisplayNameChange(event.target.value)
-                }
-                placeholder="How your name should appear"
-              />
-              {controller.displayNameTooLong && (
-                <span className="profile-field-error">max 20 characters</span>
-              )}
-            </label>
-
-            <div className="profile-solidary-avatar-row">
-              <div className="profile-solidary-avatar-current">
-                <div className="profile-avatar-shell profile-solidary-avatar-shell">
-                  {controller.solidaryAvatarUrl ? (
-                    <img
-                      className="profile-avatar-image"
-                      src={controller.solidaryAvatarUrl}
-                      alt="Solidary avatar preview"
-                    />
-                  ) : (
-                    <div className="profile-avatar-fallback" aria-hidden="true">
-                      {solidaryAvatarFallback}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-solidary-avatar-actions">
-                  <button
-                    type="button"
-                    className="profile-avatar-link"
-                    onClick={onAddAvatar}
-                    disabled={!controller.canAddAvatar || controller.saveBusy || controller.avatarAddBusy}
-                  >
-                    add
-                  </button>
-                  <button
-                    type="button"
-                    className="profile-avatar-link"
-                    onClick={controller.onRemoveAvatar}
-                    disabled={!controller.canRemoveAvatar || controller.saveBusy || controller.avatarAddBusy}
-                  >
-                    remove
-                  </button>
-                  <input
-                    ref={avatarFileInputRef}
-                    id="profile-avatar-upload"
-                    className="profile-avatar-file-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={onAvatarFileInputChange}
-                  />
-                </div>
-              </div>
-
-              <div className="profile-solidary-avatar-pills" aria-label="Avatar options">
-                {controller.avatarPills.map((pill) => (
-                  <button
-                    key={pill.key}
-                    type="button"
-                    className="profile-avatar-pill"
-                    onClick={() => controller.onSelectAvatar(pill.path)}
-                    disabled={controller.saveBusy || controller.avatarAddBusy}
-                  >
-                    {pill.imageUrl ? (
-                      <img
-                        className="profile-avatar-image"
-                        src={pill.imageUrl}
-                        alt="Avatar option"
-                      />
-                    ) : (
-                      <span className="profile-avatar-fallback" aria-hidden="true">
-                        {solidaryAvatarFallback}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-actions profile-settings-actions">
-              <button
-                type="submit"
-                className="primary"
-                disabled={!controller.hasChanges || controller.saveBusy || controller.avatarAddBusy || controller.displayNameTooLong}
-              >
-                {controller.saveBusy ? "Saving..." : "Save settings"}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                disabled={!controller.hasChanges || controller.saveBusy || controller.avatarAddBusy}
-                onClick={controller.onReset}
-              >
-                Reset
-              </button>
-            </div>
-          </form>
+            onReset={controller.onReset}
+            onDisplayNameChange={controller.onDisplayNameChange}
+            onAvatarFileChange={controller.onAvatarFileChange}
+            onSelectAvatar={controller.onSelectAvatar}
+            onRemoveAvatar={controller.onRemoveAvatar}
+          />
         </section>
       </main>
 
