@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-25T01:32:48.326Z",
-  "latest_commit_sha": "6441fa81a60f44d2fd2901b1fd5ddc96b024beab",
+  "generated_at": "2026-02-25T02:58:12.108Z",
+  "latest_commit_sha": "a180d1ec6d786e0b3c7391af16ec03c917cb8ed5",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -814,7 +814,7 @@
     {
       "path": "src/App/routes/site-create/services/provisioning/content.ts",
       "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-      "LOC": 92
+      "LOC": 116
     },
     {
       "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
@@ -834,7 +834,7 @@
     {
       "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
       "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-      "LOC": 141
+      "LOC": 142
     },
     {
       "path": "src/App/routes/site-create/SiteCreateRoute.css",
@@ -909,7 +909,7 @@
     {
       "path": "src/App/services/image-processing/picsquish.ts",
       "description": "Shared picsquish-backed image variant processor that re-renders each reduction attempt from the original image and enforces caller-defined byte/dimension limits.",
-      "LOC": 261
+      "LOC": 295
     },
     {
       "path": "src/App/types/notice.ts",
@@ -959,7 +959,7 @@
     {
       "path": "src/templates/astro/runtime/components-SEO.astro.txt",
       "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-      "LOC": 71
+      "LOC": 69
     },
     {
       "path": "src/templates/astro/runtime/content-config.ts.txt",
@@ -969,17 +969,17 @@
     {
       "path": "src/templates/astro/runtime/layouts-Base.astro.txt",
       "description": "Raw snapshot of template `Base.astro` layout, upserted during publish so repositories consume markdown-backed site metadata.",
-      "LOC": 59
+      "LOC": 71
     },
     {
       "path": "src/templates/astro/runtime/pages-index.astro.txt",
       "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-      "LOC": 29
+      "LOC": 27
     },
     {
       "path": "src/templates/astro/runtime/pages-slug.astro.txt",
       "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-      "LOC": 31
+      "LOC": 29
     },
     {
       "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
