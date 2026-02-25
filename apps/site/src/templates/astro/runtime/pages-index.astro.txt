@@ -1,15 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
-import solidaryContent from "../content/solidary.md";
 import { parseSolidaryFrontmatter } from "../solidary-config/site";
 import { getEntry } from "astro:content";
 
-type MarkdownModule = { frontmatter?: Record<string, unknown> };
-
-const solidary = parseSolidaryFrontmatter((solidaryContent as MarkdownModule).frontmatter);
-const siteName = solidary.title || "Solidary Site";
-const siteDescription = solidary.description || "Solidary Site Description.";
-const siteUrl = solidary.url || "https://example.com";
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const siteName = solidary.title;
+const siteDescription = solidary.description;
+const siteUrl = solidary.url;
 
 const jsonLd = {
   "@context": "https://schema.org",

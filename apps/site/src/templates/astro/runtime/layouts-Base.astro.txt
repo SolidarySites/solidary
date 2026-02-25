@@ -3,16 +3,15 @@ import SEO from "../components/SEO.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import SkipLink from "../components/SkipLink.astro";
-import solidaryContent from "../content/solidary.md";
 import { parseSolidaryFrontmatter } from "../solidary-config/site";
 
 import "../styles/global.css";
 
-type MarkdownModule = { frontmatter?: Record<string, unknown> };
-const solidary = parseSolidaryFrontmatter((solidaryContent as MarkdownModule).frontmatter);
-const siteName = solidary.title || "Solidary Site";
-const siteDescription = solidary.description || "Solidary Site Description.";
-const siteUrl = solidary.url || "https://example.com";
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const siteName = solidary.title;
+const siteDescription = solidary.description;
+const siteUrl = solidary.url;
 
 const {
   title = siteName,

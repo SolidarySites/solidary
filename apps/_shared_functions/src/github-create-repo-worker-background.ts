@@ -225,8 +225,6 @@ function applyCreateFlowOverridesToTemplateFiles({
   files,
   owner,
   repo,
-  fallbackTitle,
-  fallbackDescription,
   siteId,
   siteTitle,
   siteDescription,
@@ -240,8 +238,6 @@ function applyCreateFlowOverridesToTemplateFiles({
   files: FileRecord[];
   owner: string;
   repo: string;
-  fallbackTitle: string;
-  fallbackDescription: string;
   siteId: string;
   siteTitle: string;
   siteDescription: string;
@@ -253,8 +249,14 @@ function applyCreateFlowOverridesToTemplateFiles({
   ogImageContentB64: string;
 }) {
   const resolvedSiteId = siteId || crypto.randomUUID();
-  const resolvedTitle = siteTitle || fallbackTitle;
-  const resolvedDescription = siteDescription || fallbackDescription;
+  const resolvedTitle = siteTitle.trim();
+  const resolvedDescription = siteDescription.trim();
+  if (!resolvedTitle) {
+    throw new Error("Create flow metadata is missing site title.");
+  }
+  if (!resolvedDescription) {
+    throw new Error("Create flow metadata is missing site description.");
+  }
   const siteUrl = resolveSiteUrlForRepo(owner, repo);
   const siteImageRelPath = siteImagePath ? normalizeRepoImagePath(siteImagePath, "Site image") : "";
   const siteImageThumbRelPath = siteImageThumbPath
@@ -1074,8 +1076,6 @@ export const handler: Handler = async (event) => {
       files: templateFiles,
       owner,
       repo,
-      fallbackTitle: name,
-      fallbackDescription: description,
       siteId,
       siteTitle,
       siteDescription,

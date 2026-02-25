@@ -1,13 +1,11 @@
 ---
 import Base from "../layouts/Base.astro";
-import solidaryContent from "../content/solidary.md";
 import { parseSolidaryFrontmatter } from "../solidary-config/site";
 import { getCollection } from "astro:content";
 
-type MarkdownModule = { frontmatter?: Record<string, unknown> };
-
-const solidary = parseSolidaryFrontmatter((solidaryContent as MarkdownModule).frontmatter);
-const siteDescription = solidary.description || "Solidary Site Description.";
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const siteDescription = solidary.description;
 
 export async function getStaticPaths() {
   const pages = await getCollection("pages");

@@ -1,15 +1,15 @@
 ---
-import solidaryContent from "../content/solidary.md";
 import headerContent from "../content/header.md";
 import { parseHeaderFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
 import { getCollection } from "astro:content";
 
 type MarkdownModule = { frontmatter?: Record<string, unknown> };
 
-const solidary = parseSolidaryFrontmatter((solidaryContent as MarkdownModule).frontmatter);
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
 const header = parseHeaderFrontmatter((headerContent as MarkdownModule).frontmatter);
 
-const { brand = solidary.title || "Solidary" } = Astro.props as { brand?: string };
+const { brand = solidary.title } = Astro.props as { brand?: string };
 const headerDisabled = header.disabled;
 const headerFixed = header.fixed;
 const headerBrandDisabled = header.disableBrand;
