@@ -21,8 +21,10 @@ type StartRepoProvisionBody = {
   site_image_storage_path?: string;
   site_image_content_b64?: string;
   site_image_thumb_path?: string;
+  site_image_thumb_storage_path?: string;
   site_image_thumb_content_b64?: string;
   og_image_path?: string;
+  og_image_storage_path?: string;
   og_image_content_b64?: string;
 };
 
@@ -51,12 +53,29 @@ const normalizeStoragePath = (pathValue: string) => {
   return normalized;
 };
 
-const getFilenameFromRepoPath = (pathValue: string) => {
+const getFilenameFromRepoPath = (pathValue: string, fallbackFilename: string) => {
   const filename = pathValue.trim().split("/").pop()?.trim() ?? "";
   if (!filename || filename === "." || filename === "..") {
-    return "site-image.jpg";
+    return fallbackFilename;
   }
   return filename;
+};
+
+const decodeImageBase64 = (value: string, label: string) => {
+  const normalizedB64 = value.replace(/^data:[^;]+;base64,/, "").trim();
+  if (!normalizedB64) {
+    throw new Error(`${label} base64 payload is empty.`);
+  }
+
+  const imageBuffer = Buffer.from(normalizedB64, "base64");
+  if (!imageBuffer.length) {
+    throw new Error(`${label} base64 payload could not be decoded.`);
+  }
+  if (imageBuffer.length > MAX_STAGED_SITE_IMAGE_BYTES) {
+    throw new Error(`${label} exceeds ${MAX_STAGED_SITE_IMAGE_BYTES} byte limit for create flow.`);
+  }
+
+  return imageBuffer;
 };
 
 const resolveOrigin = (event: Parameters<Handler>[0]) => {
@@ -108,8 +127,10 @@ export const handler: Handler = async (event) => {
   const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
   const siteImageContentB64 = body.site_image_content_b64?.trim();
   const siteImageThumbPath = body.site_image_thumb_path?.trim();
+  const rawSiteImageThumbStoragePath = body.site_image_thumb_storage_path?.trim();
   const siteImageThumbContentB64 = body.site_image_thumb_content_b64?.trim();
   const ogImagePath = body.og_image_path?.trim();
+  const rawOgImageStoragePath = body.og_image_storage_path?.trim();
   const ogImageContentB64 = body.og_image_content_b64?.trim();
 
   if (!name || !supabaseAccessToken) {
@@ -122,9 +143,12 @@ export const handler: Handler = async (event) => {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   let siteImageStoragePath = "";
-  const cleanupStagedSiteImage = async () => {
-    if (!siteImageStoragePath) return;
-    await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([siteImageStoragePath]);
+  let siteImageThumbStoragePath = "";
+  let ogImageStoragePath = "";
+  const stagedStoragePaths = new Set<string>();
+  const cleanupStagedSiteImages = async () => {
+    if (!stagedStoragePaths.size) return;
+    await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([...stagedStoragePaths]);
   };
 
   try {
@@ -163,31 +187,79 @@ export const handler: Handler = async (event) => {
           error: "site_image_storage_path must be scoped to the authenticated user."
         });
       }
+      stagedStoragePaths.add(siteImageStoragePath);
     }
 
-    if (siteImageContentB64 && !siteImageStoragePath) {
-      const normalizedB64 = siteImageContentB64.replace(/^data:[^;]+;base64,/, "").trim();
-      if (!normalizedB64) {
-        return safeJson(400, { error: "site_image_content_b64 is empty." });
-      }
-
-      const imageBuffer = Buffer.from(normalizedB64, "base64");
-      if (!imageBuffer.length) {
-        return safeJson(400, { error: "site_image_content_b64 could not be decoded." });
-      }
-      if (imageBuffer.length > MAX_STAGED_SITE_IMAGE_BYTES) {
+    if (rawSiteImageThumbStoragePath) {
+      try {
+        siteImageThumbStoragePath = normalizeStoragePath(rawSiteImageThumbStoragePath);
+      } catch (error) {
         return safeJson(400, {
-          error: `Site image exceeds ${MAX_STAGED_SITE_IMAGE_BYTES} byte limit for create flow.`
+          error:
+            error instanceof Error
+              ? `Invalid site_image_thumb_storage_path: ${error.message}`
+              : "Invalid site_image_thumb_storage_path."
         });
       }
 
-      const createSiteId = siteId && siteId.length > 0 ? siteId : crypto.randomUUID();
-      const filename = getFilenameFromRepoPath(siteImagePath ?? "");
-      siteImageStoragePath = `${user.id}/create-site/${createSiteId}/${filename}`;
+      if (!siteImageThumbStoragePath.startsWith(`${user.id}/`)) {
+        return safeJson(403, {
+          error: "site_image_thumb_storage_path must be scoped to the authenticated user."
+        });
+      }
+      stagedStoragePaths.add(siteImageThumbStoragePath);
+    }
 
+    if (rawOgImageStoragePath) {
+      try {
+        ogImageStoragePath = normalizeStoragePath(rawOgImageStoragePath);
+      } catch (error) {
+        return safeJson(400, {
+          error:
+            error instanceof Error
+              ? `Invalid og_image_storage_path: ${error.message}`
+              : "Invalid og_image_storage_path."
+        });
+      }
+
+      if (!ogImageStoragePath.startsWith(`${user.id}/`)) {
+        return safeJson(403, {
+          error: "og_image_storage_path must be scoped to the authenticated user."
+        });
+      }
+      stagedStoragePaths.add(ogImageStoragePath);
+    }
+
+    const createSiteStorageId = siteId && siteId.length > 0 ? siteId : crypto.randomUUID();
+    const stageImage = async ({
+      contentB64,
+      storagePath,
+      repoPath,
+      fallbackFilename,
+      label
+    }: {
+      contentB64: string | undefined;
+      storagePath: string;
+      repoPath: string | undefined;
+      fallbackFilename: string;
+      label: string;
+    }) => {
+      if (!contentB64 || storagePath) {
+        return storagePath;
+      }
+
+      let imageBuffer: Buffer;
+      try {
+        imageBuffer = decodeImageBase64(contentB64, label);
+      } catch (error) {
+        return safeJson(400, { error: error instanceof Error ? error.message : `${label} is invalid.` });
+      }
+
+      const filename = getFilenameFromRepoPath(repoPath ?? "", fallbackFilename);
+      const nextStoragePath = `${user.id}/create-site/${createSiteStorageId}/${filename}`;
       const { error: stageUploadError } = await supabase.storage
         .from(SITE_DRAFT_IMAGES_BUCKET)
-        .upload(siteImageStoragePath, imageBuffer, {
+        .upload(nextStoragePath, imageBuffer, {
           upsert: true,
           contentType: "image/jpeg"
         });
@@ -195,7 +267,49 @@ export const handler: Handler = async (event) => {
       if (stageUploadError) {
         return safeJson(500, { error: stageUploadError.message });
       }
+
+      stagedStoragePaths.add(nextStoragePath);
+      return nextStoragePath;
+    };
+
+    const stagedSiteImageResult = await stageImage({
+      contentB64: siteImageContentB64,
+      storagePath: siteImageStoragePath,
+      repoPath: siteImagePath,
+      fallbackFilename: "site-image.jpg",
+      label: "site_image_content_b64"
+    });
+    if (typeof stagedSiteImageResult !== "string") {
+      await cleanupStagedSiteImages();
+      return stagedSiteImageResult;
     }
+    siteImageStoragePath = stagedSiteImageResult;
+
+    const stagedThumbResult = await stageImage({
+      contentB64: siteImageThumbContentB64,
+      storagePath: siteImageThumbStoragePath,
+      repoPath: siteImageThumbPath,
+      fallbackFilename: "site-image_thumb.jpg",
+      label: "site_image_thumb_content_b64"
+    });
+    if (typeof stagedThumbResult !== "string") {
+      await cleanupStagedSiteImages();
+      return stagedThumbResult;
+    }
+    siteImageThumbStoragePath = stagedThumbResult;
+
+    const stagedOgResult = await stageImage({
+      contentB64: ogImageContentB64,
+      storagePath: ogImageStoragePath,
+      repoPath: ogImagePath,
+      fallbackFilename: "og-home.jpg",
+      label: "og_image_content_b64"
+    });
+    if (typeof stagedOgResult !== "string") {
+      await cleanupStagedSiteImages();
+      return stagedOgResult;
+    }
+    ogImageStoragePath = stagedOgResult;
 
     const { data: job, error: insertError } = await supabase
       .from("repo_provision_jobs")
@@ -208,7 +322,7 @@ export const handler: Handler = async (event) => {
       .single();
 
     if (insertError || !job?.id) {
-      await cleanupStagedSiteImage();
+      await cleanupStagedSiteImages();
       return safeJson(500, {
         error: insertError?.message ?? "Failed to create provisioning job."
       });
@@ -238,9 +352,11 @@ export const handler: Handler = async (event) => {
           siteImagePath,
           siteImageStoragePath,
           siteImageThumbPath,
-          siteImageThumbContentB64,
+          siteImageThumbStoragePath,
+          siteImageThumbContentB64: siteImageThumbStoragePath ? undefined : siteImageThumbContentB64,
           ogImagePath,
-          ogImageContentB64
+          ogImageStoragePath,
+          ogImageContentB64: ogImageStoragePath ? undefined : ogImageContentB64
         })
       });
     } catch (error) {
@@ -256,7 +372,7 @@ export const handler: Handler = async (event) => {
         })
         .eq("id", job.id)
         .eq("owner_user_id", user.id);
-      await cleanupStagedSiteImage();
+      await cleanupStagedSiteImages();
 
       return safeJson(500, { error: dispatchMessage });
     }
@@ -288,7 +404,7 @@ export const handler: Handler = async (event) => {
         })
         .eq("id", job.id)
         .eq("owner_user_id", user.id);
-      await cleanupStagedSiteImage();
+      await cleanupStagedSiteImages();
 
       return safeJson(500, { error: dispatchMessage });
     }
@@ -301,7 +417,7 @@ export const handler: Handler = async (event) => {
       }
     });
   } catch (error) {
-    await cleanupStagedSiteImage();
+    await cleanupStagedSiteImages();
     return safeJson(500, {
       error: error instanceof Error ? error.message : "Unknown error"
     });

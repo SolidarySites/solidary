@@ -83,8 +83,10 @@ type ProvisionWorkerBody = {
   siteImageStoragePath?: string;
   siteImageContentB64?: string;
   siteImageThumbPath?: string;
+  siteImageThumbStoragePath?: string;
   siteImageThumbContentB64?: string;
   ogImagePath?: string;
+  ogImageStoragePath?: string;
   ogImageContentB64?: string;
 };
 
@@ -867,6 +869,8 @@ export const handler: Handler = async (event) => {
   const legacyToken = payload.token?.trim() ?? "";
   const parsedName = payload.name?.trim() ?? "";
   const rawSiteImageStoragePath = payload.siteImageStoragePath?.trim() ?? "";
+  const rawSiteImageThumbStoragePath = payload.siteImageThumbStoragePath?.trim() ?? "";
+  const rawOgImageStoragePath = payload.ogImageStoragePath?.trim() ?? "";
 
   if (!jobId || !ownerUserId || !parsedName) {
     return safeJson(400, {
@@ -875,6 +879,8 @@ export const handler: Handler = async (event) => {
   }
 
   let siteImageStoragePath = "";
+  let siteImageThumbStoragePath = "";
+  let ogImageStoragePath = "";
   if (rawSiteImageStoragePath) {
     try {
       siteImageStoragePath = normalizeStoragePath(rawSiteImageStoragePath);
@@ -887,6 +893,36 @@ export const handler: Handler = async (event) => {
     if (!siteImageStoragePath.startsWith(`${ownerUserId}/`)) {
       return safeJson(403, {
         error: "siteImageStoragePath must be scoped to the job owner."
+      });
+    }
+  }
+  if (rawSiteImageThumbStoragePath) {
+    try {
+      siteImageThumbStoragePath = normalizeStoragePath(rawSiteImageThumbStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid siteImageThumbStoragePath."
+      });
+    }
+
+    if (!siteImageThumbStoragePath.startsWith(`${ownerUserId}/`)) {
+      return safeJson(403, {
+        error: "siteImageThumbStoragePath must be scoped to the job owner."
+      });
+    }
+  }
+  if (rawOgImageStoragePath) {
+    try {
+      ogImageStoragePath = normalizeStoragePath(rawOgImageStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid ogImageStoragePath."
+      });
+    }
+
+    if (!ogImageStoragePath.startsWith(`${ownerUserId}/`)) {
+      return safeJson(403, {
+        error: "ogImageStoragePath must be scoped to the job owner."
       });
     }
   }
@@ -943,14 +979,30 @@ export const handler: Handler = async (event) => {
     const siteImageThumbPath = payload.siteImageThumbPath?.trim() ?? "";
     const ogImagePath = payload.ogImagePath?.trim() ?? "";
     const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
-    const siteImageThumbContentB64 = payload.siteImageThumbContentB64?.trim() ?? "";
-    const ogImageContentB64 = payload.ogImageContentB64?.trim() ?? "";
+    const siteImageThumbContentB64Raw = payload.siteImageThumbContentB64?.trim() ?? "";
+    const ogImageContentB64Raw = payload.ogImageContentB64?.trim() ?? "";
     const siteImageContentB64 =
       siteImageContentB64Raw ||
       (siteImageStoragePath
         ? await loadStagedSiteImageContentB64({
             supabase,
             storagePath: siteImageStoragePath
+          })
+        : "");
+    const siteImageThumbContentB64 =
+      siteImageThumbContentB64Raw ||
+      (siteImageThumbStoragePath
+        ? await loadStagedSiteImageContentB64({
+            supabase,
+            storagePath: siteImageThumbStoragePath
+          })
+        : "");
+    const ogImageContentB64 =
+      ogImageContentB64Raw ||
+      (ogImageStoragePath
+        ? await loadStagedSiteImageContentB64({
+            supabase,
+            storagePath: ogImageStoragePath
           })
         : "");
 
@@ -1162,10 +1214,13 @@ export const handler: Handler = async (event) => {
       jobId
     });
   } finally {
-    if (siteImageStoragePath) {
+    for (const storagePath of [siteImageStoragePath, siteImageThumbStoragePath, ogImageStoragePath]) {
+      if (!storagePath) {
+        continue;
+      }
       await cleanupStagedSiteImage({
         supabase,
-        storagePath: siteImageStoragePath
+        storagePath
       });
     }
   }
