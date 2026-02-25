@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-21T03:02:15.000Z",
-  "latest_commit_sha": "5667f7e31308251c31e68eaa78499a42640d6b71",
+  "generated_at": "2026-02-24T23:08:48.000Z",
+  "latest_commit_sha": "af5f3313f02269414ced8045da913cf17b75db44",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -194,7 +194,11 @@
     },
     {
       "path": "src/templates/astro",
-      "description": "Astro scaffold templates with placeholder tokens for site metadata, pages, protocol file, and design tokens."
+      "description": "Astro scaffold templates with markdown frontmatter content files, protocol metadata template, design tokens, and runtime template snapshots."
+    },
+    {
+      "path": "src/templates/astro/runtime",
+      "description": "Raw copies of Astro runtime files that are upserted during builder publish to migrate repos to the latest template layout/config architecture."
     }
   ],
   "files": [
@@ -216,7 +220,7 @@
     {
       "path": "STRUCTURE.json",
       "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 887
+      "LOC": 961
     },
     {
       "path": "eslint.config.js",
@@ -300,8 +304,13 @@
     },
     {
       "path": "src/App/features/site-draft/services/astro-builders.ts",
-      "description": "Template-based builders that render `site.ts` and page markdown files by injecting normalized settings/page values into Astro templates.",
-      "LOC": 29
+      "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
+      "LOC": 39
+    },
+    {
+      "path": "src/App/features/site-draft/services/astro-builders.test.ts",
+      "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
+      "LOC": 65
     },
     {
       "path": "src/App/features/site-draft/services/solidary.test.ts",
@@ -570,8 +579,8 @@
     },
     {
       "path": "src/App/routes/site-builder/services/build-files.ts",
-      "description": "Builds publishable repository file set (site config, tokens, solidary metadata, and page markdown) from current builder state.",
-      "LOC": 208
+      "description": "Builds publishable repository file set (markdown content files, runtime template upserts, tokens, solidary metadata, and page markdown) from current builder state.",
+      "LOC": 224
     },
     {
       "path": "src/App/routes/site-builder/services/collaborators.test.ts",
@@ -585,8 +594,8 @@
     },
     {
       "path": "src/App/routes/site-builder/services/constants.ts",
-      "description": "Shared builder file-path constants for generated site config, tokens, solidary metadata, and page content paths.",
-      "LOC": 8
+      "description": "Shared builder file-path constants for generated markdown content files, runtime template paths, tokens, solidary metadata, and page content paths.",
+      "LOC": 22
     },
     {
       "path": "src/App/routes/site-builder/services/draft-utils.ts",
@@ -615,8 +624,13 @@
     },
     {
       "path": "src/App/routes/site-builder/services/publish/editor-helpers.ts",
-      "description": "Editor-publish helpers for building touched-file diffs, creating collaboration PRs, and loading latest touched state from Supabase.",
-      "LOC": 134
+      "description": "Editor-publish helpers for building touched-file diffs across markdown content/runtime templates, creating collaboration PRs, and loading latest touched state from Supabase.",
+      "LOC": 155
+    },
+    {
+      "path": "src/App/routes/site-builder/services/publish/editor-helpers.test.ts",
+      "description": "Unit tests for editor touched-file mapping, including metadata/runtime upserts and page-only touched filtering behavior.",
+      "LOC": 67
     },
     {
       "path": "src/App/routes/site-builder/services/publish/index.ts",
@@ -829,19 +843,79 @@
       "LOC": 10
     },
     {
+      "path": "src/templates/astro/footer.md",
+      "description": "Parameterized markdown footer template used to generate `src/content/footer.md` with frontmatter-driven footer settings/modules.",
+      "LOC": 5
+    },
+    {
+      "path": "src/templates/astro/header.md",
+      "description": "Parameterized markdown header template used to generate `src/content/header.md` with frontmatter-driven header settings.",
+      "LOC": 6
+    },
+    {
       "path": "src/templates/astro/page.md",
       "description": "Parameterized markdown page template used when creating draft-backed content pages.",
       "LOC": 8
     },
     {
-      "path": "src/templates/astro/site.ts",
-      "description": "Parameterized Astro site-config template used to generate `src/content/site.ts` for new repositories.",
-      "LOC": 47
+      "path": "src/templates/astro/runtime-files.ts",
+      "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
+      "LOC": 21
+    },
+    {
+      "path": "src/templates/astro/runtime/components-Footer.astro.txt",
+      "description": "Raw snapshot of template `Footer.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+      "LOC": 165
+    },
+    {
+      "path": "src/templates/astro/runtime/components-Header.astro.txt",
+      "description": "Raw snapshot of template `Header.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+      "LOC": 84
+    },
+    {
+      "path": "src/templates/astro/runtime/components-SEO.astro.txt",
+      "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+      "LOC": 71
+    },
+    {
+      "path": "src/templates/astro/runtime/content-config.ts.txt",
+      "description": "Raw snapshot of template `src/content.config.ts` collection config entrypoint used by publish runtime upserts.",
+      "LOC": 9
+    },
+    {
+      "path": "src/templates/astro/runtime/layouts-Base.astro.txt",
+      "description": "Raw snapshot of template `Base.astro` layout, upserted during publish so repositories consume markdown-backed site metadata.",
+      "LOC": 59
+    },
+    {
+      "path": "src/templates/astro/runtime/pages-index.astro.txt",
+      "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
+      "LOC": 29
+    },
+    {
+      "path": "src/templates/astro/runtime/pages-slug.astro.txt",
+      "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
+      "LOC": 31
+    },
+    {
+      "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
+      "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
+      "LOC": 102
+    },
+    {
+      "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
+      "description": "Raw snapshot of template `solidary-config/solidary.ts` protocol mapping contract file, upserted during publish.",
+      "LOC": 22
     },
     {
       "path": "src/templates/astro/solidary-links.json",
       "description": "Parameterized Solidary protocol metadata template written to `.well-known/solidary-links.json`.",
       "LOC": 8
+    },
+    {
+      "path": "src/templates/astro/solidary.md",
+      "description": "Parameterized markdown site metadata template used to generate `src/content/solidary.md` frontmatter.",
+      "LOC": 7
     },
     {
       "path": "src/templates/astro/tokens.css",

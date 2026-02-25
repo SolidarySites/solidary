@@ -1,6 +1,12 @@
-import { buildPageMarkdown, buildSiteTs } from "../../../features/site-draft/services/astro-builders";
+import {
+  buildFooterMarkdown,
+  buildHeaderMarkdown,
+  buildPageMarkdown,
+  buildSolidaryMarkdown
+} from "../../../features/site-draft/services/astro-builders";
 import type { RepoFileSet } from "../../../features/site-draft/types";
-import { FILE_KEYS, PAGE_PATH_PREFIX } from "./constants";
+import { RUNTIME_TEMPLATE_FILES } from "../../../../templates/astro/runtime-files";
+import { FILE_KEYS, PAGE_PATH_PREFIX, TEMPLATE_RUNTIME_FILE_PATHS } from "./constants";
 import type { BuilderPage, FooterOptions, HeaderOptions } from "./types";
 import { getPageSafeSlug } from "./utils";
 
@@ -179,8 +185,18 @@ export const buildFiles = ({
 }: BuildFilesInput) => {
   const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
   const publishBasePath = getBasePathFromSiteUrl(settings.siteUrl);
+  const runtimeTemplateFiles: RepoFileSet = {};
+  TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+    const content = RUNTIME_TEMPLATE_FILES[path];
+    if (!content) return;
+    runtimeTemplateFiles[path] = content;
+  });
+
   const files: RepoFileSet = {
-    [FILE_KEYS.site]: buildSiteTs(settings),
+    ...runtimeTemplateFiles,
+    [FILE_KEYS.solidaryContent]: buildSolidaryMarkdown(settings),
+    [FILE_KEYS.headerContent]: buildHeaderMarkdown(settings),
+    [FILE_KEYS.footerContent]: buildFooterMarkdown(settings),
     [FILE_KEYS.tokens]: tokensCss,
     [FILE_KEYS.solidary]: buildSolidaryFile({
       templateSolidary,

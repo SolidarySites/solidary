@@ -19,59 +19,12 @@ const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
 const EXCLUDE_FILES = new Set<string>([".DS_Store"]);
-const SITE_FILE_REL_PATH = "src/content/site.ts";
+const SOLIDARY_CONTENT_FILE_REL_PATH = "src/content/solidary.md";
+const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";
+const FOOTER_CONTENT_FILE_REL_PATH = "src/content/footer.md";
 const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary-links.json";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
 const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-default.jpg";
-
-const SITE_TS_TEMPLATE = `// src/content/site.ts
-export type SiteConfig = {
-  name: string;
-  description: string;
-  url: string;
-  seo: {
-    ogImage?: string;
-    robots: string;
-  };
-  header: {
-    disabled: boolean;
-    fixed: boolean;
-    brandText: string;
-    disableBrand: boolean;
-  };
-  footer: {
-    disabled: boolean;
-    fixed: boolean;
-    modules: Array<{
-      content: string;
-      alignment: "left" | "center" | "right";
-    }>;
-  };
-};
-
-const parseTemplateBoolean = (value: string) => value === "true";
-
-export const site: SiteConfig = {
-  name: "{{TITLE}}",
-  description: "{{DESCRIPTION}}",
-  url: "{{SITE_URL}}",
-  seo: {
-    ogImage: "{{OG_IMAGE}}",
-    robots: "index,follow"
-  },
-  header: {
-    disabled: parseTemplateBoolean("{{HEADER_DISABLED}}"),
-    fixed: parseTemplateBoolean("{{HEADER_FIXED}}"),
-    brandText: "{{HEADER_BRAND_TEXT}}",
-    disableBrand: parseTemplateBoolean("{{HEADER_DISABLE_BRAND}}")
-  },
-  footer: {
-    disabled: parseTemplateBoolean("{{FOOTER_DISABLED}}"),
-    fixed: parseTemplateBoolean("{{FOOTER_FIXED}}"),
-    modules: JSON.parse("{{FOOTER_MODULES}}")
-  }
-};
-`;
 
 const SOLIDARY_LINKS_TEMPLATE = `{
   "protocol_version": "1.0",
@@ -194,30 +147,46 @@ const normalizeStoragePath = (pathValue: string) => {
   return normalized;
 };
 
-function renderSiteTs({
-  title,
-  description,
-  siteUrl,
-  imageUrl
+const formatFrontmatterValue = (value: unknown) => JSON.stringify(value);
+
+const renderFrontmatter = (updates: Record<string, unknown>) =>
+  Object.entries(updates)
+    .map(([key, value]) => `${key}: ${formatFrontmatterValue(value)}`)
+    .join("\n");
+
+const replaceFrontmatterFields = (content: string, updates: Record<string, unknown>) => {
+  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---([\s\S]*)$/);
+  if (!match) {
+    throw new Error("Template markdown file is missing a frontmatter block.");
+  }
+
+  const body = match[2] ?? "\n";
+  const normalizedBody = body.startsWith("\n") || body.startsWith("\r\n") ? body : `\n${body}`;
+
+  return `---\n${renderFrontmatter(updates)}\n---${normalizedBody}`;
+};
+
+const updateTemplateMarkdownFrontmatter = ({
+  filesByPath,
+  relPath,
+  updates
 }: {
-  title: string;
-  description: string;
-  siteUrl: string;
-  imageUrl: string;
-}) {
-  return SITE_TS_TEMPLATE
-    .replaceAll("{{TITLE}}", escapeTemplateValue(title))
-    .replaceAll("{{DESCRIPTION}}", escapeTemplateValue(description))
-    .replaceAll("{{SITE_URL}}", escapeTemplateValue(siteUrl))
-    .replaceAll("{{OG_IMAGE}}", escapeTemplateValue(imageUrl))
-    .replaceAll("{{HEADER_DISABLED}}", "false")
-    .replaceAll("{{HEADER_FIXED}}", "false")
-    .replaceAll("{{HEADER_BRAND_TEXT}}", escapeTemplateValue(title))
-    .replaceAll("{{HEADER_DISABLE_BRAND}}", "false")
-    .replaceAll("{{FOOTER_DISABLED}}", "false")
-    .replaceAll("{{FOOTER_FIXED}}", "false")
-    .replaceAll("{{FOOTER_MODULES}}", escapeTemplateValue(JSON.stringify(DEFAULT_FOOTER_MODULES)));
-}
+  filesByPath: Map<string, FileRecord>;
+  relPath: string;
+  updates: Record<string, unknown>;
+}) => {
+  const current = filesByPath.get(relPath);
+  if (!current) {
+    throw new Error(`Template file missing: ${relPath}`);
+  }
+
+  const source = Buffer.from(current.contentB64, "base64").toString("utf8");
+  const rendered = replaceFrontmatterFields(source, updates);
+  filesByPath.set(relPath, {
+    ...current,
+    contentB64: Buffer.from(rendered, "utf8").toString("base64")
+  });
+};
 
 function renderSolidaryLinksFile({
   siteId,
@@ -275,18 +244,34 @@ function applyCreateFlowOverridesToTemplateFiles({
 
   const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
 
-  nextByPath.set(SITE_FILE_REL_PATH, {
-    relPath: SITE_FILE_REL_PATH,
-    mode: "100644",
-    contentB64: Buffer.from(
-      renderSiteTs({
-        title: resolvedTitle,
-        description: resolvedDescription,
-        siteUrl,
-        imageUrl
-      }),
-      "utf8"
-    ).toString("base64")
+  updateTemplateMarkdownFrontmatter({
+    filesByPath: nextByPath,
+    relPath: SOLIDARY_CONTENT_FILE_REL_PATH,
+    updates: {
+      title: resolvedTitle,
+      description: resolvedDescription,
+      url: siteUrl,
+      ogImage: imageUrl
+    }
+  });
+  updateTemplateMarkdownFrontmatter({
+    filesByPath: nextByPath,
+    relPath: HEADER_CONTENT_FILE_REL_PATH,
+    updates: {
+      disabled: false,
+      fixed: false,
+      brandText: resolvedTitle,
+      disableBrand: false
+    }
+  });
+  updateTemplateMarkdownFrontmatter({
+    filesByPath: nextByPath,
+    relPath: FOOTER_CONTENT_FILE_REL_PATH,
+    updates: {
+      disabled: false,
+      fixed: false,
+      modules: DEFAULT_FOOTER_MODULES
+    }
   });
 
   nextByPath.set(SOLIDARY_FILE_REL_PATH, {

@@ -1,5 +1,10 @@
 import { supabase } from "../../../../lib/supabase";
-import { FILE_KEYS, PAGE_PATH_PREFIX, PAGE_PATH_SUFFIX } from "../constants";
+import {
+  FILE_KEYS,
+  PAGE_PATH_PREFIX,
+  PAGE_PATH_SUFFIX,
+  TEMPLATE_RUNTIME_FILE_PATHS
+} from "../constants";
 import type { BuilderEditableSectionKey, BuilderPage } from "../types";
 import { getPageSafeSlug } from "../utils";
 import { normalizeEditorTouchedSections, normalizeSlugSet } from "./shared";
@@ -20,13 +25,29 @@ export const buildEditorFileChanges = ({
   const upsertsByPath = new Map<string, string>();
   if (touchedSections.has("metadata")) {
     const solidaryFile = files[FILE_KEYS.solidary];
-    const siteFile = files[FILE_KEYS.site];
+    const solidaryContentFile = files[FILE_KEYS.solidaryContent];
     if (solidaryFile) upsertsByPath.set(FILE_KEYS.solidary, solidaryFile);
-    if (siteFile) upsertsByPath.set(FILE_KEYS.site, siteFile);
+    if (solidaryContentFile) upsertsByPath.set(FILE_KEYS.solidaryContent, solidaryContentFile);
+    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+      const runtimeContent = files[path];
+      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
+    });
   }
-  if (touchedSections.has("header") || touchedSections.has("footer")) {
-    const siteFile = files[FILE_KEYS.site];
-    if (siteFile) upsertsByPath.set(FILE_KEYS.site, siteFile);
+  if (touchedSections.has("header")) {
+    const headerFile = files[FILE_KEYS.headerContent];
+    if (headerFile) upsertsByPath.set(FILE_KEYS.headerContent, headerFile);
+    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+      const runtimeContent = files[path];
+      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
+    });
+  }
+  if (touchedSections.has("footer")) {
+    const footerFile = files[FILE_KEYS.footerContent];
+    if (footerFile) upsertsByPath.set(FILE_KEYS.footerContent, footerFile);
+    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+      const runtimeContent = files[path];
+      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
+    });
   }
   if (touchedSections.has("styles")) {
     const tokensFile = files[FILE_KEYS.tokens];
