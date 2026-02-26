@@ -66,10 +66,13 @@ export const useStudioSettingsRouteController = () => {
   const bodyClassName = controller.bodyClassName.includes("is-settings-full")
     ? controller.bodyClassName
     : `${controller.bodyClassName} is-settings-full`.trim();
+  const showContentLoadingPlaceholder =
+    controller.previewPanelProps.shouldLoadDraft && controller.previewPanelProps.isDraftLoading;
 
   return {
     ...controller,
     bodyClassName,
+    showContentLoadingPlaceholder,
     settingsTopbarProps: {
       activeSection,
       sectionButtons,

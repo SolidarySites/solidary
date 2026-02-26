@@ -13,7 +13,18 @@ export default function StudioSettingsRoute() {
 
       <div className={controller.bodyClassName}>
         <section className="builder-settings-full">
-          <BuilderContentSection {...controller.contentSectionProps} />
+          {controller.showContentLoadingPlaceholder ? (
+            <div className="studio-settings-loading" role="status" aria-live="polite">
+              <p className="studio-settings-loading-label">Loading site settings...</p>
+              <div className="studio-settings-loading-grid" aria-hidden="true">
+                <div className="studio-settings-loading-block" />
+                <div className="studio-settings-loading-block" />
+                <div className="studio-settings-loading-block" />
+              </div>
+            </div>
+          ) : (
+            <BuilderContentSection {...controller.contentSectionProps} />
+          )}
         </section>
       </div>
 
