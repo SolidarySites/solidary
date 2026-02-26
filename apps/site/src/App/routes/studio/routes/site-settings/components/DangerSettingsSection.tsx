@@ -4,8 +4,14 @@ type DangerSettingsSectionProps = {
   ownerAccess: boolean;
   siteUrl: string;
   domainActionBusy?: "none" | "github";
+  domainDnsFeedback?: {
+    domain: string;
+    status: "valid" | "invalid" | "pending";
+    message: string;
+  } | null;
   onStudioOnlyDomainUpdate?: (value: string) => void;
   onConnectGithubDomain?: (value: string) => void;
+  onRecheckGithubDomain?: (value: string) => void;
   canDeleteSite?: boolean;
   deleteMode?: "builder" | "github" | null;
   deleteConfirmText?: string;
@@ -29,8 +35,10 @@ const DangerSettingsSection = ({
   ownerAccess,
   siteUrl,
   domainActionBusy = "none",
+  domainDnsFeedback = null,
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
+  onRecheckGithubDomain,
   canDeleteSite = false,
   deleteMode = null,
   deleteConfirmText = "",
@@ -41,21 +49,25 @@ const DangerSettingsSection = ({
   onDeleteReset,
   onDeleteConfirm
 }: DangerSettingsSectionProps) => {
-  const [domainInput, setDomainInput] = useState(siteUrl);
+  const [connectDomainInput, setConnectDomainInput] = useState(siteUrl);
+  const [studioOnlyDomainInput, setStudioOnlyDomainInput] = useState(siteUrl);
 
   useEffect(() => {
-    setDomainInput(siteUrl);
+    setConnectDomainInput(siteUrl);
+    setStudioOnlyDomainInput(siteUrl);
   }, [siteUrl]);
 
-  const normalizedDomain = normalizeDomainInput(domainInput);
-  const hasDomainValue = Boolean(normalizedDomain);
+  const normalizedConnectDomain = normalizeDomainInput(connectDomainInput);
+  const hasConnectDomainValue = Boolean(normalizedConnectDomain);
+  const normalizedStudioOnlyDomain = normalizeDomainInput(studioOnlyDomainInput);
+  const hasStudioOnlyDomainValue = Boolean(normalizedStudioOnlyDomain);
   const domainActionsBusy = domainActionBusy !== "none";
 
   return (
     <div className="builder-section builder-advanced-section">
       <div className="section-header">
         <h2>Advanced</h2>
-        <p>Manage custom domain behavior and destructive site actions.</p>
+        <p>Manage custom domains and destructive site actions.</p>
       </div>
 
       {!ownerAccess && (
@@ -66,46 +78,88 @@ const DangerSettingsSection = ({
 
       {ownerAccess && (
         <div className="builder-advanced-domain-panel">
-          <h3>Domain</h3>
+          <h3>Connect Custom Domain</h3>
           <p>
-            Update your domain in Studio, then optionally sync it to GitHub Pages as a custom
-            domain.
+            Before connecting, set these A records for your apex domain at your DNS provider:
+          </p>
+          <ul className="builder-advanced-domain-records">
+            <li><code>185.199.108.153</code></li>
+            <li><code>185.199.109.153</code></li>
+            <li><code>185.199.110.153</code></li>
+            <li><code>185.199.111.153</code></li>
+          </ul>
+          <p className="builder-collaborator-hint">
+            Full setup docs:{" "}
+            <a
+              href="https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub Pages custom domain guide
+            </a>
+          </p>
+          <p className="builder-advanced-warning">
+            Warning: Do not connect the domain until DNS records are configured with your domain
+            provider.
           </p>
           <label className="builder-delete-site-label">
             Domain
             <input
-              value={domainInput}
-              onChange={(event) => setDomainInput(event.target.value)}
+              value={connectDomainInput}
+              onChange={(event) => setConnectDomainInput(event.target.value)}
               placeholder="example.com"
               spellCheck={false}
             />
           </label>
+          <button
+            type="button"
+            className="primary"
+            disabled={!hasConnectDomainValue || domainActionsBusy || deleteBusy}
+            onClick={() => onConnectGithubDomain?.(connectDomainInput)}
+          >
+            {domainActionBusy === "github" ? "Checking..." : "CONNECT CUSTOM DOMAIN"}
+          </button>
 
-          <p className="builder-advanced-warning">
-            Warning: If this domain is changed without external DNS/domain management in place,
-            your published site and Solidary Studio site builder will stop working.
-          </p>
+          {domainDnsFeedback && (
+            <div className="builder-advanced-dns-feedback">
+              <p>{domainDnsFeedback.message}</p>
+              <button
+                type="button"
+                className="ghost"
+                disabled={domainActionsBusy || deleteBusy}
+                onClick={() => onRecheckGithubDomain?.(domainDnsFeedback.domain)}
+              >
+                {domainActionBusy === "github" ? "Rechecking..." : "Recheck DNS"}
+              </button>
+            </div>
+          )}
 
-          <div className="builder-delete-site-options">
-            <button
-              type="button"
-              className="ghost"
-              disabled={!hasDomainValue || domainActionsBusy || deleteBusy}
-              onClick={() => onStudioOnlyDomainUpdate?.(domainInput)}
-            >
-              Use in Studio only
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={!hasDomainValue || domainActionsBusy || deleteBusy}
-              onClick={() => onConnectGithubDomain?.(domainInput)}
-            >
-              {domainActionBusy === "github"
-                ? "Connecting..."
-                : "Connect on GitHub Pages + Studio"}
-            </button>
-          </div>
+          <details className="builder-advanced-dropdown">
+            <summary>Advanced</summary>
+            <div className="builder-advanced-dropdown-body">
+              <label className="builder-delete-site-label">
+                Studio-only domain override
+                <input
+                  value={studioOnlyDomainInput}
+                  onChange={(event) => setStudioOnlyDomainInput(event.target.value)}
+                  placeholder="external-hosted.example.com"
+                  spellCheck={false}
+                />
+              </label>
+              <p className="builder-advanced-warning">
+                Warning: This only updates Solidary Studio. If your site is not hosted elsewhere
+                (outside GitHub Pages), the site will break.
+              </p>
+              <button
+                type="button"
+                className="ghost"
+                disabled={!hasStudioOnlyDomainValue || domainActionsBusy || deleteBusy}
+                onClick={() => onStudioOnlyDomainUpdate?.(studioOnlyDomainInput)}
+              >
+                Update Studio Domain Only
+              </button>
+            </div>
+          </details>
         </div>
       )}
 

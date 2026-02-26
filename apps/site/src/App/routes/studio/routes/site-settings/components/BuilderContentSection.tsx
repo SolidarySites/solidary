@@ -34,11 +34,17 @@ type BuilderContentSectionProps = {
   deleteBusy?: boolean;
   deleteRepoFullName?: string;
   domainActionBusy?: "none" | "github";
+  domainDnsFeedback?: {
+    domain: string;
+    status: "valid" | "invalid" | "pending";
+    message: string;
+  } | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
   onStudioOnlyDomainUpdate?: (value: string) => void;
   onConnectGithubDomain?: (value: string) => void;
+  onRecheckGithubDomain?: (value: string) => void;
   onCollaboratorQueryChange: (value: string) => void;
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
@@ -76,11 +82,13 @@ const BuilderContentSection = ({
   deleteBusy = false,
   deleteRepoFullName = "",
   domainActionBusy = "none",
+  domainDnsFeedback = null,
   onSiteTitleChange,
   onSiteDescriptionChange,
   onSiteImageChange,
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
+  onRecheckGithubDomain,
   onCollaboratorQueryChange,
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
@@ -141,8 +149,10 @@ const BuilderContentSection = ({
           ownerAccess={ownerAccess}
           siteUrl={siteUrl}
           domainActionBusy={domainActionBusy}
+          domainDnsFeedback={domainDnsFeedback}
           onStudioOnlyDomainUpdate={onStudioOnlyDomainUpdate}
           onConnectGithubDomain={onConnectGithubDomain}
+          onRecheckGithubDomain={onRecheckGithubDomain}
           canDeleteSite={canDeleteSite}
           deleteMode={deleteMode}
           deleteConfirmText={deleteConfirmText}

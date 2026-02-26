@@ -54,11 +54,22 @@ type UseSiteBuilderRouteControllerOptions = {
 
 type SiteDeleteMode = "builder" | "github";
 type DomainActionMode = "github";
+type DomainDnsFeedbackStatus = "valid" | "invalid" | "pending";
+type DomainDnsFeedbackState = {
+  domain: string;
+  status: DomainDnsFeedbackStatus;
+  message: string;
+};
 type GitHubPagesDomainResponse = {
+  domain?: string;
   pagesUrl?: string;
   pages?: {
     html_url?: string;
     cname?: string;
+  };
+  dns?: {
+    status?: DomainDnsFeedbackStatus;
+    message?: string;
   };
 };
 
@@ -129,6 +140,7 @@ export const useSiteBuilderRouteController = ({
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [domainActionBusy, setDomainActionBusy] = useState<DomainActionMode | "none">("none");
+  const [domainDnsFeedback, setDomainDnsFeedback] = useState<DomainDnsFeedbackState | null>(null);
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const hasInitializedHeaderBrand = useRef(false);
@@ -314,6 +326,7 @@ export const useSiteBuilderRouteController = ({
     setDeleteConfirmText("");
     setDeleteBusy(false);
     setDomainActionBusy("none");
+    setDomainDnsFeedback(null);
   }, [draftState?.siteId]);
 
   const { startPublishStatusTracking, cancelPublishStatusTracking } = usePublishStatusTracking({
@@ -688,15 +701,107 @@ export const useSiteBuilderRouteController = ({
     }
 
     setSiteUrl(normalizedDomain);
+    setDomainDnsFeedback(null);
     setNotice(
-      "Domain updated in Studio only. Save draft and publish when your external DNS/domain management is ready."
+      "Studio domain updated only. Do this only if the site is hosted outside GitHub Pages."
     );
     setNoticeKind("notice");
+  };
+
+  const applyDomainConnectResult = ({
+    requestedDomain,
+    result
+  }: {
+    requestedDomain: string;
+    result: GitHubPagesDomainResponse;
+  }) => {
+    const resolvedDomain = normalizeCustomDomainInput(result.domain ?? requestedDomain);
+    const dnsStatus = result.dns?.status ?? "pending";
+    const dnsMessage = result.dns?.message?.trim() ?? "";
+
+    if (dnsStatus === "valid") {
+      setDomainDnsFeedback(null);
+      setSiteUrl(resolvedDomain);
+      const pagesUrl = result.pagesUrl?.trim() || result.pages?.html_url?.trim() || "";
+      setNotice(
+        pagesUrl
+          ? `Custom domain connected. DNS checks passed and Studio was updated to ${resolvedDomain}. Live URL: ${pagesUrl}`
+          : `Custom domain connected. DNS checks passed and Studio was updated to ${resolvedDomain}.`
+      );
+      setNoticeKind("notice");
+      return;
+    }
+
+    const fallbackMessage =
+      dnsStatus === "pending"
+        ? `GitHub is still checking DNS for ${resolvedDomain}.`
+        : `DNS records for ${resolvedDomain} do not look correct yet.`;
+    const message = dnsMessage || fallbackMessage;
+
+    setDomainDnsFeedback({
+      domain: resolvedDomain,
+      status: dnsStatus,
+      message
+    });
+    setNotice(
+      `${message} DNS records don't seem to be set up correctly yet. Fix your provider records, then recheck.`
+    );
+    setNoticeKind("error");
   };
 
   const handleConnectGithubDomain = async (rawDomain: string) => {
     if (!isOwnerOnOwnerDraft) {
       setNotice("Only the site owner can connect a GitHub Pages custom domain.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const repoFullName = draftState?.repoFullName?.trim() ?? "";
+    const [owner, repo] = repoFullName.split("/");
+    if (!owner || !repo) {
+      setNotice("Invalid repository name. Please reload and try again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const normalizedDomain = normalizeCustomDomainInput(rawDomain);
+    if (!normalizedDomain) {
+      setNotice("Enter a valid domain like example.com.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setDomainActionBusy("github");
+    setDomainDnsFeedback(null);
+    try {
+      const freshAuth = await requireFreshGithubAuth();
+      const result = await githubRequest<GitHubPagesDomainResponse>(
+        "/.netlify/functions/github-pages-set-domain",
+        {
+          owner,
+          repo,
+          action: "connect",
+          domain: normalizedDomain,
+          supabase_access_token: freshAuth.supabaseAccessToken
+        }
+      );
+      applyDomainConnectResult({
+        requestedDomain: normalizedDomain,
+        result
+      });
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to connect the GitHub Pages domain.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDomainActionBusy("none");
+    }
+  };
+
+  const handleRecheckGithubDomain = async (rawDomain: string) => {
+    if (!isOwnerOnOwnerDraft) {
+      setNotice("Only the site owner can recheck a GitHub Pages custom domain.");
       setNoticeKind("error");
       return;
     }
@@ -724,22 +829,18 @@ export const useSiteBuilderRouteController = ({
         {
           owner,
           repo,
+          action: "check",
           domain: normalizedDomain,
           supabase_access_token: freshAuth.supabaseAccessToken
         }
       );
-
-      setSiteUrl(normalizedDomain);
-      const pagesUrl = result.pagesUrl?.trim() || result.pages?.html_url?.trim() || "";
-      setNotice(
-        pagesUrl
-          ? `Connected ${normalizedDomain} to GitHub Pages. Save draft and publish to update site metadata. Live URL: ${pagesUrl}`
-          : `Connected ${normalizedDomain} to GitHub Pages. Save draft and publish to update site metadata.`
-      );
-      setNoticeKind("notice");
+      applyDomainConnectResult({
+        requestedDomain: normalizedDomain,
+        result
+      });
     } catch (caught) {
       const message =
-        caught instanceof Error ? caught.message : "Failed to connect the GitHub Pages domain.";
+        caught instanceof Error ? caught.message : "Failed to recheck GitHub Pages DNS.";
       setNotice(message);
       setNoticeKind("error");
     } finally {
@@ -890,12 +991,16 @@ export const useSiteBuilderRouteController = ({
       deleteBusy,
       deleteRepoFullName: deleteSiteRepoFullName,
       domainActionBusy,
+      domainDnsFeedback,
       onSiteTitleChange: setSiteTitle,
       onSiteDescriptionChange: setSiteDescription,
       onSiteImageChange: setSiteImage,
       onStudioOnlyDomainUpdate: handleStudioOnlyDomainUpdate,
       onConnectGithubDomain: (value: string) => {
         void handleConnectGithubDomain(value);
+      },
+      onRecheckGithubDomain: (value: string) => {
+        void handleRecheckGithubDomain(value);
       },
       onCollaboratorQueryChange: handleCollaboratorQueryChange,
       onCollaboratorRoleChange: setCollaboratorRole,

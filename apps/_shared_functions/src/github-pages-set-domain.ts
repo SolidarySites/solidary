@@ -6,6 +6,7 @@ import {
 } from "./github-repo-guardrails";
 
 const GITHUB_API = "https://api.github.com";
+const DNS_CHECK_RETRY_DELAYS_MS = [0, 1500, 3000];
 
 type SetDomainBody = {
   token?: string;
@@ -13,6 +14,7 @@ type SetDomainBody = {
   owner?: string;
   repo?: string;
   domain?: string;
+  action?: "connect" | "check";
 };
 
 type GitHubPagesMetadata = {
@@ -25,6 +27,28 @@ type GitHubPagesMetadata = {
   };
   message?: string;
 };
+
+type GitHubPagesHealthDomain = {
+  host?: string;
+  is_valid?: boolean;
+  reason?: string | null;
+  https_error?: string | null;
+  caa_error?: string | null;
+};
+
+type GitHubPagesHealth = {
+  domain?: GitHubPagesHealthDomain | null;
+  alt_domain?: GitHubPagesHealthDomain | null;
+  message?: string;
+};
+
+type DnsFeedback = {
+  status: "valid" | "invalid" | "pending";
+  message: string;
+  details: GitHubPagesHealth | null;
+};
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const githubHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -51,6 +75,128 @@ const getGitHubErrorMessage = (payload: unknown, fallback: string) => {
   return message || fallback;
 };
 
+const fetchPagesMetadata = async ({
+  owner,
+  repo,
+  token
+}: {
+  owner: string;
+  repo: string;
+  token: string;
+}) => {
+  const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
+    headers: githubHeaders(token)
+  });
+  const payload = (await response.json().catch(() => ({}))) as GitHubPagesMetadata;
+  return { response, payload };
+};
+
+const getHealthReasons = (health: GitHubPagesHealth | null): string[] => {
+  if (!health) return [];
+  const reasons: string[] = [];
+  const candidates = [health.domain, health.alt_domain];
+  candidates.forEach((entry) => {
+    if (!entry) return;
+    if (typeof entry.reason === "string" && entry.reason.trim()) reasons.push(entry.reason.trim());
+    if (typeof entry.https_error === "string" && entry.https_error.trim()) {
+      reasons.push(entry.https_error.trim());
+    }
+    if (typeof entry.caa_error === "string" && entry.caa_error.trim()) reasons.push(entry.caa_error.trim());
+  });
+  return Array.from(new Set(reasons));
+};
+
+const resolveDnsFeedbackFromHealth = ({
+  health,
+  domain
+}: {
+  health: GitHubPagesHealth | null;
+  domain: string;
+}): DnsFeedback => {
+  const domainHealth = health?.domain ?? null;
+  const altDomainHealth = health?.alt_domain ?? null;
+  const domainValid = domainHealth?.is_valid === true;
+  const altDomainValid = altDomainHealth ? altDomainHealth.is_valid === true : true;
+
+  if (domainValid && altDomainValid) {
+    return {
+      status: "valid",
+      message: `DNS looks good for ${domain}.`,
+      details: health
+    };
+  }
+
+  const reasons = getHealthReasons(health);
+  const joinedReasons = reasons.join(" ");
+  return {
+    status: "invalid",
+    message: joinedReasons || `DNS records for ${domain} are not valid yet.`,
+    details: health
+  };
+};
+
+const fetchDnsFeedback = async ({
+  owner,
+  repo,
+  token,
+  domain
+}: {
+  owner: string;
+  repo: string;
+  token: string;
+  domain: string;
+}): Promise<DnsFeedback> => {
+  let lastPendingMessage = `GitHub is still checking DNS for ${domain}.`;
+
+  for (const delay of DNS_CHECK_RETRY_DELAYS_MS) {
+    if (delay > 0) {
+      await sleep(delay);
+    }
+
+    const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages/health`, {
+      headers: githubHeaders(token)
+    });
+    const payload = (await response.json().catch(() => ({}))) as GitHubPagesHealth;
+
+    if (response.status === 202) {
+      const pendingMessage = getGitHubErrorMessage(
+        payload,
+        `GitHub is still checking DNS for ${domain}.`
+      );
+      lastPendingMessage = pendingMessage;
+      continue;
+    }
+
+    if (response.status === 404) {
+      return {
+        status: "pending",
+        message: "GitHub Pages DNS health check is not ready yet.",
+        details: null
+      };
+    }
+
+    if (!response.ok) {
+      const errorMessage = getGitHubErrorMessage(payload, "Failed to check DNS health.");
+      return {
+        status: "invalid",
+        message: errorMessage,
+        details: payload ?? null
+      };
+    }
+
+    return resolveDnsFeedbackFromHealth({
+      health: payload ?? null,
+      domain
+    });
+  }
+
+  return {
+    status: "pending",
+    message: lastPendingMessage,
+    details: null
+  };
+};
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -60,15 +206,20 @@ export const handler: Handler = async (event) => {
     const body = (JSON.parse(event.body ?? "{}") ?? {}) as SetDomainBody;
     const owner = body.owner?.trim() ?? "";
     const repo = body.repo?.trim() ?? "";
-    const normalizedDomain = normalizeDomainInput(body.domain);
+    const action = body.action === "check" ? "check" : "connect";
+    const requestedDomain = normalizeDomainInput(body.domain);
 
-    if (!owner || !repo || !normalizedDomain) {
-      return safeJson(400, { error: "Missing owner, repo, or domain." });
+    if (!owner || !repo) {
+      return safeJson(400, { error: "Missing owner or repo." });
+    }
+
+    if (action === "connect" && !requestedDomain) {
+      return safeJson(400, { error: "Missing domain." });
     }
 
     const { githubToken } = await authorizeGitHubRepoAction({
       functionName: "github-pages-set-domain",
-      action: "set_pages_domain",
+      action: action === "check" ? "check_pages_domain" : "set_pages_domain",
       owner,
       repo,
       directToken: body.token,
@@ -76,55 +227,77 @@ export const handler: Handler = async (event) => {
       authorizationHeader: event.headers.authorization ?? event.headers.Authorization
     });
 
-    const existingPagesResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
-      headers: githubHeaders(githubToken)
+    const initialPages = await fetchPagesMetadata({
+      owner,
+      repo,
+      token: githubToken
     });
-    const existingPagesPayload = (await existingPagesResponse
-      .json()
-      .catch(() => ({}))) as GitHubPagesMetadata;
-
-    if (!existingPagesResponse.ok) {
+    if (!initialPages.response.ok) {
       const errorMessage =
-        existingPagesResponse.status === 404
+        initialPages.response.status === 404
           ? "GitHub Pages is not enabled for this repository yet."
-          : getGitHubErrorMessage(existingPagesPayload, "Failed to read GitHub Pages settings.");
-      return safeJson(existingPagesResponse.status, { error: errorMessage });
+          : getGitHubErrorMessage(initialPages.payload, "Failed to read GitHub Pages settings.");
+      return safeJson(initialPages.response.status, { error: errorMessage });
     }
 
-    const sourceBranch = existingPagesPayload.source?.branch?.trim() ?? "";
-    const sourcePath = existingPagesPayload.source?.path?.trim() || "/";
-    const buildType = existingPagesPayload.build_type?.trim();
-    const updatePayload: Record<string, unknown> = {
-      cname: normalizedDomain
-    };
-    if (sourceBranch) {
-      updatePayload.source = {
-        branch: sourceBranch,
-        path: sourcePath
-      };
-    }
-    if (buildType) {
-      updatePayload.build_type = buildType;
-    }
-
-    const updateResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
-      method: "PUT",
-      headers: githubHeaders(githubToken),
-      body: JSON.stringify(updatePayload)
-    });
-    const updateResult = (await updateResponse.json().catch(() => ({}))) as GitHubPagesMetadata;
-
-    if (!updateResponse.ok) {
-      return safeJson(updateResponse.status, {
-        error: getGitHubErrorMessage(updateResult, "Failed to update custom domain.")
+    const effectiveDomain = requestedDomain || normalizeDomainInput(initialPages.payload.cname);
+    if (!effectiveDomain) {
+      return safeJson(400, {
+        error: "No custom domain is configured yet. Connect a domain first."
       });
     }
 
+    if (action === "connect") {
+      const sourceBranch = initialPages.payload.source?.branch?.trim() ?? "";
+      const sourcePath = initialPages.payload.source?.path?.trim() || "/";
+      const buildType = initialPages.payload.build_type?.trim();
+      const updatePayload: Record<string, unknown> = {
+        cname: effectiveDomain
+      };
+      if (sourceBranch) {
+        updatePayload.source = {
+          branch: sourceBranch,
+          path: sourcePath
+        };
+      }
+      if (buildType) {
+        updatePayload.build_type = buildType;
+      }
+
+      const updateResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
+        method: "PUT",
+        headers: githubHeaders(githubToken),
+        body: JSON.stringify(updatePayload)
+      });
+      const updatePayloadResult = (await updateResponse
+        .json()
+        .catch(() => ({}))) as GitHubPagesMetadata;
+      if (!updateResponse.ok) {
+        return safeJson(updateResponse.status, {
+          error: getGitHubErrorMessage(updatePayloadResult, "Failed to update custom domain.")
+        });
+      }
+    }
+
+    const latestPages = await fetchPagesMetadata({
+      owner,
+      repo,
+      token: githubToken
+    });
+    const dns = await fetchDnsFeedback({
+      owner,
+      repo,
+      token: githubToken,
+      domain: effectiveDomain
+    });
+
     return safeJson(200, {
-      status: "updated",
-      domain: normalizedDomain,
-      pages: updateResult,
-      pagesUrl: updateResult.html_url || existingPagesPayload.html_url || null
+      status: action === "check" ? "checked" : "connected",
+      domain: effectiveDomain,
+      pages: latestPages.response.ok ? latestPages.payload : initialPages.payload,
+      pagesUrl:
+        (latestPages.response.ok ? latestPages.payload.html_url : initialPages.payload.html_url) || null,
+      dns
     });
   } catch (error) {
     if (error instanceof HttpError) {

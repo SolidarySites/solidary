@@ -244,10 +244,54 @@
   margin: 0;
 }
 
+.studio-settings-route .builder-advanced-domain-records {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.studio-settings-route .builder-advanced-domain-records li {
+  list-style: disc;
+}
+
 .studio-settings-route .builder-advanced-warning {
   margin: 0;
   color: #7a1f17;
   font-size: 0.8rem;
+}
+
+.studio-settings-route .builder-advanced-dns-feedback {
+  border: 1px dashed rgba(122, 31, 23, 0.35);
+  background: rgba(255, 245, 244, 0.9);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.studio-settings-route .builder-advanced-dns-feedback p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #7a1f17;
+}
+
+.studio-settings-route .builder-advanced-dropdown {
+  border-top: 1px dashed rgba(31, 34, 28, 0.2);
+  padding-top: 0.75rem;
+}
+
+.studio-settings-route .builder-advanced-dropdown summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.studio-settings-route .builder-advanced-dropdown-body {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.6rem;
 }
 
 .studio-settings-route .builder-delete-site-divider {
