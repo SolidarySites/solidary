@@ -9,7 +9,6 @@ const SUPABASE_SERVICE_KEY =
 
 type CheckRepoNameBody = {
   name?: string;
-  token?: string;
 };
 
 type GitHubUserPayload = {
@@ -72,7 +71,6 @@ export const handler: Handler = async (event) => {
     return safeJson(400, { error: "Invalid repository name." });
   }
 
-  const fallbackToken = typeof body.token === "string" ? body.token.trim() : "";
   const supabaseAccessToken = parseBearerToken(
     event.headers.authorization ?? event.headers.Authorization
   );
@@ -94,8 +92,7 @@ export const handler: Handler = async (event) => {
 
   const resolvedGitHubAuth = await resolveGitHubTokenForUser({
     supabase,
-    userId: user.id,
-    fallbackToken
+    userId: user.id
   });
   const githubToken = resolvedGitHubAuth?.token?.trim() ?? "";
   if (!githubToken) {

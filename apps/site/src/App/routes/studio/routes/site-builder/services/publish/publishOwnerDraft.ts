@@ -85,7 +85,6 @@ export const publishOwnerDraft = async ({
     setProvisionStep("Uploading site image...");
     const imageBase64 = toBase64(await siteImage.arrayBuffer());
     await githubRequest("/.netlify/functions/github-contents-write", {
-      token: providerToken,
       owner: ownerLogin,
       repo: repoName,
       path: imagePath,
@@ -150,7 +149,6 @@ export const publishOwnerDraft = async ({
 
   setProvisionStep("Publishing content files...");
   await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
-    token: providerToken,
     owner: ownerLogin,
     repo: repoName,
     branch: draftState.branch,
@@ -182,7 +180,6 @@ export const publishOwnerDraft = async ({
   setDraftImageUrl(imageUrl);
   setProvisionStep("Starting deployment status checks...");
   const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
-    token: providerToken,
     owner: ownerLogin,
     repo: repoName,
     branch: draftState.branch
@@ -192,7 +189,6 @@ export const publishOwnerDraft = async ({
     throw new Error("Failed to resolve branch head after publish.");
   }
   startPublishStatusTracking({
-    token: providerToken,
     owner: ownerLogin,
     repo: repoName,
     branch: draftState.branch,

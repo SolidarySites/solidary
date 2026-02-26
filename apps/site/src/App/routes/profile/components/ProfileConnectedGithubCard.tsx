@@ -1,9 +1,14 @@
+import type { GitHubAuthMode } from "../../../features/auth/services/github-auth";
+
 type ProfileConnectedGithubCardProps = {
   githubAvatarUrl: string | null;
   githubUsername: string;
   profileUrl: string | null;
   email: string;
   connectBusy: boolean;
+  githubAuthMode: GitHubAuthMode;
+  githubAppConnected: boolean;
+  githubAuthStatusLoading: boolean;
   onConnectGitHubApp: () => void;
 };
 
@@ -13,8 +18,15 @@ export default function ProfileConnectedGithubCard({
   profileUrl,
   email,
   connectBusy,
+  githubAuthMode,
+  githubAppConnected,
+  githubAuthStatusLoading,
   onConnectGitHubApp
 }: ProfileConnectedGithubCardProps) {
+  const authModeLabel =
+    githubAuthMode === "github" ? "GitHub App (repo scoped)" : "Solidary OAuth";
+  const connectLabel = githubAuthMode === "github" ? "Reconnect GitHub App" : "Connect GitHub App";
+
   return (
     <section className="profile-github-card">
       <div className="profile-avatar-shell">
@@ -51,10 +63,18 @@ export default function ProfileConnectedGithubCard({
               onClick={onConnectGitHubApp}
               disabled={connectBusy}
             >
-              {connectBusy ? "Connecting..." : "Connect GitHub App"}
+              {connectBusy ? "Connecting..." : connectLabel}
             </button>
           </div>
         </div>
+        <p className="profile-github-field">
+          <span>Auth mode</span>
+          <strong>{githubAuthStatusLoading ? "Loading..." : authModeLabel}</strong>
+        </p>
+        <p className="profile-github-field">
+          <span>GitHub App</span>
+          <strong>{githubAppConnected ? "Connected" : "Not connected"}</strong>
+        </p>
         <p className="profile-github-field">
           <span>Username</span>
           {profileUrl ? (

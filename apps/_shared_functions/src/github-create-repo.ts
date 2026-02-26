@@ -9,7 +9,6 @@ const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const MAX_STAGED_SITE_IMAGE_BYTES = 4 * 1024 * 1024;
 
 type StartRepoProvisionBody = {
-  token?: string;
   name?: string;
   description?: string;
   private?: boolean;
@@ -115,7 +114,6 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const legacyUserToken = body.token?.trim();
   const name = body.name?.trim();
   const description = typeof body.description === "string" ? body.description : "";
   const isPrivate = body.private === undefined ? false : Boolean(body.private);
@@ -163,8 +161,7 @@ export const handler: Handler = async (event) => {
 
     const resolvedGitHubAuth = await resolveGitHubTokenForUser({
       supabase,
-      userId: user.id,
-      fallbackToken: legacyUserToken
+      userId: user.id
     });
     if (!resolvedGitHubAuth?.token) {
       return safeJson(412, {
@@ -342,7 +339,6 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           jobId: job.id,
           ownerUserId: user.id,
-          token: resolvedGitHubAuth.token,
           name,
           description,
           private: isPrivate,

@@ -72,7 +72,6 @@ type FileRecord = {
 type ProvisionWorkerBody = {
   jobId?: string;
   ownerUserId?: string;
-  token?: string;
   name?: string;
   description?: string;
   private?: boolean;
@@ -890,7 +889,6 @@ export const handler: Handler = async (event) => {
 
   const jobId = payload.jobId?.trim() ?? "";
   const ownerUserId = payload.ownerUserId?.trim() ?? "";
-  const legacyToken = payload.token?.trim() ?? "";
   const parsedName = payload.name?.trim() ?? "";
   const rawSiteImageStoragePath = payload.siteImageStoragePath?.trim() ?? "";
   const rawSiteImageThumbStoragePath = payload.siteImageThumbStoragePath?.trim() ?? "";
@@ -982,8 +980,7 @@ export const handler: Handler = async (event) => {
   try {
     const resolvedGitHubAuth = await resolveGitHubTokenForUser({
       supabase,
-      userId: ownerUserId,
-      fallbackToken: legacyToken
+      userId: ownerUserId
     });
     if (!resolvedGitHubAuth?.token) {
       throw new HttpError(

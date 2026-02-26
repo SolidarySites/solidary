@@ -208,6 +208,7 @@ export const handler: Handler = async (event) => {
       supabase,
       input: {
         userId: parsedState.userId,
+        authMode: "github",
         githubUserId: githubUser.id ?? null,
         githubLogin: githubUser.login ?? null,
         installationId: installation?.id ?? installationId ?? null,

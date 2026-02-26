@@ -19,7 +19,6 @@ import { saveProvisionedSiteDraft } from "./provisioning/persistence";
 
 type ProvisionSiteDraftParams = {
   session: Session;
-  providerToken: string;
   supabaseAccessToken: string;
   siteId: string;
   siteTitle: string;
@@ -55,7 +54,6 @@ const SITE_CREATE_IMAGE_VARIANTS = [
 
 export const provisionSiteDraft = async ({
   session,
-  providerToken,
   supabaseAccessToken,
   siteId,
   siteTitle,
@@ -92,7 +90,6 @@ export const provisionSiteDraft = async ({
   }
 
   const provisionedRepo = await provisionGitHubRepository({
-    providerToken,
     supabaseAccessToken,
     siteId,
     siteTitle,

@@ -73,7 +73,6 @@ export const publishEditorDraft = async ({
 
   setProvisionStep("Ensuring collaboration branch...");
   await githubRequest("/.netlify/functions/github-ensure-branch", {
-    token: providerToken,
     owner: ownerLogin,
     repo: repoName,
     branch: headBranch,
@@ -126,7 +125,6 @@ export const publishEditorDraft = async ({
     setProvisionStep("Uploading site image...");
     const imageBase64 = toBase64(await siteImage.arrayBuffer());
     await githubRequest("/.netlify/functions/github-contents-write", {
-      token: providerToken,
       owner: ownerLogin,
       repo: repoName,
       path: imagePath,
@@ -153,7 +151,6 @@ export const publishEditorDraft = async ({
 
   setProvisionStep("Committing editor changes...");
   await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
-    token: providerToken,
     owner: ownerLogin,
     repo: repoName,
     branch: headBranch,
@@ -169,7 +166,6 @@ export const publishEditorDraft = async ({
   setProvisionStep("Creating pull request...");
   const { prNumber, prUrl, prState } = await createCollaborationPullRequest({
     draftId: draftState.id,
-    providerToken,
     sessionAccessToken,
     sessionDisplayName,
     touchedSections

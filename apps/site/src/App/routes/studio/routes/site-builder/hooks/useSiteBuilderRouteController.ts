@@ -694,7 +694,6 @@ export const useSiteBuilderRouteController = ({
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
-              token: freshAuth.providerToken,
               owner,
               repo,
               supabase_access_token: freshAuth.supabaseAccessToken

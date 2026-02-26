@@ -67,14 +67,11 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    let providerToken = "";
     let supabaseAccessToken = "";
     try {
       const freshAuth = await getFreshGithubAuthSnapshot();
-      providerToken = freshAuth.providerToken;
       supabaseAccessToken = freshAuth.supabaseAccessToken;
     } catch {
-      providerToken = "";
       supabaseAccessToken = "";
     }
 
@@ -96,7 +93,6 @@ export const useBuilderCollaborators = ({
         },
         body: JSON.stringify({
           draftId,
-          githubToken: providerToken || undefined,
           syncRoles
         })
       });
@@ -216,7 +212,7 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    const { providerToken, supabaseAccessToken } = freshAuth;
+    const { supabaseAccessToken } = freshAuth;
     const identifierInput = collaboratorQuery.trim();
     if (!identifierInput) {
       setNotice("Enter a GitHub username or email.");
@@ -271,7 +267,6 @@ export const useBuilderCollaborators = ({
         },
         body: JSON.stringify({
           draftId,
-          githubToken: providerToken || undefined,
           identifier: normalizedIdentifier,
           role: collaboratorRole,
           solidaryUserId: selectedSuggestion?.userId ?? null,
@@ -329,7 +324,7 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    const { providerToken, supabaseAccessToken } = freshAuth;
+    const { supabaseAccessToken } = freshAuth;
     const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
     if (!collaborator || collaborator.role === role) return;
 
@@ -344,7 +339,6 @@ export const useBuilderCollaborators = ({
         body: JSON.stringify({
           action: "update_role",
           draftId,
-          githubToken: providerToken || undefined,
           collaboratorUserId,
           role
         })
@@ -400,7 +394,7 @@ export const useBuilderCollaborators = ({
       return;
     }
 
-    const { providerToken, supabaseAccessToken } = freshAuth;
+    const { supabaseAccessToken } = freshAuth;
     const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
     if (!collaborator) return;
 
@@ -415,7 +409,6 @@ export const useBuilderCollaborators = ({
         body: JSON.stringify({
           action: "remove",
           draftId,
-          githubToken: providerToken || undefined,
           collaboratorUserId
         })
       });

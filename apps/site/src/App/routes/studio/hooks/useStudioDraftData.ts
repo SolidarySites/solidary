@@ -93,14 +93,11 @@ export const useStudioDraftData = ({
               membership.role === "viewer")
         );
 
-        let providerToken = "";
         let supabaseAccessToken = "";
         try {
           const freshAuth = await getFreshGithubAuthSnapshot();
-          providerToken = freshAuth.providerToken;
           supabaseAccessToken = freshAuth.supabaseAccessToken;
         } catch {
-          providerToken = "";
           supabaseAccessToken = "";
         }
         let resolvedSharedMemberships = sharedMemberships;
@@ -118,8 +115,7 @@ export const useStudioDraftData = ({
                       Authorization: `Bearer ${supabaseAccessToken}`
                     },
                     body: JSON.stringify({
-                      siteId: membership.site_id,
-                      githubToken: providerToken || undefined
+                      siteId: membership.site_id
                     })
                   });
                   const payload = (await response.json().catch(() => ({}))) as {

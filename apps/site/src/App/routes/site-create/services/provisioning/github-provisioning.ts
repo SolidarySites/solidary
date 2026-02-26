@@ -92,14 +92,12 @@ const waitForRepoProvisioningJob = async ({
 };
 
 const waitForBranchAvailability = async ({
-  token,
   supabaseAccessToken,
   owner,
   repo,
   branch,
   onStep
 }: {
-  token?: string;
   supabaseAccessToken: string;
   owner: string;
   repo: string;
@@ -117,7 +115,6 @@ const waitForBranchAvailability = async ({
     onStep("Checking repository branch...");
     try {
       const branchPayload = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
-        token,
         supabase_access_token: supabaseAccessToken,
         owner,
         repo,
@@ -136,7 +133,6 @@ const waitForBranchAvailability = async ({
 };
 
 const waitForInitialDeployment = async ({
-  token,
   supabaseAccessToken,
   owner,
   repo,
@@ -144,7 +140,6 @@ const waitForInitialDeployment = async ({
   publishStartedAt,
   onStep
 }: {
-  token?: string;
   supabaseAccessToken: string;
   owner: string;
   repo: string;
@@ -160,7 +155,6 @@ const waitForInitialDeployment = async ({
 
     try {
       status = await githubRequest<GitHubPublishStatusResponse>("/.netlify/functions/github-publish-status", {
-        token,
         supabase_access_token: supabaseAccessToken,
         owner,
         repo,
@@ -212,7 +206,6 @@ const waitForInitialDeployment = async ({
 };
 
 export const provisionGitHubRepository = async ({
-  providerToken,
   supabaseAccessToken,
   siteId,
   siteTitle,
@@ -226,7 +219,6 @@ export const provisionGitHubRepository = async ({
   ogImageContentB64,
   onStep
 }: {
-  providerToken?: string;
   supabaseAccessToken: string;
   siteId: string;
   siteTitle: string;
@@ -242,7 +234,6 @@ export const provisionGitHubRepository = async ({
 }): Promise<ProvisionedRepository> => {
   onStep("Queueing repository provisioning...");
   const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
-    token: providerToken,
     name: slug,
     description: siteDescription.trim(),
     private: false,
@@ -281,7 +272,6 @@ export const provisionGitHubRepository = async ({
   const siteUrlResolved = resolveSiteUrlFromRepo({ ownerLogin, repoName });
 
   await waitForBranchAvailability({
-    token: providerToken,
     supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,
@@ -291,7 +281,6 @@ export const provisionGitHubRepository = async ({
 
   onStep("Enabling GitHub Pages...");
   await githubRequest("/.netlify/functions/github-enable-pages", {
-    token: providerToken,
     supabase_access_token: supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,
@@ -300,7 +289,6 @@ export const provisionGitHubRepository = async ({
 
   onStep("Waiting for GitHub Pages deployment...");
   await waitForInitialDeployment({
-    token: providerToken,
     supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,

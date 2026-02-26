@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getFreshGithubAuthSnapshot } from "../../../../../features/auth/services/github-auth";
 import { githubRequest } from "../../../../../services/github";
 import type { GitHubPublishStatusResponse, PublishFeedback } from "../services/types";
 import { getPublishPollDelayMs } from "../services/utils";
 
 type StartPublishTrackingParams = {
-  token: string;
   owner: string;
   repo: string;
   branch: string;
@@ -41,7 +39,7 @@ export const usePublishStatusTracking = ({
   useEffect(() => cancelPublishStatusTracking, [cancelPublishStatusTracking]);
 
   const startPublishStatusTracking = useCallback(
-    ({ token, owner, repo, branch, headSha, publishStartedAt }: StartPublishTrackingParams) => {
+    ({ owner, repo, branch, headSha, publishStartedAt }: StartPublishTrackingParams) => {
       publishPollTokenRef.current += 1;
       const pollToken = publishPollTokenRef.current;
       clearPublishPollTimeout();
@@ -60,20 +58,9 @@ export const usePublishStatusTracking = ({
 
         let status: GitHubPublishStatusResponse;
         try {
-          let requestToken = token;
-          try {
-            const freshAuth = await getFreshGithubAuthSnapshot();
-            if (freshAuth.providerToken) {
-              requestToken = freshAuth.providerToken;
-            }
-          } catch {
-            requestToken = token;
-          }
-
           status = await githubRequest<GitHubPublishStatusResponse>(
             "/.netlify/functions/github-publish-status",
             {
-              token: requestToken,
               owner,
               repo,
               branch,

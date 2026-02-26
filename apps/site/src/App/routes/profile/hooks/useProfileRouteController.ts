@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
+import {
+  getGitHubAuthStatusForCurrentUser,
+  type GitHubAuthMode
+} from "../../../features/auth/services/github-auth";
 import type { NoticeKind } from "../../../types/notice";
 import {
   isUserOwnedProfileAvatarPath,
@@ -33,6 +37,9 @@ export const useProfileRouteController = () => {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
+  const [githubAuthMode, setGithubAuthMode] = useState<GitHubAuthMode>("solidary");
+  const [githubAppConnected, setGithubAppConnected] = useState(false);
+  const [githubAuthStatusLoading, setGithubAuthStatusLoading] = useState(false);
 
   const avatarController = useProfileAvatarController({
     session,
@@ -50,6 +57,30 @@ export const useProfileRouteController = () => {
     setNoticeKind(null);
   }, [profileData.settings.displayName]);
 
+  const refreshGitHubAuthStatus = useCallback(async () => {
+    if (!session) {
+      setGithubAuthMode("solidary");
+      setGithubAppConnected(false);
+      setGithubAuthStatusLoading(false);
+      return;
+    }
+
+    setGithubAuthStatusLoading(true);
+    try {
+      const status = await getGitHubAuthStatusForCurrentUser();
+      setGithubAuthMode(status.authMode);
+      setGithubAppConnected(status.githubAppConnected);
+    } catch {
+      // Keep previous status when the request fails.
+    } finally {
+      setGithubAuthStatusLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    void refreshGitHubAuthStatus();
+  }, [refreshGitHubAuthStatus]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const githubAppStatus = params.get("github_app")?.trim() ?? "";
@@ -64,6 +95,7 @@ export const useProfileRouteController = () => {
     });
 
     if (githubAppStatus === "connected") {
+      void refreshGitHubAuthStatus();
       setNotice("GitHub App connected.");
       setNoticeKind("notice");
       return;
@@ -71,7 +103,7 @@ export const useProfileRouteController = () => {
 
     setNotice(githubAppMessage || "Could not connect GitHub App.");
     setNoticeKind("error");
-  }, [location.hash, location.pathname, location.search, navigate]);
+  }, [location.hash, location.pathname, location.search, navigate, refreshGitHubAuthStatus]);
 
   const githubAvatarUrl = profileData.githubAvatarUrl || null;
   const displayNameTooLong = displayName.length > 20;
@@ -197,6 +229,9 @@ export const useProfileRouteController = () => {
     avatarAddBusy: avatarController.avatarAddBusy,
     avatarRemoveBusy: avatarController.avatarRemoveBusy,
     connectBusy,
+    githubAuthMode,
+    githubAppConnected,
+    githubAuthStatusLoading,
     notice,
     noticeKind,
     onSubmit,

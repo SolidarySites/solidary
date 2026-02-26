@@ -14,6 +14,7 @@ type ConnectStartBody = {
 };
 
 type StoredGitHubAppCredential = {
+  auth_mode?: string | null;
   access_token_encrypted?: string | null;
   access_token_expires_at?: string | null;
   refresh_token_encrypted?: string | null;
@@ -61,7 +62,7 @@ const hasExistingGitHubAppConnection = async ({
 }): Promise<boolean> => {
   const { data, error } = await supabase
     .from("github_app_user_tokens")
-    .select("access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
+    .select("auth_mode, access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -74,6 +75,11 @@ const hasExistingGitHubAppConnection = async ({
   }
 
   const credential = data as StoredGitHubAppCredential;
+  const authMode = credential.auth_mode?.trim().toLowerCase() ?? "";
+  if (authMode !== "github") {
+    return false;
+  }
+
   const accessToken = credential.access_token_encrypted?.trim() || "";
   const refreshToken = credential.refresh_token_encrypted?.trim() || "";
 

@@ -39,7 +39,7 @@ export async function githubRequest<T>(
 }
 
 export async function readTextFile(
-  token: string,
+  _token: string,
   owner: string,
   repo: string,
   path: string,
@@ -49,7 +49,7 @@ export async function readTextFile(
   try {
     const result = await githubRequest<{ content: string; encoding: string }>(
       "/.netlify/functions/github-contents-read",
-      { token, owner, repo, path, branch }
+      { owner, repo, path, branch }
     );
     if (result?.encoding === "base64") {
       return atob(result.content.replace(/\n/g, ""));
@@ -62,7 +62,7 @@ export async function readTextFile(
 }
 
 export async function listDirectory(
-  token: string,
+  _token: string,
   owner: string,
   repo: string,
   path: string,
@@ -70,13 +70,13 @@ export async function listDirectory(
 ) {
   const result = await githubRequest<{ entries: { name: string; path: string; type: string }[] }>(
     "/.netlify/functions/github-contents-list",
-    { token, owner, repo, path, branch }
+    { owner, repo, path, branch }
   );
   return result.entries ?? [];
 }
 
 export async function writeTextFile(
-  token: string,
+  _token: string,
   owner: string,
   repo: string,
   path: string,
@@ -84,7 +84,6 @@ export async function writeTextFile(
   branch: string
 ) {
   await githubRequest("/.netlify/functions/github-contents-write", {
-    token,
     owner,
     repo,
     path,
@@ -95,14 +94,13 @@ export async function writeTextFile(
 }
 
 export async function deleteTextFile(
-  token: string,
+  _token: string,
   owner: string,
   repo: string,
   path: string,
   branch: string
 ) {
   await githubRequest("/.netlify/functions/github-contents-delete", {
-    token,
     owner,
     repo,
     path,

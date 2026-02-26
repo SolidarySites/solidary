@@ -14,7 +14,6 @@ export type BatchCommitResponse = {
 };
 
 export type PublishTrackingParams = {
-  token: string;
   owner: string;
   repo: string;
   branch: string;

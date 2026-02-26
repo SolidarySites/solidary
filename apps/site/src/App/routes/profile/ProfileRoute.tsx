@@ -27,6 +27,9 @@ export default function ProfileRoute() {
             profileUrl={controller.connectedGithub.profileUrl}
             email={controller.connectedGithub.email}
             connectBusy={controller.connectBusy}
+            githubAuthMode={controller.githubAuthMode}
+            githubAppConnected={controller.githubAppConnected}
+            githubAuthStatusLoading={controller.githubAuthStatusLoading}
             onConnectGitHubApp={controller.onConnectGitHubApp}
           />
 

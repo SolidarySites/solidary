@@ -72,11 +72,9 @@ export const useSiteCreateRouteController = () => {
 
   const checkRepoNameConflict = async ({
     repoName,
-    providerToken,
     supabaseAccessToken
   }: {
     repoName: string;
-    providerToken: string;
     supabaseAccessToken: string;
   }): Promise<SiteTitleRepoConflict | null> => {
     const response = await fetch("/.netlify/functions/github-check-repo-name", {
@@ -86,8 +84,7 @@ export const useSiteCreateRouteController = () => {
         Authorization: `Bearer ${supabaseAccessToken}`
       },
       body: JSON.stringify({
-        name: repoName,
-        token: providerToken || undefined
+        name: repoName
       })
     });
     const payload = (await response.json().catch(() => ({}))) as RepoNameCheckPayload;
@@ -132,7 +129,6 @@ export const useSiteCreateRouteController = () => {
     try {
       const conflict = await checkRepoNameConflict({
         repoName,
-        providerToken: freshAuth.providerToken,
         supabaseAccessToken: freshAuth.supabaseAccessToken
       });
       if (siteTitleRepoCheckRequestIdRef.current !== requestId) return;
@@ -163,7 +159,6 @@ export const useSiteCreateRouteController = () => {
 
     const {
       session: freshSession,
-      providerToken,
       supabaseAccessToken
     } = freshAuth;
 
@@ -176,7 +171,6 @@ export const useSiteCreateRouteController = () => {
     try {
       const repoNameConflict = await checkRepoNameConflict({
         repoName: computedSlug,
-        providerToken,
         supabaseAccessToken
       });
       if (repoNameConflict) {
@@ -198,7 +192,6 @@ export const useSiteCreateRouteController = () => {
       const siteId = crypto.randomUUID();
       await provisionSiteDraft({
         session: freshSession,
-        providerToken,
         supabaseAccessToken,
         siteId,
         siteTitle,

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-26T02:14:16.480Z",
-  "latest_commit_sha": "1fc5e708994cab7f79f8605f002828e70ea3bf3f",
+  "generated_at": "2026-02-26T14:37:28.377Z",
+  "latest_commit_sha": "9891048309829404e76ef6bbd046e5852f784ad4",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -140,12 +140,12 @@
                           {
                             "path": "src/App/features/auth/services/github-auth.test.ts",
                             "description": "Unit tests for GitHub auth token/session helpers, including required-token validation and error-path behavior.",
-                            "LOC": 242
+                            "LOC": 158
                           },
                           {
                             "path": "src/App/features/auth/services/github-auth.ts",
                             "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-                            "LOC": 488
+                            "LOC": 358
                           },
                           {
                             "path": "src/App/features/auth/services/user-profile.ts",
@@ -388,7 +388,7 @@
                           {
                             "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
                             "description": "Profile card showing connected GitHub identity details with action to connect/refresh GitHub App access.",
-                            "LOC": 75
+                            "LOC": 95
                           },
                           {
                             "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
@@ -410,7 +410,7 @@
                           {
                             "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
                             "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-                            "LOC": 210
+                            "LOC": 245
                           }
                         ]
                       },
@@ -446,7 +446,7 @@
                       {
                         "path": "src/App/routes/profile/ProfileRoute.tsx",
                         "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-                        "LOC": 58
+                        "LOC": 61
                       }
                     ]
                   },
@@ -496,7 +496,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 254
+                            "LOC": 247
                           }
                         ]
                       },
@@ -517,7 +517,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
                                 "description": "GitHub provisioning client for create flow: starts background repo job, polls status, enables Pages, waits for deploy readiness, and returns resolved repo metadata.",
-                                "LOC": 319
+                                "LOC": 307
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
@@ -536,7 +536,7 @@
                           {
                             "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
                             "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-                            "LOC": 142
+                            "LOC": 139
                           }
                         ]
                       }
@@ -588,7 +588,7 @@
                           {
                             "path": "src/App/routes/studio/hooks/useStudioDraftData.ts",
                             "description": "Data hook that loads owned drafts, resolves shared-access memberships/roles (including optional GitHub-admin role sync), fetches shared owner drafts, and loads open collaboration PR metadata.",
-                            "LOC": 221
+                            "LOC": 217
                           },
                           {
                             "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
@@ -680,7 +680,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderCollaborators.ts",
                                     "description": "Collaborator management hook for searching users, sending invites, and updating/removing collaborator roles.",
-                                    "LOC": 465
+                                    "LOC": 458
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPageEditing.ts",
@@ -715,7 +715,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/usePublishStatusTracking.ts",
                                     "description": "Publish status polling hook that maps provisioning state changes into route notices and feedback.",
-                                    "LOC": 177
+                                    "LOC": 164
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
@@ -730,7 +730,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 950
+                                    "LOC": 949
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -756,7 +756,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.ts",
                                         "description": "Helper functions specific to editor publish flow (touched section/page resolution and payload shaping).",
-                                        "LOC": 155
+                                        "LOC": 152
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/index.ts",
@@ -766,12 +766,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishEditorDraft.ts",
                                         "description": "Editor publish workflow that turns touched draft changes into collaboration PR-ready output.",
-                                        "LOC": 206
+                                        "LOC": 202
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishOwnerDraft.ts",
                                         "description": "Owner/admin publish workflow that writes draft changes directly to repository and live site paths.",
-                                        "LOC": 202
+                                        "LOC": 198
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
@@ -781,7 +781,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
                                         "description": "Publish-domain type contracts for payloads, tracking state, and shared publish function params/results.",
-                                        "LOC": 74
+                                        "LOC": 73
                                       }
                                     ]
                                   }
@@ -962,7 +962,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
                                     "description": "Route controller that composes settings section state, lock behavior, and topbar/content props from builder mode.",
-                                    "LOC": 99
+                                    "LOC": 102
                                   }
                                 ]
                               },
@@ -998,12 +998,12 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 372
+                                "LOC": 411
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
                                 "description": "Studio settings route shell composing the settings topbar, section content renderer, and global footer notices.",
-                                "LOC": 23
+                                "LOC": 34
                               }
                             ]
                           }
@@ -1070,7 +1070,7 @@
                   {
                     "path": "src/App/services/github.ts",
                     "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
-                    "LOC": 112
+                    "LOC": 110
                   }
                 ]
               },

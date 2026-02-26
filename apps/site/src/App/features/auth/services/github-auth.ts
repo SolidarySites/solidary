@@ -6,14 +6,19 @@ type SessionWithProviderCredentials = Session & {
   provider_refresh_token?: string | null;
 };
 
-const GITHUB_PROVIDER_TOKEN_STORAGE_PREFIX = "solidary:github-provider-token:";
-const GITHUB_PROVIDER_REFRESH_TOKEN_STORAGE_PREFIX = "solidary:github-provider-refresh-token:";
-const GITHUB_PROVIDER_TOKEN_REFRESH_COOLDOWN_MS = 60 * 1000;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
   String(import.meta.env.VITE_GITHUB_TOKEN_DEBUG ?? "")
 );
 
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
+
+export type GitHubAuthMode = "solidary" | "github";
+
+export type GitHubAuthStatus = {
+  authMode: GitHubAuthMode;
+  githubAppConnected: boolean;
+  hasStoredCredentials: boolean;
+};
 
 export type FreshGithubAuthSnapshot = {
   session: Session | null;
@@ -42,16 +47,10 @@ type InternalGithubAuthSnapshot = FreshGithubAuthSnapshot & {
   providerRefreshToken: string;
 };
 
-type RefreshProviderTokenResponse = {
-  provider_token?: string;
-  provider_refresh_token?: string;
-};
-
 type SyncProviderTokenOptions = {
   trigger?: string;
 };
 
-const providerTokenRefreshAttemptAtByUserId = new Map<string, number>();
 const providerTokenSyncFingerprintByUserId = new Map<string, string>();
 let inMemorySnapshot: InternalGithubAuthSnapshot | null = null;
 
@@ -78,143 +77,24 @@ const getSessionUserId = (session: Session | null): string => {
   return session?.user?.id?.trim() ?? "";
 };
 
-const getLocalStorage = (): Storage | null => {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-};
-
-const getGithubProviderTokenStorageKey = (userId: string) =>
-  `${GITHUB_PROVIDER_TOKEN_STORAGE_PREFIX}${userId}`;
-
-const getGithubProviderRefreshTokenStorageKey = (userId: string) =>
-  `${GITHUB_PROVIDER_REFRESH_TOKEN_STORAGE_PREFIX}${userId}`;
-
-const writeStorageValue = (key: string, value: string) => {
-  const storage = getLocalStorage();
-  if (!storage) return;
-
-  try {
-    if (value) {
-      storage.setItem(key, value);
-      return;
-    }
-    storage.removeItem(key);
-  } catch {
-    // Ignore storage write failures (private mode/quota/permissions).
-  }
-};
-
-const readStorageValue = (key: string): string => {
-  const storage = getLocalStorage();
-  if (!storage) return "";
-
-  try {
-    return storage.getItem(key)?.trim() ?? "";
-  } catch {
-    return "";
-  }
-};
-
-const writeStoredProviderToken = (userId: string, providerToken: string) => {
-  writeStorageValue(getGithubProviderTokenStorageKey(userId), providerToken);
-};
-
-const readStoredProviderToken = (userId: string): string => {
-  return readStorageValue(getGithubProviderTokenStorageKey(userId));
-};
-
-const writeStoredProviderRefreshToken = (userId: string, providerRefreshToken: string) => {
-  writeStorageValue(getGithubProviderRefreshTokenStorageKey(userId), providerRefreshToken);
-};
-
-const readStoredProviderRefreshToken = (userId: string): string => {
-  return readStorageValue(getGithubProviderRefreshTokenStorageKey(userId));
-};
-
-const removeStoredProviderCredentials = (userId: string) => {
-  const normalizedUserId = userId.trim();
-  if (!normalizedUserId) return;
-  writeStoredProviderToken(normalizedUserId, "");
-  writeStoredProviderRefreshToken(normalizedUserId, "");
-};
-
 const createSnapshotFromSession = (session: Session | null): InternalGithubAuthSnapshot => {
-  const userId = getSessionUserId(session);
-  const sessionProviderToken = getSessionProviderToken(session);
-  const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
-  const storedProviderToken = userId ? readStoredProviderToken(userId) : "";
-  const storedProviderRefreshToken = userId ? readStoredProviderRefreshToken(userId) : "";
-
   return {
     session,
-    providerToken: sessionProviderToken || storedProviderToken,
-    providerRefreshToken: sessionProviderRefreshToken || storedProviderRefreshToken,
+    providerToken: getSessionProviderToken(session),
+    providerRefreshToken: getSessionProviderRefreshToken(session),
     supabaseAccessToken: getSessionSupabaseAccessToken(session)
   };
 };
 
-const shouldAttemptProviderTokenRefresh = (userId: string, nowMs: number) => {
-  if (!userId) return false;
-  const lastAttemptAt = providerTokenRefreshAttemptAtByUserId.get(userId) ?? 0;
-  return nowMs - lastAttemptAt >= GITHUB_PROVIDER_TOKEN_REFRESH_COOLDOWN_MS;
-};
-
-const refreshProviderTokenWithGitHub = async ({
-  providerRefreshToken,
-  supabaseAccessToken
-}: {
-  providerRefreshToken: string;
-  supabaseAccessToken: string;
-}): Promise<RefreshProviderTokenResponse | null> => {
-  const response = await fetch("/.netlify/functions/github-refresh-provider-token", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      Authorization: `Bearer ${supabaseAccessToken}`
-    },
-    body: JSON.stringify({
-      provider_refresh_token: providerRefreshToken
-    })
-  });
-
-  const payload = (await response.json().catch(() => ({}))) as RefreshProviderTokenResponse & {
-    error?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "Could not refresh GitHub token.");
-  }
-
-  const nextProviderToken = payload.provider_token?.trim() ?? "";
-  if (!nextProviderToken) return null;
-  return payload;
-};
-
 export const cacheGithubProviderCredentialsFromSession = (session: Session | null) => {
-  const userId = getSessionUserId(session);
-  if (!userId) return;
-
-  const providerToken = getSessionProviderToken(session);
-  const providerRefreshToken = getSessionProviderRefreshToken(session);
-
-  if (providerToken) {
-    writeStoredProviderToken(userId, providerToken);
-  }
-  if (providerRefreshToken) {
-    writeStoredProviderRefreshToken(userId, providerRefreshToken);
-  }
+  void session;
+  // Intentionally no-op: client-side credential caching is disabled.
 };
 
 export const clearCachedGithubProviderCredentialsForUser = (userId: string) => {
   const normalizedUserId = userId.trim();
   if (!normalizedUserId) return;
-  providerTokenRefreshAttemptAtByUserId.delete(normalizedUserId);
   providerTokenSyncFingerprintByUserId.delete(normalizedUserId);
-  removeStoredProviderCredentials(normalizedUserId);
 };
 
 export const syncGithubAuthSnapshotFromSession = (session: Session | null) => {
@@ -246,44 +126,7 @@ export const getFreshSupabaseAuthSnapshot = async (): Promise<FreshGithubAuthSna
 };
 
 export const getFreshGithubAuthSnapshot = async (): Promise<FreshGithubAuthSnapshot> => {
-  let snapshot = await getOrLoadSnapshot();
-
-  const userId = getSessionUserId(snapshot.session);
-  const shouldTryRefresh =
-    Boolean(snapshot.session) &&
-    Boolean(snapshot.supabaseAccessToken) &&
-    !snapshot.providerToken &&
-    Boolean(snapshot.providerRefreshToken) &&
-    shouldAttemptProviderTokenRefresh(userId, Date.now());
-
-  if (shouldTryRefresh) {
-    providerTokenRefreshAttemptAtByUserId.set(userId, Date.now());
-    try {
-      const refreshed = await refreshProviderTokenWithGitHub({
-        providerRefreshToken: snapshot.providerRefreshToken,
-        supabaseAccessToken: snapshot.supabaseAccessToken
-      });
-
-      const nextProviderToken = refreshed?.provider_token?.trim() ?? "";
-      const nextProviderRefreshToken =
-        refreshed?.provider_refresh_token?.trim() ?? snapshot.providerRefreshToken;
-
-      if (nextProviderToken) {
-        writeStoredProviderToken(userId, nextProviderToken);
-        if (nextProviderRefreshToken) {
-          writeStoredProviderRefreshToken(userId, nextProviderRefreshToken);
-        }
-        snapshot = {
-          ...snapshot,
-          providerToken: nextProviderToken,
-          providerRefreshToken: nextProviderRefreshToken
-        };
-        inMemorySnapshot = snapshot;
-      }
-    } catch {
-      // Keep current snapshot values when refresh fails.
-    }
-  }
+  const snapshot = await getOrLoadSnapshot();
 
   return {
     session: snapshot.session,
@@ -391,6 +234,39 @@ export const connectGitHubAppForCurrentUser = async ({
   } satisfies ConnectGitHubAppResult;
 };
 
+const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return normalized === "github" ? "github" : "solidary";
+};
+
+export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthStatus> => {
+  const { supabaseAccessToken } = await requireFreshSupabaseAuth();
+
+  const response = await fetch("/.netlify/functions/github-auth-status", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${supabaseAccessToken}`
+    }
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    auth_mode?: string;
+    github_app_connected?: boolean;
+    has_stored_credentials?: boolean;
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not read GitHub auth status.");
+  }
+
+  return {
+    authMode: normalizeGitHubAuthMode(payload.auth_mode),
+    githubAppConnected: Boolean(payload.github_app_connected),
+    hasStoredCredentials: Boolean(payload.has_stored_credentials)
+  };
+};
+
 export const syncGithubProviderTokenToServer = async (
   session: Session | null,
   options: SyncProviderTokenOptions = {}
@@ -415,22 +291,17 @@ export const syncGithubProviderTokenToServer = async (
     return;
   }
 
-  const sessionProviderToken = getSessionProviderToken(session);
-  const sessionProviderRefreshToken = getSessionProviderRefreshToken(session);
-  const storedProviderToken = readStoredProviderToken(userId);
-  const providerToken = sessionProviderToken || storedProviderToken;
+  const providerToken = getSessionProviderToken(session);
   if (!providerToken) {
     debugLog("skipping provider token sync", {
       userId,
       trigger,
-      reason: "missing_provider_token",
-      hasSessionProviderToken: Boolean(sessionProviderToken),
-      hasStoredProviderToken: Boolean(storedProviderToken)
+      reason: "missing_provider_token"
     });
     return;
   }
 
-  const providerRefreshToken = sessionProviderRefreshToken || readStoredProviderRefreshToken(userId);
+  const providerRefreshToken = getSessionProviderRefreshToken(session);
   const fingerprint = `${providerToken}|${providerRefreshToken}`;
   if (providerTokenSyncFingerprintByUserId.get(userId) === fingerprint) {
     debugLog("skipping provider token sync", {
@@ -444,9 +315,8 @@ export const syncGithubProviderTokenToServer = async (
   debugLog("syncing provider token to server", {
     userId,
     trigger,
-    hasSessionProviderToken: Boolean(sessionProviderToken),
-    hasSessionProviderRefreshToken: Boolean(sessionProviderRefreshToken),
-    hasEffectiveProviderRefreshToken: Boolean(providerRefreshToken)
+    hasSessionProviderToken: true,
+    hasSessionProviderRefreshToken: Boolean(providerRefreshToken)
   });
 
   providerTokenSyncFingerprintByUserId.set(userId, fingerprint);
@@ -461,8 +331,8 @@ export const syncGithubProviderTokenToServer = async (
         provider_token: providerToken,
         provider_refresh_token: providerRefreshToken || undefined,
         debug_trigger: trigger,
-        session_has_provider_token: Boolean(sessionProviderToken),
-        session_has_provider_refresh_token: Boolean(sessionProviderRefreshToken)
+        session_has_provider_token: true,
+        session_has_provider_refresh_token: Boolean(providerRefreshToken)
       })
     });
     const payload = (await response.json().catch(() => ({}))) as {

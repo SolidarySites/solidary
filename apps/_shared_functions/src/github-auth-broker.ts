@@ -30,9 +30,11 @@ type GitHubTokenPayload = {
 };
 
 type GitHubOAuthCredentialSource = "github_app" | "legacy_oauth";
+export type GitHubAuthMode = "solidary" | "github";
 
 type StoredCredentialRow = {
   user_id: string;
+  auth_mode: GitHubAuthMode | null;
   access_token_encrypted: string | null;
   access_token_expires_at: string | null;
   refresh_token_encrypted: string | null;
@@ -47,7 +49,7 @@ type StoredCredentialRow = {
   installation_account_type: string | null;
 };
 
-export type GitHubTokenSource = "github_app" | "legacy_oauth";
+export type GitHubTokenSource = GitHubAuthMode;
 
 export type ResolvedGitHubToken = {
   token: string;
@@ -65,6 +67,7 @@ export type GitHubAppTokenExchange = {
 
 export type UpsertGitHubAppUserCredentialsInput = {
   userId: string;
+  authMode?: GitHubAuthMode;
   githubUserId?: number | null;
   githubLogin?: string | null;
   installationId?: number | null;
@@ -94,6 +97,11 @@ const parseDateToMs = (value: string | null | undefined): number => {
   if (!value) return 0;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return normalized === "github" ? "github" : "solidary";
 };
 
 const isTokenStillUsable = (expiresAt: string | null | undefined): boolean => {
@@ -222,6 +230,10 @@ export const upsertGitHubAppUserCredentials = async ({
     connected_at: new Date().toISOString()
   };
 
+  if (typeof input.authMode !== "undefined") {
+    payload.auth_mode = normalizeGitHubAuthMode(input.authMode);
+  }
+
   if (typeof input.accessTokenExpiresAt !== "undefined") {
     payload.access_token_expires_at = input.accessTokenExpiresAt;
   }
@@ -267,6 +279,7 @@ export const upsertGitHubAppUserCredentials = async ({
   debugLog("upserting credentials", {
     userId,
     source: input.source ?? "unknown",
+    authMode: input.authMode ?? null,
     accessToken: input.accessToken,
     accessTokenExpiresAt: input.accessTokenExpiresAt,
     refreshToken: input.refreshToken,
@@ -300,6 +313,7 @@ const getStoredCredential = async ({
     .select(
       [
         "user_id",
+        "auth_mode",
         "access_token_encrypted",
         "access_token_expires_at",
         "refresh_token_encrypted",
@@ -330,16 +344,13 @@ const getStoredCredential = async ({
 
 export const resolveGitHubTokenForUser = async ({
   supabase,
-  userId,
-  fallbackToken
+  userId
 }: {
   supabase: SupabaseClient;
   userId: string;
-  fallbackToken?: string;
 }): Promise<ResolvedGitHubToken | null> => {
   const normalizedUserId = userId.trim();
-  const normalizedFallback = fallbackToken?.trim() ?? "";
-  if (!normalizedUserId) return normalizedFallback ? { token: normalizedFallback, source: "legacy_oauth" } : null;
+  if (!normalizedUserId) return null;
 
   const credential = await getStoredCredential({
     supabase,
@@ -347,6 +358,7 @@ export const resolveGitHubTokenForUser = async ({
   });
 
   if (credential) {
+    const authMode = normalizeGitHubAuthMode(credential.auth_mode);
     const storedAccessToken = credential.access_token_encrypted?.trim()
       ? decryptTokenValue(credential.access_token_encrypted)
       : "";
@@ -358,80 +370,53 @@ export const resolveGitHubTokenForUser = async ({
       userId: normalizedUserId,
       hasAccessToken: Boolean(storedAccessToken),
       hasRefreshToken: Boolean(storedRefreshToken),
+      authMode,
       accessTokenExpiresAt: credential.access_token_expires_at,
       refreshTokenExpiresAt: credential.refresh_token_expires_at
     });
 
     if (storedAccessToken && isTokenStillUsable(credential.access_token_expires_at)) {
-      return { token: storedAccessToken, source: "github_app" };
+      return { token: storedAccessToken, source: authMode };
     }
-
-    const resolveRefreshSourceCandidates = (): GitHubOAuthCredentialSource[] => {
-      const candidates: GitHubOAuthCredentialSource[] = [];
-      if (storedAccessToken.startsWith("ghu_")) {
-        candidates.push("github_app");
-      } else if (storedAccessToken.startsWith("gho_")) {
-        candidates.push("legacy_oauth");
-      } else if (
-        typeof credential.installation_id === "number" ||
-        Boolean(credential.installation_account_login?.trim())
-      ) {
-        candidates.push("github_app");
-      } else {
-        candidates.push("legacy_oauth");
-      }
-
-      if (!candidates.includes("legacy_oauth")) {
-        candidates.push("legacy_oauth");
-      }
-      if (!candidates.includes("github_app")) {
-        candidates.push("github_app");
-      }
-      return candidates;
-    };
 
     if (storedRefreshToken) {
-      const candidates = resolveRefreshSourceCandidates();
-      for (const refreshSource of candidates) {
-        try {
-          const refreshed = await refreshGitHubAppUserToken(storedRefreshToken, refreshSource);
-          await upsertGitHubAppUserCredentials({
-            supabase,
-            input: {
-              userId: normalizedUserId,
-              githubUserId: credential.github_user_id,
-              githubLogin: credential.github_login,
-              installationId: credential.installation_id,
-              installationAccountLogin: credential.installation_account_login,
-              installationAccountType: credential.installation_account_type,
-              accessToken: refreshed.accessToken,
-              accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-              refreshToken: refreshed.refreshToken || storedRefreshToken,
-              refreshTokenExpiresAt:
-                refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
-              tokenType: refreshed.tokenType,
-              scope: refreshed.scope,
-              source: `refresh_flow:${refreshSource}`
-            }
-          });
-          return {
-            token: refreshed.accessToken,
-            source: refreshSource === "legacy_oauth" ? "legacy_oauth" : "github_app"
-          };
-        } catch (error) {
-          debugLog("refresh flow failed", {
+      const refreshSource: GitHubOAuthCredentialSource =
+        authMode === "github" ? "github_app" : "legacy_oauth";
+      try {
+        const refreshed = await refreshGitHubAppUserToken(storedRefreshToken, refreshSource);
+        await upsertGitHubAppUserCredentials({
+          supabase,
+          input: {
             userId: normalizedUserId,
-            refreshSource,
-            message: error instanceof Error ? error.message : "unknown error"
-          });
-        }
+            authMode,
+            githubUserId: credential.github_user_id,
+            githubLogin: credential.github_login,
+            installationId: credential.installation_id,
+            installationAccountLogin: credential.installation_account_login,
+            installationAccountType: credential.installation_account_type,
+            accessToken: refreshed.accessToken,
+            accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+            refreshToken: refreshed.refreshToken || storedRefreshToken,
+            refreshTokenExpiresAt:
+              refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
+            tokenType: refreshed.tokenType,
+            scope: refreshed.scope,
+            source: `refresh_flow:${refreshSource}`
+          }
+        });
+        return {
+          token: refreshed.accessToken,
+          source: authMode
+        };
+      } catch (error) {
+        debugLog("refresh flow failed", {
+          userId: normalizedUserId,
+          authMode,
+          refreshSource,
+          message: error instanceof Error ? error.message : "unknown error"
+        });
       }
-      // Fall through to legacy fallback if available.
     }
-  }
-
-  if (normalizedFallback) {
-    return { token: normalizedFallback, source: "legacy_oauth" };
   }
 
   return null;

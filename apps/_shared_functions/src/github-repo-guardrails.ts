@@ -149,7 +149,7 @@ export const auditGitHubRepoAction = async ({
   owner: string;
   repo: string;
   decision: AuditDecision;
-  tokenSource?: GitHubTokenSource | "request_body" | "none";
+  tokenSource?: GitHubTokenSource | "none";
   httpStatus?: number;
   message?: string;
   metadata?: Record<string, unknown>;
@@ -201,7 +201,7 @@ export const authorizeGitHubRepoAction = async ({
   supabase: SupabaseClient;
   userId: string;
   githubToken: string;
-  tokenSource: GitHubTokenSource | "request_body" | "none";
+  tokenSource: GitHubTokenSource | "none";
 }> => {
   const normalizedOwner = owner.trim();
   const normalizedRepo = repo.trim();
@@ -269,17 +269,15 @@ export const authorizeGitHubRepoAction = async ({
   }
 
   let githubToken = "";
-  let tokenSource: GitHubTokenSource | "request_body" | "none" = "none";
+  let tokenSource: GitHubTokenSource | "none" = "none";
 
   if (requireGitHubToken) {
-    const normalizedDirectToken = directToken?.trim() ?? "";
     const resolved = await resolveGitHubTokenForUser({
       supabase,
-      userId: user.id,
-      fallbackToken: normalizedDirectToken
+      userId: user.id
     });
     githubToken = resolved?.token?.trim() ?? "";
-    tokenSource = resolved?.source ?? (normalizedDirectToken ? "request_body" : "none");
+    tokenSource = resolved?.source ?? "none";
     if (!githubToken) {
       await auditGitHubRepoAction({
         supabase,

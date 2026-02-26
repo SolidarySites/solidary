@@ -83,7 +83,6 @@ export const handler: Handler = async (event) => {
 
   const draftId = typeof payload.draftId === "string" ? payload.draftId.trim() : "";
   const siteIdFromPayload = typeof payload.siteId === "string" ? payload.siteId.trim() : "";
-  const githubToken = typeof payload.githubToken === "string" ? payload.githubToken.trim() : "";
   if (!draftId && !siteIdFromPayload) {
     return {
       statusCode: 400,
@@ -197,8 +196,7 @@ export const handler: Handler = async (event) => {
 
   const resolvedGitHubAuth = await resolveGitHubTokenForUser({
     supabase,
-    userId: user.id,
-    fallbackToken: githubToken
+    userId: user.id
   });
   const resolvedGitHubToken = resolvedGitHubAuth?.token?.trim() ?? "";
   if (!resolvedGitHubToken) {

@@ -89,6 +89,7 @@ export const uploadDraftImagesToGitHub = async ({
   branch: string;
   images: DraftImageAsset[];
 }) => {
+  void providerToken;
   for (const image of images) {
     const sitePath = normalizeSitePath(image.sitePath);
     if (!sitePath || !image.storagePath.trim()) continue;
@@ -104,7 +105,6 @@ export const uploadDraftImagesToGitHub = async ({
 
     const content = toBase64(await downloadData.arrayBuffer());
     await githubRequest("/.netlify/functions/github-contents-write", {
-      token: providerToken,
       owner: ownerLogin,
       repo: repoName,
       path: repoPath,

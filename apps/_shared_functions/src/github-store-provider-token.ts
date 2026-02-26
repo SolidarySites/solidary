@@ -1,6 +1,9 @@
 import type { Handler } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
-import { upsertGitHubAppUserCredentials } from "./github-auth-broker";
+import {
+  upsertGitHubAppUserCredentials,
+  type GitHubAuthMode
+} from "./github-auth-broker";
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_SERVICE_KEY =
@@ -33,6 +36,10 @@ type GitHubOAuthTokenCheckPayload = {
   message?: string;
 };
 
+type StoredAuthModeRow = {
+  auth_mode?: GitHubAuthMode | null;
+};
+
 const debugLog = (message: string, details: Record<string, unknown>) => {
   if (!GITHUB_TOKEN_DEBUG) return;
   console.log("[github-store-provider-token]", message, details);
@@ -56,6 +63,11 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   const header = authorizationHeader?.trim() ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() ?? "";
+};
+
+const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return normalized === "github" ? "github" : "solidary";
 };
 
 const fetchGitHubUser = async (providerToken: string): Promise<GitHubUserPayload | null> => {
@@ -173,6 +185,27 @@ export const handler: Handler = async (event) => {
     return safeJson(401, { error: "Invalid Supabase session." });
   }
 
+  const { data: existingAuthModeRow, error: existingAuthModeError } = await supabase
+    .from("github_app_user_tokens")
+    .select("auth_mode")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingAuthModeError) {
+    return safeJson(500, { error: existingAuthModeError.message });
+  }
+
+  const existingAuthMode = normalizeGitHubAuthMode(
+    (existingAuthModeRow as StoredAuthModeRow | null)?.auth_mode ?? null
+  );
+  if (existingAuthMode === "github") {
+    return safeJson(200, {
+      ok: true,
+      skipped: true,
+      auth_mode: "github"
+    });
+  }
+
   debugLog("received sync request", {
     userId: user.id,
     trigger: body.debug_trigger ?? "unknown",
@@ -200,6 +233,7 @@ export const handler: Handler = async (event) => {
       supabase,
       input: {
         userId: user.id,
+        authMode: "solidary",
         githubUserId: githubUser?.id ?? null,
         githubLogin: githubUser?.login ?? null,
         accessToken: providerToken,
@@ -218,7 +252,14 @@ export const handler: Handler = async (event) => {
   const { data: storedRow, error: storedRowError } = await supabase
     .from("github_app_user_tokens")
     .select(
-      "access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, updated_at"
+      [
+        "auth_mode",
+        "access_token_encrypted",
+        "refresh_token_encrypted",
+        "access_token_expires_at",
+        "refresh_token_expires_at",
+        "updated_at"
+      ].join(", ")
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -226,6 +267,7 @@ export const handler: Handler = async (event) => {
   const storedRowObject =
     storedRow && typeof storedRow === "object" && !Array.isArray(storedRow)
       ? (storedRow as {
+          auth_mode?: GitHubAuthMode | null;
           access_token_encrypted?: string | null;
           refresh_token_encrypted?: string | null;
           access_token_expires_at?: string | null;
@@ -237,6 +279,7 @@ export const handler: Handler = async (event) => {
   if (!storedRowError && storedRowObject) {
     debugLog("stored row after sync", {
       userId: user.id,
+      authMode: normalizeGitHubAuthMode(storedRowObject.auth_mode),
       hasAccessTokenEncrypted: Boolean(storedRowObject.access_token_encrypted?.trim()),
       hasRefreshTokenEncrypted: Boolean(storedRowObject.refresh_token_encrypted?.trim()),
       accessTokenExpiresAt: storedRowObject.access_token_expires_at ?? null,
@@ -252,6 +295,7 @@ export const handler: Handler = async (event) => {
 
   return safeJson(200, {
     ok: true,
+    auth_mode: normalizeGitHubAuthMode(storedRowObject?.auth_mode ?? null),
     debug: GITHUB_TOKEN_DEBUG
       ? {
           trigger: body.debug_trigger ?? "unknown",

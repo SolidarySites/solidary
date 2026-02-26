@@ -78,13 +78,11 @@ export const buildEditorFileChanges = ({
 
 export const createCollaborationPullRequest = async ({
   draftId,
-  providerToken,
   sessionAccessToken,
   sessionDisplayName,
   touchedSections
 }: {
   draftId: string;
-  providerToken: string;
   sessionAccessToken: string | null;
   sessionDisplayName: string;
   touchedSections: Set<BuilderEditableSectionKey>;
@@ -97,7 +95,6 @@ export const createCollaborationPullRequest = async ({
     },
     body: JSON.stringify({
       draftId,
-      githubToken: providerToken,
       title: `Studio changes by ${sessionDisplayName}`,
       body: `Touched sections: ${Array.from(touchedSections).join(", ") || "n/a"}`
     })
