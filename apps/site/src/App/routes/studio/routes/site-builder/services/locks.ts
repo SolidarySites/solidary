@@ -111,6 +111,6 @@ export const getLockLabel = (lockKey: string): string => {
   if (lockKey === "settings:general") return "General";
   if (lockKey === "settings:connections") return "Connections";
   if (lockKey === "settings:collaborators") return "Collaborators";
-  if (lockKey === "settings:danger") return "Danger";
+  if (lockKey === "settings:danger") return "Advanced";
   return "this section";
 };

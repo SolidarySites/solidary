@@ -11,7 +11,7 @@ export const STUDIO_SETTINGS_SECTION_LABELS: Record<StudioSettingsSection, strin
   general: "General",
   connections: "Connections",
   collaborators: "Collaborators",
-  danger: "Danger"
+  danger: "Advanced"
 };
 
 export const isStudioSettingsSection = (value: string): value is StudioSettingsSection =>

@@ -5,7 +5,6 @@ type GeneralSettingsSectionProps = {
   siteImagePreview: string | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
-  onSiteUrlChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
 };
 
@@ -16,7 +15,6 @@ const GeneralSettingsSection = ({
   siteImagePreview,
   onSiteTitleChange,
   onSiteDescriptionChange,
-  onSiteUrlChange,
   onSiteImageChange
 }: GeneralSettingsSectionProps) => (
   <div className="builder-section">
@@ -37,9 +35,12 @@ const GeneralSettingsSection = ({
       />
     </label>
     <label>
-      Site URL
-      <input value={siteUrl} onChange={(event) => onSiteUrlChange(event.target.value)} />
+      Domain
+      <input value={siteUrl} readOnly />
     </label>
+    <p className="builder-collaborator-hint">
+      Domain changes are managed in the Advanced section.
+    </p>
     <label>
       Site image (JPEG)
       <input

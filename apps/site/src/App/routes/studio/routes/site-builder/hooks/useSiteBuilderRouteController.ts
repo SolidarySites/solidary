@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { requireFreshGithubAuth } from "../../../../../features/auth/services/github-auth";
 import { supabase } from "../../../../../lib/supabase";
+import { githubRequest } from "../../../../../services/github";
 import {
   buildDraftSaveSignature,
   DEFAULT_FOOTER_MODULES,
@@ -52,6 +53,22 @@ type UseSiteBuilderRouteControllerOptions = {
 };
 
 type SiteDeleteMode = "builder" | "github";
+type DomainActionMode = "github";
+type GitHubPagesDomainResponse = {
+  pagesUrl?: string;
+  pages?: {
+    html_url?: string;
+    cname?: string;
+  };
+};
+
+const normalizeCustomDomainInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, "");
+  const domainOnly = withoutProtocol.split("/")[0] ?? "";
+  return domainOnly.replace(/\.+$/, "").trim().toLowerCase();
+};
 
 export const useSiteBuilderRouteController = ({
   mode = "editor"
@@ -111,6 +128,7 @@ export const useSiteBuilderRouteController = ({
   const [deleteMode, setDeleteMode] = useState<SiteDeleteMode | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [domainActionBusy, setDomainActionBusy] = useState<DomainActionMode | "none">("none");
 
   const pageTitleRef = useRef<HTMLInputElement | null>(null);
   const hasInitializedHeaderBrand = useRef(false);
@@ -295,6 +313,7 @@ export const useSiteBuilderRouteController = ({
     setDeleteMode(null);
     setDeleteConfirmText("");
     setDeleteBusy(false);
+    setDomainActionBusy("none");
   }, [draftState?.siteId]);
 
   const { startPublishStatusTracking, cancelPublishStatusTracking } = usePublishStatusTracking({
@@ -654,6 +673,80 @@ export const useSiteBuilderRouteController = ({
     navigate("/studio");
   };
 
+  const handleStudioOnlyDomainUpdate = (rawDomain: string) => {
+    if (!isOwnerOnOwnerDraft) {
+      setNotice("Only the site owner can update the domain in advanced settings.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const normalizedDomain = normalizeCustomDomainInput(rawDomain);
+    if (!normalizedDomain) {
+      setNotice("Enter a valid domain like example.com.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setSiteUrl(normalizedDomain);
+    setNotice(
+      "Domain updated in Studio only. Save draft and publish when your external DNS/domain management is ready."
+    );
+    setNoticeKind("notice");
+  };
+
+  const handleConnectGithubDomain = async (rawDomain: string) => {
+    if (!isOwnerOnOwnerDraft) {
+      setNotice("Only the site owner can connect a GitHub Pages custom domain.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const repoFullName = draftState?.repoFullName?.trim() ?? "";
+    const [owner, repo] = repoFullName.split("/");
+    if (!owner || !repo) {
+      setNotice("Invalid repository name. Please reload and try again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const normalizedDomain = normalizeCustomDomainInput(rawDomain);
+    if (!normalizedDomain) {
+      setNotice("Enter a valid domain like example.com.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setDomainActionBusy("github");
+    try {
+      const freshAuth = await requireFreshGithubAuth();
+      const result = await githubRequest<GitHubPagesDomainResponse>(
+        "/.netlify/functions/github-pages-set-domain",
+        {
+          owner,
+          repo,
+          domain: normalizedDomain,
+          supabase_access_token: freshAuth.supabaseAccessToken
+        }
+      );
+
+      setSiteUrl(normalizedDomain);
+      const pagesUrl = result.pagesUrl?.trim() || result.pages?.html_url?.trim() || "";
+      setNotice(
+        pagesUrl
+          ? `Connected ${normalizedDomain} to GitHub Pages. Save draft and publish to update site metadata. Live URL: ${pagesUrl}`
+          : `Connected ${normalizedDomain} to GitHub Pages. Save draft and publish to update site metadata.`
+      );
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to connect the GitHub Pages domain.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDomainActionBusy("none");
+    }
+  };
+
   const handleDeleteSite = async () => {
     if (!session || !canDeleteSite || !draftState?.siteId || !deleteMode) return;
 
@@ -796,10 +889,14 @@ export const useSiteBuilderRouteController = ({
       deleteConfirmText,
       deleteBusy,
       deleteRepoFullName: deleteSiteRepoFullName,
+      domainActionBusy,
       onSiteTitleChange: setSiteTitle,
       onSiteDescriptionChange: setSiteDescription,
-      onSiteUrlChange: setSiteUrl,
       onSiteImageChange: setSiteImage,
+      onStudioOnlyDomainUpdate: handleStudioOnlyDomainUpdate,
+      onConnectGithubDomain: (value: string) => {
+        void handleConnectGithubDomain(value);
+      },
       onCollaboratorQueryChange: handleCollaboratorQueryChange,
       onCollaboratorRoleChange: setCollaboratorRole,
       onCollaboratorSuggestionSelect: handleCollaboratorSuggestionSelect,

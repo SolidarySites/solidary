@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-26T14:37:28.377Z",
-  "latest_commit_sha": "9891048309829404e76ef6bbd046e5852f784ad4",
+  "generated_at": "2026-02-26T16:56:26.942Z",
+  "latest_commit_sha": "20876c6c0b6ef165b5aab3beaeb43ab923069086",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -730,12 +730,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 949
+                                    "LOC": 1046
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
                                     "description": "Save/publish orchestration hook wiring section persistence, conflict handling, and publish job startup.",
-                                    "LOC": 488
+                                    "LOC": 512
                                   }
                                 ]
                               },
@@ -915,7 +915,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 154
+                                    "LOC": 161
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -935,12 +935,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
                                     "description": "Owner-only destructive-actions section for deleting site records and optional GitHub repository deletion.",
-                                    "LOC": 101
+                                    "LOC": 180
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
                                     "description": "Settings section form for editable site title, description, URL, and image metadata.",
-                                    "LOC": 55
+                                    "LOC": 56
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
@@ -998,7 +998,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 411
+                                "LOC": 435
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",

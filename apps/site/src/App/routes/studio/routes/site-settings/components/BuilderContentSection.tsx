@@ -33,10 +33,12 @@ type BuilderContentSectionProps = {
   deleteConfirmText?: string;
   deleteBusy?: boolean;
   deleteRepoFullName?: string;
+  domainActionBusy?: "none" | "github";
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
-  onSiteUrlChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
+  onStudioOnlyDomainUpdate?: (value: string) => void;
+  onConnectGithubDomain?: (value: string) => void;
   onCollaboratorQueryChange: (value: string) => void;
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
@@ -73,10 +75,12 @@ const BuilderContentSection = ({
   deleteConfirmText = "",
   deleteBusy = false,
   deleteRepoFullName = "",
+  domainActionBusy = "none",
   onSiteTitleChange,
   onSiteDescriptionChange,
-  onSiteUrlChange,
   onSiteImageChange,
+  onStudioOnlyDomainUpdate,
+  onConnectGithubDomain,
   onCollaboratorQueryChange,
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
@@ -104,7 +108,6 @@ const BuilderContentSection = ({
           siteImagePreview={siteImagePreview}
           onSiteTitleChange={onSiteTitleChange}
           onSiteDescriptionChange={onSiteDescriptionChange}
-          onSiteUrlChange={onSiteUrlChange}
           onSiteImageChange={onSiteImageChange}
         />
       )}
@@ -136,6 +139,10 @@ const BuilderContentSection = ({
       {activeSection === "danger" && (
         <DangerSettingsSection
           ownerAccess={ownerAccess}
+          siteUrl={siteUrl}
+          domainActionBusy={domainActionBusy}
+          onStudioOnlyDomainUpdate={onStudioOnlyDomainUpdate}
+          onConnectGithubDomain={onConnectGithubDomain}
           canDeleteSite={canDeleteSite}
           deleteMode={deleteMode}
           deleteConfirmText={deleteConfirmText}
