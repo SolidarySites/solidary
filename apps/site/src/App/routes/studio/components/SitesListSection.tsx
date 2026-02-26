@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useState } from "react";
 
 type SiteListItem = {
   id: string;
@@ -19,7 +19,7 @@ type SitesListSectionProps = {
   items: SiteListItem[];
   loading: boolean;
   onEdit: (id: string) => void;
-  onDelete?: (item: SiteListItem) => void;
+  onSettings?: (id: string) => void;
   onCreate?: () => void;
   showThumbnails?: boolean;
 };
@@ -61,7 +61,7 @@ export default function SitesListSection({
   items,
   loading,
   onEdit,
-  onDelete,
+  onSettings,
   onCreate,
   showThumbnails = false
 }: SitesListSectionProps) {
@@ -134,15 +134,9 @@ export default function SitesListSection({
               <button className="ghost" onClick={() => onEdit(item.id)}>
                 Edit
               </button>
-              {onDelete && item.canDelete !== false && (
-                <button
-                  className="ghost"
-                  onClick={(event: MouseEvent) => {
-                    event.preventDefault();
-                    onDelete(item);
-                  }}
-                >
-                  Remove
+              {onSettings && item.canDelete !== false && (
+                <button className="ghost" onClick={() => onSettings(item.id)}>
+                  Settings
                 </button>
               )}
             </div>

@@ -8,9 +8,9 @@ import ExplorerRoute from "./routes/explorer/ExplorerRoute";
 import SearchRoute from "./routes/search/SearchRoute";
 import StudioRoute from "./routes/studio/StudioRoute";
 import SiteCreateRoute from "./routes/site-create/SiteCreateRoute";
-import SiteBuilderRoute from "./routes/site-builder/SiteBuilderRoute";
+import StudioBuilderRoute from "./routes/studio/routes/site-builder/SiteBuilderRoute";
+import StudioSettingsRoute from "./routes/studio/routes/site-settings/StudioSettingsRoute";
 import ProfileRoute from "./routes/profile/ProfileRoute";
-import ConnectionExplorerRoute from "./routes/site-connections/ConnectionExplorerRoute";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
 
@@ -71,10 +71,18 @@ export default function App() {
             }
           />
           <Route
-            path="/site-builder"
+            path="/studio/builder"
             element={
               <RequireAuth>
-                <SiteBuilderRoute />
+                <StudioBuilderRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/studio/settings"
+            element={
+              <RequireAuth>
+                <StudioSettingsRoute />
               </RequireAuth>
             }
           />
@@ -83,14 +91,6 @@ export default function App() {
             element={
               <RequireAuth>
                 <ProfileRoute />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/site-connections"
-            element={
-              <RequireAuth>
-                <ConnectionExplorerRoute />
               </RequireAuth>
             }
           />

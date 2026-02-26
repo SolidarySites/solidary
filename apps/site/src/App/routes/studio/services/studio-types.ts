@@ -25,11 +25,3 @@ export type StudioSiteListItem = {
   canDelete?: boolean;
   updatedAt?: string;
 };
-
-export type DeleteMode = "builder" | "github";
-
-export type DeleteTarget = {
-  id: string;
-  repoFullName: string;
-  title: string;
-};

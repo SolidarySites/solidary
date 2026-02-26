@@ -139,60 +139,6 @@
 }
 
 
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 22, 18, 0.35);
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  z-index: 20;
-}
-
-.dialog-card {
-  width: min(520px, 92vw);
-  background: #fff;
-  border: 1px solid rgba(31, 34, 28, 0.2);
-  padding: 1.75rem;
-  display: grid;
-  gap: 1.2rem;
-  box-shadow: 0 24px 60px rgba(18, 20, 16, 0.25);
-}
-
-.dialog-eyebrow {
-  font-family: "IBM Plex Mono", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.65rem;
-  color: rgba(31, 34, 28, 0.6);
-  margin: 0 0 0.4rem;
-}
-
-.dialog-options {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.dialog-panel {
-  border: 1px dashed rgba(31, 34, 28, 0.2);
-  padding: 1rem;
-  background: rgba(248, 245, 239, 0.6);
-}
-
-.dialog-label {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  margin-top: 0.8rem;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
 @keyframes studio-thumbnail-spinner {
   to {
     transform: rotate(360deg);

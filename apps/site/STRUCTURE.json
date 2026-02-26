@@ -1,1064 +1,1288 @@
 {
-  "generated_at": "2026-02-25T23:52:01.944Z",
-  "latest_commit_sha": "2331ab2d28f58c2310bc33deac4a80fcc0b9ded6",
+  "generated_at": "2026-02-26T02:14:16.480Z",
+  "latest_commit_sha": "1fc5e708994cab7f79f8605f002828e70ea3bf3f",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
     "LOC values are line-count snapshots so automations can flag files whose descriptions may need refresh after edits.",
     "UI structure note: `src/App/hooks` exists but is not listed in the AGENTS.md structure; consider moving it under routes/features or updating AGENTS.md."
   ],
-  "directories": [
-    {
-      "path": ".",
-      "description": "Solidary site app workspace (React + Vite) containing the landing, studio, site-create, and site-builder frontend."
-    },
-    {
-      "path": "public",
-      "description": "Public static assets served as-is by Vite and the deployed site."
-    },
-    {
-      "path": "scripts",
-      "description": "?"
-    },
-    {
-      "path": "src",
-      "description": "App source tree plus raw templates used to scaffold repository content."
-    },
-    {
-      "path": "src/App",
-      "description": "Primary application module containing router shell (`App.tsx`), shared primitive styles, route/component-scoped stylesheets, shared layout components, cross-route features, and route folders."
-    },
-    {
-      "path": "src/App/assets",
-      "description": "App-local static assets (currently scaffold leftovers)."
-    },
-    {
-      "path": "src/App/components",
-      "description": "Global shell components reused across routes (`SiteHeader` and `SiteFooter`) with co-located component stylesheets."
-    },
-    {
-      "path": "src/App/features",
-      "description": "Cross-route business features (auth session management and site-draft content modeling/build helpers)."
-    },
-    {
-      "path": "src/App/features/auth",
-      "description": "Global authentication feature built on Supabase session state with GitHub OAuth sign-in/out actions."
-    },
-    {
-      "path": "src/App/features/auth/components",
-      "description": "Auth feature UI guards and presentation helpers consumed by route-level composition."
-    },
-    {
-      "path": "src/App/features/auth/context",
-      "description": "Auth feature context definitions shared across providers and hooks."
-    },
-    {
-      "path": "src/App/features/auth/hooks",
-      "description": "Auth feature hooks for safe context consumption and auth state access."
-    },
-    {
-      "path": "src/App/features/auth/providers",
-      "description": "Auth feature providers that connect Supabase auth lifecycle to React context state."
-    },
-    {
-      "path": "src/App/features/auth/services",
-      "description": "Auth feature services for fetching tokens and user profile metadata helpers."
-    },
-    {
-      "path": "src/App/features/site-draft",
-      "description": "Cross-route draft-content feature defining canonical site/page data shapes and transformation helpers."
-    },
-    {
-      "path": "src/App/features/site-draft/services",
-      "description": "Pure transformation/parsing helpers for Solidary metadata and Astro template generation."
-    },
-    {
-      "path": "src/App/hooks",
-      "description": "Shared app-wide hooks that are not route- or feature-scoped (currently global external image loading)."
-    },
-    {
-      "path": "src/App/lib",
-      "description": "Small shared utilities for Supabase client bootstrap, slug normalization, and browser-safe base64 encoding."
-    },
-    {
-      "path": "src/App/routes",
-      "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded)."
-    },
-    {
-      "path": "src/App/routes/explorer",
-      "description": "Public explorer route module for browsing the site connection graph."
-    },
-    {
-      "path": "src/App/routes/explorer/components",
-      "description": "Explorer UI components for graph visualization and site list."
-    },
-    {
-      "path": "src/App/routes/explorer/hooks",
-      "description": "Explorer route controller hooks."
-    },
-    {
-      "path": "src/App/routes/explorer/services",
-      "description": "Explorer data + graph services for Supabase queries and layout."
-    },
-    {
-      "path": "src/App/routes/landing",
-      "description": "Public landing route module for first-touch marketing copy and entry into authenticated app flows."
-    },
-    {
-      "path": "src/App/routes/landing/components",
-      "description": "?"
-    },
-    {
-      "path": "src/App/routes/landing/hooks",
-      "description": "?"
-    },
-    {
-      "path": "src/App/routes/landing/services",
-      "description": "?"
-    },
-    {
-      "path": "src/App/routes/profile",
-      "description": "Authenticated profile settings route for account metadata and avatar management."
-    },
-    {
-      "path": "src/App/routes/profile/components",
-      "description": "?"
-    },
-    {
-      "path": "src/App/routes/profile/hooks",
-      "description": "Profile route controller hooks."
-    },
-    {
-      "path": "src/App/routes/profile/services",
-      "description": "Profile services for settings persistence and avatar upload."
-    },
-    {
-      "path": "src/App/routes/search",
-      "description": "Public search route module that reuses explorer list UI to filter sites."
-    },
-    {
-      "path": "src/App/routes/site-builder",
-      "description": "Authenticated site-builder route module for collaborative editing, locking, draft persistence, and publish workflows."
-    },
-    {
-      "path": "src/App/routes/site-builder/components",
-      "description": "Builder UI components for top-level layout, section editors, formatting controls, and live preview rendering."
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks",
-      "description": "Builder hooks coordinating route-controller composition, access/locks, draft lifecycle, save/publish actions, section/page navigation, collaborators/presence, and publish tracking."
-    },
-    {
-      "path": "src/App/routes/site-builder/services",
-      "description": "Builder service layer for draft loading/saving, lock transitions, file generation, and shared domain utilities."
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish",
-      "description": "Publish workflow services for owner direct publish and editor pull-request publish flows."
-    },
-    {
-      "path": "src/App/routes/site-connections",
-      "description": "Authenticated connection explorer route for managing site-to-site connection invites."
-    },
-    {
-      "path": "src/App/routes/site-connections/hooks",
-      "description": "Connection explorer route controller hooks."
-    },
-    {
-      "path": "src/App/routes/site-connections/services",
-      "description": "Connection explorer Supabase RPC services and mappers."
-    },
-    {
-      "path": "src/App/routes/site-create",
-      "description": "Authenticated route module for provisioning a new GitHub-backed site and seeding its initial Supabase draft records before entering the builder."
-    },
-    {
-      "path": "src/App/routes/site-create/components",
-      "description": "Presentation components for site metadata input and provisioning progress feedback."
-    },
-    {
-      "path": "src/App/routes/site-create/hooks",
-      "description": "Route-local controller hook for form state, image preview lifecycle, auth/token validation, and create-site orchestration."
-    },
-    {
-      "path": "src/App/routes/site-create/services",
-      "description": "Create-route orchestration services that validate inputs, process uploaded images, provision GitHub-backed site repositories, and persist initial draft records."
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning",
-      "description": "Create-flow provisioning modules split by concern: markdown/file templating, GitHub/Pages/background-job orchestration, and Supabase draft persistence."
-    },
-    {
-      "path": "src/App/routes/studio",
-      "description": "Authenticated dashboard route that aggregates owned + shared sites into a single list with role visibility, delete actions, and placeholder index tooling."
-    },
-    {
-      "path": "src/App/routes/studio/components",
-      "description": "Studio UI components used by the active route shell (site list, index placeholder, and delete dialog)."
-    },
-    {
-      "path": "src/App/routes/studio/hooks",
-      "description": "Route hooks for loading draft/PR data, mutating site records, and composing Studio view props/state."
-    },
-    {
-      "path": "src/App/routes/studio/services",
-      "description": "Studio mappers and route-local domain types for translating draft file metadata into card-friendly models."
-    },
-    {
-      "path": "src/App/services",
-      "description": "App-wide services including GitHub Netlify-function adapters and reusable client-side image processing utilities."
-    },
-    {
-      "path": "src/App/services/image-processing",
-      "description": "Reusable client-side image processing services (picsquish-based resize/compression helpers) configured by callers for route-specific byte/dimension targets."
-    },
-    {
-      "path": "src/App/types",
-      "description": "Shared lightweight app-level types (currently notice severity union used by route footers/controllers)."
-    },
-    {
-      "path": "src/templates",
-      "description": "Raw template assets imported and written into newly provisioned Astro repositories."
-    },
-    {
-      "path": "src/templates/astro",
-      "description": "Astro scaffold templates with markdown frontmatter content files, protocol metadata template, design tokens, and runtime template snapshots."
-    },
-    {
-      "path": "src/templates/astro/runtime",
-      "description": "Raw copies of Astro runtime files that are upserted during builder publish to migrate repos to the latest template layout/config architecture."
-    }
-  ],
-  "files": [
-    {
-      "path": ".env.example",
-      "description": "?",
-      "LOC": 19
-    },
-    {
-      "path": ".gitignore",
-      "description": "App-level git ignore rules for logs, local files, editor metadata, and build output.",
-      "LOC": 25
-    },
-    {
-      "path": "AGENTS.md",
-      "description": "Maintainability and architecture rules for this app.",
-      "LOC": 140
-    },
-    {
-      "path": "eslint.config.js",
-      "description": "Flat ESLint configuration combining JS/TypeScript recommendations with React hooks + Vite React-refresh rules, while ignoring `dist`.",
-      "LOC": 23
-    },
-    {
-      "path": "index.html",
-      "description": "Vite HTML entry template that mounts the React root, loads `/src/main.tsx`, and defines base document metadata/favicon.",
-      "LOC": 13
-    },
-    {
-      "path": "package.json",
-      "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-      "LOC": 41
-    },
-    {
-      "path": "public/vite.svg",
-      "description": "Vite scaffold favicon served as a static public asset.",
-      "LOC": 0
-    },
-    {
-      "path": "README.md",
-      "description": "Default Vite React+TypeScript README retained from initial scaffold.",
-      "LOC": 73
-    },
-    {
-      "path": "scripts/sync-structure.mjs",
-      "description": "?",
-      "LOC": 188
-    },
-    {
-      "path": "src/App/App.css",
-      "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
-      "LOC": 105
-    },
-    {
-      "path": "src/App/App.tsx",
-      "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
-      "LOC": 101
-    },
-    {
-      "path": "src/App/components/SiteFooter.css",
-      "description": "Component-scoped footer styles for notices/warnings and footer layout.",
-      "LOC": 28
-    },
-    {
-      "path": "src/App/components/SiteFooter.tsx",
-      "description": "Global footer that shows Supabase env setup warnings and route-level notice/error messages.",
-      "LOC": 25
-    },
-    {
-      "path": "src/App/components/SiteHeader.css",
-      "description": "Component-scoped header styles for navigation links, avatar menu, and responsive layout.",
-      "LOC": 184
-    },
-    {
-      "path": "src/App/components/SiteHeader.tsx",
-      "description": "Global header with brand link, explorer/search nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
-      "LOC": 152
-    },
-    {
-      "path": "src/App/features/auth/components/RequireAuth.tsx",
-      "description": "Auth gate component that waits for auth resolution and redirects unauthenticated users from protected routes back to `/`.",
-      "LOC": 21
-    },
-    {
-      "path": "src/App/features/auth/context/AuthContext.ts",
-      "description": "Defines the global auth context shape (`session`, `sessionResolved`, `signInWithGitHub`, `signOut`) and exports the nullable React context instance.",
-      "LOC": 12
-    },
-    {
-      "path": "src/App/features/auth/hooks/useAuth.ts",
-      "description": "Thin guard hook around `AuthContext` that throws if used outside `AuthProvider`.",
-      "LOC": 10
-    },
-    {
-      "path": "src/App/features/auth/providers/AuthProvider.tsx",
-      "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
-      "LOC": 218
-    },
-    {
-      "path": "src/App/features/auth/services/github-auth.test.ts",
-      "description": "?",
-      "LOC": 242
-    },
-    {
-      "path": "src/App/features/auth/services/github-auth.ts",
-      "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-      "LOC": 488
-    },
-    {
-      "path": "src/App/features/auth/services/user-profile.ts",
-      "description": "User metadata helpers for display name, GitHub profile info, and profile avatar path/public URL lookup.",
-      "LOC": 131
-    },
-    {
-      "path": "src/App/features/site-draft/services/astro-builders.test.ts",
-      "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
-      "LOC": 65
-    },
-    {
-      "path": "src/App/features/site-draft/services/astro-builders.ts",
-      "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-      "LOC": 39
-    },
-    {
-      "path": "src/App/features/site-draft/services/solidary.test.ts",
-      "description": "Unit tests for the Solidary metadata JSON parser, covering valid payload parsing and invalid JSON fallback behavior.",
-      "LOC": 26
-    },
-    {
-      "path": "src/App/features/site-draft/services/solidary.ts",
-      "description": "Minimal parser for `.well-known/solidary-links.json` content that safely returns typed metadata or `null` on invalid JSON.",
-      "LOC": 15
-    },
-    {
-      "path": "src/App/features/site-draft/types.ts",
-      "description": "Shared draft content contracts (`RepoFileSet`, `AstroSettings`, `AstroPageDraft`, header/footer shapes) reused by create, studio, and builder flows.",
-      "LOC": 34
-    },
-    {
-      "path": "src/App/hooks/useGlobalExternalImageLoading.ts",
-      "description": "Global hook that tracks external images, swaps in placeholders during load, and cleans up via a MutationObserver.",
-      "LOC": 96
-    },
-    {
-      "path": "src/App/lib/base64.ts",
-      "description": "Converts ArrayBuffer payloads into base64 strings in chunked mode to avoid call-stack overflow.",
-      "LOC": 9
-    },
-    {
-      "path": "src/App/lib/external-image-loading.ts",
-      "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
-      "LOC": 194
-    },
-    {
-      "path": "src/App/lib/site-image-url.ts",
-      "description": "?",
-      "LOC": 61
-    },
-    {
-      "path": "src/App/lib/slugify.ts",
-      "description": "Normalizes freeform titles into URL/repository-safe slugs.",
-      "LOC": 7
-    },
-    {
-      "path": "src/App/lib/supabase.ts",
-      "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
-      "LOC": 20
-    },
-    {
-      "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
-      "description": "Canvas-driven interactive explorer graph using @cosmos.gl/graph with hover cards, viewer beacons, and deterministic point placement.",
-      "LOC": 642
-    },
-    {
-      "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
-      "description": "Explorer list panel with filtering, stats, and per-site cards with connection counts.",
-      "LOC": 103
-    },
-    {
-      "path": "src/App/routes/explorer/ExplorerRoute.css",
-      "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
-      "LOC": 378
-    },
-    {
-      "path": "src/App/routes/explorer/ExplorerRoute.tsx",
-      "description": "Explorer route that renders a full-screen graph, loads viewer-owned site IDs for highlight beacons, and shows loading/error overlays.",
-      "LOC": 81
-    },
-    {
-      "path": "src/App/routes/explorer/hooks/useExplorerRouteController.ts",
-      "description": "Controller hook that loads explorer data, handles errors, and filters sites by search query.",
-      "LOC": 63
-    },
-    {
-      "path": "src/App/routes/explorer/index.ts",
-      "description": "Route barrel re-export for the explorer route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/explorer/services/explorer-data.ts",
-      "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
-      "LOC": 140
-    },
-    {
-      "path": "src/App/routes/explorer/services/explorer-graph.ts",
-      "description": "Explorer graph layout/index utilities, random placement + expansion helpers, and optional quantum random fallback for large graphs.",
-      "LOC": 1037
-    },
-    {
-      "path": "src/App/routes/landing/components/.gitkeep",
-      "description": "?",
-      "LOC": 0
-    },
-    {
-      "path": "src/App/routes/landing/hooks/.gitkeep",
-      "description": "?",
-      "LOC": 0
-    },
-    {
-      "path": "src/App/routes/landing/index.ts",
-      "description": "Route barrel re-export for the landing route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/landing/LandingRoute.css",
-      "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
-      "LOC": 78
-    },
-    {
-      "path": "src/App/routes/landing/LandingRoute.tsx",
-      "description": "Public homepage route that renders brand messaging, feature highlights, and primary navigation into the authenticated Studio flow.",
-      "LOC": 42
-    },
-    {
-      "path": "src/App/routes/landing/services/.gitkeep",
-      "description": "?",
-      "LOC": 0
-    },
-    {
-      "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
-      "description": "?",
-      "LOC": 75
-    },
-    {
-      "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
-      "description": "?",
-      "LOC": 165
-    },
-    {
-      "path": "src/App/routes/profile/hooks/useProfileAvatarController.ts",
-      "description": "?",
-      "LOC": 363
-    },
-    {
-      "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
-      "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-      "LOC": 210
-    },
-    {
-      "path": "src/App/routes/profile/index.ts",
-      "description": "Route barrel re-export for the profile route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/profile/ProfileRoute.css",
-      "description": "Profile settings route styles for account cards, avatars, and form layout.",
-      "LOC": 277
-    },
-    {
-      "path": "src/App/routes/profile/ProfileRoute.tsx",
-      "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-      "LOC": 58
-    },
-    {
-      "path": "src/App/routes/profile/services/profile-avatar-upload.ts",
-      "description": "Avatar upload pipeline that validates, compresses, uploads, and removes profile images in Supabase storage.",
-      "LOC": 119
-    },
-    {
-      "path": "src/App/routes/profile/services/profile-settings.ts",
-      "description": "Profile settings services that map session metadata and persist display name/avatar path to Supabase auth.",
-      "LOC": 68
-    },
-    {
-      "path": "src/App/routes/search/index.ts",
-      "description": "Route barrel re-export for the search route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/search/SearchRoute.tsx",
-      "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
-      "LOC": 38
-    },
-    {
-      "path": "src/App/routes/site-builder/components/AstroTemplatePreview.tsx",
-      "description": "Rich Astro-style preview surface with editable content, markdown-to-HTML rendering, image/caption controls, header/footer simulation, and imperative editor commands.",
-      "LOC": 1461
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderActions.tsx",
-      "description": "Topbar action cluster for save/publish buttons and publish progress/success/error feedback links.",
-      "LOC": 74
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderContentSection.tsx",
-      "description": "Metadata and collaborator-management form section with site connection CTA plus title/description/URL/image fields.",
-      "LOC": 237
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderEditorToolbar.tsx",
-      "description": "Formatting toolbar UI (text styles, alignment, lists, links, image URL/upload, clear formatting) for the live preview editor.",
-      "LOC": 274
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderFooterSection.tsx",
-      "description": "Footer settings editor for visibility/fixed mode, module content/alignment, and module ordering controls.",
-      "LOC": 118
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderHeaderSection.tsx",
-      "description": "Header settings editor for visibility/fixed mode, home-link brand text, and nav item ordering.",
-      "LOC": 100
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderImageSettingsPanel.tsx",
-      "description": "Inspector panel for the currently selected preview image (alt text, caption, and size slider).",
-      "LOC": 68
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderPagesSection.tsx",
-      "description": "Pages management UI that switches between page list mode and per-page title/slug edit mode with lock indicators.",
-      "LOC": 135
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderPreviewPanel.tsx",
-      "description": "Preview shell that handles loading/error/read-only states, formatting toolbar rail, and AstroTemplatePreview mounting.",
-      "LOC": 121
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderSidebar.tsx",
-      "description": "Primary builder sidebar that routes section navigation and renders the appropriate settings/metadata sub-section with lock-aware disabling.",
-      "LOC": 343
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderStylesSection.tsx",
-      "description": "Styles settings section for editing token CSS used by the preview and generated site files.",
-      "LOC": 21
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderToolbarIcons.tsx",
-      "description": "Reusable SVG icon set used by builder formatting and alignment controls.",
-      "LOC": 110
-    },
-    {
-      "path": "src/App/routes/site-builder/components/BuilderTopbar.tsx",
-      "description": "Sticky builder topbar showing external links, role/presence pills, fullscreen toggle, and save/publish action block.",
-      "LOC": 194
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useBuilderCollaborators.ts",
-      "description": "Hook for collaborator search, invite, role updates, removals, and managed-collaborator list loading/sync via Supabase RPC + Netlify GitHub functions.",
-      "LOC": 465
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useBuilderPageEditing.ts",
-      "description": "Hook for page CRUD-ish editing helpers (add/update slug/title/body), touched/deleted slug tracking, nav ordering, and footer module reordering.",
-      "LOC": 212
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
-      "description": "Hook wrapping preview editor commands, selected image state, and inline image uploads to Supabase storage + draft image metadata records.",
-      "LOC": 195
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
-      "description": "Section/page navigation coordinator that delegates lock-aware transitions and exposes route-level navigation handlers.",
-      "LOC": 208
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useBuilderSectionNavigation.types.ts",
-      "description": "Type contracts for section-navigation hook inputs/outputs and lock/save callbacks.",
-      "LOC": 54
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useDraftPresence.ts",
-      "description": "Realtime presence hook that tracks active collaborators and active page slug per user through Supabase Realtime presence channels.",
-      "LOC": 130
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useDraftSectionLocks.ts",
-      "description": "Section-lock hook for polling/acquiring/releasing draft section locks and releasing all locks on pagehide/unmount.",
-      "LOC": 197
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/usePublishStatusTracking.ts",
-      "description": "Publish status polling hook that tracks GitHub deployment workflow progress and emits publish feedback/error/success callbacks.",
-      "LOC": 177
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
-      "description": "Subhook deriving builder access mode, lock ownership maps, and read-only messaging.",
-      "LOC": 217
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
-      "description": "Subhook orchestrating draft load/reload/refresh and syncing section signatures.",
-      "LOC": 386
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
-      "description": "Primary site-builder route orchestrator that composes route state, collaborators/presence hooks, section navigation, and view-model props while delegating access/locks, draft lifecycle, and save/publish logic to dedicated subhooks.",
-      "LOC": 819
-    },
-    {
-      "path": "src/App/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
-      "description": "Subhook managing draft saves plus owner/editor publish workflows and status tracking handoff.",
-      "LOC": 488
-    },
-    {
-      "path": "src/App/routes/site-builder/index.ts",
-      "description": "Route boundary re-export for SiteBuilderRoute and its controller hook.",
-      "LOC": 2
-    },
-    {
-      "path": "src/App/routes/site-builder/services/build-files.ts",
-      "description": "Builds publishable repository file set (markdown content files, runtime template upserts, tokens, solidary metadata, and page markdown) from current builder state.",
-      "LOC": 224
-    },
-    {
-      "path": "src/App/routes/site-builder/services/collaborators.test.ts",
-      "description": "Unit tests for collaborator identifier normalization and collaborator row mapping used by the builder collaborator UI.",
-      "LOC": 108
-    },
-    {
-      "path": "src/App/routes/site-builder/services/collaborators.ts",
-      "description": "Pure mappers/normalizers for collaborator search rows, managed collaborator API rows, and invite identifier parsing.",
-      "LOC": 86
-    },
-    {
-      "path": "src/App/routes/site-builder/services/constants.ts",
-      "description": "Shared builder file-path constants for generated markdown content files, runtime template paths, tokens, solidary metadata, and page content paths.",
-      "LOC": 22
-    },
-    {
-      "path": "src/App/routes/site-builder/services/draft-utils.ts",
-      "description": "Draft utility layer for image-path/url helpers, footer normalization, page-row creation, and deterministic draft-save signatures.",
-      "LOC": 158
-    },
-    {
-      "path": "src/App/routes/site-builder/services/load-draft.ts",
-      "description": "Loads draft state from Supabase, resolves access role/editor draft fallback, and hydrates pages/settings/images into controller-ready structures.",
-      "LOC": 351
-    },
-    {
-      "path": "src/App/routes/site-builder/services/locks.test.ts",
-      "description": "Unit tests for builder lock-key and label helpers, including page lock derivation from active slugs and sections.",
-      "LOC": 60
-    },
-    {
-      "path": "src/App/routes/site-builder/services/locks.ts",
-      "description": "Section/page lock-key utilities and label helpers used to map UI state to lock records and editable section semantics.",
-      "LOC": 106
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish-draft.ts",
-      "description": "Facade re-export for owner/editor publish service implementations and shared publish types.",
-      "LOC": 8
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/editor-helpers.test.ts",
-      "description": "Unit tests for editor touched-file mapping, including metadata/runtime upserts and page-only touched filtering behavior.",
-      "LOC": 67
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/editor-helpers.ts",
-      "description": "Editor-publish helpers for building touched-file diffs across markdown content/runtime templates, creating collaboration PRs, and loading latest touched state from Supabase.",
-      "LOC": 155
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/index.ts",
-      "description": "Publish module index that re-exports owner/editor publish entrypoints and publish type contracts.",
-      "LOC": 9
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/publishEditorDraft.ts",
-      "description": "Editor publish flow that commits touched changes to collaboration branch and opens/updates a pull request for owner/admin review.",
-      "LOC": 206
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/publishOwnerDraft.ts",
-      "description": "Owner/admin publish flow that saves draft, uploads assets/files, updates site metadata, and starts deployment status tracking.",
-      "LOC": 202
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/shared.ts",
-      "description": "Shared publish helpers for image path resolution, touched-set normalization, loading draft images, and uploading draft images to GitHub.",
-      "LOC": 116
-    },
-    {
-      "path": "src/App/routes/site-builder/services/publish/types.ts",
-      "description": "Type contracts shared by publish services (common params, owner/editor params, tracking payloads, and batch commit responses).",
-      "LOC": 74
-    },
-    {
-      "path": "src/App/routes/site-builder/services/save-draft-state.ts",
-      "description": "Atomic-ish draft persistence routine with optimistic revision checks, settings/page upserts, and conflict error signaling.",
-      "LOC": 117
-    },
-    {
-      "path": "src/App/routes/site-builder/services/save-editor-touch.ts",
-      "description": "Editor-draft touched-state synchronization helpers and RPC wrapper for recording touched sections/pages/deletions.",
-      "LOC": 85
-    },
-    {
-      "path": "src/App/routes/site-builder/services/save-metadata-and-pages.ts",
-      "description": "Section-specific save routines for metadata and pages, including selective page upserts/deletes and touched slug propagation.",
-      "LOC": 187
-    },
-    {
-      "path": "src/App/routes/site-builder/services/save-section-signature.ts",
-      "description": "Helper for computing the current draft signature from route state for unsaved-change detection.",
-      "LOC": 31
-    },
-    {
-      "path": "src/App/routes/site-builder/services/save-settings-sections.ts",
-      "description": "Section save routines for header/footer/styles via dedicated Supabase RPC endpoints.",
-      "LOC": 87
-    },
-    {
-      "path": "src/App/routes/site-builder/services/switch-editor-section.test.ts",
-      "description": "Unit tests for switch-editor-section lock-aware transitions and save/refresh sequencing.",
-      "LOC": 80
-    },
-    {
-      "path": "src/App/routes/site-builder/services/switch-editor-section.ts",
-      "description": "Lock-aware section-transition workflow that acquires next locks, saves/releases current section, and refreshes draft data.",
-      "LOC": 193
-    },
-    {
-      "path": "src/App/routes/site-builder/services/switch-preview-slug.ts",
-      "description": "Lock-aware preview-page switching workflow that handles page lock handoff and optional save-before-switch behavior.",
-      "LOC": 115
-    },
-    {
-      "path": "src/App/routes/site-builder/services/types.ts",
-      "description": "Core site-builder domain types for pages, draft state, roles, settings structures, and publish feedback payloads.",
-      "LOC": 103
-    },
-    {
-      "path": "src/App/routes/site-builder/services/utils.ts",
-      "description": "General builder helpers for slug normalization/uniqueness, preview image URL resolution, frontmatter stripping, and publish poll timing.",
-      "LOC": 72
-    },
-    {
-      "path": "src/App/routes/site-builder/SiteBuilderRoute.css",
-      "description": "Site-builder route stylesheet covering builder layout/topbar/sidebar/panels, collaborator and lock affordances, Astro preview skinning, and responsive builder breakpoints.",
-      "LOC": 1003
-    },
-    {
-      "path": "src/App/routes/site-builder/SiteBuilderRoute.tsx",
-      "description": "Site builder route orchestrator that composes topbar, sidebar/content sections, preview panel, and metadata full-view lock state.",
-      "LOC": 45
-    },
-    {
-      "path": "src/App/routes/site-connections/ConnectionExplorerRoute.css",
-      "description": "Connection explorer route styles for panels, search results, and request lists.",
-      "LOC": 118
-    },
-    {
-      "path": "src/App/routes/site-connections/ConnectionExplorerRoute.tsx",
-      "description": "Connection explorer route UI for searching sites/users, sending invites, and approving/rejecting requests.",
-      "LOC": 269
-    },
-    {
-      "path": "src/App/routes/site-connections/hooks/useConnectionExplorerRouteController.ts",
-      "description": "Controller hook that loads connection context, handles search/invite/respond flows, and manages notices.",
-      "LOC": 286
-    },
-    {
-      "path": "src/App/routes/site-connections/index.ts",
-      "description": "Route barrel re-export for the connection explorer route entry component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/site-connections/services/site-connections.ts",
-      "description": "Supabase RPC service layer for resolving connection context, searching targets, and sending/responding to requests.",
-      "LOC": 360
-    },
-    {
-      "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
-      "description": "Controlled create-site form section for title/description/image input, repo-name conflict feedback, and create/back actions.",
-      "LOC": 103
-    },
-    {
-      "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
-      "description": "Minimal progress section that shows a spinner and the current provisioning step label.",
-      "LOC": 19
-    },
-    {
-      "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
-      "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-      "LOC": 254
-    },
-    {
-      "path": "src/App/routes/site-create/index.ts",
-      "description": "Route barrel re-export for the default site-create route component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/content.ts",
-      "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-      "LOC": 116
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
-      "description": "GitHub provisioning client for create flow: starts background repo job, polls status, enables Pages, waits for deploy readiness, and returns resolved repo metadata.",
-      "LOC": 319
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
-      "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-      "LOC": 228
-    },
-    {
-      "path": "src/App/routes/site-create/services/provisioning/types.ts",
-      "description": "Type contracts shared across create-flow provisioning modules (GitHub payloads, polling states, and persisted draft metadata).",
-      "LOC": 57
-    },
-    {
-      "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
-      "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-      "LOC": 142
-    },
-    {
-      "path": "src/App/routes/site-create/SiteCreateRoute.css",
-      "description": "Site-create route stylesheet for the form surface wrapper.",
-      "LOC": 37
-    },
-    {
-      "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
-      "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
-      "LOC": 35
-    },
-    {
-      "path": "src/App/routes/studio/components/DeleteSiteDialog.tsx",
-      "description": "Modal confirmation flow for deleting a site either from builder data only or from both builder and GitHub (with typed repo-name confirmation).",
-      "LOC": 92
-    },
-    {
-      "path": "src/App/routes/studio/components/IndexesListSection.tsx",
-      "description": "Currently a placeholder index section with a create CTA and empty-state copy; does not yet manage real index records.",
-      "LOC": 17
-    },
-    {
-      "path": "src/App/routes/studio/components/SitesListSection.tsx",
-      "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
-      "LOC": 154
-    },
-    {
-      "path": "src/App/routes/studio/hooks/useStudioDraftActions.ts",
-      "description": "Mutation hook for Studio-side operations: delete-site flows (builder-only vs builder+GitHub repo delete) and collaboration PR merge requests.",
-      "LOC": 92
-    },
-    {
-      "path": "src/App/routes/studio/hooks/useStudioDraftData.ts",
-      "description": "Data hook that loads owned drafts, resolves shared-access memberships/roles (including optional GitHub-admin role sync), fetches shared owner drafts, and loads open collaboration PR metadata.",
-      "LOC": 221
-    },
-    {
-      "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
-      "description": "Studio controller that merges owned/shared draft cards into one recency-sorted list, manages delete-dialog state/validation, and wires section action handlers/navigation.",
-      "LOC": 129
-    },
-    {
-      "path": "src/App/routes/studio/index.ts",
-      "description": "Route barrel that re-exports the default Studio route component.",
-      "LOC": 1
-    },
-    {
-      "path": "src/App/routes/studio/services/studio-draft-mappers.ts",
-      "description": "Mapper utilities that locate and parse Solidary metadata files in draft payloads, derive display title/description/site URL, and normalize thumbnail image URLs.",
-      "LOC": 37
-    },
-    {
-      "path": "src/App/routes/studio/services/studio-types.ts",
-      "description": "Route-local types for draft rows, access roles, collaboration PR cards, rendered site cards, and delete-dialog mode/target state.",
-      "LOC": 35
-    },
-    {
-      "path": "src/App/routes/studio/StudioRoute.css",
-      "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
-      "LOC": 221
-    },
-    {
-      "path": "src/App/routes/studio/StudioRoute.tsx",
-      "description": "Thin Studio route shell that composes global header/footer, renders \"Your sites\" plus the current index placeholder section, and mounts the delete dialog.",
-      "LOC": 22
-    },
-    {
-      "path": "src/App/services/github.ts",
-      "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
-      "LOC": 112
-    },
-    {
-      "path": "src/App/services/image-processing/picsquish.ts",
-      "description": "Shared picsquish-backed image variant processor that re-renders each reduction attempt from the original image and enforces caller-defined byte/dimension limits.",
-      "LOC": 295
-    },
-    {
-      "path": "src/App/types/notice.ts",
-      "description": "Common notice-level union (`\"error\" | \"notice\" | null`) used for route feedback banners and footer messaging state.",
-      "LOC": 1
-    },
-    {
-      "path": "src/index.css",
-      "description": "Global base styles: typography, background textures, form/control defaults, and markdown editor overrides.",
-      "LOC": 54
-    },
-    {
-      "path": "src/main.tsx",
-      "description": "Bootstraps the React app by rendering App inside StrictMode at the root DOM node.",
-      "LOC": 10
-    },
-    {
-      "path": "src/templates/astro/footer.md",
-      "description": "Parameterized markdown footer template used to generate `src/content/footer.md` with frontmatter-driven footer settings/modules.",
-      "LOC": 5
-    },
-    {
-      "path": "src/templates/astro/header.md",
-      "description": "Parameterized markdown header template used to generate `src/content/header.md` with frontmatter-driven header settings.",
-      "LOC": 6
-    },
-    {
-      "path": "src/templates/astro/page.md",
-      "description": "Parameterized markdown page template used when creating draft-backed content pages.",
-      "LOC": 8
-    },
-    {
-      "path": "src/templates/astro/runtime-files.ts",
-      "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
-      "LOC": 21
-    },
-    {
-      "path": "src/templates/astro/runtime/components-Footer.astro.txt",
-      "description": "Raw snapshot of template `Footer.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-      "LOC": 165
-    },
-    {
-      "path": "src/templates/astro/runtime/components-Header.astro.txt",
-      "description": "Raw snapshot of template `Header.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-      "LOC": 84
-    },
-    {
-      "path": "src/templates/astro/runtime/components-SEO.astro.txt",
-      "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-      "LOC": 69
-    },
-    {
-      "path": "src/templates/astro/runtime/content-config.ts.txt",
-      "description": "Raw snapshot of template `src/content.config.ts` collection config entrypoint used by publish runtime upserts.",
-      "LOC": 9
-    },
-    {
-      "path": "src/templates/astro/runtime/layouts-Base.astro.txt",
-      "description": "Raw snapshot of template `Base.astro` layout, upserted during publish so repositories consume markdown-backed site metadata.",
-      "LOC": 71
-    },
-    {
-      "path": "src/templates/astro/runtime/pages-index.astro.txt",
-      "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-      "LOC": 27
-    },
-    {
-      "path": "src/templates/astro/runtime/pages-slug.astro.txt",
-      "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-      "LOC": 29
-    },
-    {
-      "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
-      "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
-      "LOC": 102
-    },
-    {
-      "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
-      "description": "Raw snapshot of template `solidary-config/solidary.ts` protocol mapping contract file, upserted during publish.",
-      "LOC": 22
-    },
-    {
-      "path": "src/templates/astro/solidary-links.json",
-      "description": "Parameterized Solidary protocol metadata template written to `.well-known/solidary-links.json`.",
-      "LOC": 8
-    },
-    {
-      "path": "src/templates/astro/solidary.md",
-      "description": "Parameterized markdown site metadata template used to generate `src/content/solidary.md` frontmatter.",
-      "LOC": 7
-    },
-    {
-      "path": "src/templates/astro/tokens.css",
-      "description": "Default design token CSS template applied to newly provisioned sites.",
-      "LOC": 16
-    },
-    {
-      "path": "src/vite-env.d.ts",
-      "description": "Vite env type declarations for Supabase URL/keys (including both URL+anon and projectId+publishable-key forms).",
-      "LOC": 12
-    },
-    {
-      "path": "STRUCTURE.json",
-      "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-      "LOC": 1064
-    },
-    {
-      "path": "tsconfig.app.json",
-      "description": "Strict TypeScript config for browser app source (`src`), using bundler module resolution and React JSX with no emitted output.",
-      "LOC": 28
-    },
-    {
-      "path": "tsconfig.json",
-      "description": "TypeScript project-reference root that links browser (`tsconfig.app.json`) and tooling (`tsconfig.node.json`) build targets.",
-      "LOC": 7
-    },
-    {
-      "path": "tsconfig.node.json",
-      "description": "Strict TypeScript config for Node-side tooling files (currently `vite.config.ts`) with ES2023 libs and no emitted output.",
-      "LOC": 26
-    },
-    {
-      "path": "vite.config.ts",
-      "description": "Vite config for the app: React plugin, fixed local dev host/port, and proxying `/.netlify/functions` calls to Netlify dev on port 8888.",
-      "LOC": 18
-    }
-  ]
+  "tree": {
+    "path": ".",
+    "description": "Solidary site app workspace (React + Vite) containing the landing, studio, site-create, and site-builder frontend.",
+    "directories": [
+      {
+        "path": "public",
+        "description": "Public static assets served as-is by Vite and the deployed site.",
+        "directories": [],
+        "files": [
+          {
+            "path": "public/vite.svg",
+            "description": "Vite scaffold favicon served as a static public asset.",
+            "LOC": 0
+          }
+        ]
+      },
+      {
+        "path": "scripts",
+        "description": "Node utility scripts for maintaining app metadata snapshots and local repository documentation.",
+        "directories": [],
+        "files": [
+          {
+            "path": "scripts/sync-structure.mjs",
+            "description": "Script that scans the app tree, preserves descriptions, refreshes LOC/path metadata, and rewrites STRUCTURE.json snapshots.",
+            "LOC": 268
+          }
+        ]
+      },
+      {
+        "path": "src",
+        "description": "App source tree plus raw templates used to scaffold repository content.",
+        "directories": [
+          {
+            "path": "src/App",
+            "description": "Primary application module containing router shell (`App.tsx`), shared primitive styles, route/component-scoped stylesheets, shared layout components, cross-route features, and route folders.",
+            "directories": [
+              {
+                "path": "src/App/assets",
+                "description": "App-local static assets (currently scaffold leftovers).",
+                "directories": [],
+                "files": []
+              },
+              {
+                "path": "src/App/components",
+                "description": "Global shell components reused across routes (`SiteHeader` and `SiteFooter`) with co-located component stylesheets.",
+                "directories": [],
+                "files": [
+                  {
+                    "path": "src/App/components/SiteFooter.css",
+                    "description": "Component-scoped footer styles for notices/warnings and footer layout.",
+                    "LOC": 28
+                  },
+                  {
+                    "path": "src/App/components/SiteFooter.tsx",
+                    "description": "Global footer that shows Supabase env setup warnings and route-level notice/error messages.",
+                    "LOC": 25
+                  },
+                  {
+                    "path": "src/App/components/SiteHeader.css",
+                    "description": "Component-scoped header styles for navigation links, avatar menu, and responsive layout.",
+                    "LOC": 184
+                  },
+                  {
+                    "path": "src/App/components/SiteHeader.tsx",
+                    "description": "Global header with brand link, explorer/search nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
+                    "LOC": 152
+                  }
+                ]
+              },
+              {
+                "path": "src/App/features",
+                "description": "Cross-route business features (auth session management and site-draft content modeling/build helpers).",
+                "directories": [
+                  {
+                    "path": "src/App/features/auth",
+                    "description": "Global authentication feature built on Supabase session state with GitHub OAuth sign-in/out actions.",
+                    "directories": [
+                      {
+                        "path": "src/App/features/auth/components",
+                        "description": "Auth feature UI guards and presentation helpers consumed by route-level composition.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/auth/components/RequireAuth.tsx",
+                            "description": "Auth gate component that waits for auth resolution and redirects unauthenticated users from protected routes back to `/`.",
+                            "LOC": 21
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/auth/context",
+                        "description": "Auth feature context definitions shared across providers and hooks.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/auth/context/AuthContext.ts",
+                            "description": "Defines the global auth context shape (`session`, `sessionResolved`, `signInWithGitHub`, `signOut`) and exports the nullable React context instance.",
+                            "LOC": 12
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/auth/hooks",
+                        "description": "Auth feature hooks for safe context consumption and auth state access.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/auth/hooks/useAuth.ts",
+                            "description": "Thin guard hook around `AuthContext` that throws if used outside `AuthProvider`.",
+                            "LOC": 10
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/auth/providers",
+                        "description": "Auth feature providers that connect Supabase auth lifecycle to React context state.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/auth/providers/AuthProvider.tsx",
+                            "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
+                            "LOC": 218
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/auth/services",
+                        "description": "Auth feature services for fetching tokens and user profile metadata helpers.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/auth/services/github-auth.test.ts",
+                            "description": "Unit tests for GitHub auth token/session helpers, including required-token validation and error-path behavior.",
+                            "LOC": 242
+                          },
+                          {
+                            "path": "src/App/features/auth/services/github-auth.ts",
+                            "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
+                            "LOC": 488
+                          },
+                          {
+                            "path": "src/App/features/auth/services/user-profile.ts",
+                            "description": "User metadata helpers for display name, GitHub profile info, and profile avatar path/public URL lookup.",
+                            "LOC": 131
+                          }
+                        ]
+                      }
+                    ],
+                    "files": []
+                  },
+                  {
+                    "path": "src/App/features/site-draft",
+                    "description": "Cross-route draft-content feature defining canonical site/page data shapes and transformation helpers.",
+                    "directories": [
+                      {
+                        "path": "src/App/features/site-draft/services",
+                        "description": "Pure transformation/parsing helpers for Solidary metadata and Astro template generation.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/site-draft/services/astro-builders.test.ts",
+                            "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
+                            "LOC": 65
+                          },
+                          {
+                            "path": "src/App/features/site-draft/services/astro-builders.ts",
+                            "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
+                            "LOC": 39
+                          },
+                          {
+                            "path": "src/App/features/site-draft/services/solidary.test.ts",
+                            "description": "Unit tests for the Solidary metadata JSON parser, covering valid payload parsing and invalid JSON fallback behavior.",
+                            "LOC": 26
+                          },
+                          {
+                            "path": "src/App/features/site-draft/services/solidary.ts",
+                            "description": "Minimal parser for `.well-known/solidary-links.json` content that safely returns typed metadata or `null` on invalid JSON.",
+                            "LOC": 15
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/features/site-draft/types.ts",
+                        "description": "Shared draft content contracts (`RepoFileSet`, `AstroSettings`, `AstroPageDraft`, header/footer shapes) reused by create, studio, and builder flows.",
+                        "LOC": 34
+                      }
+                    ]
+                  }
+                ],
+                "files": []
+              },
+              {
+                "path": "src/App/hooks",
+                "description": "Shared app-wide hooks that are not route- or feature-scoped (currently global external image loading).",
+                "directories": [],
+                "files": [
+                  {
+                    "path": "src/App/hooks/useGlobalExternalImageLoading.ts",
+                    "description": "Global hook that tracks external images, swaps in placeholders during load, and cleans up via a MutationObserver.",
+                    "LOC": 96
+                  }
+                ]
+              },
+              {
+                "path": "src/App/lib",
+                "description": "Small shared utilities for Supabase client bootstrap, slug normalization, and browser-safe base64 encoding.",
+                "directories": [],
+                "files": [
+                  {
+                    "path": "src/App/lib/base64.ts",
+                    "description": "Converts ArrayBuffer payloads into base64 strings in chunked mode to avoid call-stack overflow.",
+                    "LOC": 9
+                  },
+                  {
+                    "path": "src/App/lib/external-image-loading.ts",
+                    "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
+                    "LOC": 194
+                  },
+                  {
+                    "path": "src/App/lib/site-image-url.ts",
+                    "description": "Utilities that resolve canonical site image and thumbnail URLs from relative asset paths plus site base URL context.",
+                    "LOC": 61
+                  },
+                  {
+                    "path": "src/App/lib/slugify.ts",
+                    "description": "Normalizes freeform titles into URL/repository-safe slugs.",
+                    "LOC": 7
+                  },
+                  {
+                    "path": "src/App/lib/supabase.ts",
+                    "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
+                    "LOC": 20
+                  }
+                ]
+              },
+              {
+                "path": "src/App/routes",
+                "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded).",
+                "directories": [
+                  {
+                    "path": "src/App/routes/explorer",
+                    "description": "Public explorer route module for browsing the site connection graph.",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/explorer/components",
+                        "description": "Explorer UI components for graph visualization and site list.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
+                            "description": "Canvas-driven interactive explorer graph using @cosmos.gl/graph with hover cards, viewer beacons, and deterministic point placement.",
+                            "LOC": 642
+                          },
+                          {
+                            "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
+                            "description": "Explorer list panel with filtering, stats, and per-site cards with connection counts.",
+                            "LOC": 103
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/explorer/hooks",
+                        "description": "Explorer route controller hooks.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/explorer/hooks/useExplorerRouteController.ts",
+                            "description": "Controller hook that loads explorer data, handles errors, and filters sites by search query.",
+                            "LOC": 63
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/explorer/services",
+                        "description": "Explorer data + graph services for Supabase queries and layout.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/explorer/services/explorer-data.ts",
+                            "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
+                            "LOC": 140
+                          },
+                          {
+                            "path": "src/App/routes/explorer/services/explorer-graph.ts",
+                            "description": "Explorer graph layout/index utilities, random placement + expansion helpers, and optional quantum random fallback for large graphs.",
+                            "LOC": 1037
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/explorer/ExplorerRoute.css",
+                        "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
+                        "LOC": 378
+                      },
+                      {
+                        "path": "src/App/routes/explorer/ExplorerRoute.tsx",
+                        "description": "Explorer route that renders a full-screen graph, loads viewer-owned site IDs for highlight beacons, and shows loading/error overlays.",
+                        "LOC": 81
+                      },
+                      {
+                        "path": "src/App/routes/explorer/index.ts",
+                        "description": "Route barrel re-export for the explorer route entry component.",
+                        "LOC": 1
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/landing",
+                    "description": "Public landing route module for first-touch marketing copy and entry into authenticated app flows.",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/landing/components",
+                        "description": "Reserved folder for future landing-specific presentational components (currently placeholder only).",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/landing/components/.gitkeep",
+                            "description": "Placeholder file keeping the landing components directory tracked until concrete components are added.",
+                            "LOC": 0
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/landing/hooks",
+                        "description": "Reserved folder for future landing route hooks/controller logic (currently placeholder only).",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/landing/hooks/.gitkeep",
+                            "description": "Placeholder file keeping the landing hooks directory tracked until route hooks are introduced.",
+                            "LOC": 0
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/landing/services",
+                        "description": "Reserved folder for future landing route services/data helpers (currently placeholder only).",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/landing/services/.gitkeep",
+                            "description": "Placeholder file keeping the landing services directory tracked until landing data/services are added.",
+                            "LOC": 0
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/landing/index.ts",
+                        "description": "Route barrel re-export for the landing route entry component.",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/landing/LandingRoute.css",
+                        "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
+                        "LOC": 78
+                      },
+                      {
+                        "path": "src/App/routes/landing/LandingRoute.tsx",
+                        "description": "Public homepage route that renders brand messaging, feature highlights, and primary navigation into the authenticated Studio flow.",
+                        "LOC": 42
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/profile",
+                    "description": "Authenticated profile settings route for account metadata and avatar management.",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/profile/components",
+                        "description": "Profile route presentation components for GitHub account summary and editable settings form sections.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
+                            "description": "Profile card showing connected GitHub identity details with action to connect/refresh GitHub App access.",
+                            "LOC": 75
+                          },
+                          {
+                            "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
+                            "description": "Profile settings form section for display-name edits plus avatar upload/select/remove controls.",
+                            "LOC": 165
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/profile/hooks",
+                        "description": "Profile route controller hooks.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/profile/hooks/useProfileAvatarController.ts",
+                            "description": "Profile avatar state manager for validating uploads, persisting avatar selections, and handling add/remove flows.",
+                            "LOC": 363
+                          },
+                          {
+                            "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
+                            "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
+                            "LOC": 210
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/profile/services",
+                        "description": "Profile services for settings persistence and avatar upload.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/profile/services/profile-avatar-upload.ts",
+                            "description": "Avatar upload pipeline that validates, compresses, uploads, and removes profile images in Supabase storage.",
+                            "LOC": 119
+                          },
+                          {
+                            "path": "src/App/routes/profile/services/profile-settings.ts",
+                            "description": "Profile settings services that map session metadata and persist display name/avatar path to Supabase auth.",
+                            "LOC": 68
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/profile/index.ts",
+                        "description": "Route barrel re-export for the profile route entry component.",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/profile/ProfileRoute.css",
+                        "description": "Profile settings route styles for account cards, avatars, and form layout.",
+                        "LOC": 277
+                      },
+                      {
+                        "path": "src/App/routes/profile/ProfileRoute.tsx",
+                        "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
+                        "LOC": 58
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/search",
+                    "description": "Public search route module that reuses explorer list UI to filter sites.",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/App/routes/search/index.ts",
+                        "description": "Route barrel re-export for the search route entry component.",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/search/SearchRoute.tsx",
+                        "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
+                        "LOC": 38
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/site-create",
+                    "description": "Authenticated route module for provisioning a new GitHub-backed site and seeding its initial Supabase draft records before entering the builder.",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/site-create/components",
+                        "description": "Presentation components for site metadata input and provisioning progress feedback.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
+                            "description": "Controlled create-site form section for title/description/image input, repo-name conflict feedback, and create/back actions.",
+                            "LOC": 103
+                          },
+                          {
+                            "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
+                            "description": "Minimal progress section that shows a spinner and the current provisioning step label.",
+                            "LOC": 19
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/site-create/hooks",
+                        "description": "Route-local controller hook for form state, image preview lifecycle, auth/token validation, and create-site orchestration.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
+                            "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
+                            "LOC": 254
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/site-create/services",
+                        "description": "Create-route orchestration services that validate inputs, process uploaded images, provision GitHub-backed site repositories, and persist initial draft records.",
+                        "directories": [
+                          {
+                            "path": "src/App/routes/site-create/services/provisioning",
+                            "description": "Create-flow provisioning modules split by concern: markdown/file templating, GitHub/Pages/background-job orchestration, and Supabase draft persistence.",
+                            "directories": [],
+                            "files": [
+                              {
+                                "path": "src/App/routes/site-create/services/provisioning/content.ts",
+                                "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
+                                "LOC": 116
+                              },
+                              {
+                                "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
+                                "description": "GitHub provisioning client for create flow: starts background repo job, polls status, enables Pages, waits for deploy readiness, and returns resolved repo metadata.",
+                                "LOC": 319
+                              },
+                              {
+                                "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
+                                "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
+                                "LOC": 228
+                              },
+                              {
+                                "path": "src/App/routes/site-create/services/provisioning/types.ts",
+                                "description": "Type contracts shared across create-flow provisioning modules (GitHub payloads, polling states, and persisted draft metadata).",
+                                "LOC": 57
+                              }
+                            ]
+                          }
+                        ],
+                        "files": [
+                          {
+                            "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
+                            "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
+                            "LOC": 142
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/site-create/index.ts",
+                        "description": "Route barrel re-export for the default site-create route component.",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/site-create/SiteCreateRoute.css",
+                        "description": "Site-create route stylesheet for the form surface wrapper.",
+                        "LOC": 37
+                      },
+                      {
+                        "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
+                        "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
+                        "LOC": 35
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/studio",
+                    "description": "Authenticated dashboard route that aggregates owned + shared sites into a single list with role visibility, delete actions, and placeholder index tooling.",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/studio/components",
+                        "description": "Studio UI components used by the active route shell (site list, index placeholder, and delete dialog).",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/studio/components/IndexesListSection.tsx",
+                            "description": "Currently a placeholder index section with a create CTA and empty-state copy; does not yet manage real index records.",
+                            "LOC": 17
+                          },
+                          {
+                            "path": "src/App/routes/studio/components/SitesListSection.tsx",
+                            "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
+                            "LOC": 148
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/studio/hooks",
+                        "description": "Route hooks for loading draft/PR data, mutating site records, and composing Studio view props/state.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/studio/hooks/useStudioDraftData.ts",
+                            "description": "Data hook that loads owned drafts, resolves shared-access memberships/roles (including optional GitHub-admin role sync), fetches shared owner drafts, and loads open collaboration PR metadata.",
+                            "LOC": 221
+                          },
+                          {
+                            "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
+                            "description": "Studio controller that merges owned/shared draft cards into one recency-sorted list, manages delete-dialog state/validation, and wires section action handlers/navigation.",
+                            "LOC": 60
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/studio/routes",
+                        "description": "Authenticated Studio sub-route container for builder and settings experiences.",
+                        "directories": [
+                          {
+                            "path": "src/App/routes/studio/routes/site-builder",
+                            "description": "Full site builder route module: shell, preview editor UI, lock-aware hooks, and save/publish services.",
+                            "directories": [
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/components",
+                                "description": "Builder UI components for topbar/sidebar/actions, Astro preview editing, and section-specific editors.",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
+                                    "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
+                                    "LOC": 1461
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
+                                    "description": "Reusable save/publish action group with provisioning state and publish feedback messaging.",
+                                    "LOC": 74
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderEditorToolbar.tsx",
+                                    "description": "Formatting toolbar for page editing commands (headings, links, lists, images, and style toggles).",
+                                    "LOC": 274
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderFooterSection.tsx",
+                                    "description": "Builder sidebar section for configuring footer visibility/fixed behavior and editable footer module content.",
+                                    "LOC": 118
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderHeaderSection.tsx",
+                                    "description": "Builder sidebar section for configuring header visibility/fixed behavior, brand text, and nav ordering.",
+                                    "LOC": 100
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderImageSettingsPanel.tsx",
+                                    "description": "Inspector panel for the currently selected preview image (alt text, caption, and size controls).",
+                                    "LOC": 68
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderPagesSection.tsx",
+                                    "description": "Sidebar pages manager for creating/selecting pages and editing page title/slug metadata.",
+                                    "LOC": 135
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
+                                    "description": "Preview panel wrapper that hosts the Astro preview surface and page editor toolbar/read-only notices.",
+                                    "LOC": 121
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
+                                    "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
+                                    "LOC": 249
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
+                                    "description": "Section editor for custom design-token CSS used by the preview and publish output.",
+                                    "LOC": 21
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderToolbarIcons.tsx",
+                                    "description": "Shared SVG icon primitives consumed by builder editor toolbar buttons.",
+                                    "LOC": 110
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderTopbar.tsx",
+                                    "description": "Builder topbar with external links, collaborator presence indicators, fullscreen toggle, and action controls.",
+                                    "LOC": 179
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/hooks",
+                                "description": "Builder orchestration hooks for access, locks, lifecycle loading, editing state, and publish/save flow control.",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderCollaborators.ts",
+                                    "description": "Collaborator management hook for searching users, sending invites, and updating/removing collaborator roles.",
+                                    "LOC": 465
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPageEditing.ts",
+                                    "description": "Page/content mutation hook for title/slug/body changes plus header/footer ordering helpers.",
+                                    "LOC": 212
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
+                                    "description": "Preview editing hook handling command execution, selection tracking, and inline image upload/edit behavior.",
+                                    "LOC": 195
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
+                                    "description": "Navigation hook that coordinates section/page switches with lock handling and save-on-transition safeguards.",
+                                    "LOC": 208
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.types.ts",
+                                    "description": "Type contracts for builder section navigation hook parameters/results and callback shapes.",
+                                    "LOC": 54
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftPresence.ts",
+                                    "description": "Realtime presence hook that tracks active collaborators on a draft and current editing context.",
+                                    "LOC": 130
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftSectionLocks.ts",
+                                    "description": "Optimistic-lock hook for polling/acquiring/releasing section locks through Supabase RPC functions.",
+                                    "LOC": 197
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/usePublishStatusTracking.ts",
+                                    "description": "Publish status polling hook that maps provisioning state changes into route notices and feedback.",
+                                    "LOC": 177
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
+                                    "description": "Derived-state hook that computes edit/publish permissions, read-only messages, and lock visibility flags.",
+                                    "LOC": 217
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
+                                    "description": "Draft lifecycle hook for initial load, normalization, refresh, and conflict recovery/reload behavior.",
+                                    "LOC": 391
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
+                                    "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
+                                    "LOC": 950
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
+                                    "description": "Save/publish orchestration hook wiring section persistence, conflict handling, and publish job startup.",
+                                    "LOC": 488
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/services",
+                                "description": "Builder domain services for loading/saving drafts, locks, collaborators, section switching, and publish preparation.",
+                                "directories": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/publish",
+                                    "description": "Publish pipeline modules shared by direct owner publish and editor PR submit workflows.",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.test.ts",
+                                        "description": "Unit tests for editor-publish helper functions and payload derivation behavior.",
+                                        "LOC": 67
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.ts",
+                                        "description": "Helper functions specific to editor publish flow (touched section/page resolution and payload shaping).",
+                                        "LOC": 155
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/index.ts",
+                                        "description": "Publish module barrel exporting owner/editor publish implementations and shared publish types.",
+                                        "LOC": 9
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/publishEditorDraft.ts",
+                                        "description": "Editor publish workflow that turns touched draft changes into collaboration PR-ready output.",
+                                        "LOC": 206
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/publishOwnerDraft.ts",
+                                        "description": "Owner/admin publish workflow that writes draft changes directly to repository and live site paths.",
+                                        "LOC": 202
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
+                                        "description": "Shared publish utilities used by both owner and editor publish pipelines.",
+                                        "LOC": 116
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
+                                        "description": "Publish-domain type contracts for payloads, tracking state, and shared publish function params/results.",
+                                        "LOC": 74
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
+                                    "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
+                                    "LOC": 224
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
+                                    "description": "Unit tests for collaborator service helpers and role/invite data normalization behavior.",
+                                    "LOC": 108
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/collaborators.ts",
+                                    "description": "Collaborator service helpers for querying, inviting, updating roles, and removing collaborators via Supabase.",
+                                    "LOC": 86
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
+                                    "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
+                                    "LOC": 22
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.ts",
+                                    "description": "Draft normalization/signature/url utility helpers reused across builder load/save/publish logic.",
+                                    "LOC": 158
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
+                                    "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
+                                    "LOC": 351
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
+                                    "description": "Unit tests for section/page/settings lock-key parsing, validation, and label helpers.",
+                                    "LOC": 60
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/locks.ts",
+                                    "description": "Lock-key utilities for editable sections/pages/settings plus user-facing lock label helpers.",
+                                    "LOC": 116
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/publish-draft.ts",
+                                    "description": "Compatibility export surface for publish helpers re-exported from the publish module set.",
+                                    "LOC": 8
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/save-draft-state.ts",
+                                    "description": "Persists owner draft settings/pages/content state and associated metadata signatures.",
+                                    "LOC": 117
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/save-editor-touch.ts",
+                                    "description": "Persists editor-draft touched sections/pages metadata used for PR-oriented publish workflows.",
+                                    "LOC": 85
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
+                                    "description": "Service that saves metadata + page content updates as a coordinated draft persistence step.",
+                                    "LOC": 187
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/save-section-signature.ts",
+                                    "description": "Stores or updates per-section save signatures used to detect unsaved state changes.",
+                                    "LOC": 31
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/save-settings-sections.ts",
+                                    "description": "Persists settings subsections (header/footer/styles) to draft content and settings records.",
+                                    "LOC": 87
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/switch-editor-section.test.ts",
+                                    "description": "Unit tests for section-switch logic that guards against unsafe navigation and lock conflicts.",
+                                    "LOC": 80
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/switch-editor-section.ts",
+                                    "description": "Core section-switch helper that coordinates lock transitions and optional save-before-switch behavior.",
+                                    "LOC": 193
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/switch-preview-slug.ts",
+                                    "description": "Helper utilities for choosing a safe active preview slug when page sets are mutated.",
+                                    "LOC": 115
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/types.ts",
+                                    "description": "Builder domain type definitions for sections, pages, collaborators, locks, and publish feedback models.",
+                                    "LOC": 103
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/utils.ts",
+                                    "description": "Shared builder utility helpers for frontmatter/text parsing and small normalization concerns.",
+                                    "LOC": 72
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": [
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/index.ts",
+                                "description": "Route barrel re-export for the site-builder route and its main controller hook.",
+                                "LOC": 2
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
+                                "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
+                                "LOC": 1060
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
+                                "description": "Site-builder route shell composing lock-aware topbar, sidebar, preview panel, and footer notices.",
+                                "LOC": 23
+                              }
+                            ]
+                          },
+                          {
+                            "path": "src/App/routes/studio/routes/site-settings",
+                            "description": "Studio settings sub-route for general metadata, connections, collaborators, and danger-zone actions.",
+                            "directories": [
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/components",
+                                "description": "Settings route UI components: section topbar and per-section content blocks including embedded connection explorer.",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
+                                    "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
+                                    "LOC": 154
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
+                                    "description": "Settings section UI for collaborator search/invite plus current collaborator role management.",
+                                    "LOC": 176
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/ConnectionExplorer.tsx",
+                                    "description": "Embedded connection explorer UI for searching sites, sending invites, and reviewing connection requests.",
+                                    "LOC": 275
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/ConnectionsSettingsSection.tsx",
+                                    "description": "Settings section wrapper that mounts the embedded connection explorer when draft context exists.",
+                                    "LOC": 24
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
+                                    "description": "Owner-only destructive-actions section for deleting site records and optional GitHub repository deletion.",
+                                    "LOC": 101
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
+                                    "description": "Settings section form for editable site title, description, URL, and image metadata.",
+                                    "LOC": 55
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
+                                    "description": "Settings-specific topbar with section buttons and save/publish controls.",
+                                    "LOC": 70
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/hooks",
+                                "description": "Settings route hooks for section state, settings lock orchestration, and embedded connection explorer control.",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/hooks/useConnectionExplorerController.ts",
+                                    "description": "Controller hook for embedded connection explorer state, context loading, search, invite, and request-response actions.",
+                                    "LOC": 278
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
+                                    "description": "Route controller that composes settings section state, lock behavior, and topbar/content props from builder mode.",
+                                    "LOC": 99
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/services",
+                                "description": "Settings-specific service helpers for section metadata, lock labels, and connection explorer Supabase RPCs.",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/services/settings-lock.ts",
+                                    "description": "Small helper that normalizes lock holder names for settings lock conflict messaging.",
+                                    "LOC": 4
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/services/settings-sections.ts",
+                                    "description": "Settings section metadata/constants (ids, labels, order) plus lock-key parsing and generation helpers.",
+                                    "LOC": 30
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/services/site-connections.ts",
+                                    "description": "Supabase RPC service layer for embedded connection explorer context, search, invites, and request responses.",
+                                    "LOC": 360
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": [
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/index.ts",
+                                "description": "Route barrel re-export for the studio settings route entry component.",
+                                "LOC": 1
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
+                                "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
+                                "LOC": 372
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
+                                "description": "Studio settings route shell composing the settings topbar, section content renderer, and global footer notices.",
+                                "LOC": 23
+                              }
+                            ]
+                          }
+                        ],
+                        "files": []
+                      },
+                      {
+                        "path": "src/App/routes/studio/services",
+                        "description": "Studio mappers and route-local domain types for translating draft file metadata into card-friendly models.",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/studio/services/studio-draft-mappers.ts",
+                            "description": "Mapper utilities that locate and parse Solidary metadata files in draft payloads, derive display title/description/site URL, and normalize thumbnail image URLs.",
+                            "LOC": 37
+                          },
+                          {
+                            "path": "src/App/routes/studio/services/studio-types.ts",
+                            "description": "Route-local types for draft rows, access roles, collaboration PR cards, rendered site cards, and delete-dialog mode/target state.",
+                            "LOC": 27
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/studio/index.ts",
+                        "description": "Route barrel that re-exports the default Studio route component.",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/studio/StudioRoute.css",
+                        "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
+                        "LOC": 167
+                      },
+                      {
+                        "path": "src/App/routes/studio/StudioRoute.tsx",
+                        "description": "Thin Studio route shell that composes global header/footer, renders \"Your sites\" plus the current index placeholder section, and mounts the delete dialog.",
+                        "LOC": 20
+                      }
+                    ]
+                  }
+                ],
+                "files": []
+              },
+              {
+                "path": "src/App/services",
+                "description": "App-wide services including GitHub Netlify-function adapters and reusable client-side image processing utilities.",
+                "directories": [
+                  {
+                    "path": "src/App/services/image-processing",
+                    "description": "Reusable client-side image processing services (picsquish-based resize/compression helpers) configured by callers for route-specific byte/dimension targets.",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/App/services/image-processing/picsquish.ts",
+                        "description": "Shared picsquish-backed image variant processor that re-renders each reduction attempt from the original image and enforces caller-defined byte/dimension limits.",
+                        "LOC": 295
+                      }
+                    ]
+                  }
+                ],
+                "files": [
+                  {
+                    "path": "src/App/services/github.ts",
+                    "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
+                    "LOC": 112
+                  }
+                ]
+              },
+              {
+                "path": "src/App/types",
+                "description": "Shared lightweight app-level types (currently notice severity union used by route footers/controllers).",
+                "directories": [],
+                "files": [
+                  {
+                    "path": "src/App/types/notice.ts",
+                    "description": "Common notice-level union (`\"error\" | \"notice\" | null`) used for route feedback banners and footer messaging state.",
+                    "LOC": 1
+                  }
+                ]
+              }
+            ],
+            "files": [
+              {
+                "path": "src/App/App.css",
+                "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
+                "LOC": 105
+              },
+              {
+                "path": "src/App/App.tsx",
+                "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
+                "LOC": 101
+              }
+            ]
+          },
+          {
+            "path": "src/templates",
+            "description": "Raw template assets imported and written into newly provisioned Astro repositories.",
+            "directories": [
+              {
+                "path": "src/templates/astro",
+                "description": "Astro scaffold templates with markdown frontmatter content files, protocol metadata template, design tokens, and runtime template snapshots.",
+                "directories": [
+                  {
+                    "path": "src/templates/astro/runtime",
+                    "description": "Raw copies of Astro runtime files that are upserted during builder publish to migrate repos to the latest template layout/config architecture.",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/templates/astro/runtime/components-Footer.astro.txt",
+                        "description": "Raw snapshot of template `Footer.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+                        "LOC": 165
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/components-Header.astro.txt",
+                        "description": "Raw snapshot of template `Header.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+                        "LOC": 84
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/components-SEO.astro.txt",
+                        "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
+                        "LOC": 69
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/content-config.ts.txt",
+                        "description": "Raw snapshot of template `src/content.config.ts` collection config entrypoint used by publish runtime upserts.",
+                        "LOC": 9
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/layouts-Base.astro.txt",
+                        "description": "Raw snapshot of template `Base.astro` layout, upserted during publish so repositories consume markdown-backed site metadata.",
+                        "LOC": 71
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/pages-index.astro.txt",
+                        "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
+                        "LOC": 27
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/pages-slug.astro.txt",
+                        "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
+                        "LOC": 29
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
+                        "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
+                        "LOC": 102
+                      },
+                      {
+                        "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
+                        "description": "Raw snapshot of template `solidary-config/solidary.ts` protocol mapping contract file, upserted during publish.",
+                        "LOC": 22
+                      }
+                    ]
+                  }
+                ],
+                "files": [
+                  {
+                    "path": "src/templates/astro/footer.md",
+                    "description": "Parameterized markdown footer template used to generate `src/content/footer.md` with frontmatter-driven footer settings/modules.",
+                    "LOC": 5
+                  },
+                  {
+                    "path": "src/templates/astro/header.md",
+                    "description": "Parameterized markdown header template used to generate `src/content/header.md` with frontmatter-driven header settings.",
+                    "LOC": 6
+                  },
+                  {
+                    "path": "src/templates/astro/page.md",
+                    "description": "Parameterized markdown page template used when creating draft-backed content pages.",
+                    "LOC": 8
+                  },
+                  {
+                    "path": "src/templates/astro/runtime-files.ts",
+                    "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
+                    "LOC": 21
+                  },
+                  {
+                    "path": "src/templates/astro/solidary-links.json",
+                    "description": "Parameterized Solidary protocol metadata template written to `.well-known/solidary-links.json`.",
+                    "LOC": 8
+                  },
+                  {
+                    "path": "src/templates/astro/solidary.md",
+                    "description": "Parameterized markdown site metadata template used to generate `src/content/solidary.md` frontmatter.",
+                    "LOC": 7
+                  },
+                  {
+                    "path": "src/templates/astro/tokens.css",
+                    "description": "Default design token CSS template applied to newly provisioned sites.",
+                    "LOC": 16
+                  }
+                ]
+              }
+            ],
+            "files": []
+          }
+        ],
+        "files": [
+          {
+            "path": "src/index.css",
+            "description": "Global base styles: typography, background textures, form/control defaults, and markdown editor overrides.",
+            "LOC": 54
+          },
+          {
+            "path": "src/main.tsx",
+            "description": "Bootstraps the React app by rendering App inside StrictMode at the root DOM node.",
+            "LOC": 10
+          },
+          {
+            "path": "src/vite-env.d.ts",
+            "description": "Vite env type declarations for Supabase URL/keys (including both URL+anon and projectId+publishable-key forms).",
+            "LOC": 12
+          }
+        ]
+      }
+    ],
+    "files": [
+      {
+        "path": ".env.example",
+        "description": "Example local environment variables for Supabase credentials and optional app configuration used by Vite.",
+        "LOC": 19
+      },
+      {
+        "path": ".gitignore",
+        "description": "App-level git ignore rules for logs, local files, editor metadata, and build output.",
+        "LOC": 25
+      },
+      {
+        "path": "AGENTS.md",
+        "description": "Maintainability and architecture rules for this app.",
+        "LOC": 140
+      },
+      {
+        "path": "eslint.config.js",
+        "description": "Flat ESLint configuration combining JS/TypeScript recommendations with React hooks + Vite React-refresh rules, while ignoring `dist`.",
+        "LOC": 23
+      },
+      {
+        "path": "index.html",
+        "description": "Vite HTML entry template that mounts the React root, loads `/src/main.tsx`, and defines base document metadata/favicon.",
+        "LOC": 13
+      },
+      {
+        "path": "package.json",
+        "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
+        "LOC": 41
+      },
+      {
+        "path": "README.md",
+        "description": "Default Vite React+TypeScript README retained from initial scaffold.",
+        "LOC": 73
+      },
+      {
+        "path": "STRUCTURE.json",
+        "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
+        "LOC": 1288
+      },
+      {
+        "path": "tsconfig.app.json",
+        "description": "Strict TypeScript config for browser app source (`src`), using bundler module resolution and React JSX with no emitted output.",
+        "LOC": 28
+      },
+      {
+        "path": "tsconfig.json",
+        "description": "TypeScript project-reference root that links browser (`tsconfig.app.json`) and tooling (`tsconfig.node.json`) build targets.",
+        "LOC": 7
+      },
+      {
+        "path": "tsconfig.node.json",
+        "description": "Strict TypeScript config for Node-side tooling files (currently `vite.config.ts`) with ES2023 libs and no emitted output.",
+        "LOC": 26
+      },
+      {
+        "path": "vite.config.ts",
+        "description": "Vite config for the app: React plugin, fixed local dev host/port, and proxying `/.netlify/functions` calls to Netlify dev on port 8888.",
+        "LOC": 18
+      }
+    ]
+  }
 }

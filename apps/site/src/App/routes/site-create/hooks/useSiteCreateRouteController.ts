@@ -214,7 +214,7 @@ export const useSiteCreateRouteController = () => {
       });
 
       setProvisionStep("Opening your site builder...");
-      navigate(`/site-builder?draftId=${siteId}`);
+      navigate(`/studio/builder?draftId=${siteId}`);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Something went wrong.";
       setNotice(message);
