@@ -301,7 +301,7 @@ export const useSiteBuilderDraftLifecycle = ({
       if (loaded.resolvedDraftId && loaded.resolvedDraftId !== draftId) {
         navigate(`${builderRoutePath}?draftId=${loaded.resolvedDraftId}`, { replace: true });
       }
-      setNotice("Draft changed by another collaborator. Loaded the latest version.");
+      setNotice("Draft changed since your last save. Loaded the latest version.");
       setNoticeKind("error");
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Failed to reload draft.";

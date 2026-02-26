@@ -77,7 +77,7 @@ export const provisionSiteDraft = async ({
   let ogImageContentB64: string | undefined;
 
   if (siteImage) {
-    onStep("Optimizing site images...");
+    onStep("Optimizing site image...");
     const processedImages = await processImageVariantsFromOriginal({
       sourceImage: siteImage,
       variants: SITE_CREATE_IMAGE_VARIANTS,

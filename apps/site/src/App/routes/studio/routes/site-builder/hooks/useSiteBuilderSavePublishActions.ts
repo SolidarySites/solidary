@@ -1,5 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { FILE_KEYS } from "../services/constants";
 import {
   type DraftSaveSettingsInput
@@ -140,13 +140,31 @@ export const useSiteBuilderSavePublishActions = ({
   cancelPublishStatusTracking,
   reloadLatestDraftAfterConflict
 }: UseSiteBuilderSavePublishActionsParams) => {
+  const draftStateRef = useRef<DraftState | null>(draftState);
+  useEffect(() => {
+    draftStateRef.current = draftState;
+  }, [draftState]);
+
+  const setDraftStateTracked: Dispatch<SetStateAction<DraftState | null>> = (nextState) => {
+    if (typeof nextState === "function") {
+      const updater = nextState as (current: DraftState | null) => DraftState | null;
+      const resolvedNextState = updater(draftStateRef.current);
+      draftStateRef.current = resolvedNextState;
+      setDraftState(resolvedNextState);
+      return;
+    }
+
+    draftStateRef.current = nextState;
+    setDraftState(nextState);
+  };
+
   const resetNotices = () => {
     setNotice(null);
     setNoticeKind(null);
   };
 
   const updateDraftSolidaryFile = (solidaryFile: string) => {
-    setDraftState((current) =>
+    setDraftStateTracked((current) =>
       current
         ? {
             ...current,
@@ -160,7 +178,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const applyDraftRevisionRow = (draftRow: DraftRevisionRow | null | undefined) => {
     if (!draftRow) return;
-    setDraftState((current) =>
+    setDraftStateTracked((current) =>
       current
         ? {
             ...current,
@@ -183,11 +201,15 @@ export const useSiteBuilderSavePublishActions = ({
     solidaryFile: string,
     imageUrl: string,
     pagesSnapshot: BuilderPage[] = pages
-  ) =>
-    saveDraftState({
+  ) => {
+    const currentDraftState = draftStateRef.current;
+    const currentRepoInfo =
+      currentDraftState && currentDraftState.id === repoInfo.id ? currentDraftState : repoInfo;
+
+    return saveDraftState({
       canEditDraft,
       sessionUserId: sessionUserId,
-      repoInfo,
+      repoInfo: currentRepoInfo,
       solidaryFile,
       imageUrl,
       pagesSnapshot,
@@ -198,6 +220,7 @@ export const useSiteBuilderSavePublishActions = ({
       applyDraftRevisionRow,
       setDraftPageSlugs
     });
+  };
 
   const buildDraftSignatureForState = ({
     pagesSnapshot = pages,
@@ -207,7 +230,7 @@ export const useSiteBuilderSavePublishActions = ({
     imageUrl?: string;
   } = {}) =>
     buildDraftSignatureFromState({
-      draftState,
+      draftState: draftStateRef.current,
       siteSettingsInput,
       tokensCss,
       draftImages,
@@ -221,16 +244,16 @@ export const useSiteBuilderSavePublishActions = ({
     deletedPageSlugs: string[] = []
   ) =>
     markEditorDraftTouchedInternal({
-      draftState,
+      draftState: draftStateRef.current,
       section,
-      setDraftState,
+      setDraftState: setDraftStateTracked,
       touchedPageSlugs,
       deletedPageSlugs
     });
 
   const saveMetadataSection = async () =>
     runSaveMetadataSection({
-      draftState,
+      draftState: draftStateRef.current,
       siteImage,
       draftImageUrl,
       siteImagePreview,
@@ -246,7 +269,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const savePagesSection = async () =>
     runSavePagesSection({
-      draftState,
+      draftState: draftStateRef.current,
       pages,
       draftImages,
       draftPageSlugs,
@@ -262,7 +285,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const saveHeaderSection = async () =>
     runSaveHeaderSection({
-      draftState,
+      draftState: draftStateRef.current,
       siteSettingsInput,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
       buildDraftSignatureForState: () => buildDraftSignatureForState()
@@ -270,7 +293,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const saveFooterSection = async () =>
     runSaveFooterSection({
-      draftState,
+      draftState: draftStateRef.current,
       siteSettingsInput,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
       buildDraftSignatureForState: () => buildDraftSignatureForState()
@@ -278,7 +301,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const saveStylesSection = async () =>
     runSaveStylesSection({
-      draftState,
+      draftState: draftStateRef.current,
       tokensCss,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
       buildDraftSignatureForState: () => buildDraftSignatureForState()
@@ -286,7 +309,7 @@ export const useSiteBuilderSavePublishActions = ({
 
   const saveSectionByKey = async (sectionKey: BuilderEditableSectionKey) => {
     if (!canEditDraft) return;
-    if (!draftState) return;
+    if (!draftStateRef.current) return;
     const lockKey = sectionKey === "pages" ? getPageLockKeyForSlug(pages, activePreviewSlug) : sectionKey;
     const lock = sectionLocks[lockKey] ?? (sectionKey === "pages" ? sectionLocks.pages : null);
     if (lock && lock.userId !== sessionUserId) {
@@ -359,7 +382,8 @@ export const useSiteBuilderSavePublishActions = ({
     const publishStartedAt = new Date().toISOString();
 
     try {
-      if (!draftState) {
+      const currentDraftState = draftStateRef.current;
+      if (!currentDraftState) {
         throw new Error("Missing site draft. Create a site first.");
       }
 
@@ -374,7 +398,7 @@ export const useSiteBuilderSavePublishActions = ({
         await publishOwnerDraft({
           providerToken,
           publishStartedAt,
-          draftState,
+          draftState: draftStateRef.current ?? currentDraftState,
           siteTitle,
           siteDescription,
           siteUrl,
@@ -402,7 +426,7 @@ export const useSiteBuilderSavePublishActions = ({
       } else {
         await publishEditorDraft({
           providerToken,
-          draftState,
+          draftState: draftStateRef.current ?? currentDraftState,
           siteUrl,
           siteImage,
           siteImagePreview,
@@ -418,7 +442,7 @@ export const useSiteBuilderSavePublishActions = ({
           sessionAccessToken: supabaseAccessToken,
           sessionDisplayName,
           setDraftImageUrl,
-          setDraftState,
+          setDraftState: setDraftStateTracked,
           clearTouchedPageTracking: () => {
             touchedPageSlugsRef.current.clear();
             deletedPageSlugsRef.current.clear();
