@@ -269,9 +269,6 @@ export const useSiteBuilderRouteController = ({
   const liveSiteUrl = toExternalUrl(publishedSiteBaseUrl ?? siteUrl);
   const githubRepoFullName = draftState?.repoFullName?.trim() ?? "";
   const githubRepoUrl = githubRepoFullName ? `https://github.com/${githubRepoFullName}` : null;
-  const connectionExplorerHref = draftState?.id
-    ? `/studio/settings?draftId=${encodeURIComponent(draftState.id)}&section=connections`
-    : null;
   const canDeleteSite = Boolean(isOwnerOnOwnerDraft && draftState?.siteId);
   const deleteSiteRepoFullName = draftState?.repoFullName ?? "";
   const siteSettingsInput = useMemo(
@@ -1007,14 +1004,7 @@ export const useSiteBuilderRouteController = ({
       githubRepoUrl,
       accessRole: siteAccessRole,
       activeCollaborators: collaboratorPresenceNames,
-      canOpenConnections:
-        Boolean(connectionExplorerHref) &&
-        (siteAccessRole === "owner" || siteAccessRole === "admin"),
       isPreviewFullscreen,
-      onOpenConnections: () => {
-        if (!connectionExplorerHref) return;
-        navigate(connectionExplorerHref);
-      },
       onTogglePreviewFullscreen: () => setIsPreviewFullscreen((value) => !value),
       publishFeedback,
       onSaveDraft: handleSaveDraft,

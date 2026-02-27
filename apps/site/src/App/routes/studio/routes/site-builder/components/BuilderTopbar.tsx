@@ -13,9 +13,7 @@ type BuilderTopbarProps = {
   githubRepoUrl: string | null;
   accessRole: "owner" | "admin" | "editor" | "viewer" | null;
   activeCollaborators: string[];
-  canOpenConnections: boolean;
   isPreviewFullscreen: boolean;
-  onOpenConnections: () => void;
   onTogglePreviewFullscreen: () => void;
   publishFeedback: PublishFeedback | null;
   onSaveDraft: () => void;
@@ -33,9 +31,7 @@ const BuilderTopbar = ({
   githubRepoUrl,
   accessRole,
   activeCollaborators,
-  canOpenConnections,
   isPreviewFullscreen,
-  onOpenConnections,
   onTogglePreviewFullscreen,
   publishFeedback,
   onSaveDraft,
@@ -118,15 +114,6 @@ const BuilderTopbar = ({
     <div ref={topbarRef} className={`builder-topbar ${isSticky ? "is-sticky" : ""}`}>
       <div className="builder-topbar-main">
         <div className="builder-topbar-links">
-          {canOpenConnections && (
-            <button
-              type="button"
-              className="builder-topbar-link-button"
-              onClick={onOpenConnections}
-            >
-              Connections
-            </button>
-          )}
           <button
             type="button"
             className="builder-topbar-link-button"
