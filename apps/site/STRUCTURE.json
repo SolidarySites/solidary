@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-26T16:56:26.942Z",
-  "latest_commit_sha": "20876c6c0b6ef165b5aab3beaeb43ab923069086",
+  "generated_at": "2026-02-27T18:51:59.720Z",
+  "latest_commit_sha": "75031d26104f1cc2e8bbfd7fae266e38c84014c8",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -230,7 +230,7 @@
                   {
                     "path": "src/App/lib/site-image-url.ts",
                     "description": "Utilities that resolve canonical site image and thumbnail URLs from relative asset paths plus site base URL context.",
-                    "LOC": 61
+                    "LOC": 137
                   },
                   {
                     "path": "src/App/lib/slugify.ts",
@@ -536,7 +536,7 @@
                           {
                             "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
                             "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-                            "LOC": 139
+                            "LOC": 136
                           }
                         ]
                       }
@@ -613,7 +613,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
                                     "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 1461
+                                    "LOC": 1502
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
@@ -623,7 +623,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderEditorToolbar.tsx",
                                     "description": "Formatting toolbar for page editing commands (headings, links, lists, images, and style toggles).",
-                                    "LOC": 274
+                                    "LOC": 365
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderFooterSection.tsx",
@@ -648,7 +648,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
                                     "description": "Preview panel wrapper that hosts the Astro preview surface and page editor toolbar/read-only notices.",
-                                    "LOC": 121
+                                    "LOC": 127
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
@@ -668,7 +668,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderTopbar.tsx",
                                     "description": "Builder topbar with external links, collaborator presence indicators, fullscreen toggle, and action controls.",
-                                    "LOC": 179
+                                    "LOC": 166
                                   }
                                 ]
                               },
@@ -690,7 +690,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
                                     "description": "Preview editing hook handling command execution, selection tracking, and inline image upload/edit behavior.",
-                                    "LOC": 195
+                                    "LOC": 372
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
@@ -730,7 +730,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 1046
+                                    "LOC": 1193
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -766,17 +766,17 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishEditorDraft.ts",
                                         "description": "Editor publish workflow that turns touched draft changes into collaboration PR-ready output.",
-                                        "LOC": 202
+                                        "LOC": 203
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishOwnerDraft.ts",
                                         "description": "Owner/admin publish workflow that writes draft changes directly to repository and live site paths.",
-                                        "LOC": 198
+                                        "LOC": 199
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
                                         "description": "Shared publish utilities used by both owner and editor publish pipelines.",
-                                        "LOC": 116
+                                        "LOC": 123
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
@@ -810,12 +810,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.ts",
                                     "description": "Draft normalization/signature/url utility helpers reused across builder load/save/publish logic.",
-                                    "LOC": 158
+                                    "LOC": 159
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 351
+                                    "LOC": 357
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
@@ -845,7 +845,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
                                     "description": "Service that saves metadata + page content updates as a coordinated draft persistence step.",
-                                    "LOC": 187
+                                    "LOC": 192
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-section-signature.ts",
@@ -875,7 +875,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/types.ts",
                                     "description": "Builder domain type definitions for sections, pages, collaborators, locks, and publish feedback models.",
-                                    "LOC": 103
+                                    "LOC": 110
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/utils.ts",
@@ -894,7 +894,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1060
+                                "LOC": 1115
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -915,7 +915,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 161
+                                    "LOC": 174
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -935,7 +935,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
                                     "description": "Owner-only destructive-actions section for deleting site records and optional GitHub repository deletion.",
-                                    "LOC": 180
+                                    "LOC": 246
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
@@ -984,7 +984,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/services/site-connections.ts",
                                     "description": "Supabase RPC service layer for embedded connection explorer context, search, invites, and request responses.",
-                                    "LOC": 360
+                                    "LOC": 370
                                   }
                                 ]
                               }
@@ -998,7 +998,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 435
+                                "LOC": 485
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
@@ -1061,12 +1061,17 @@
                       {
                         "path": "src/App/services/image-processing/picsquish.ts",
                         "description": "Shared picsquish-backed image variant processor that re-renders each reduction attempt from the original image and enforces caller-defined byte/dimension limits.",
-                        "LOC": 295
+                        "LOC": 390
                       }
                     ]
                   }
                 ],
                 "files": [
+                  {
+                    "path": "src/App/services/filename-sanitizer.ts",
+                    "description": "?",
+                    "LOC": 50
+                  },
                   {
                     "path": "src/App/services/github.ts",
                     "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
@@ -1251,7 +1256,7 @@
       {
         "path": "package.json",
         "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-        "LOC": 41
+        "LOC": 42
       },
       {
         "path": "README.md",
@@ -1261,7 +1266,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1288
+        "LOC": 1293
       },
       {
         "path": "tsconfig.app.json",

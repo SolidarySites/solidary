@@ -13,8 +13,12 @@ import {
 import { normalizePageSlug } from "../services/utils";
 import type { DraftImageAsset, FooterOptions, HeaderOptions } from "../services/types";
 import {
+  BUILDER_IMAGE_ASPECT_RATIO_ATTR,
   EXTERNAL_IMAGE_PLACEHOLDER_SRC,
   EXTERNAL_IMAGE_SOURCE_ATTR,
+  EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
+  EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR,
+  EXTERNAL_IMAGE_VARIANT_SMALL_ATTR,
   getTrackedExternalImageSource,
   normalizeExternalImageForPersistence
 } from "../../../../../lib/external-image-loading";
@@ -57,7 +61,12 @@ export type AstroTemplatePreviewHandle = {
   execCommand: (command: string, value?: string) => void;
   focusEditor: () => void;
   captureSelection: () => void;
-  replaceImageSource: (previousSrc: string, nextSrc: string | null) => void;
+  replaceImageSource: (
+    previousSrc: string,
+    nextSrc: string | null,
+    aspectRatioOverride?: number
+  ) => void;
+  setImageAspectRatioBySource: (source: string, aspectRatio: number) => void;
   updateSelectedImageAlt: (value: string) => void;
   updateSelectedImageCaption: (value: string) => void;
   updateSelectedImageSize: (value: number) => void;
@@ -348,6 +357,53 @@ const parseImageSizePercent = (image: HTMLImageElement) => {
   return 100;
 };
 
+const parseImageAspectRatioValue = (value: string | null | undefined) => {
+  if (!value) return null;
+  const parsed = Number.parseFloat(value.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const formatImageAspectRatio = (value: number) => value.toFixed(6).replace(/\.?0+$/, "");
+
+const getImageAspectRatioFromMetadata = (image: Element) =>
+  parseImageAspectRatioValue(image.getAttribute(BUILDER_IMAGE_ASPECT_RATIO_ATTR));
+
+const setImageAspectRatioMetadata = (image: Element, aspectRatio: number) => {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+  image.setAttribute(BUILDER_IMAGE_ASPECT_RATIO_ATTR, formatImageAspectRatio(aspectRatio));
+};
+
+const ensureImageAspectRatioMetadata = (
+  image: HTMLImageElement,
+  overrideAspectRatio?: number
+) => {
+  const override = overrideAspectRatio && overrideAspectRatio > 0 ? overrideAspectRatio : null;
+  if (override) {
+    setImageAspectRatioMetadata(image, override);
+    return override;
+  }
+
+  const existing = getImageAspectRatioFromMetadata(image);
+  if (existing) return existing;
+
+  if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+    const ratio = image.naturalWidth / image.naturalHeight;
+    setImageAspectRatioMetadata(image, ratio);
+    return ratio;
+  }
+
+  const widthAttr = parseImageAspectRatioValue(image.getAttribute("width"));
+  const heightAttr = parseImageAspectRatioValue(image.getAttribute("height"));
+  if (widthAttr && heightAttr) {
+    const ratio = widthAttr / heightAttr;
+    setImageAspectRatioMetadata(image, ratio);
+    return ratio;
+  }
+
+  return null;
+};
+
 const getDirectFigcaption = (figure: HTMLElement) =>
   Array.from(figure.children).find((child) => child instanceof HTMLElement && child.tagName === "FIGCAPTION") as
     | HTMLElement
@@ -357,6 +413,95 @@ const getImageCaptionText = (image: HTMLImageElement) => {
   const figure = image.closest("figure");
   if (!(figure instanceof HTMLElement)) return "";
   return getDirectFigcaption(figure)?.textContent ?? "";
+};
+
+type ManagedImageVariant = "original" | "medium" | "small";
+type ManagedImageVariantSet = Partial<Record<ManagedImageVariant, DraftImageAsset>>;
+const managedImageVariantAttrs = [
+  EXTERNAL_IMAGE_VARIANT_SMALL_ATTR,
+  EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
+  EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR
+] as const;
+const managedImageSyncedAttrs = [...managedImageVariantAttrs, BUILDER_IMAGE_ASPECT_RATIO_ATTR] as const;
+
+const managedImageVariantPattern = /^(.+_[a-f0-9]{10})_(original|medium|small)\.[^./?#]+$/i;
+
+const stripHashAndSearch = (value: string) => {
+  const withoutHash = value.split("#")[0] ?? value;
+  return withoutHash.split("?")[0] ?? withoutHash;
+};
+
+const getManagedImageVariantDescriptor = (
+  sitePath: string
+): { variant: ManagedImageVariant; groupKey: string } | null => {
+  const normalizedPath = normalizeSitePath(stripHashAndSearch(sitePath));
+  const lastSlashIndex = normalizedPath.lastIndexOf("/");
+  if (lastSlashIndex < 0) return null;
+  const directory = normalizedPath.slice(0, lastSlashIndex);
+  const filename = normalizedPath.slice(lastSlashIndex + 1);
+  const match = filename.match(managedImageVariantPattern);
+  if (!match) return null;
+  const normalizedVariant = match[2]?.toLowerCase();
+  if (
+    normalizedVariant !== "original" &&
+    normalizedVariant !== "medium" &&
+    normalizedVariant !== "small"
+  ) {
+    return null;
+  }
+  const variant: ManagedImageVariant = normalizedVariant;
+  return {
+    variant,
+    groupKey: `${directory}/${match[1]?.toLowerCase() ?? ""}`
+  };
+};
+
+const getManagedImageVariantsForAsset = (
+  image: DraftImageAsset | null,
+  groupedVariants: Map<string, ManagedImageVariantSet>
+) => {
+  if (!image) return null;
+  const descriptor = getManagedImageVariantDescriptor(image.sitePath);
+  if (!descriptor) return null;
+
+  const variants = groupedVariants.get(descriptor.groupKey);
+  if (!variants) {
+    return {
+      [descriptor.variant]: image
+    } satisfies ManagedImageVariantSet;
+  }
+
+  return {
+    ...variants,
+    [descriptor.variant]: variants[descriptor.variant] ?? image
+  };
+};
+
+const setManagedImageVariantAttributes = (
+  imageElement: Element,
+  variants: ManagedImageVariantSet | null
+) => {
+  const smallSource = variants?.small?.publicUrl?.trim() ?? "";
+  const mediumSource = variants?.medium?.publicUrl?.trim() ?? "";
+  const originalSource = variants?.original?.publicUrl?.trim() ?? "";
+
+  if (smallSource) {
+    imageElement.setAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR, smallSource);
+  } else {
+    imageElement.removeAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR);
+  }
+
+  if (mediumSource) {
+    imageElement.setAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR, mediumSource);
+  } else {
+    imageElement.removeAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR);
+  }
+
+  if (originalSource) {
+    imageElement.setAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR, originalSource);
+  } else {
+    imageElement.removeAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR);
+  }
 };
 
 const mapHtmlImageSources = (
@@ -370,11 +515,19 @@ const mapHtmlImageSources = (
 
   const bySitePath = new Map<string, DraftImageAsset>();
   const byPublicUrl = new Map<string, DraftImageAsset>();
+  const groupedByVariantFamily = new Map<string, ManagedImageVariantSet>();
   draftImages.forEach((image) => {
     const sitePath = normalizeSitePath(image.sitePath);
     const publicUrl = image.publicUrl.trim();
     if (sitePath) bySitePath.set(sitePath, image);
     if (publicUrl) byPublicUrl.set(publicUrl, image);
+
+    if (!sitePath) return;
+    const descriptor = getManagedImageVariantDescriptor(sitePath);
+    if (!descriptor) return;
+    const variants = groupedByVariantFamily.get(descriptor.groupKey) ?? {};
+    variants[descriptor.variant] = image;
+    groupedByVariantFamily.set(descriptor.groupKey, variants);
   });
 
   const publishedBaseUrl = normalizePublishedBaseUrl(publishedSiteBaseUrl);
@@ -385,18 +538,52 @@ const mapHtmlImageSources = (
     if (!currentSrc) return;
 
     if (mode === "display") {
+      let resolvedImage: DraftImageAsset | null = null;
+
       const byPath = bySitePath.get(normalizeSitePath(currentSrc));
-      if (byPath) {
-        imageElement.setAttribute("src", byPath.publicUrl);
+      if (byPath) resolvedImage = byPath;
+
+      if (!resolvedImage) {
+        const byPublic = byPublicUrl.get(currentSrc);
+        if (byPublic) resolvedImage = byPublic;
+      }
+
+      if (!resolvedImage && publishedBaseUrl && currentSrc.startsWith(`${publishedBaseUrl}/`)) {
+        const derivedPath = normalizeSitePath(currentSrc.slice(publishedBaseUrl.length));
+        const fromPublished = bySitePath.get(derivedPath);
+        if (fromPublished) resolvedImage = fromPublished;
+      }
+
+      if (resolvedImage) {
+        imageElement.setAttribute("src", resolvedImage.publicUrl);
+        setManagedImageVariantAttributes(
+          imageElement,
+          getManagedImageVariantsForAsset(resolvedImage, groupedByVariantFamily)
+        );
         return;
       }
 
+      setManagedImageVariantAttributes(imageElement, null);
       if (publishedBaseUrl && currentSrc.startsWith(pageImagesPrefix)) {
         imageElement.setAttribute("src", toPublishedUrl(publishedBaseUrl, currentSrc));
+        return;
       }
+
+      if (publishedBaseUrl && currentSrc.startsWith(`${publishedBaseUrl}${pageImagesPrefix}`)) {
+        imageElement.setAttribute("src", currentSrc);
+        return;
+      }
+
+      const fromPublicFallback = byPublicUrl.get(currentSrc);
+      if (fromPublicFallback) {
+        imageElement.setAttribute("src", fromPublicFallback.publicUrl);
+        return;
+      }
+
       return;
     }
 
+    setManagedImageVariantAttributes(imageElement, null);
     if (
       publishedBaseUrl &&
       currentSrc.startsWith(`${publishedBaseUrl}${pageImagesPrefix}`)
@@ -607,6 +794,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     if (!image.style.display) image.style.display = "inline-block";
     if (!image.style.maxWidth) image.style.maxWidth = "100%";
     if (!image.style.height) image.style.height = "auto";
+    ensureImageAspectRatioMetadata(image);
     const figcaption = getDirectFigcaption(figure);
     if (figcaption) {
       if (!figcaption.style.textAlign) figcaption.style.textAlign = "left";
@@ -681,6 +869,35 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
         "display"
       );
       if (currentDisplayEquivalent === displayBodyHtml) {
+        const mappedDisplayWrapper = document.createElement("div");
+        mappedDisplayWrapper.innerHTML = currentDisplayEquivalent;
+        const mappedImages = Array.from(mappedDisplayWrapper.querySelectorAll("img"));
+        const editorImages = Array.from(editor.querySelectorAll("img"));
+
+        editorImages.forEach((editorImage, index) => {
+          const mappedImage = mappedImages[index];
+          if (!mappedImage) {
+            managedImageSyncedAttrs.forEach((attribute) => {
+              editorImage.removeAttribute(attribute);
+            });
+            return;
+          }
+
+          const mappedSrc = mappedImage.getAttribute("src")?.trim() ?? "";
+          const currentSrc = editorImage.getAttribute("src")?.trim() ?? "";
+          if (mappedSrc && mappedSrc !== currentSrc) {
+            editorImage.setAttribute("src", mappedSrc);
+          }
+
+          managedImageSyncedAttrs.forEach((attribute) => {
+            const nextValue = mappedImage.getAttribute(attribute)?.trim() ?? "";
+            if (nextValue) {
+              editorImage.setAttribute(attribute, nextValue);
+            } else {
+              editorImage.removeAttribute(attribute);
+            }
+          });
+        });
         return;
       }
       editor.innerHTML = displayBodyHtml;
@@ -717,6 +934,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           return;
         }
         ensureImageFigure(image);
+        ensureImageAspectRatioMetadata(image);
         syncFigureCaptionLayout(image);
 
         image.removeEventListener("load", syncImageLayout);
@@ -843,7 +1061,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   }, []);
 
   const replaceImageSource = useCallback(
-    (previousSrc: string, nextSrc: string | null) => {
+    (previousSrc: string, nextSrc: string | null, aspectRatioOverride?: number) => {
       const normalizedPreviousSrc = previousSrc.trim();
       if (!normalizedPreviousSrc) return;
 
@@ -860,9 +1078,11 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           return;
         }
 
+        ensureImageAspectRatioMetadata(image, aspectRatioOverride);
         if (normalizedNextSrc) {
           image.setAttribute("src", normalizedNextSrc);
           image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, normalizedNextSrc);
+          ensureImageAspectRatioMetadata(image, aspectRatioOverride);
           didUpdate = true;
           return;
         }
@@ -883,6 +1103,23 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     },
     [captureSelection, persistEditorContent]
   );
+
+  const setImageAspectRatioBySource = useCallback((source: string, aspectRatio: number) => {
+    const normalizedSource = source.trim();
+    if (!normalizedSource) return;
+    if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.querySelectorAll("img").forEach((image) => {
+      const currentSrc = image.getAttribute("src")?.trim() ?? "";
+      const trackedSrc = getTrackedExternalImageSource(image);
+      if (currentSrc !== normalizedSource && trackedSrc !== normalizedSource) {
+        return;
+      }
+      setImageAspectRatioMetadata(image, aspectRatio);
+    });
+  }, []);
 
   const handleEditorClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
@@ -1298,6 +1535,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       focusEditor: () => editorRef.current?.focus(),
       captureSelection,
       replaceImageSource,
+      setImageAspectRatioBySource,
       updateSelectedImageAlt,
       updateSelectedImageCaption,
       updateSelectedImageSize,
@@ -1310,6 +1548,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       captureSelection,
       executeCommand,
       replaceImageSource,
+      setImageAspectRatioBySource,
       updateSelectedImageAlt,
       updateSelectedImageCaption,
       updateSelectedImageSize

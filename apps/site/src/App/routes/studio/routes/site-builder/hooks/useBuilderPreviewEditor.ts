@@ -80,6 +80,30 @@ const createImageToken = () => {
 
 const clampBytes = (value: number) => Math.max(1, Math.floor(value));
 
+const resolveImageAspectRatio = async (blob: Blob): Promise<number | null> => {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const aspectRatio = await new Promise<number | null>((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          resolve(image.naturalWidth / image.naturalHeight);
+          return;
+        }
+        resolve(null);
+      };
+      image.onerror = () => resolve(null);
+      image.src = objectUrl;
+    });
+    if (!aspectRatio || !Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+      return null;
+    }
+    return aspectRatio;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 const buildProcessedVariants = async ({
   file,
   options
@@ -260,9 +284,13 @@ export const useBuilderPreviewEditor = ({
       spaces: "underscore"
     });
     const uniqueToken = createImageToken();
+    const imageAspectRatio = await resolveImageAspectRatio(file);
 
     const localPreviewUrl = URL.createObjectURL(file);
     previewRef.current?.execCommand("insertImage", localPreviewUrl);
+    if (imageAspectRatio) {
+      previewRef.current?.setImageAspectRatioBySource(localPreviewUrl, imageAspectRatio);
+    }
 
     void (async () => {
       const uploadedStoragePaths: string[] = [];
@@ -338,14 +366,18 @@ export const useBuilderPreviewEditor = ({
           throw new Error("Failed to resolve uploaded original image.");
         }
 
-        previewRef.current?.replaceImageSource(localPreviewUrl, originalPublicUrl);
+        previewRef.current?.replaceImageSource(
+          localPreviewUrl,
+          originalPublicUrl,
+          imageAspectRatio ?? undefined
+        );
         setNotice("Image uploaded.");
         setNoticeKind("notice");
       } catch (caught) {
         if (uploadedStoragePaths.length) {
           await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
         }
-        previewRef.current?.replaceImageSource(localPreviewUrl, null);
+        previewRef.current?.replaceImageSource(localPreviewUrl, null, imageAspectRatio ?? undefined);
         const message = caught instanceof Error ? caught.message : "Failed to upload image.";
         setNotice(message);
         setNoticeKind("error");
