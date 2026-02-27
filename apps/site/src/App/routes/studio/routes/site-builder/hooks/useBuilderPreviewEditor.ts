@@ -19,7 +19,7 @@ import type {
   DraftState
 } from "../services/types";
 import { supabase } from "../../../../../lib/supabase";
-import { slugify } from "../../../../../lib/slugify";
+import { sanitizeFilename } from "../../../../../services/filename-sanitizer";
 import type { NoticeKind } from "../../../../../types/notice";
 
 type UseBuilderPreviewEditorParams = {
@@ -76,13 +76,6 @@ const createImageToken = () => {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("").slice(0, 10);
-};
-
-const sanitizeImageBaseName = (filename: string) => {
-  const stripped = filename.replace(/\.[^/.]+$/, "");
-  const withoutManagedSuffix = stripped.replace(MANAGED_VARIANT_SUFFIX_PATTERN, "");
-  const normalized = withoutManagedSuffix.replaceAll("_", "-");
-  return slugify(normalized) || "image";
 };
 
 const clampBytes = (value: number) => Math.max(1, Math.floor(value));
@@ -173,7 +166,6 @@ export const useBuilderPreviewEditor = ({
   setDraftImages
 }: UseBuilderPreviewEditorParams) => {
   const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
-  const [uploadingInlineImage, setUploadingInlineImage] = useState(false);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
 
   const resetNotices = () => {
@@ -260,98 +252,107 @@ export const useBuilderPreviewEditor = ({
       throw new Error(message);
     }
 
-    const sanitizedBaseName = sanitizeImageBaseName(file.name);
+    const sanitizedBaseName = sanitizeFilename(file.name, {
+      fallback: "image",
+      stripExtension: true,
+      stripPattern: MANAGED_VARIANT_SUFFIX_PATTERN,
+      lowercase: true,
+      spaces: "underscore"
+    });
     const uniqueToken = createImageToken();
 
-    const uploadedStoragePaths: string[] = [];
+    const localPreviewUrl = URL.createObjectURL(file);
+    previewRef.current?.execCommand("insertImage", localPreviewUrl);
 
-    try {
-      setUploadingInlineImage(true);
+    void (async () => {
+      const uploadedStoragePaths: string[] = [];
 
-      const processed = await buildProcessedVariants({
-        file,
-        options
-      });
-      const extension = MIME_EXTENSION_MAP[processed.outputFormat];
-      const uploadedAt = new Date().toISOString();
-
-      const uploadedAssets: DraftImageAsset[] = [];
-      let originalPublicUrl = "";
-
-      for (const variant of processed.variants) {
-        const filename = `${sanitizedBaseName}_${uniqueToken}_${variant.key}.${extension}`;
-        const storagePath = `drafts/${draftState.id}/${filename}`;
-        const sitePath = `${SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH}/${filename}`;
-
-        const uploadFile = new File([variant.blob], filename, {
-          type: processed.outputFormat
+      try {
+        const processed = await buildProcessedVariants({
+          file,
+          options
         });
+        const extension = MIME_EXTENSION_MAP[processed.outputFormat];
+        const uploadedAt = new Date().toISOString();
 
-        const { error: uploadError } = await supabase.storage
-          .from(SITE_DRAFT_IMAGES_BUCKET)
-          .upload(storagePath, uploadFile, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: processed.outputFormat
+        const uploadedAssets: DraftImageAsset[] = [];
+        let originalPublicUrl = "";
+
+        for (const variant of processed.variants) {
+          const filename = `${sanitizedBaseName}_${uniqueToken}_${variant.key}.${extension}`;
+          const storagePath = `drafts/${draftState.id}/${filename}`;
+          const sitePath = `${SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH}/${filename}`;
+
+          const uploadFile = new File([variant.blob], filename, {
+            type: processed.outputFormat
           });
-        if (uploadError) {
-          throw new Error(uploadError.message);
+
+          const { error: uploadError } = await supabase.storage
+            .from(SITE_DRAFT_IMAGES_BUCKET)
+            .upload(storagePath, uploadFile, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: processed.outputFormat
+            });
+          if (uploadError) {
+            throw new Error(uploadError.message);
+          }
+
+          uploadedStoragePaths.push(storagePath);
+
+          const { data: publicUrlData } = supabase.storage
+            .from(SITE_DRAFT_IMAGES_BUCKET)
+            .getPublicUrl(storagePath);
+
+          const imageUrl = publicUrlData.publicUrl?.trim();
+          if (!imageUrl) {
+            throw new Error("Failed to generate a public image URL.");
+          }
+
+          uploadedAssets.push({
+            storagePath,
+            publicUrl: imageUrl,
+            sitePath,
+            uploadedAt
+          });
+          if (variant.key === "original") {
+            originalPublicUrl = imageUrl;
+          }
         }
 
-        uploadedStoragePaths.push(storagePath);
-
-        const { data: publicUrlData } = supabase.storage
-          .from(SITE_DRAFT_IMAGES_BUCKET)
-          .getPublicUrl(storagePath);
-
-        const imageUrl = publicUrlData.publicUrl?.trim();
-        if (!imageUrl) {
-          throw new Error("Failed to generate a public image URL.");
+        const { error: metadataError } = await supabase.from("site_draft_images").insert(
+          uploadedAssets.map((asset) => ({
+            draft_id: draftState.id,
+            storage_path: asset.storagePath,
+            public_url: asset.publicUrl,
+            site_path: asset.sitePath
+          }))
+        );
+        if (metadataError) {
+          throw new Error(metadataError.message);
         }
 
-        uploadedAssets.push({
-          storagePath,
-          publicUrl: imageUrl,
-          sitePath,
-          uploadedAt
-        });
-        if (variant.key === "original") {
-          originalPublicUrl = imageUrl;
+        setDraftImages((items) => [...items, ...uploadedAssets]);
+
+        if (!originalPublicUrl) {
+          throw new Error("Failed to resolve uploaded original image.");
         }
-      }
 
-      const { error: metadataError } = await supabase.from("site_draft_images").insert(
-        uploadedAssets.map((asset) => ({
-          draft_id: draftState.id,
-          storage_path: asset.storagePath,
-          public_url: asset.publicUrl,
-          site_path: asset.sitePath
-        }))
-      );
-      if (metadataError) {
-        throw new Error(metadataError.message);
+        previewRef.current?.replaceImageSource(localPreviewUrl, originalPublicUrl);
+        setNotice("Image uploaded.");
+        setNoticeKind("notice");
+      } catch (caught) {
+        if (uploadedStoragePaths.length) {
+          await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
+        }
+        previewRef.current?.replaceImageSource(localPreviewUrl, null);
+        const message = caught instanceof Error ? caught.message : "Failed to upload image.";
+        setNotice(message);
+        setNoticeKind("error");
+      } finally {
+        URL.revokeObjectURL(localPreviewUrl);
       }
-
-      setDraftImages((items) => [...items, ...uploadedAssets]);
-
-      if (!originalPublicUrl) {
-        throw new Error("Failed to resolve uploaded original image.");
-      }
-
-      previewRef.current?.execCommand("insertImage", originalPublicUrl);
-      setNotice("Image uploaded and inserted.");
-      setNoticeKind("notice");
-    } catch (caught) {
-      if (uploadedStoragePaths.length) {
-        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
-      }
-      const message = caught instanceof Error ? caught.message : "Failed to upload image.";
-      setNotice(message);
-      setNoticeKind("error");
-      throw new Error(message);
-    } finally {
-      setUploadingInlineImage(false);
-    }
+    })();
   };
 
   return {
@@ -359,7 +360,7 @@ export const useBuilderPreviewEditor = ({
     selectedEditorImage,
     setSelectedEditorImage,
     clearSelectedEditorImage,
-    uploadingInlineImage,
+    uploadingInlineImage: false,
     runPreviewCommand,
     runPreviewLink,
     capturePreviewSelection,

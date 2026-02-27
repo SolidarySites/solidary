@@ -267,7 +267,7 @@
 .builder-image-dialog-overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 1200;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -284,6 +284,7 @@
   border: 1px solid rgba(31, 34, 28, 0.2);
   background: #fff;
   box-shadow: 0 1.2rem 2.8rem rgba(8, 10, 7, 0.28);
+  z-index: 100;
 }
 
 .builder-image-dialog-header {
@@ -308,6 +309,27 @@
   margin: 0;
   font-size: 0.76rem;
   color: rgba(31, 34, 28, 0.72);
+}
+
+.builder-image-dialog-preview {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.builder-image-dialog-preview p {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(31, 34, 28, 0.78);
+  overflow-wrap: anywhere;
+}
+
+.builder-image-dialog-preview img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border: 1px solid rgba(31, 34, 28, 0.22);
+  background: rgba(248, 245, 239, 0.7);
 }
 
 .builder-image-dialog-dropdown {

@@ -14,6 +14,7 @@ import { normalizePageSlug } from "../services/utils";
 import type { DraftImageAsset, FooterOptions, HeaderOptions } from "../services/types";
 import {
   EXTERNAL_IMAGE_PLACEHOLDER_SRC,
+  EXTERNAL_IMAGE_SOURCE_ATTR,
   getTrackedExternalImageSource,
   normalizeExternalImageForPersistence
 } from "../../../../../lib/external-image-loading";
@@ -56,6 +57,7 @@ export type AstroTemplatePreviewHandle = {
   execCommand: (command: string, value?: string) => void;
   focusEditor: () => void;
   captureSelection: () => void;
+  replaceImageSource: (previousSrc: string, nextSrc: string | null) => void;
   updateSelectedImageAlt: (value: string) => void;
   updateSelectedImageCaption: (value: string) => void;
   updateSelectedImageSize: (value: number) => void;
@@ -840,6 +842,48 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     savedSelectionRef.current = range.cloneRange();
   }, []);
 
+  const replaceImageSource = useCallback(
+    (previousSrc: string, nextSrc: string | null) => {
+      const normalizedPreviousSrc = previousSrc.trim();
+      if (!normalizedPreviousSrc) return;
+
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      const normalizedNextSrc = nextSrc?.trim() ?? "";
+      let didUpdate = false;
+
+      editor.querySelectorAll("img").forEach((image) => {
+        const currentSrc = image.getAttribute("src")?.trim() ?? "";
+        const trackedSrc = getTrackedExternalImageSource(image);
+        if (currentSrc !== normalizedPreviousSrc && trackedSrc !== normalizedPreviousSrc) {
+          return;
+        }
+
+        if (normalizedNextSrc) {
+          image.setAttribute("src", normalizedNextSrc);
+          image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, normalizedNextSrc);
+          didUpdate = true;
+          return;
+        }
+
+        const figure = image.closest(`figure[${IMAGE_FIGURE_ATTR}="true"]`);
+        if (figure instanceof HTMLElement) {
+          figure.remove();
+        } else {
+          image.remove();
+        }
+        didUpdate = true;
+      });
+
+      if (!didUpdate) return;
+
+      persistEditorContent();
+      captureSelection();
+    },
+    [captureSelection, persistEditorContent]
+  );
+
   const handleEditorClick = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
       if (!editable) {
@@ -1253,6 +1297,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       execCommand: executeCommand,
       focusEditor: () => editorRef.current?.focus(),
       captureSelection,
+      replaceImageSource,
       updateSelectedImageAlt,
       updateSelectedImageCaption,
       updateSelectedImageSize,
@@ -1264,6 +1309,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     [
       captureSelection,
       executeCommand,
+      replaceImageSource,
       updateSelectedImageAlt,
       updateSelectedImageCaption,
       updateSelectedImageSize
