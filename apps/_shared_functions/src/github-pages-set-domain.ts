@@ -14,7 +14,7 @@ type SetDomainBody = {
   owner?: string;
   repo?: string;
   domain?: string;
-  action?: "connect" | "check";
+  action?: "connect" | "check" | "remove";
 };
 
 type GitHubPagesMetadata = {
@@ -206,7 +206,8 @@ export const handler: Handler = async (event) => {
     const body = (JSON.parse(event.body ?? "{}") ?? {}) as SetDomainBody;
     const owner = body.owner?.trim() ?? "";
     const repo = body.repo?.trim() ?? "";
-    const action = body.action === "check" ? "check" : "connect";
+    const action =
+      body.action === "check" || body.action === "remove" ? body.action : "connect";
     const requestedDomain = normalizeDomainInput(body.domain);
 
     if (!owner || !repo) {
@@ -219,7 +220,12 @@ export const handler: Handler = async (event) => {
 
     const { githubToken } = await authorizeGitHubRepoAction({
       functionName: "github-pages-set-domain",
-      action: action === "check" ? "check_pages_domain" : "set_pages_domain",
+      action:
+        action === "check"
+          ? "check_pages_domain"
+          : action === "remove"
+            ? "remove_pages_domain"
+            : "set_pages_domain",
       owner,
       repo,
       directToken: body.token,
@@ -247,12 +253,12 @@ export const handler: Handler = async (event) => {
       });
     }
 
-    if (action === "connect") {
+    if (action === "connect" || action === "remove") {
       const sourceBranch = initialPages.payload.source?.branch?.trim() ?? "";
       const sourcePath = initialPages.payload.source?.path?.trim() || "/";
       const buildType = initialPages.payload.build_type?.trim();
       const updatePayload: Record<string, unknown> = {
-        cname: effectiveDomain
+        cname: action === "remove" ? null : effectiveDomain
       };
       if (sourceBranch) {
         updatePayload.source = {
@@ -273,6 +279,43 @@ export const handler: Handler = async (event) => {
         .json()
         .catch(() => ({}))) as GitHubPagesMetadata;
       if (!updateResponse.ok) {
+        if (action === "remove") {
+          const fallbackPayload: Record<string, unknown> = {
+            ...updatePayload,
+            cname: ""
+          };
+          const fallbackResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
+            method: "PUT",
+            headers: githubHeaders(githubToken),
+            body: JSON.stringify(fallbackPayload)
+          });
+          const fallbackResult = (await fallbackResponse
+            .json()
+            .catch(() => ({}))) as GitHubPagesMetadata;
+          if (fallbackResponse.ok) {
+            const latestPagesAfterFallback = await fetchPagesMetadata({
+              owner,
+              repo,
+              token: githubToken
+            });
+            return safeJson(200, {
+              status: "removed",
+              domain: "",
+              pages:
+                latestPagesAfterFallback.response.ok
+                  ? latestPagesAfterFallback.payload
+                  : fallbackResult,
+              pagesUrl:
+                (latestPagesAfterFallback.response.ok
+                  ? latestPagesAfterFallback.payload.html_url
+                  : fallbackResult.html_url) || null,
+              dns: {
+                status: "pending",
+                message: "Proposed custom domain removed from GitHub Pages."
+              }
+            });
+          }
+        }
         return safeJson(updateResponse.status, {
           error: getGitHubErrorMessage(updatePayloadResult, "Failed to update custom domain.")
         });
@@ -284,6 +327,21 @@ export const handler: Handler = async (event) => {
       repo,
       token: githubToken
     });
+
+    if (action === "remove") {
+      return safeJson(200, {
+        status: "removed",
+        domain: "",
+        pages: latestPages.response.ok ? latestPages.payload : initialPages.payload,
+        pagesUrl:
+          (latestPages.response.ok ? latestPages.payload.html_url : initialPages.payload.html_url) || null,
+        dns: {
+          status: "pending",
+          message: "Proposed custom domain removed from GitHub Pages."
+        }
+      });
+    }
+
     const dns = await fetchDnsFeedback({
       owner,
       repo,

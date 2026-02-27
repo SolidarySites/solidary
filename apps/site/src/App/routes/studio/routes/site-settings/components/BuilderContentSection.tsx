@@ -45,6 +45,7 @@ type BuilderContentSectionProps = {
   onStudioOnlyDomainUpdate?: (value: string) => void;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
+  onRemoveProposedGithubDomain?: (value: string) => void;
   onCollaboratorQueryChange: (value: string) => void;
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
@@ -89,6 +90,7 @@ const BuilderContentSection = ({
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
   onRecheckGithubDomain,
+  onRemoveProposedGithubDomain,
   onCollaboratorQueryChange,
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
@@ -153,6 +155,7 @@ const BuilderContentSection = ({
           onStudioOnlyDomainUpdate={onStudioOnlyDomainUpdate}
           onConnectGithubDomain={onConnectGithubDomain}
           onRecheckGithubDomain={onRecheckGithubDomain}
+          onRemoveProposedGithubDomain={onRemoveProposedGithubDomain}
           canDeleteSite={canDeleteSite}
           deleteMode={deleteMode}
           deleteConfirmText={deleteConfirmText}

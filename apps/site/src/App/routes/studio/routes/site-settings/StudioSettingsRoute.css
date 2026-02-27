@@ -277,6 +277,12 @@
   color: #7a1f17;
 }
 
+.studio-settings-route .builder-advanced-dns-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .studio-settings-route .builder-advanced-dropdown {
   border-top: 1px dashed rgba(31, 34, 28, 0.2);
   padding-top: 0.75rem;

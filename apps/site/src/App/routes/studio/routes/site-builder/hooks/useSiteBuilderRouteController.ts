@@ -62,6 +62,7 @@ type DomainDnsFeedbackState = {
 };
 type GitHubPagesDomainResponse = {
   domain?: string;
+  status?: "connected" | "checked" | "removed";
   pagesUrl?: string;
   pages?: {
     html_url?: string;
@@ -848,6 +849,54 @@ export const useSiteBuilderRouteController = ({
     }
   };
 
+  const handleRemoveProposedGithubDomain = async (rawDomain: string) => {
+    if (!isOwnerOnOwnerDraft) {
+      setNotice("Only the site owner can remove a proposed GitHub Pages custom domain.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const repoFullName = draftState?.repoFullName?.trim() ?? "";
+    const [owner, repo] = repoFullName.split("/");
+    if (!owner || !repo) {
+      setNotice("Invalid repository name. Please reload and try again.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const normalizedDomain = normalizeCustomDomainInput(rawDomain);
+    if (!normalizedDomain) {
+      setNotice("Missing proposed domain to remove.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setDomainActionBusy("github");
+    try {
+      const freshAuth = await requireFreshGithubAuth();
+      await githubRequest<GitHubPagesDomainResponse>(
+        "/.netlify/functions/github-pages-set-domain",
+        {
+          owner,
+          repo,
+          action: "remove",
+          domain: normalizedDomain,
+          supabase_access_token: freshAuth.supabaseAccessToken
+        }
+      );
+      setDomainDnsFeedback(null);
+      setNotice("Removed proposed custom domain from GitHub Pages.");
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to remove proposed custom domain.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDomainActionBusy("none");
+    }
+  };
+
   const handleDeleteSite = async () => {
     if (!session || !canDeleteSite || !draftState?.siteId || !deleteMode) return;
 
@@ -1001,6 +1050,9 @@ export const useSiteBuilderRouteController = ({
       },
       onRecheckGithubDomain: (value: string) => {
         void handleRecheckGithubDomain(value);
+      },
+      onRemoveProposedGithubDomain: (value: string) => {
+        void handleRemoveProposedGithubDomain(value);
       },
       onCollaboratorQueryChange: handleCollaboratorQueryChange,
       onCollaboratorRoleChange: setCollaboratorRole,

@@ -12,6 +12,7 @@ type DangerSettingsSectionProps = {
   onStudioOnlyDomainUpdate?: (value: string) => void;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
+  onRemoveProposedGithubDomain?: (value: string) => void;
   canDeleteSite?: boolean;
   deleteMode?: "builder" | "github" | null;
   deleteConfirmText?: string;
@@ -39,6 +40,7 @@ const DangerSettingsSection = ({
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
   onRecheckGithubDomain,
+  onRemoveProposedGithubDomain,
   canDeleteSite = false,
   deleteMode = null,
   deleteConfirmText = "",
@@ -123,14 +125,24 @@ const DangerSettingsSection = ({
           {domainDnsFeedback && (
             <div className="builder-advanced-dns-feedback">
               <p>{domainDnsFeedback.message}</p>
-              <button
-                type="button"
-                className="ghost"
-                disabled={domainActionsBusy || deleteBusy}
-                onClick={() => onRecheckGithubDomain?.(domainDnsFeedback.domain)}
-              >
-                {domainActionBusy === "github" ? "Rechecking..." : "Recheck DNS"}
-              </button>
+              <div className="builder-advanced-dns-feedback-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={domainActionsBusy || deleteBusy}
+                  onClick={() => onRecheckGithubDomain?.(domainDnsFeedback.domain)}
+                >
+                  {domainActionBusy === "github" ? "Rechecking..." : "Recheck DNS"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={domainActionsBusy || deleteBusy}
+                  onClick={() => onRemoveProposedGithubDomain?.(domainDnsFeedback.domain)}
+                >
+                  Remove proposed URL
+                </button>
+              </div>
             </div>
           )}
 
