@@ -631,6 +631,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const selectedImageElementRef = useRef<HTMLImageElement | null>(null);
+  const localHydrationGuardRef = useRef<{ slug: string; expiresAt: number } | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImageState | null>(null);
 
   const parsedPages = useMemo<ParsedPage[]>(
@@ -858,6 +859,32 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     return clone.innerHTML;
   }, []);
 
+  const syncEditorManagedImageAttributes = useCallback((editor: HTMLDivElement, html: string) => {
+    const mappedDisplayWrapper = document.createElement("div");
+    mappedDisplayWrapper.innerHTML = html;
+    const mappedImages = Array.from(mappedDisplayWrapper.querySelectorAll("img"));
+    const editorImages = Array.from(editor.querySelectorAll("img"));
+
+    editorImages.forEach((editorImage, index) => {
+      const mappedImage = mappedImages[index];
+      if (!mappedImage) {
+        managedImageSyncedAttrs.forEach((attribute) => {
+          editorImage.removeAttribute(attribute);
+        });
+        return;
+      }
+
+      managedImageSyncedAttrs.forEach((attribute) => {
+        const nextValue = mappedImage.getAttribute(attribute)?.trim() ?? "";
+        if (nextValue) {
+          editorImage.setAttribute(attribute, nextValue);
+        } else {
+          editorImage.removeAttribute(attribute);
+        }
+      });
+    });
+  }, []);
+
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -869,37 +896,23 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
         "display"
       );
       if (currentDisplayEquivalent === displayBodyHtml) {
-        const mappedDisplayWrapper = document.createElement("div");
-        mappedDisplayWrapper.innerHTML = currentDisplayEquivalent;
-        const mappedImages = Array.from(mappedDisplayWrapper.querySelectorAll("img"));
-        const editorImages = Array.from(editor.querySelectorAll("img"));
-
-        editorImages.forEach((editorImage, index) => {
-          const mappedImage = mappedImages[index];
-          if (!mappedImage) {
-            managedImageSyncedAttrs.forEach((attribute) => {
-              editorImage.removeAttribute(attribute);
-            });
-            return;
-          }
-
-          const mappedSrc = mappedImage.getAttribute("src")?.trim() ?? "";
-          const currentSrc = editorImage.getAttribute("src")?.trim() ?? "";
-          if (mappedSrc && mappedSrc !== currentSrc) {
-            editorImage.setAttribute("src", mappedSrc);
-          }
-
-          managedImageSyncedAttrs.forEach((attribute) => {
-            const nextValue = mappedImage.getAttribute(attribute)?.trim() ?? "";
-            if (nextValue) {
-              editorImage.setAttribute(attribute, nextValue);
-            } else {
-              editorImage.removeAttribute(attribute);
-            }
-          });
-        });
+        syncEditorManagedImageAttributes(editor, displayBodyHtml);
         return;
       }
+
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const localHydrationGuard = localHydrationGuardRef.current;
+      const isLocalHydrationGuardActive =
+        localHydrationGuard !== null &&
+        localHydrationGuard.slug === activeSlug &&
+        localHydrationGuard.expiresAt >= now;
+      const isEditorFocused = document.activeElement === editor;
+
+      if (editable && (isEditorFocused || isLocalHydrationGuardActive)) {
+        syncEditorManagedImageAttributes(editor, displayBodyHtml);
+        return;
+      }
+
       editor.innerHTML = displayBodyHtml;
       normalizeEditorImages(editor);
       savedSelectionRef.current = null;
@@ -909,9 +922,11 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     activeSlug,
     displayBodyHtml,
     draftImages,
+    editable,
     getPersistableEditorHtml,
     normalizeEditorImages,
-    publishedSiteBaseUrl
+    publishedSiteBaseUrl,
+    syncEditorManagedImageAttributes
   ]);
 
   useEffect(() => {
@@ -1015,6 +1030,11 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       publishedSiteBaseUrl,
       "persist"
     );
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    localHydrationGuardRef.current = {
+      slug: activeSlug,
+      expiresAt: now + 1500
+    };
     onPageBodyChange(activeSlug, normalizedBody);
     setSelectedImage((current) => {
       if (!current) {

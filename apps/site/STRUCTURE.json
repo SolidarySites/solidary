@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-27T18:51:59.720Z",
-  "latest_commit_sha": "75031d26104f1cc2e8bbfd7fae266e38c84014c8",
+  "generated_at": "2026-02-27T20:36:53.850Z",
+  "latest_commit_sha": "a99020b72a25d16dfce89ec0bf27aa645aaf8411",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -225,7 +225,7 @@
                   {
                     "path": "src/App/lib/external-image-loading.ts",
                     "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
-                    "LOC": 194
+                    "LOC": 520
                   },
                   {
                     "path": "src/App/lib/site-image-url.ts",
@@ -613,7 +613,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
                                     "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 1502
+                                    "LOC": 1761
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
@@ -690,7 +690,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
                                     "description": "Preview editing hook handling command execution, selection tracking, and inline image upload/edit behavior.",
-                                    "LOC": 372
+                                    "LOC": 404
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
@@ -894,7 +894,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1115
+                                "LOC": 1158
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
