@@ -9,7 +9,8 @@ const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_DELETE_REPO_SECRET_KEY = process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? "";
 
-type CollaboratorRole = "admin" | "editor" | "viewer";
+type CollaboratorRole = "admin" | "editor" | "contributor";
+type ParsedCollaboratorRole = CollaboratorRole | "viewer";
 type AuthUserRow = {
   id: string;
   email: string | null;
@@ -19,10 +20,9 @@ type AuthUserRow = {
   identities: Array<Record<string, unknown>>;
 };
 
-const roleToGithubPermission: Record<CollaboratorRole, "admin" | "push" | "pull"> = {
+const roleToGithubPermission: Record<Exclude<CollaboratorRole, "contributor">, "admin" | "push"> = {
   admin: "admin",
-  editor: "push",
-  viewer: "pull"
+  editor: "push"
 };
 
 const requireEnv = () => {
@@ -38,8 +38,8 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   return match?.[1]?.trim() ?? "";
 };
 
-const isCollaboratorRole = (value: unknown): value is CollaboratorRole =>
-  value === "admin" || value === "editor" || value === "viewer";
+const isCollaboratorRole = (value: unknown): value is ParsedCollaboratorRole =>
+  value === "admin" || value === "editor" || value === "contributor" || value === "viewer";
 
 const looksLikeEmail = (value: string) => value.includes("@");
 const normalizeGithubIdentifier = (value: string) =>
@@ -163,13 +163,25 @@ export const handler: Handler = async (event) => {
     typeof payload.solidaryGithubLogin === "string" && payload.solidaryGithubLogin.trim()
       ? normalizeGithubIdentifier(payload.solidaryGithubLogin.trim())
       : null;
-  const role = isCollaboratorRole(payload.role) ? payload.role : null;
+  const parsedRole = isCollaboratorRole(payload.role) ? payload.role : null;
+  const role = parsedRole === "viewer" ? "contributor" : parsedRole;
 
   if (!draftId || !identifier || !role) {
     return {
       statusCode: 400,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ error: "Missing draftId, identifier, or role." })
+    };
+  }
+
+  if (role === "contributor") {
+    return {
+      statusCode: 422,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error:
+          "Contributor invites are not available yet. Use Editor or Admin for now."
+      })
     };
   }
 

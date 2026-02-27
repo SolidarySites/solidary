@@ -77,15 +77,16 @@ export const useSiteBuilderAccessAndLocks = ({
 }: UseSiteBuilderAccessAndLocksParams): SiteBuilderAccessAndLocksState => {
   const isOwner = siteAccessRole === "owner";
   const isOwnerOnOwnerDraft = isOwner && draftState?.draftType === "owner";
-  const isEditorWorkingDraft =
+  const isContributorWorkingDraft =
     draftState?.draftType === "editor" &&
-    siteAccessRole === "editor" &&
+    siteAccessRole === "contributor" &&
     draftState.ownerUserId === sessionUserId;
-  const isOwnerOrAdminOnOwnerDraft =
-    draftState?.draftType === "owner" && (siteAccessRole === "owner" || siteAccessRole === "admin");
-  const canEditDraft = Boolean(isOwnerOrAdminOnOwnerDraft || isEditorWorkingDraft);
-  const canDirectPublish = Boolean(isOwnerOrAdminOnOwnerDraft);
-  const canSubmitPullRequest = Boolean(isEditorWorkingDraft);
+  const isOwnerAdminOrEditorOnOwnerDraft =
+    draftState?.draftType === "owner" &&
+    (siteAccessRole === "owner" || siteAccessRole === "admin" || siteAccessRole === "editor");
+  const canEditDraft = Boolean(isOwnerAdminOrEditorOnOwnerDraft || isContributorWorkingDraft);
+  const canDirectPublish = Boolean(isOwnerAdminOrEditorOnOwnerDraft);
+  const canSubmitPullRequest = Boolean(isContributorWorkingDraft);
   const canPublishByRole = canDirectPublish || canSubmitPullRequest;
 
   const activeEditableSection = useMemo(

@@ -42,8 +42,8 @@ export type FooterOptions = {
   modules: FooterModule[];
 };
 
-export type SiteAccessRole = "owner" | "admin" | "editor" | "viewer";
-export type CollaboratorRole = "admin" | "editor" | "viewer";
+export type SiteAccessRole = "owner" | "admin" | "editor" | "contributor";
+export type CollaboratorRole = "admin" | "editor" | "contributor";
 export type DraftType = "owner" | "editor";
 
 export type CollaboratorSearchResult = {

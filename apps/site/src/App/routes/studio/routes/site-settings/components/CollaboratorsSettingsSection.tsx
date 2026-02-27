@@ -92,8 +92,8 @@ const CollaboratorsSettingsSection = ({
           value={collaboratorRole}
           onChange={(event) => onCollaboratorRoleChange(event.target.value as CollaboratorRole)}
         >
-          <option value="viewer">Viewer (read-only)</option>
-          <option value="editor">Editor (edit + save)</option>
+          <option value="contributor">Contributor (PR-only, coming soon)</option>
+          <option value="editor">Editor (edit + publish)</option>
           <option value="admin">Admin (edit + publish)</option>
         </select>
       </label>
@@ -151,7 +151,7 @@ const CollaboratorsSettingsSection = ({
                     }
                     disabled={isUpdating}
                   >
-                    <option value="viewer">Viewer</option>
+                    <option value="contributor">Contributor</option>
                     <option value="editor">Editor</option>
                     <option value="admin">Admin</option>
                   </select>

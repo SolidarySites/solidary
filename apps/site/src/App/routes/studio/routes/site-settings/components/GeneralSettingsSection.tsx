@@ -3,9 +3,13 @@ type GeneralSettingsSectionProps = {
   siteDescription: string;
   siteUrl: string;
   siteImagePreview: string | null;
+  canSaveToLive: boolean;
+  savingToLive: boolean;
+  hasUnsavedChanges: boolean;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
+  onSaveToLive: () => void;
 };
 
 const GeneralSettingsSection = ({
@@ -13,9 +17,13 @@ const GeneralSettingsSection = ({
   siteDescription,
   siteUrl,
   siteImagePreview,
+  canSaveToLive,
+  savingToLive,
+  hasUnsavedChanges,
   onSiteTitleChange,
   onSiteDescriptionChange,
-  onSiteImageChange
+  onSiteImageChange,
+  onSaveToLive
 }: GeneralSettingsSectionProps) => (
   <div className="builder-section">
     <div className="section-header">
@@ -50,6 +58,21 @@ const GeneralSettingsSection = ({
       />
     </label>
     {siteImagePreview && <img className="preview-image" src={siteImagePreview} alt="Preview" />}
+    <p className="builder-collaborator-hint">
+      {hasUnsavedChanges
+        ? "Unsaved changes are safely stored in draft and will go live after Save."
+        : "Changes are automatically drafted as you work."}
+    </p>
+    <div className="studio-settings-save-row">
+      <button
+        className="primary"
+        type="button"
+        disabled={!canSaveToLive || savingToLive}
+        onClick={onSaveToLive}
+      >
+        {savingToLive ? "Saving..." : "Save"}
+      </button>
+    </div>
   </div>
 );
 

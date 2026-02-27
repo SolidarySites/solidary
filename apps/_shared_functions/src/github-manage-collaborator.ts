@@ -9,7 +9,8 @@ const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_DELETE_REPO_SECRET_KEY = process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? "";
 
-type CollaboratorRole = "admin" | "editor" | "viewer";
+type CollaboratorRole = "admin" | "editor" | "contributor";
+type ParsedCollaboratorRole = CollaboratorRole | "viewer";
 type ManageAction = "update_role" | "remove";
 
 type AuthUserRow = {
@@ -21,10 +22,9 @@ type AuthUserRow = {
   identities: Array<Record<string, unknown>>;
 };
 
-const roleToGithubPermission: Record<CollaboratorRole, "admin" | "push" | "pull"> = {
+const roleToGithubPermission: Record<Exclude<CollaboratorRole, "contributor">, "admin" | "push"> = {
   admin: "admin",
-  editor: "push",
-  viewer: "pull"
+  editor: "push"
 };
 
 const requireEnv = () => {
@@ -40,8 +40,8 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   return match?.[1]?.trim() ?? "";
 };
 
-const isCollaboratorRole = (value: unknown): value is CollaboratorRole =>
-  value === "admin" || value === "editor" || value === "viewer";
+const isCollaboratorRole = (value: unknown): value is ParsedCollaboratorRole =>
+  value === "admin" || value === "editor" || value === "contributor" || value === "viewer";
 
 const isManageAction = (value: unknown): value is ManageAction =>
   value === "update_role" || value === "remove";
@@ -170,7 +170,8 @@ export const handler: Handler = async (event) => {
   const collaboratorUserId =
     typeof payload.collaboratorUserId === "string" ? payload.collaboratorUserId.trim() : "";
   const action = isManageAction(payload.action) ? payload.action : null;
-  const role = isCollaboratorRole(payload.role) ? payload.role : null;
+  const parsedRole = isCollaboratorRole(payload.role) ? payload.role : null;
+  const role = parsedRole === "viewer" ? "contributor" : parsedRole;
 
   if (!draftId || !collaboratorUserId || !action) {
     return {
@@ -186,6 +187,17 @@ export const handler: Handler = async (event) => {
       statusCode: 400,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ error: "Missing role for update_role action." })
+    };
+  }
+
+  if (action === "update_role" && role === "contributor") {
+    return {
+      statusCode: 422,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        error:
+          "Contributor role updates are not available yet. Use Editor or Admin for now."
+      })
     };
   }
 
@@ -317,7 +329,7 @@ export const handler: Handler = async (event) => {
   }
 
   if (action === "update_role") {
-    const githubPermission = roleToGithubPermission[role as CollaboratorRole];
+    const githubPermission = roleToGithubPermission[role];
     const githubResponse = await fetch(
       `${GITHUB_API}/repos/${owner}/${repo}/collaborators/${encodeURIComponent(githubLogin)}`,
       {

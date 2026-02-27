@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { getFreshGithubAuthSnapshot } from "../../../features/auth/services/github-auth";
 import { supabase } from "../../../lib/supabase";
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import type { NoticeKind } from "../../../types/notice";
@@ -14,7 +13,7 @@ type UseStudioDraftDataParams = {
 
 type CollaboratorMembershipRow = {
   site_id: string;
-  role: StudioAccessRole | null;
+  role: StudioAccessRole | "viewer" | null;
 };
 
 type SharedDraftRow = {
@@ -90,66 +89,13 @@ export const useStudioDraftData = ({
             Boolean(membership.site_id) &&
             (membership.role === "admin" ||
               membership.role === "editor" ||
+              membership.role === "contributor" ||
               membership.role === "viewer")
         );
-
-        let supabaseAccessToken = "";
-        try {
-          const freshAuth = await getFreshGithubAuthSnapshot();
-          supabaseAccessToken = freshAuth.supabaseAccessToken;
-        } catch {
-          supabaseAccessToken = "";
-        }
-        let resolvedSharedMemberships = sharedMemberships;
-
-        if (supabaseAccessToken) {
-          const adminMemberships = sharedMemberships.filter((membership) => membership.role === "admin");
-          if (adminMemberships.length) {
-            const syncResults = await Promise.all(
-              adminMemberships.map(async (membership) => {
-                try {
-                  const response = await fetch("/.netlify/functions/sync-admin-role-from-github", {
-                    method: "POST",
-                    headers: {
-                      "content-type": "application/json",
-                      Authorization: `Bearer ${supabaseAccessToken}`
-                    },
-                    body: JSON.stringify({
-                      siteId: membership.site_id
-                    })
-                  });
-                  const payload = (await response.json().catch(() => ({}))) as {
-                    role?: StudioAccessRole | null;
-                    demoted?: boolean;
-                  };
-                  if (!response.ok) {
-                    return membership;
-                  }
-                  if (payload.demoted && payload.role === "editor") {
-                    return {
-                      ...membership,
-                      role: "editor" as const
-                    };
-                  }
-                  return membership;
-                } catch {
-                  return membership;
-                }
-              })
-            );
-
-            const roleOverrideBySiteId = new Map<string, StudioAccessRole>();
-            syncResults.forEach((entry) => {
-              if (entry.role === "admin" || entry.role === "editor" || entry.role === "viewer") {
-                roleOverrideBySiteId.set(entry.site_id, entry.role);
-              }
-            });
-            resolvedSharedMemberships = sharedMemberships.map((membership) => ({
-              ...membership,
-              role: roleOverrideBySiteId.get(membership.site_id) ?? membership.role
-            }));
-          }
-        }
+        const resolvedSharedMemberships = sharedMemberships.map((membership) => ({
+          ...membership,
+          role: membership.role === "viewer" ? "contributor" : membership.role
+        }));
 
         const ownedDraftIds = new Set(ownedItems.map((item) => item.id));
         const sharedDraftIds = Array.from(
@@ -162,7 +108,11 @@ export const useStudioDraftData = ({
 
         const roleBySiteId = new Map<string, StudioAccessRole>();
         resolvedSharedMemberships.forEach((membership) => {
-          if (membership.role === "admin" || membership.role === "editor" || membership.role === "viewer") {
+          if (
+            membership.role === "admin" ||
+            membership.role === "editor" ||
+            membership.role === "contributor"
+          ) {
             roleBySiteId.set(membership.site_id, membership.role);
           }
         });
@@ -192,7 +142,7 @@ export const useStudioDraftData = ({
           branch: row.branch,
           files: row.files as RepoFileSet,
           owner_user_id: row.owner_user_id,
-          access_role: roleBySiteId.get((row.site_id as string | null) ?? row.id) ?? "viewer",
+          access_role: roleBySiteId.get((row.site_id as string | null) ?? row.id) ?? "contributor",
           updated_at: row.updated_at
         }));
         setSharedDraftItems(mappedSharedItems);

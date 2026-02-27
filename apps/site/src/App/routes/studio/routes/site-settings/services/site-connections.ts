@@ -1,7 +1,7 @@
 import { supabase } from "../../../../../lib/supabase";
 import { resolveSiteImageUrl } from "../../../../../lib/site-image-url";
 
-export type ConnectionAccessRole = "owner" | "admin" | "editor" | "viewer";
+export type ConnectionAccessRole = "owner" | "admin" | "editor" | "contributor";
 export type SearchMode = "site" | "user";
 export type ExistingConnectionState =
   | "available"
@@ -98,8 +98,11 @@ type DraftContextRow = {
 };
 
 const normalizeAccessRole = (value: unknown): ConnectionAccessRole | null => {
-  if (value === "owner" || value === "admin" || value === "editor" || value === "viewer") {
+  if (value === "owner" || value === "admin" || value === "editor" || value === "contributor") {
     return value;
+  }
+  if (value === "viewer") {
+    return "contributor";
   }
   return null;
 };

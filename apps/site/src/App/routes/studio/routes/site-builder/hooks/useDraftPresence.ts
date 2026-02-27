@@ -6,7 +6,7 @@ import type { SiteAccessRole } from "../services/types";
 type PresencePayload = {
   user_id?: string;
   name?: string;
-  role?: SiteAccessRole;
+  role?: SiteAccessRole | "viewer";
   active_page_slug?: string | null;
   at?: string;
 };
@@ -69,8 +69,11 @@ export const useDraftPresence = ({
             payload.role === "owner" ||
             payload.role === "admin" ||
             payload.role === "editor" ||
+            payload.role === "contributor" ||
             payload.role === "viewer"
-              ? payload.role
+              ? payload.role === "viewer"
+                ? "contributor"
+                : payload.role
               : null;
           const existing = membersByUserId.get(userId);
           if (existing) return;

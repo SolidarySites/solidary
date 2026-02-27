@@ -213,6 +213,13 @@ export const useBuilderCollaborators = ({
     }
 
     const { supabaseAccessToken } = freshAuth;
+    if (collaboratorRole === "contributor") {
+      setNotice(
+        "Contributor invites are not available yet. Use Editor or Admin for now."
+      );
+      setNoticeKind("error");
+      return;
+    }
     const identifierInput = collaboratorQuery.trim();
     if (!identifierInput) {
       setNotice("Enter a GitHub username or email.");
@@ -325,6 +332,13 @@ export const useBuilderCollaborators = ({
     }
 
     const { supabaseAccessToken } = freshAuth;
+    if (role === "contributor") {
+      setNotice(
+        "Contributor role updates are not available yet. This mode will ship with fork-based PR collaboration."
+      );
+      setNoticeKind("error");
+      return;
+    }
     const collaborator = managedCollaborators.find((entry) => entry.userId === collaboratorUserId);
     if (!collaborator || collaborator.role === role) return;
 

@@ -8,8 +8,9 @@ type SiteListItem = {
   repoFullName: string;
   repoHtmlUrl: string;
   siteUrl: string;
-  accessRole?: "owner" | "admin" | "editor" | "viewer";
+  accessRole?: "owner" | "admin" | "editor" | "contributor";
   canDelete?: boolean;
+  canManageSettings?: boolean;
   updatedAt?: string;
 };
 
@@ -134,7 +135,7 @@ export default function SitesListSection({
               <button className="ghost" onClick={() => onEdit(item.id)}>
                 Edit
               </button>
-              {onSettings && item.canDelete !== false && (
+              {onSettings && item.canManageSettings !== false && (
                 <button className="ghost" onClick={() => onSettings(item.id)}>
                   Settings
                 </button>

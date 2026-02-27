@@ -32,6 +32,7 @@ export const mapDraftItemToSiteListItem = (
     siteUrl,
     accessRole,
     canDelete: accessRole === "owner",
+    canManageSettings: accessRole === "owner" || accessRole === "admin",
     updatedAt: item.updated_at
   };
 };

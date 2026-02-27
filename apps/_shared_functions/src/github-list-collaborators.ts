@@ -9,11 +9,12 @@ const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_DELETE_REPO_SECRET_KEY = process.env.SUPABASE_DELETE_REPO_SECRET_KEY ?? "";
 
-type CollaboratorRole = "admin" | "editor" | "viewer";
+type CollaboratorRole = "admin" | "editor" | "contributor";
+type SiteAdminRole = CollaboratorRole | "viewer";
 
 type SiteAdminRow = {
   user_id: string;
-  role: CollaboratorRole;
+  role: SiteAdminRole;
 };
 
 type AuthUserRow = {
@@ -142,7 +143,7 @@ const toCollaboratorRoleFromPermission = (permission: string | null): Collaborat
   const value = (permission ?? "").toLowerCase().trim();
   if (value === "admin") return "admin";
   if (value === "maintain" || value === "write" || value === "push") return "editor";
-  return "viewer";
+  return "contributor";
 };
 
 const hasWriteAccessPermission = (permission: string | null) => {
@@ -339,6 +340,7 @@ export const handler: Handler = async (event) => {
   const collaborators: CollaboratorResponseRow[] = [];
 
   for (const membership of (memberships ?? []) as SiteAdminRow[]) {
+    const role = membership.role === "viewer" ? "contributor" : membership.role;
     const authUser = await readAuthUserById(supabase, membership.user_id).catch(() => null);
     const githubLogin = getGithubLoginFromAuthUser(authUser);
     const email = authUser?.email?.trim() ?? "";
@@ -347,7 +349,7 @@ export const handler: Handler = async (event) => {
     if (!githubLogin) {
       collaborators.push({
         userId: membership.user_id,
-        role: membership.role,
+        role,
         email,
         displayName,
         githubLogin: null,
@@ -375,24 +377,24 @@ export const handler: Handler = async (event) => {
       // may not be represented by the GitHub collaborator permission endpoint.
       if (
         syncRoles &&
-        githubRole === "viewer" &&
+        githubRole === "contributor" &&
         !hasWriteAccessPermission(permissionPayload.permission ?? null) &&
-        membership.role !== "viewer"
+        role !== "contributor"
       ) {
         const { error: updateError } = await supabase
           .from("site_admins")
-          .update({ role: "viewer" })
+          .update({ role: "contributor" })
           .eq("site_id", siteId)
           .eq("user_id", membership.user_id);
         if (!updateError) {
-          membership.role = "viewer";
+          membership.role = "contributor";
           updatedCount += 1;
         }
       }
 
       collaborators.push({
         userId: membership.user_id,
-        role: membership.role,
+        role: membership.role === "viewer" ? "contributor" : membership.role,
         email,
         displayName,
         githubLogin,
@@ -406,7 +408,7 @@ export const handler: Handler = async (event) => {
       if (hasPendingInvite) {
         collaborators.push({
           userId: membership.user_id,
-          role: membership.role,
+          role,
           email,
           displayName,
           githubLogin,
@@ -431,7 +433,7 @@ export const handler: Handler = async (event) => {
 
     collaborators.push({
       userId: membership.user_id,
-      role: membership.role,
+      role,
       email,
       displayName,
       githubLogin,

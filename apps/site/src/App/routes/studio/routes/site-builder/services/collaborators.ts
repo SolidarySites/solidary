@@ -13,7 +13,7 @@ export type CollaboratorSearchRpcRow = {
 
 export type ManagedCollaboratorApiRow = {
   userId: string | null;
-  role: CollaboratorRole | null;
+  role: CollaboratorRole | "viewer" | null;
   email: string | null;
   displayName: string | null;
   githubLogin: string | null;
@@ -64,9 +64,11 @@ export const mapManagedCollaboratorRows = (
           ? row.githubLogin.trim()
           : null;
       const role =
-        row.role === "admin" || row.role === "editor" || row.role === "viewer"
-          ? row.role
-          : null;
+        row.role === "viewer"
+          ? "contributor"
+          : row.role === "admin" || row.role === "editor" || row.role === "contributor"
+            ? row.role
+            : null;
       const syncState =
         row.syncState === "synced" ||
         row.syncState === "pending_invite" ||

@@ -163,9 +163,10 @@ export const loadDraftById = async ({
     if (
       collaboratorRow?.role === "admin" ||
       collaboratorRow?.role === "editor" ||
+      collaboratorRow?.role === "contributor" ||
       collaboratorRow?.role === "viewer"
     ) {
-      accessRole = collaboratorRow.role;
+      accessRole = collaboratorRow.role === "viewer" ? "contributor" : collaboratorRow.role;
     }
   }
 
@@ -173,26 +174,7 @@ export const loadDraftById = async ({
     throw new Error("You do not have access to this draft.");
   }
 
-  let resolvedDraft = requestedDraft;
-  if (accessRole === "editor" && requestedDraft.draft_type !== "editor") {
-    const { data: editorDraftResult, error: editorDraftError } = await supabase.rpc(
-      "site_get_or_create_editor_draft",
-      {
-        p_site_id: siteId
-      }
-    );
-
-    if (editorDraftError) throw new Error(editorDraftError.message);
-    const editorDraftId =
-      Array.isArray(editorDraftResult) && editorDraftResult.length
-        ? (editorDraftResult[0] as { draft_id?: string }).draft_id
-        : null;
-    if (!editorDraftId || typeof editorDraftId !== "string") {
-      throw new Error("Failed to load your editor draft.");
-    }
-    resolvedDraft = await loadDraftRowById(editorDraftId);
-  }
-
+  const resolvedDraft = requestedDraft;
   const files = resolvedDraft.files as RepoFileSet;
   const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
   const solidary = parseSolidaryJson(solidaryRaw);

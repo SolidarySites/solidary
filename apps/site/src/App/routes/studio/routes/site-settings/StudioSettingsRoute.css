@@ -133,6 +133,11 @@
   gap: 1rem;
 }
 
+.studio-settings-route .studio-settings-save-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .studio-settings-route .builder-section-lock-note {
   margin: 0;
   font-size: 0.76rem;

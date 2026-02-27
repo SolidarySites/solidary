@@ -11,7 +11,7 @@ type BuilderTopbarProps = {
   publishLabel: string;
   liveSiteUrl: string | null;
   githubRepoUrl: string | null;
-  accessRole: "owner" | "admin" | "editor" | "viewer" | null;
+  accessRole: "owner" | "admin" | "editor" | "contributor" | null;
   activeCollaborators: string[];
   isPreviewFullscreen: boolean;
   onTogglePreviewFullscreen: () => void;

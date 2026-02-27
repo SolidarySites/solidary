@@ -1,6 +1,6 @@
 import type { RepoFileSet } from "../../../features/site-draft/types";
 
-export type StudioAccessRole = "owner" | "admin" | "editor" | "viewer";
+export type StudioAccessRole = "owner" | "admin" | "editor" | "contributor";
 
 export type DraftItem = {
   id: string;
@@ -23,5 +23,6 @@ export type StudioSiteListItem = {
   siteUrl: string;
   accessRole?: StudioAccessRole;
   canDelete?: boolean;
+  canManageSettings?: boolean;
   updatedAt?: string;
 };

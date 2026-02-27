@@ -10,10 +10,16 @@ import DangerSettingsSection from "./DangerSettingsSection";
 import GeneralSettingsSection from "./GeneralSettingsSection";
 
 type BuilderContentSectionProps = {
+  settingsAccessBlocked?: boolean;
   activeSection: StudioSettingsSection;
   activeSectionLockedByOther: boolean;
   activeSectionLockHolderName: string;
   ownerAccess: boolean;
+  hasUnsavedSettingsChanges?: boolean;
+  canSaveGeneralToLive?: boolean;
+  savingGeneralToLive?: boolean;
+  canSaveConnectionsToLive?: boolean;
+  savingConnectionsToLive?: boolean;
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
@@ -42,6 +48,8 @@ type BuilderContentSectionProps = {
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
+  onSaveGeneralToLive?: () => void;
+  onSaveConnectionsToLive?: () => void;
   onStudioOnlyDomainUpdate?: (value: string) => void;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
@@ -59,10 +67,16 @@ type BuilderContentSectionProps = {
 };
 
 const BuilderContentSection = ({
+  settingsAccessBlocked = false,
   activeSection,
   activeSectionLockedByOther,
   activeSectionLockHolderName,
   ownerAccess,
+  hasUnsavedSettingsChanges = false,
+  canSaveGeneralToLive = false,
+  savingGeneralToLive = false,
+  canSaveConnectionsToLive = false,
+  savingConnectionsToLive = false,
   siteTitle,
   siteDescription,
   siteUrl,
@@ -87,6 +101,8 @@ const BuilderContentSection = ({
   onSiteTitleChange,
   onSiteDescriptionChange,
   onSiteImageChange,
+  onSaveGeneralToLive,
+  onSaveConnectionsToLive,
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
   onRecheckGithubDomain,
@@ -103,27 +119,45 @@ const BuilderContentSection = ({
   onDeleteConfirm
 }: BuilderContentSectionProps) => (
   <div className={`builder-section-lock-shell ${activeSectionLockedByOther ? "is-locked" : ""}`.trim()}>
+    {settingsAccessBlocked && (
+      <p className="builder-collaborator-hint">
+        Your current role can edit the site builder, but cannot access this settings page.
+      </p>
+    )}
+
     {activeSectionLockedByOther && (
       <p className="builder-section-lock-note">
         {activeSectionLockHolderName} is editing this section.
       </p>
     )}
 
-    <fieldset className="builder-locked-fieldset" disabled={activeSectionLockedByOther}>
+    <fieldset
+      className="builder-locked-fieldset"
+      disabled={activeSectionLockedByOther || settingsAccessBlocked}
+    >
       {activeSection === "general" && (
         <GeneralSettingsSection
           siteTitle={siteTitle}
           siteDescription={siteDescription}
           siteUrl={siteUrl}
           siteImagePreview={siteImagePreview}
+          canSaveToLive={canSaveGeneralToLive}
+          savingToLive={savingGeneralToLive}
+          hasUnsavedChanges={hasUnsavedSettingsChanges}
           onSiteTitleChange={onSiteTitleChange}
           onSiteDescriptionChange={onSiteDescriptionChange}
           onSiteImageChange={onSiteImageChange}
+          onSaveToLive={() => onSaveGeneralToLive?.()}
         />
       )}
 
       {activeSection === "connections" && (
-        <ConnectionsSettingsSection draftId={draftId} />
+        <ConnectionsSettingsSection
+          draftId={draftId}
+          canSaveToLive={canSaveConnectionsToLive}
+          savingToLive={savingConnectionsToLive}
+          onSaveToLive={() => onSaveConnectionsToLive?.()}
+        />
       )}
 
       {activeSection === "collaborators" && (
