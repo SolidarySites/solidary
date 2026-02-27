@@ -504,6 +504,12 @@ const setManagedImageVariantAttributes = (
   }
 };
 
+const parseInertHtmlTemplate = (html: string) => {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  return template;
+};
+
 const mapHtmlImageSources = (
   html: string,
   draftImages: DraftImageAsset[],
@@ -531,9 +537,8 @@ const mapHtmlImageSources = (
   });
 
   const publishedBaseUrl = normalizePublishedBaseUrl(publishedSiteBaseUrl);
-  const wrapper = document.createElement("div");
-  wrapper.innerHTML = html;
-  wrapper.querySelectorAll("img[src]").forEach((imageElement) => {
+  const template = parseInertHtmlTemplate(html);
+  template.content.querySelectorAll("img[src]").forEach((imageElement) => {
     const currentSrc = imageElement.getAttribute("src")?.trim();
     if (!currentSrc) return;
 
@@ -606,7 +611,7 @@ const mapHtmlImageSources = (
     }
   });
 
-  return wrapper.innerHTML;
+  return template.innerHTML;
 };
 
 const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplatePreviewProps>(
@@ -702,9 +707,8 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   );
   const displayImageSignature = useMemo(() => {
     if (!displayBodyHtml.trim()) return "";
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = displayBodyHtml;
-    return Array.from(wrapper.querySelectorAll("img"))
+    const template = parseInertHtmlTemplate(displayBodyHtml);
+    return Array.from(template.content.querySelectorAll("img"))
       .map((image, index) => `${index}:${getTrackedExternalImageSource(image)}`)
       .join("|");
   }, [displayBodyHtml]);
@@ -839,14 +843,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   }, [ensureImageFigure, syncFigureCaptionLayout]);
 
   const getPersistableEditorHtml = useCallback((editor: HTMLDivElement) => {
-    const clone = editor.cloneNode(true);
-    if (!(clone instanceof HTMLDivElement)) return editor.innerHTML;
+    const template = parseInertHtmlTemplate(editor.innerHTML);
 
-    clone.querySelectorAll("img").forEach((image) => {
+    template.content.querySelectorAll("img").forEach((image) => {
       normalizeExternalImageForPersistence(image);
     });
 
-    clone
+    template.content
       .querySelectorAll(`figure[${IMAGE_FIGURE_ATTR}="true"] > figcaption`)
       .forEach((figcaption) => {
         if (!(figcaption instanceof HTMLElement)) return;
@@ -856,13 +859,12 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
         figcaption.style.removeProperty("display");
       });
 
-    return clone.innerHTML;
+    return template.innerHTML;
   }, []);
 
   const syncEditorManagedImageAttributes = useCallback((editor: HTMLDivElement, html: string) => {
-    const mappedDisplayWrapper = document.createElement("div");
-    mappedDisplayWrapper.innerHTML = html;
-    const mappedImages = Array.from(mappedDisplayWrapper.querySelectorAll("img"));
+    const mappedDisplayTemplate = parseInertHtmlTemplate(html);
+    const mappedImages = Array.from(mappedDisplayTemplate.content.querySelectorAll("img"));
     const editorImages = Array.from(editor.querySelectorAll("img"));
 
     editorImages.forEach((editorImage, index) => {
