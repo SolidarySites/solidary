@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AlignCenterIcon,
   AlignLeftIcon,
@@ -11,11 +11,15 @@ import {
   NumberedListIcon,
   QuoteIcon
 } from "./BuilderToolbarIcons";
+import type {
+  BuilderImageFormatConversion,
+  BuilderImageUploadOptions
+} from "../services/types";
 
 type BuilderEditorToolbarProps = {
   onRunCommand: (command: string, value?: string) => void;
   onRunLink: () => void;
-  onUploadImage: (file: File) => Promise<void>;
+  onUploadImage: (file: File, options: BuilderImageUploadOptions) => Promise<void>;
   uploadingImage: boolean;
   maxImageUploadBytes: number;
   onCaptureSelection: () => void;
@@ -37,27 +41,29 @@ const BuilderEditorToolbar = ({
   onCaptureSelection,
   orientation = "horizontal"
 }: BuilderEditorToolbarProps) => {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showImageDialog, setShowImageDialog] = useState(false);
-  const [imageMode, setImageMode] = useState<"url" | "upload">("url");
   const [imageUrl, setImageUrl] = useState("");
   const [imageError, setImageError] = useState<string | null>(null);
+  const [noCompression, setNoCompression] = useState(false);
+  const [convertFormat, setConvertFormat] = useState<BuilderImageFormatConversion>("none");
   const maxSizeMb = Math.floor(maxImageUploadBytes / (1024 * 1024));
 
   const openImageDialog = () => {
     onCaptureSelection();
     setShowImageDialog(true);
-    setImageMode("url");
     setImageUrl("");
     setImageError(null);
+    setNoCompression(false);
+    setConvertFormat("none");
   };
 
   const closeImageDialog = () => {
     if (uploadingImage) return;
     setShowImageDialog(false);
-    setImageMode("url");
     setImageUrl("");
     setImageError(null);
+    setNoCompression(false);
+    setConvertFormat("none");
   };
 
   const handleUrlInsert = () => {
@@ -186,67 +192,43 @@ const BuilderEditorToolbar = ({
       </div>
 
       {showImageDialog && (
-        <div className="builder-image-dialog" role="dialog" aria-label="Insert image">
-          <div className="builder-image-dialog-modes">
-            <button
-              type="button"
-              className={imageMode === "url" ? "primary" : "ghost"}
-              onClick={() => {
-                setImageMode("url");
-                setImageError(null);
-              }}
-              disabled={uploadingImage}
-            >
-              Paste URL
-            </button>
-            <button
-              type="button"
-              className={imageMode === "upload" ? "primary" : "ghost"}
-              onClick={() => {
-                setImageMode("upload");
-                setImageError(null);
-              }}
-              disabled={uploadingImage}
-            >
-              Upload from computer
-            </button>
-          </div>
-
-          {imageMode === "url" ? (
-            <label className="builder-image-dialog-field">
-              Image URL
-              <input
-                value={imageUrl}
-                onChange={(event) => {
-                  setImageUrl(event.target.value);
-                  setImageError(null);
-                }}
-                placeholder="https://example.com/image.jpg"
-                disabled={uploadingImage}
-              />
-            </label>
-          ) : (
-            <div className="builder-image-dialog-upload">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? "Uploading..." : "Choose image"}
+        <div
+          className="builder-image-dialog-overlay"
+          onMouseDown={() => {
+            closeImageDialog();
+          }}
+        >
+          <div
+            className="builder-image-dialog"
+            role="dialog"
+            aria-label="Insert image"
+            aria-modal="true"
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div className="builder-image-dialog-header">
+              <h3>Insert image</h3>
+              <button type="button" className="ghost" onClick={closeImageDialog} disabled={uploadingImage}>
+                Close
               </button>
-              <p>{`Max upload size: ${maxSizeMb} MB`}</p>
+            </div>
+
+            <label className="builder-image-dialog-field">
+              Upload
               <input
-                ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                className="builder-editor-image-input"
                 onChange={async (event) => {
                   const file = event.currentTarget.files?.[0];
                   event.currentTarget.value = "";
                   if (!file) return;
                   setImageError(null);
                   try {
-                    await onUploadImage(file);
+                    await onUploadImage(file, {
+                      noCompression,
+                      convertFormat
+                    });
                     closeImageDialog();
                   } catch (caught) {
                     const message =
@@ -254,21 +236,69 @@ const BuilderEditorToolbar = ({
                     setImageError(message);
                   }
                 }}
+                disabled={uploadingImage}
               />
-            </div>
-          )}
+            </label>
+            <p className="builder-image-dialog-hint">{`Max upload size: ${maxSizeMb} MB`}</p>
 
-          {imageError && <p className="builder-image-dialog-error">{imageError}</p>}
+            <details className="builder-image-dialog-dropdown">
+              <summary>Paste external link</summary>
+              <label className="builder-image-dialog-field">
+                Image URL
+                <input
+                  value={imageUrl}
+                  onChange={(event) => {
+                    setImageUrl(event.target.value);
+                    setImageError(null);
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  disabled={uploadingImage}
+                />
+              </label>
+              <div className="builder-image-dialog-actions">
+                <button type="button" className="ghost" onClick={closeImageDialog} disabled={uploadingImage}>
+                  Cancel
+                </button>
+                <button type="button" className="primary" onClick={handleUrlInsert} disabled={uploadingImage}>
+                  Insert
+                </button>
+              </div>
+            </details>
 
-          <div className="builder-image-dialog-actions">
-            <button type="button" className="ghost" onClick={closeImageDialog} disabled={uploadingImage}>
-              Cancel
-            </button>
-            {imageMode === "url" && (
-              <button type="button" className="primary" onClick={handleUrlInsert}>
-                Insert
+            <details className="builder-image-dialog-dropdown">
+              <summary>Advanced</summary>
+              <label className="builder-image-dialog-checkbox">
+                <input
+                  type="checkbox"
+                  checked={noCompression}
+                  onChange={(event) => setNoCompression(event.target.checked)}
+                  disabled={uploadingImage}
+                />
+                No compression
+              </label>
+              <label className="builder-image-dialog-field">
+                Convert format
+                <select
+                  value={convertFormat}
+                  onChange={(event) =>
+                    setConvertFormat(event.target.value as BuilderImageFormatConversion)
+                  }
+                  disabled={uploadingImage}
+                >
+                  <option value="none">Off (keep original)</option>
+                  <option value="webp">WebP</option>
+                  <option value="jpg">JPG</option>
+                </select>
+              </label>
+            </details>
+
+            {imageError && <p className="builder-image-dialog-error">{imageError}</p>}
+
+            <div className="builder-image-dialog-actions">
+              <button type="button" className="ghost" onClick={closeImageDialog} disabled={uploadingImage}>
+                Cancel
               </button>
-            )}
+            </div>
           </div>
         </div>
       )}

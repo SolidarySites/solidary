@@ -217,10 +217,6 @@
   display: block;
 }
 
-.builder-editor-image-input {
-  display: none;
-}
-
 .builder-format-toolbar-note {
   margin: 0;
   color: rgba(31, 34, 28, 0.7);
@@ -268,17 +264,38 @@
   font-size: 0.8rem;
 }
 
+.builder-image-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 10, 7, 0.45);
+}
+
 .builder-image-dialog {
   display: grid;
   gap: 0.75rem;
-  padding: 0.8rem;
-  border: 1px dashed rgba(31, 34, 28, 0.25);
-  background: rgba(248, 245, 239, 0.8);
+  width: min(520px, 94vw);
+  max-height: min(88vh, 860px);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgba(31, 34, 28, 0.2);
+  background: #fff;
+  box-shadow: 0 1.2rem 2.8rem rgba(8, 10, 7, 0.28);
 }
 
-.builder-image-dialog-modes {
+.builder-image-dialog-header {
   display: flex;
-  gap: 0.45rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.builder-image-dialog-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .builder-image-dialog-field {
@@ -287,15 +304,39 @@
   font-size: 0.82rem;
 }
 
-.builder-image-dialog-upload {
-  display: grid;
-  gap: 0.45rem;
+.builder-image-dialog-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: rgba(31, 34, 28, 0.72);
 }
 
-.builder-image-dialog-upload p {
-  margin: 0;
-  font-size: 0.72rem;
-  color: rgba(31, 34, 28, 0.72);
+.builder-image-dialog-dropdown {
+  border: 1px solid rgba(31, 34, 28, 0.18);
+  background: rgba(248, 245, 239, 0.72);
+  padding: 0.55rem 0.65rem;
+}
+
+.builder-image-dialog-dropdown summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: rgba(31, 34, 28, 0.82);
+  list-style: none;
+}
+
+.builder-image-dialog-dropdown[open] summary {
+  margin-bottom: 0.55rem;
+}
+
+.builder-image-dialog-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.builder-image-dialog-checkbox {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+  font-size: 0.82rem;
+  margin-bottom: 0.55rem;
 }
 
 .builder-image-dialog-error {
@@ -367,15 +408,6 @@
     var(--builder-topbar-sticky-top) + var(--builder-topbar-sticky-height) +
       var(--builder-sidebar-sticky-gap)
   );
-}
-
-.builder-toolbar-rail .builder-image-dialog {
-  position: absolute;
-  left: calc(100% + 0.55rem);
-  top: 0;
-  width: min(320px, 70vw);
-  z-index: 8;
-  box-shadow: 0 0.35rem 0.8rem rgba(31, 34, 28, 0.15);
 }
 
 .builder-sidebar {

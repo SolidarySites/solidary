@@ -4,7 +4,13 @@ import AstroTemplatePreview, {
   type PreviewSelectedImage
 } from "./AstroTemplatePreview";
 import BuilderEditorToolbar from "./BuilderEditorToolbar";
-import type { BuilderPage, DraftImageAsset, FooterOptions, HeaderOptions } from "../services/types";
+import type {
+  BuilderImageUploadOptions,
+  BuilderPage,
+  DraftImageAsset,
+  FooterOptions,
+  HeaderOptions
+} from "../services/types";
 
 type BuilderPreviewPanelProps = {
   shouldLoadDraft: boolean;
@@ -28,7 +34,7 @@ type BuilderPreviewPanelProps = {
   onSelectedImageChange: (selectedImage: PreviewSelectedImage | null) => void;
   onRunFormatCommand: (command: string, value?: string) => void;
   onRunFormatLink: () => void;
-  onUploadFormatImage: (file: File) => Promise<void>;
+  onUploadFormatImage: (file: File, options: BuilderImageUploadOptions) => Promise<void>;
   onCaptureFormatSelection: () => void;
   isFormatImageUploading: boolean;
   maxFormatImageUploadBytes: number;

@@ -27,7 +27,7 @@ const normalizeSitePath = (value: string) => {
 const getSitePathFromStoragePath = (storagePath: string) => {
   const filename = storagePath.trim().split("/").pop()?.trim();
   if (!filename) return "";
-  return `/solidary-media/images/uploads/${filename}`;
+  return `/solidary-media/images/pages/${filename}`;
 };
 
 export const handler: Handler = async (event) => {

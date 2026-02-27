@@ -7,10 +7,11 @@ import type {
 } from "./types";
 import { getPageSafeSlug } from "./utils";
 
-export const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 export const SOLIDARY_MEDIA_IMAGES_BASE_PATH = "/solidary-media/images";
-export const SOLIDARY_MEDIA_UPLOADS_BASE_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/uploads`;
+export const SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/pages`;
+export const SOLIDARY_MEDIA_UPLOADS_BASE_PATH = SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH;
 export const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-home.jpg`;
 export const DEFAULT_FOOTER_MODULES: FooterModule[] = [
   { content: "%copyright%", alignment: "left" },
@@ -84,7 +85,7 @@ export const getSitePathFromStoragePath = (storagePath: string): string => {
   if (!normalized) return "";
   const filename = normalized.split("/").pop()?.trim();
   if (!filename) return "";
-  return `${SOLIDARY_MEDIA_UPLOADS_BASE_PATH}/${filename}`;
+  return `${SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH}/${filename}`;
 };
 
 export const isDraftStoragePublicUrl = (publicUrl: string): boolean => {

@@ -23,8 +23,7 @@ const footerModuleAlignmentFallback: Array<"left" | "center" | "right"> = [
   "center",
   "right"
 ];
-const SOLIDARY_MEDIA_UPLOADS_PATH_PREFIX = "/solidary-media/images/uploads/";
-const LEGACY_UPLOADS_PATH_PREFIX = "/images/uploads/";
+const SOLIDARY_MEDIA_PAGE_IMAGES_PATH_PREFIX = "/solidary-media/images/pages/";
 
 const normalizeFooterModules = (modules: FooterOptions["modules"]) => {
   const normalized = modules
@@ -60,15 +59,16 @@ const getBasePathFromSiteUrl = (siteUrl: string) => {
 };
 
 const rewriteUploadsForBasePath = (body: string, basePath: string) => {
-  if (!basePath || (!body.includes(SOLIDARY_MEDIA_UPLOADS_PATH_PREFIX) && !body.includes(LEGACY_UPLOADS_PATH_PREFIX))) {
+  if (!basePath || !body.includes(SOLIDARY_MEDIA_PAGE_IMAGES_PATH_PREFIX)) {
     return body;
   }
 
   return body.replace(/((?:src|href)\s*=\s*["'])([^"']+)(["'])/gi, (_match, prefix, value, suffix) => {
     if (typeof value !== "string") return `${prefix}${value}${suffix}`;
-    if (value.startsWith(`${basePath}${SOLIDARY_MEDIA_UPLOADS_PATH_PREFIX}`)) return `${prefix}${value}${suffix}`;
-    if (value.startsWith(`${basePath}${LEGACY_UPLOADS_PATH_PREFIX}`)) return `${prefix}${value}${suffix}`;
-    if (!value.startsWith(SOLIDARY_MEDIA_UPLOADS_PATH_PREFIX) && !value.startsWith(LEGACY_UPLOADS_PATH_PREFIX)) {
+    if (value.startsWith(`${basePath}${SOLIDARY_MEDIA_PAGE_IMAGES_PATH_PREFIX}`)) {
+      return `${prefix}${value}${suffix}`;
+    }
+    if (!value.startsWith(SOLIDARY_MEDIA_PAGE_IMAGES_PATH_PREFIX)) {
       return `${prefix}${value}${suffix}`;
     }
     return `${prefix}${basePath}${value}${suffix}`;

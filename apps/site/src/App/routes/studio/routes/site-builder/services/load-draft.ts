@@ -41,7 +41,7 @@ const getSitePathFromStoragePath = (storagePath: string) => {
   if (!normalized) return "";
   const filename = normalized.split("/").pop()?.trim();
   if (!filename) return "";
-  return `/solidary-media/images/uploads/${filename}`;
+  return `/solidary-media/images/pages/${filename}`;
 };
 
 const replaceDraftImageUrls = (body: string, draftImages: DraftImageAsset[]) => {

@@ -15,6 +15,13 @@ export type DraftImageAsset = {
   uploadedAt?: string;
 };
 
+export type BuilderImageFormatConversion = "none" | "webp" | "jpg";
+
+export type BuilderImageUploadOptions = {
+  noCompression: boolean;
+  convertFormat: BuilderImageFormatConversion;
+};
+
 export type HeaderOptions = {
   disabled: boolean;
   fixed: boolean;

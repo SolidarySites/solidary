@@ -3,17 +3,24 @@ import { squish } from "picsquish";
 const DEFAULT_JPEG_QUALITY = 0.9;
 const DEFAULT_JPEG_DPI = 72;
 const DEFAULT_MIN_DIMENSION_LIMIT = 64;
-const DEFAULT_DIMENSION_REDUCTION_FACTOR = 0.9;
 const DEFAULT_MAX_DIMENSION_ATTEMPTS = 30;
 
 export const BYTES_100_KB = 100 * 1024 - 1;
 export const BYTES_500_KB = 500 * 1024 - 1;
 export const BYTES_1_MB = 1024 * 1024 - 1;
 
-type JpegBlobConvertible = {
-  toBlob: (options?: { type: "image/jpeg"; quality?: number }) => Promise<Blob>;
+type SquishBlobOptions =
+  | { type: "image/png" }
+  | { type: "image/jpeg"; quality?: number }
+  | { type: "image/webp"; quality?: number };
+
+type SquishBlobConvertible = {
+  toBlob: (options?: SquishBlobOptions) => Promise<Blob>;
   toCanvas: () => HTMLCanvasElement;
 };
+
+type ImageOutputMimeType = "image/jpeg" | "image/png" | "image/webp";
+type ImageOutputFormat = ImageOutputMimeType | "preserve";
 
 export type ImageVariantSpec<Key extends string = string> = {
   key: Key;
@@ -27,8 +34,9 @@ type ProcessImageVariantsFromOriginalParams<Key extends string> = {
   variants: ReadonlyArray<ImageVariantSpec<Key>>;
   jpegQuality?: number;
   jpegDpi?: number;
+  sourceMimeType?: string;
+  outputFormat?: ImageOutputFormat;
   minDimensionLimit?: number;
-  dimensionReductionFactor?: number;
   maxDimensionAttempts?: number;
 };
 
@@ -38,42 +46,122 @@ type RenderVariantParams = {
   initialDimensionLimit: number;
   jpegQuality: number;
   jpegDpi: number;
+  outputMimeType: ImageOutputMimeType;
   minDimensionLimit: number;
-  dimensionReductionFactor: number;
   maxDimensionAttempts: number;
 };
 
 const toKilobytes = (bytes: number) => Math.ceil(bytes / 1024);
 
-const ensureCanvasBlob = async (canvas: HTMLCanvasElement, jpegQuality: number): Promise<Blob> =>
+const normalizeMimeType = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (normalized === "image/pjpeg") return "image/jpeg";
+  return normalized;
+};
+
+const isCanvasOutputMimeType = (value: string): value is ImageOutputMimeType =>
+  value === "image/jpeg" || value === "image/png" || value === "image/webp";
+
+const resolveOutputMimeType = ({
+  outputFormat,
+  sourceMimeType
+}: {
+  outputFormat: ImageOutputFormat;
+  sourceMimeType: string;
+}): ImageOutputMimeType => {
+  if (outputFormat !== "preserve") return outputFormat;
+  const normalizedSource = normalizeMimeType(sourceMimeType);
+  if (isCanvasOutputMimeType(normalizedSource)) {
+    return normalizedSource;
+  }
+  if (normalizedSource.includes("png") || normalizedSource.includes("gif") || normalizedSource.includes("avif")) {
+    return "image/png";
+  }
+  if (normalizedSource.includes("webp")) {
+    return "image/webp";
+  }
+  return "image/jpeg";
+};
+
+const getLossyQualityForMimeType = (
+  mimeType: ImageOutputMimeType,
+  quality: number
+): number | undefined => {
+  if (mimeType !== "image/jpeg" && mimeType !== "image/webp") return undefined;
+  return quality;
+};
+
+const toSquishBlobOptions = ({
+  outputMimeType,
+  jpegQuality
+}: {
+  outputMimeType: ImageOutputMimeType;
+  jpegQuality: number;
+}): SquishBlobOptions => {
+  if (outputMimeType === "image/png") {
+    return { type: "image/png" };
+  }
+  return {
+    type: outputMimeType,
+    quality: getLossyQualityForMimeType(outputMimeType, jpegQuality)
+  };
+};
+
+const ensureCanvasBlob = async ({
+  canvas,
+  mimeType,
+  quality
+}: {
+  canvas: HTMLCanvasElement;
+  mimeType: ImageOutputMimeType;
+  quality: number;
+}): Promise<Blob> =>
   new Promise<Blob>((resolve, reject) => {
+    const qualityValue = getLossyQualityForMimeType(mimeType, quality);
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error("Could not encode image as JPEG."));
+          reject(new Error(`Could not encode image as ${mimeType}.`));
           return;
         }
         resolve(blob);
       },
-      "image/jpeg",
-      jpegQuality
+      mimeType,
+      qualityValue
     );
   });
 
-const toJpegBlob = async (result: JpegBlobConvertible, jpegQuality: number): Promise<Blob> => {
+const toOutputBlob = async ({
+  result,
+  outputMimeType,
+  jpegQuality
+}: {
+  result: SquishBlobConvertible;
+  outputMimeType: ImageOutputMimeType;
+  jpegQuality: number;
+}): Promise<Blob> => {
+  const blobOptions = toSquishBlobOptions({
+    outputMimeType,
+    jpegQuality
+  });
   try {
-    const blob = await result.toBlob({
-      type: "image/jpeg",
-      quality: jpegQuality
-    });
+    const blob = await result.toBlob(blobOptions);
     if (blob.size > 0) {
-      return blob;
+      if (blob.type && normalizeMimeType(blob.type) !== outputMimeType) {
+        return new Blob([blob], { type: outputMimeType });
+      }
+      return blob.type ? blob : new Blob([blob], { type: outputMimeType });
     }
   } catch {
     // Fall back to standard canvas encoding below.
   }
 
-  return ensureCanvasBlob(result.toCanvas(), jpegQuality);
+  return ensureCanvasBlob({
+    canvas: result.toCanvas(),
+    mimeType: outputMimeType,
+    quality: jpegQuality
+  });
 };
 
 const withJpegDpi = async (blob: Blob, dpi: number): Promise<Blob> => {
@@ -135,8 +223,8 @@ const renderVariantFromOriginal = async ({
   initialDimensionLimit,
   jpegQuality,
   jpegDpi,
+  outputMimeType,
   minDimensionLimit,
-  dimensionReductionFactor: _dimensionReductionFactor,
   maxDimensionAttempts
 }: RenderVariantParams): Promise<Blob> => {
   const normalizedStart = Math.max(minDimensionLimit, Math.floor(initialDimensionLimit));
@@ -167,16 +255,17 @@ const renderVariantFromOriginal = async ({
       throw new Error("Image processing returned an unexpected result.");
     }
 
-    const jpegBlob = await toJpegBlob(
-      {
+    const encodedBlob = await toOutputBlob({
+      result: {
         toBlob: result.toBlob.bind(result),
         toCanvas: result.toCanvas.bind(result)
       },
+      outputMimeType,
       jpegQuality
-    );
-    const jpegWithDpi = await withJpegDpi(jpegBlob, jpegDpi);
-    encodedByDimension.set(normalizedDimension, jpegWithDpi);
-    return jpegWithDpi;
+    });
+    const outputBlob = await withJpegDpi(encodedBlob, jpegDpi);
+    encodedByDimension.set(normalizedDimension, outputBlob);
+    return outputBlob;
   };
 
   const considerCandidate = (dimension: number, blob: Blob) => {
@@ -262,13 +351,19 @@ export const processImageVariantsFromOriginal = async <Key extends string>({
   variants,
   jpegQuality = DEFAULT_JPEG_QUALITY,
   jpegDpi = DEFAULT_JPEG_DPI,
+  sourceMimeType = sourceImage.type,
+  outputFormat = "image/jpeg",
   minDimensionLimit = DEFAULT_MIN_DIMENSION_LIMIT,
-  dimensionReductionFactor = DEFAULT_DIMENSION_REDUCTION_FACTOR,
   maxDimensionAttempts = DEFAULT_MAX_DIMENSION_ATTEMPTS
 }: ProcessImageVariantsFromOriginalParams<Key>): Promise<Record<Key, Blob>> => {
   if (!variants.length) {
     throw new Error("At least one image variant must be configured.");
   }
+
+  const outputMimeType = resolveOutputMimeType({
+    outputFormat,
+    sourceMimeType
+  });
 
   const imageMaxDimension = await getImageMaxDimension(sourceImage, minDimensionLimit);
   const outputEntries: Array<readonly [Key, Blob]> = [];
@@ -284,8 +379,8 @@ export const processImageVariantsFromOriginal = async <Key extends string>({
       initialDimensionLimit,
       jpegQuality,
       jpegDpi,
+      outputMimeType,
       minDimensionLimit,
-      dimensionReductionFactor,
       maxDimensionAttempts
     });
     outputEntries.push([variant.key, blob]);

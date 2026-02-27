@@ -5,12 +5,19 @@ import type {
   PreviewSelectedImage
 } from "../components/AstroTemplatePreview";
 import {
-  getImageExtension,
+  BYTES_1_MB,
+  processImageVariantsFromOriginal
+} from "../../../../../services/image-processing/picsquish";
+import {
   MAX_IMAGE_UPLOAD_BYTES,
   SITE_DRAFT_IMAGES_BUCKET,
-  SOLIDARY_MEDIA_UPLOADS_BASE_PATH
+  SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH
 } from "../services/draft-utils";
-import type { DraftImageAsset, DraftState } from "../services/types";
+import type {
+  BuilderImageUploadOptions,
+  DraftImageAsset,
+  DraftState
+} from "../services/types";
 import { supabase } from "../../../../../lib/supabase";
 import { slugify } from "../../../../../lib/slugify";
 import type { NoticeKind } from "../../../../../types/notice";
@@ -22,6 +29,139 @@ type UseBuilderPreviewEditorParams = {
   setNotice: (value: string | null) => void;
   setNoticeKind: (value: NoticeKind) => void;
   setDraftImages: Dispatch<SetStateAction<DraftImageAsset[]>>;
+};
+
+type UploadFormat = "image/jpeg" | "image/png" | "image/webp";
+
+type UploadVariantKey = "original" | "medium" | "small";
+
+type UploadVariant = {
+  key: UploadVariantKey;
+  blob: Blob;
+};
+
+const TARGET_MEDIUM_RATIO = 0.5;
+const TARGET_SMALL_RATIO = 0.1;
+
+const MIME_EXTENSION_MAP: Record<UploadFormat, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp"
+};
+
+const MANAGED_VARIANT_SUFFIX_PATTERN = /_[a-f0-9]{10}_(original|medium|small)$/i;
+
+const normalizeMimeType = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "image/jpg" || normalized === "image/pjpeg") return "image/jpeg";
+  return normalized;
+};
+
+const resolveUploadFormat = (mimeType: string): UploadFormat => {
+  const normalized = normalizeMimeType(mimeType);
+  if (normalized === "image/jpeg") return "image/jpeg";
+  if (normalized === "image/webp") return "image/webp";
+  return "image/png";
+};
+
+const getOutputFormatPreference = (
+  convertFormat: BuilderImageUploadOptions["convertFormat"]
+): "preserve" | "image/jpeg" | "image/webp" => {
+  if (convertFormat === "jpg") return "image/jpeg";
+  if (convertFormat === "webp") return "image/webp";
+  return "preserve";
+};
+
+const createImageToken = () => {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("").slice(0, 10);
+};
+
+const sanitizeImageBaseName = (filename: string) => {
+  const stripped = filename.replace(/\.[^/.]+$/, "");
+  const withoutManagedSuffix = stripped.replace(MANAGED_VARIANT_SUFFIX_PATTERN, "");
+  const normalized = withoutManagedSuffix.replaceAll("_", "-");
+  return slugify(normalized) || "image";
+};
+
+const clampBytes = (value: number) => Math.max(1, Math.floor(value));
+
+const buildProcessedVariants = async ({
+  file,
+  options
+}: {
+  file: File;
+  options: BuilderImageUploadOptions;
+}): Promise<{
+  outputFormat: UploadFormat;
+  variants: UploadVariant[];
+}> => {
+  const originalTargetBytes =
+    !options.noCompression && file.size > BYTES_1_MB ? BYTES_1_MB : clampBytes(file.size);
+
+  const originalResult = await processImageVariantsFromOriginal({
+    sourceImage: file,
+    sourceMimeType: file.type,
+    outputFormat: getOutputFormatPreference(options.convertFormat),
+    variants: [
+      {
+        key: "original",
+        label: "Original image",
+        maxBytes: originalTargetBytes
+      }
+    ],
+    jpegQuality: 0.9,
+    jpegDpi: 72,
+    minDimensionLimit: 64,
+    maxDimensionAttempts: 30
+  });
+
+  const originalBlob = originalResult.original;
+  const mediumTargetBytes = clampBytes(originalBlob.size * TARGET_MEDIUM_RATIO);
+  const smallTargetBytes = clampBytes(originalBlob.size * TARGET_SMALL_RATIO);
+
+  const scaledResult = await processImageVariantsFromOriginal({
+    sourceImage: originalBlob,
+    sourceMimeType: originalBlob.type || file.type,
+    outputFormat: "preserve",
+    variants: [
+      {
+        key: "medium",
+        label: "Medium image",
+        maxBytes: mediumTargetBytes
+      },
+      {
+        key: "small",
+        label: "Small image",
+        maxBytes: smallTargetBytes
+      }
+    ],
+    jpegQuality: 0.9,
+    jpegDpi: 72,
+    minDimensionLimit: 64,
+    maxDimensionAttempts: 30
+  });
+
+  const outputFormat = resolveUploadFormat(originalBlob.type || file.type);
+
+  return {
+    outputFormat,
+    variants: [
+      {
+        key: "original",
+        blob: originalBlob
+      },
+      {
+        key: "medium",
+        blob: scaledResult.medium
+      },
+      {
+        key: "small",
+        blob: scaledResult.small
+      }
+    ]
+  };
 };
 
 export const useBuilderPreviewEditor = ({
@@ -79,7 +219,10 @@ export const useBuilderPreviewEditor = ({
     setSelectedEditorImage(null);
   };
 
-  const handleInlineImageUpload = async (file: File): Promise<void> => {
+  const handleInlineImageUpload = async (
+    file: File,
+    options: BuilderImageUploadOptions
+  ): Promise<void> => {
     resetNotices();
 
     if (!canEditPageContent) {
@@ -97,7 +240,7 @@ export const useBuilderPreviewEditor = ({
     }
 
     if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
-      const message = "Image is too large. Max upload size is 5 MB.";
+      const message = "Image is too large. Max upload size is 10 MB.";
       setNotice(message);
       setNoticeKind("error");
       throw new Error(message);
@@ -117,58 +260,91 @@ export const useBuilderPreviewEditor = ({
       throw new Error(message);
     }
 
-    const fileBaseName = slugify(file.name.replace(/\.[^/.]+$/, "")) || "image";
-    const fileExtension = getImageExtension(file);
-    const filename = `${Date.now()}-${fileBaseName}-${crypto.randomUUID().slice(0, 8)}.${fileExtension}`;
-    const storagePath = `drafts/${draftState.id}/${filename}`;
-    const sitePath = `${SOLIDARY_MEDIA_UPLOADS_BASE_PATH}/${filename}`;
+    const sanitizedBaseName = sanitizeImageBaseName(file.name);
+    const uniqueToken = createImageToken();
+
+    const uploadedStoragePaths: string[] = [];
 
     try {
       setUploadingInlineImage(true);
-      const { error: uploadError } = await supabase.storage
-        .from(SITE_DRAFT_IMAGES_BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type || undefined
-        });
-      if (uploadError) {
-        throw new Error(uploadError.message);
-      }
 
-      const { data: publicUrlData } = supabase.storage
-        .from(SITE_DRAFT_IMAGES_BUCKET)
-        .getPublicUrl(storagePath);
-
-      const imageUrl = publicUrlData.publicUrl?.trim();
-      if (!imageUrl) {
-        throw new Error("Failed to generate a public image URL.");
-      }
-
-      const { error: metadataError } = await supabase.from("site_draft_images").insert({
-        draft_id: draftState.id,
-        storage_path: storagePath,
-        public_url: imageUrl,
-        site_path: sitePath
+      const processed = await buildProcessedVariants({
+        file,
+        options
       });
-      if (metadataError) {
-        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([storagePath]);
-        throw new Error(metadataError.message);
-      }
+      const extension = MIME_EXTENSION_MAP[processed.outputFormat];
+      const uploadedAt = new Date().toISOString();
 
-      setDraftImages((items) => [
-        ...items,
-        {
+      const uploadedAssets: DraftImageAsset[] = [];
+      let originalPublicUrl = "";
+
+      for (const variant of processed.variants) {
+        const filename = `${sanitizedBaseName}_${uniqueToken}_${variant.key}.${extension}`;
+        const storagePath = `drafts/${draftState.id}/${filename}`;
+        const sitePath = `${SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH}/${filename}`;
+
+        const uploadFile = new File([variant.blob], filename, {
+          type: processed.outputFormat
+        });
+
+        const { error: uploadError } = await supabase.storage
+          .from(SITE_DRAFT_IMAGES_BUCKET)
+          .upload(storagePath, uploadFile, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: processed.outputFormat
+          });
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        uploadedStoragePaths.push(storagePath);
+
+        const { data: publicUrlData } = supabase.storage
+          .from(SITE_DRAFT_IMAGES_BUCKET)
+          .getPublicUrl(storagePath);
+
+        const imageUrl = publicUrlData.publicUrl?.trim();
+        if (!imageUrl) {
+          throw new Error("Failed to generate a public image URL.");
+        }
+
+        uploadedAssets.push({
           storagePath,
           publicUrl: imageUrl,
           sitePath,
-          uploadedAt: new Date().toISOString()
+          uploadedAt
+        });
+        if (variant.key === "original") {
+          originalPublicUrl = imageUrl;
         }
-      ]);
-      previewRef.current?.execCommand("insertImage", imageUrl);
+      }
+
+      const { error: metadataError } = await supabase.from("site_draft_images").insert(
+        uploadedAssets.map((asset) => ({
+          draft_id: draftState.id,
+          storage_path: asset.storagePath,
+          public_url: asset.publicUrl,
+          site_path: asset.sitePath
+        }))
+      );
+      if (metadataError) {
+        throw new Error(metadataError.message);
+      }
+
+      setDraftImages((items) => [...items, ...uploadedAssets]);
+
+      if (!originalPublicUrl) {
+        throw new Error("Failed to resolve uploaded original image.");
+      }
+
+      previewRef.current?.execCommand("insertImage", originalPublicUrl);
       setNotice("Image uploaded and inserted.");
       setNoticeKind("notice");
     } catch (caught) {
+      if (uploadedStoragePaths.length) {
+        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
+      }
       const message = caught instanceof Error ? caught.message : "Failed to upload image.";
       setNotice(message);
       setNoticeKind("error");

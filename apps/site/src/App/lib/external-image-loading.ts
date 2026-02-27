@@ -56,7 +56,7 @@ export const isExternalImageSource = (value: string) => {
 
   if (source.startsWith("//")) return true
   if (lower.startsWith("http://") || lower.startsWith("https://")) return true
-  if (source.startsWith("/solidary-media/") || source.startsWith("/images/uploads/")) return true
+  if (source.startsWith("/solidary-media/")) return true
   return false
 }
 

@@ -363,8 +363,7 @@ const mapHtmlImageSources = (
   publishedSiteBaseUrl: string | null,
   mode: "display" | "persist"
 ) => {
-  const uploadsPrefix = "/solidary-media/images/uploads/";
-  const legacyUploadsPrefix = "/images/uploads/";
+  const pageImagesPrefix = "/solidary-media/images/pages/";
   if (!html.trim()) return html;
 
   const bySitePath = new Map<string, DraftImageAsset>();
@@ -390,10 +389,7 @@ const mapHtmlImageSources = (
         return;
       }
 
-      if (
-        publishedBaseUrl &&
-        (currentSrc.startsWith(uploadsPrefix) || currentSrc.startsWith(legacyUploadsPrefix))
-      ) {
+      if (publishedBaseUrl && currentSrc.startsWith(pageImagesPrefix)) {
         imageElement.setAttribute("src", toPublishedUrl(publishedBaseUrl, currentSrc));
       }
       return;
@@ -401,8 +397,7 @@ const mapHtmlImageSources = (
 
     if (
       publishedBaseUrl &&
-      (currentSrc.startsWith(`${publishedBaseUrl}${uploadsPrefix}`) ||
-        currentSrc.startsWith(`${publishedBaseUrl}${legacyUploadsPrefix}`))
+      currentSrc.startsWith(`${publishedBaseUrl}${pageImagesPrefix}`)
     ) {
       imageElement.setAttribute("src", normalizeSitePath(currentSrc.slice(publishedBaseUrl.length)));
       return;
