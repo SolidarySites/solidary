@@ -1,6 +1,7 @@
 import { supabase } from "../../../../../../lib/supabase";
 import { githubRequest } from "../../../../../../services/github";
 import { toBase64 } from "../../../../../../lib/base64";
+import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import {
   DEFAULT_OG_IMAGE_URL,
   getSitePathFromStoragePath,
@@ -28,12 +29,14 @@ export const getPublishImageInfo = ({
   siteImage,
   computedSlug,
   draftImageUrl,
-  siteImagePreview
+  siteImagePreview,
+  siteUrl
 }: {
   siteImage: File | null;
   computedSlug: string;
   draftImageUrl: string | null;
   siteImagePreview: string | null;
+  siteUrl: string;
 }) => {
   const slug = computedSlug || `site-${Date.now()}`;
   const imagePath = siteImage
@@ -41,7 +44,11 @@ export const getPublishImageInfo = ({
     : `public${DEFAULT_OG_IMAGE_URL}`;
   const imageUrl = siteImage
     ? `/${imagePath.replace(/^public\//, "")}`
-    : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
+    : normalizeSiteImagePathForStorage({
+        siteUrl,
+        imageUrl: draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL,
+        fallbackPath: DEFAULT_OG_IMAGE_URL
+      });
   return { imagePath, imageUrl };
 };
 

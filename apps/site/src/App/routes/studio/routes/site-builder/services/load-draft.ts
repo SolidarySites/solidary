@@ -1,7 +1,10 @@
 import { supabase } from "../../../../../lib/supabase";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { parseSolidaryJson } from "../../../../../features/site-draft/services/solidary";
-import { resolveSiteImageUrl, resolveSiteThumbnailUrl } from "../../../../../lib/site-image-url";
+import {
+  normalizeSiteImagePathForStorage,
+  resolveSiteThumbnailUrl
+} from "../../../../../lib/site-image-url";
 import { FILE_KEYS } from "./constants";
 import type {
   BuilderPage,
@@ -344,7 +347,10 @@ export const loadDraftById = async ({
       siteUrl: canonicalUrl,
       fallbackImageUrl: solidary.image_url
     });
-    result.draftImageUrl = resolveSiteImageUrl(canonicalUrl, solidary.image_url);
+    result.draftImageUrl = normalizeSiteImagePathForStorage({
+      siteUrl: canonicalUrl,
+      imageUrl: solidary.image_url
+    });
   }
 
   return result;

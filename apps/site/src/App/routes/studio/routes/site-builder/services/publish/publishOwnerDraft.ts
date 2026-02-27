@@ -52,7 +52,8 @@ export const publishOwnerDraft = async ({
     siteImage,
     computedSlug,
     draftImageUrl,
-    siteImagePreview
+    siteImagePreview,
+    siteUrl
   });
   const normalizedPages = pages.map((page) => ({
     ...page,

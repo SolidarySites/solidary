@@ -735,7 +735,7 @@ export const useSiteBuilderRouteController = ({
 
     const fallbackMessage =
       dnsStatus === "pending"
-        ? `GitHub is still checking DNS for ${resolvedDomain}.`
+        ? `DNS records for ${resolvedDomain} were not found.`
         : `DNS records for ${resolvedDomain} do not look correct yet.`;
     const message = dnsMessage || fallbackMessage;
 

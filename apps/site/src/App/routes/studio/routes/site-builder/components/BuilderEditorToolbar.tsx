@@ -170,7 +170,12 @@ const BuilderEditorToolbar = ({
             className="builder-toolbar-button"
             aria-label={action.label}
             title={action.label}
-            onMouseDown={(event) => {
+            onPointerDown={(event) => {
+              event.preventDefault();
+              action.onRun();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
               event.preventDefault();
               action.onRun();
             }}

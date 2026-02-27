@@ -362,6 +362,7 @@
   gap: 0.55rem;
   align-self: start;
   position: sticky;
+  z-index: 12;
   top: calc(
     var(--builder-topbar-sticky-top) + var(--builder-topbar-sticky-height) +
       var(--builder-sidebar-sticky-gap)

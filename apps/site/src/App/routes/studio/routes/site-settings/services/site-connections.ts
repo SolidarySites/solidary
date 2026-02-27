@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabase";
+import { resolveSiteImageUrl } from "../../../../../lib/site-image-url";
 
 export type ConnectionAccessRole = "owner" | "admin" | "editor" | "viewer";
 export type SearchMode = "site" | "user";
@@ -133,14 +134,17 @@ const mapSearchRows = (rows: SiteConnectionSearchRow[] | null | undefined): Conn
           : ownerEmail || "Unknown";
 
       return {
+        siteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
         siteId,
         title:
           typeof row.target_site_title === "string" && row.target_site_title.trim()
             ? row.target_site_title.trim()
             : "Untitled site",
         description: typeof row.target_site_description === "string" ? row.target_site_description : "",
-        siteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
-        imageUrl: typeof row.target_site_image_url === "string" ? row.target_site_image_url : "",
+        imageUrl: resolveSiteImageUrl(
+          typeof row.target_site_url === "string" ? row.target_site_url : "",
+          typeof row.target_site_image_url === "string" ? row.target_site_image_url : ""
+        ),
         ownerUserId,
         ownerDisplayName,
         ownerEmail,
@@ -177,23 +181,29 @@ const mapRequestRows = (rows: SiteConnectionRequestRow[] | null | undefined): Si
         createdAt: typeof row.created_at === "string" ? row.created_at : "",
         respondedAt: typeof row.responded_at === "string" ? row.responded_at : null,
         sourceSiteId,
+        sourceSiteUrl: typeof row.source_site_url === "string" ? row.source_site_url : "",
         sourceSiteTitle:
           typeof row.source_site_title === "string" && row.source_site_title.trim()
             ? row.source_site_title.trim()
             : "Untitled site",
-        sourceSiteUrl: typeof row.source_site_url === "string" ? row.source_site_url : "",
-        sourceSiteImageUrl: typeof row.source_site_image_url === "string" ? row.source_site_image_url : "",
+        sourceSiteImageUrl: resolveSiteImageUrl(
+          typeof row.source_site_url === "string" ? row.source_site_url : "",
+          typeof row.source_site_image_url === "string" ? row.source_site_image_url : ""
+        ),
         sourceOwnerDisplayName:
           typeof row.source_owner_display_name === "string" && row.source_owner_display_name.trim()
             ? row.source_owner_display_name.trim()
             : "Unknown",
         targetSiteId,
+        targetSiteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
         targetSiteTitle:
           typeof row.target_site_title === "string" && row.target_site_title.trim()
             ? row.target_site_title.trim()
             : "Untitled site",
-        targetSiteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
-        targetSiteImageUrl: typeof row.target_site_image_url === "string" ? row.target_site_image_url : "",
+        targetSiteImageUrl: resolveSiteImageUrl(
+          typeof row.target_site_url === "string" ? row.target_site_url : "",
+          typeof row.target_site_image_url === "string" ? row.target_site_image_url : ""
+        ),
         targetOwnerDisplayName:
           typeof row.target_owner_display_name === "string" && row.target_owner_display_name.trim()
             ? row.target_owner_display_name.trim()

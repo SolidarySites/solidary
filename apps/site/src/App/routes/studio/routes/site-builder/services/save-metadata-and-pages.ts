@@ -1,5 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { supabase } from "../../../../../lib/supabase";
+import { normalizeSiteImagePathForStorage } from "../../../../../lib/site-image-url";
 import { buildSolidaryFile } from "./build-files";
 import { FILE_KEYS } from "./constants";
 import {
@@ -52,9 +53,13 @@ export const saveMetadataSection = async ({
     throw new Error("Missing draft data.");
   }
 
-  const imageUrl = siteImage
-    ? draftImageUrl || DEFAULT_OG_IMAGE_URL
-    : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL;
+  const imageUrl = normalizeSiteImagePathForStorage({
+    siteUrl,
+    imageUrl: siteImage
+      ? draftImageUrl || DEFAULT_OG_IMAGE_URL
+      : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL,
+    fallbackPath: DEFAULT_OG_IMAGE_URL
+  });
   const solidaryFile = buildSolidaryFile({
     templateSolidary,
     siteId: draftState.siteId,
