@@ -143,9 +143,15 @@ export const useDraftSectionLocks = ({
       return;
     }
 
-    void loadSectionLocks(draftId).catch(() => undefined);
+    const refreshLocks = () => {
+      void loadSectionLocks(draftId).catch(() => {
+        setSectionLocks({});
+      });
+    };
+
+    refreshLocks();
     const intervalId = window.setInterval(() => {
-      void loadSectionLocks(draftId).catch(() => undefined);
+      refreshLocks();
     }, 10_000);
 
     return () => {
@@ -156,22 +162,32 @@ export const useDraftSectionLocks = ({
   useEffect(() => {
     if (!draftId || !sessionUserId || !canEditDraft || !activeLockKey) return;
 
+    const refreshLocks = () => {
+      void loadSectionLocks(draftId).catch(() => {
+        setSectionLocks({});
+      });
+    };
+
     void acquireSectionLock(activeLockKey)
       .then((acquired) => {
         if (!acquired) {
-          void loadSectionLocks(draftId).catch(() => undefined);
+          refreshLocks();
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        refreshLocks();
+      });
 
     const intervalId = window.setInterval(() => {
       void acquireSectionLock(activeLockKey)
         .then((acquired) => {
           if (!acquired) {
-            void loadSectionLocks(draftId).catch(() => undefined);
+            refreshLocks();
           }
         })
-        .catch(() => undefined);
+        .catch(() => {
+          refreshLocks();
+        });
     }, 10_000);
 
     return () => {
