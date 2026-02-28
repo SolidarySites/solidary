@@ -60,18 +60,15 @@ export const useStudioSettingsRouteController = () => {
       section,
       label: STUDIO_SETTINGS_SECTION_LABELS[section],
       lockedByOther,
-      lockHolderName: lock?.holderName ?? null,
-      lockHolderAvatarUrl: lock?.holderAvatarUrl ?? null,
+      lockHolderName: lockedByOther ? (lock?.holderName ?? null) : null,
+      lockHolderAvatarUrl: lockedByOther ? (lock?.holderAvatarUrl ?? null) : null,
       disabled: roleBlocked || (lockedByOther && activeSection !== section)
     };
   });
 
   useEffect(() => {
     const draftId = controller.settingsRouteContext.draftId;
-    if (!draftId) {
-      setOwnerDisplayName("site owner");
-      return;
-    }
+    if (!draftId) return;
 
     let cancelled = false;
     void (async () => {
@@ -121,10 +118,12 @@ export const useStudioSettingsRouteController = () => {
     controller.previewPanelProps.shouldLoadDraft && controller.previewPanelProps.isDraftLoading;
   const settingsAccessBlocked =
     !canAccessSettingsPage || (activeSection === "danger" && !canAccessDanger);
+  const ownerDisplayNameForMessage =
+    controller.settingsRouteContext.draftId ? ownerDisplayName : "site owner";
   const settingsAccessBlockedMessage = !canAccessSettingsPage
     ? "Your current role can edit the site builder, but cannot access this settings page."
     : activeSection === "danger" && !canAccessDanger
-      ? `Only the owner ${ownerDisplayName} can edit this page.`
+      ? `Only the owner ${ownerDisplayNameForMessage} can edit this page.`
       : "";
 
   return {

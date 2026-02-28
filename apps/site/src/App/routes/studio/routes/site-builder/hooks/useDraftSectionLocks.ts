@@ -158,8 +158,8 @@ export const useDraftSectionLocks = ({
     }
 
     const refreshLocks = () => {
-      void loadSectionLocks(draftId).catch(() => {
-        setSectionLocks({});
+      void loadSectionLocks(draftId).catch((error) => {
+        console.warn("[locks] Failed to refresh section locks.", error);
       });
     };
 
@@ -177,8 +177,8 @@ export const useDraftSectionLocks = ({
     if (!draftId || !sessionUserId || !canEditDraft || !activeLockKey) return;
 
     const refreshLocks = () => {
-      void loadSectionLocks(draftId).catch(() => {
-        setSectionLocks({});
+      void loadSectionLocks(draftId).catch((error) => {
+        console.warn("[locks] Failed to refresh section locks after lock heartbeat.", error);
       });
     };
 
@@ -188,7 +188,8 @@ export const useDraftSectionLocks = ({
           refreshLocks();
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.warn("[locks] Failed to acquire section lock.", error);
         refreshLocks();
       });
 
@@ -199,7 +200,8 @@ export const useDraftSectionLocks = ({
             refreshLocks();
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.warn("[locks] Failed to refresh section lock heartbeat.", error);
           refreshLocks();
         });
     }, 10_000);

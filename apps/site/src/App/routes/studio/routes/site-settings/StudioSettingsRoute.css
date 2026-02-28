@@ -20,12 +20,12 @@
 .studio-settings-route .builder-topbar-link-button {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.5rem;
   border: 1px solid rgba(31, 34, 28, 0.28);
   background: rgba(255, 255, 255, 0.9);
   color: rgba(31, 34, 28, 0.9);
-  padding: 0.42rem 0.72rem;
+  padding: 0.42rem 2rem 0.42rem 0.72rem;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: none;
@@ -53,6 +53,20 @@
   min-width: 0;
 }
 
+.studio-settings-route .studio-settings-topbar-button-shell {
+  position: relative;
+  display: inline-flex;
+}
+
+.studio-settings-route .studio-settings-topbar-button-shell > .builder-lock-avatar-pill {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: auto;
+}
+
 .studio-settings-route .builder-lock-avatar-pill {
   flex: 0 0 auto;
   inline-size: 1.2rem;
@@ -63,6 +77,8 @@
   display: inline-grid;
   place-items: center;
   background: rgba(31, 34, 28, 0.08);
+  pointer-events: auto;
+  position: relative;
 }
 
 .studio-settings-route .builder-lock-avatar-pill-image {

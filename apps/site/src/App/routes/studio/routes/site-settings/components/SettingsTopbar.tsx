@@ -24,23 +24,24 @@ const SettingsTopbar = ({
   <div className="builder-topbar studio-settings-topbar">
     <div className="studio-settings-topbar-sections">
       {sectionButtons.map((button) => (
-        <button
-          key={button.section}
-          type="button"
-          className={`builder-topbar-link-button ${activeSection === button.section ? "is-active" : ""} ${
-            button.lockedByOther && activeSection !== button.section ? "is-locked" : ""
-          }`.trim()}
-          disabled={button.disabled}
-          onClick={() => onSectionChange(button.section)}
-        >
-          <span className="builder-section-nav-label">{button.label}</span>
-          {button.lockHolderName && (
+        <div key={button.section} className="studio-settings-topbar-button-shell">
+          <button
+            type="button"
+            className={`builder-topbar-link-button ${activeSection === button.section ? "is-active" : ""} ${
+              button.lockedByOther && activeSection !== button.section ? "is-locked" : ""
+            }`.trim()}
+            disabled={button.disabled}
+            onClick={() => onSectionChange(button.section)}
+          >
+            <span className="builder-section-nav-label">{button.label}</span>
+          </button>
+          {button.lockedByOther && button.lockHolderName && (
             <LockAvatarPill
               holderName={button.lockHolderName}
               holderAvatarUrl={button.lockHolderAvatarUrl}
             />
           )}
-        </button>
+        </div>
       ))}
     </div>
   </div>

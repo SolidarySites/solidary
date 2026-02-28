@@ -457,14 +457,30 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.builder-sidebar-nav-item {
+  position: relative;
+  min-width: 0;
+}
+
 .builder-sidebar-nav button {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.5rem;
   text-align: left;
   white-space: normal;
   line-height: 1.3;
+  width: 100%;
+  padding-right: 2rem;
+}
+
+.builder-sidebar-nav-item > .builder-lock-avatar-pill {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .builder-section-nav-label {
@@ -481,6 +497,8 @@
   display: inline-grid;
   place-items: center;
   background: rgba(31, 34, 28, 0.08);
+  pointer-events: auto;
+  position: relative;
 }
 
 .builder-lock-avatar-pill-image {

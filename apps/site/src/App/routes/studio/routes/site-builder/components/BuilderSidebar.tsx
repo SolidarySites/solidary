@@ -131,66 +131,74 @@ const BuilderSidebar = ({
 
       {canEditDraft && !inPageEditingMode && (
         <div className="builder-sidebar-nav">
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"
-            } ${pagesLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("pages")}
-            disabled={pagesLockedByOther && activeSettingsSection !== "pages"}
-          >
-            <span className="builder-section-nav-label">Pages</span>
-            {pagesLock && (
+          <div className="builder-sidebar-nav-item">
+            <button
+              className={`${
+                activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"
+              } ${pagesLockedByOther ? "is-locked" : ""}`.trim()}
+              onClick={() => onSettingsSectionChange("pages")}
+              disabled={pagesLockedByOther && activeSettingsSection !== "pages"}
+            >
+              <span className="builder-section-nav-label">Pages</span>
+            </button>
+            {pagesLock && !pagesLock.isSelf && (
               <LockAvatarPill
                 holderName={pagesLock.holderName}
                 holderAvatarUrl={pagesLock.holderAvatarUrl}
               />
             )}
-          </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
-            } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("header")}
-            disabled={headerLockedByOther && activeSettingsSection !== "header"}
-          >
-            <span className="builder-section-nav-label">Header</span>
-            {headerLock && (
+          </div>
+          <div className="builder-sidebar-nav-item">
+            <button
+              className={`${
+                activeSection === "settings" && activeSettingsSection === "header" ? "primary" : "ghost"
+              } ${headerLockedByOther ? "is-locked" : ""}`.trim()}
+              onClick={() => onSettingsSectionChange("header")}
+              disabled={headerLockedByOther && activeSettingsSection !== "header"}
+            >
+              <span className="builder-section-nav-label">Header</span>
+            </button>
+            {headerLock && !headerLock.isSelf && (
               <LockAvatarPill
                 holderName={headerLock.holderName}
                 holderAvatarUrl={headerLock.holderAvatarUrl}
               />
             )}
-          </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
-            } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("footer")}
-            disabled={footerLockedByOther && activeSettingsSection !== "footer"}
-          >
-            <span className="builder-section-nav-label">Footer</span>
-            {footerLock && (
+          </div>
+          <div className="builder-sidebar-nav-item">
+            <button
+              className={`${
+                activeSection === "settings" && activeSettingsSection === "footer" ? "primary" : "ghost"
+              } ${footerLockedByOther ? "is-locked" : ""}`.trim()}
+              onClick={() => onSettingsSectionChange("footer")}
+              disabled={footerLockedByOther && activeSettingsSection !== "footer"}
+            >
+              <span className="builder-section-nav-label">Footer</span>
+            </button>
+            {footerLock && !footerLock.isSelf && (
               <LockAvatarPill
                 holderName={footerLock.holderName}
                 holderAvatarUrl={footerLock.holderAvatarUrl}
               />
             )}
-          </button>
-          <button
-            className={`${
-              activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
-            } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
-            onClick={() => onSettingsSectionChange("styles")}
-            disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
-          >
-            <span className="builder-section-nav-label">Styles</span>
-            {stylesLock && (
+          </div>
+          <div className="builder-sidebar-nav-item">
+            <button
+              className={`${
+                activeSection === "settings" && activeSettingsSection === "styles" ? "primary" : "ghost"
+              } ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
+              onClick={() => onSettingsSectionChange("styles")}
+              disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
+            >
+              <span className="builder-section-nav-label">Styles</span>
+            </button>
+            {stylesLock && !stylesLock.isSelf && (
               <LockAvatarPill
                 holderName={stylesLock.holderName}
                 holderAvatarUrl={stylesLock.holderAvatarUrl}
               />
             )}
-          </button>
+          </div>
         </div>
       )}
 
