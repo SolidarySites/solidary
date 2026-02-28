@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import "./App.css";
 import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
@@ -13,6 +13,42 @@ import StudioSettingsRoute from "./routes/studio/routes/site-settings/StudioSett
 import ProfileRoute from "./routes/profile/ProfileRoute";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
+import { supabase } from "./lib/supabase";
+
+const isStudioEditingPath = (pathname: string) =>
+  pathname === "/studio/builder" || pathname === "/studio/settings";
+
+const StudioLockExitGuard = () => {
+  const location = useLocation();
+  const previousRouteRef = useRef<{ pathname: string; draftId: string | null } | null>(null);
+
+  useEffect(() => {
+    const currentDraftId = new URLSearchParams(location.search).get("draftId");
+    const previousRoute = previousRouteRef.current;
+
+    if (previousRoute) {
+      const previousWasEditing = isStudioEditingPath(previousRoute.pathname);
+      const currentIsEditing = isStudioEditingPath(location.pathname);
+      const shouldReleasePreviousDraftLocks =
+        previousWasEditing &&
+        Boolean(previousRoute.draftId) &&
+        (!currentIsEditing || previousRoute.draftId !== currentDraftId);
+
+      if (shouldReleasePreviousDraftLocks) {
+        void supabase.rpc("site_draft_release_all_section_locks", {
+          p_draft_id: previousRoute.draftId
+        });
+      }
+    }
+
+    previousRouteRef.current = {
+      pathname: location.pathname,
+      draftId: currentDraftId
+    };
+  }, [location.pathname, location.search]);
+
+  return null;
+};
 
 export default function App() {
   useGlobalExternalImageLoading();
@@ -50,6 +86,7 @@ export default function App() {
         <div className="app-global-header-shell" ref={headerShellRef}>
           <SiteHeader />
         </div>
+        <StudioLockExitGuard />
         <Routes>
           <Route path="/" element={<LandingRoute />} />
           <Route path="/explorer" element={<ExplorerRoute />} />
