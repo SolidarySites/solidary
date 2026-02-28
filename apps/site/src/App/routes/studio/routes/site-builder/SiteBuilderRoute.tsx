@@ -10,10 +10,10 @@ export default function SiteBuilderRoute() {
 
   return (
     <div className="app-shell builder-shell">
-      <BuilderTopbar {...controller.topbarProps} />
+      {controller.showTopbar && <BuilderTopbar {...controller.topbarProps} />}
 
       <div className={controller.bodyClassName}>
-        {!controller.isPreviewFullscreen && <BuilderSidebar {...controller.sidebarProps} />}
+        <BuilderSidebar {...controller.sidebarProps} />
         <BuilderPreviewPanel {...controller.previewPanelProps} />
       </div>
 

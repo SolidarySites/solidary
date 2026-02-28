@@ -1,41 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import BuilderActions from "./BuilderActions";
-import type { PublishFeedback } from "../services/types";
+import BuilderEditorToolbar from "./BuilderEditorToolbar";
+import type { BuilderImageUploadOptions } from "../services/types";
 
 type BuilderTopbarProps = {
-  savingDraft: boolean;
-  isProvisioning: boolean;
-  provisionStep: string;
-  canSaveDraft: boolean;
-  canPublish: boolean;
-  publishLabel: string;
-  liveSiteUrl: string | null;
-  githubRepoUrl: string | null;
-  accessRole: "owner" | "admin" | "editor" | "contributor" | null;
-  activeCollaborators: string[];
-  isPreviewFullscreen: boolean;
-  onTogglePreviewFullscreen: () => void;
-  publishFeedback: PublishFeedback | null;
-  onSaveDraft: () => void;
-  onPublish: () => void;
+  onRunFormatCommand: (command: string, value?: string) => void;
+  onRunFormatLink: () => void;
+  onUploadFormatImage: (file: File, options: BuilderImageUploadOptions) => Promise<void>;
+  onCaptureFormatSelection: () => void;
+  isFormatImageUploading: boolean;
+  maxFormatImageUploadBytes: number;
 };
 
 const BuilderTopbar = ({
-  savingDraft,
-  isProvisioning,
-  provisionStep,
-  canSaveDraft,
-  canPublish,
-  publishLabel,
-  liveSiteUrl,
-  githubRepoUrl,
-  accessRole,
-  activeCollaborators,
-  isPreviewFullscreen,
-  onTogglePreviewFullscreen,
-  publishFeedback,
-  onSaveDraft,
-  onPublish
+  onRunFormatCommand,
+  onRunFormatLink,
+  onUploadFormatImage,
+  onCaptureFormatSelection,
+  isFormatImageUploading,
+  maxFormatImageUploadBytes
 }: BuilderTopbarProps) => {
   const topbarRef = useRef<HTMLDivElement | null>(null);
   const [isSticky, setIsSticky] = useState(false);
@@ -105,60 +87,19 @@ const BuilderTopbar = ({
     };
   }, []);
 
-  const openExternal = (url: string | null) => {
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
   return (
-    <div ref={topbarRef} className={`builder-topbar ${isSticky ? "is-sticky" : ""}`}>
-      <div className="builder-topbar-main">
-        <div className="builder-topbar-links">
-          <button
-            type="button"
-            className="builder-topbar-link-button"
-            disabled={!liveSiteUrl}
-            onClick={() => openExternal(liveSiteUrl)}
-          >
-            Live site
-          </button>
-          <button
-            type="button"
-            className="builder-topbar-link-button"
-            disabled={!githubRepoUrl}
-            onClick={() => openExternal(githubRepoUrl)}
-          >
-            GitHub repo
-          </button>
-          <button type="button" className="builder-topbar-link-button" onClick={onTogglePreviewFullscreen}>
-            {isPreviewFullscreen ? "Exit full screen preview" : "View full screen preview"}
-          </button>
-        </div>
-        <div className="builder-collab-strip" aria-live="polite">
-          <span className="builder-collab-pill">
-            {accessRole === "owner" ? "Owner access" : `Role: ${accessRole ?? "none"}`}
-          </span>
-          <span className="builder-collab-pill">
-            {activeCollaborators.length ? `${activeCollaborators.length} active now` : "No one else active"}
-          </span>
-          {activeCollaborators.slice(0, 3).map((name, index) => (
-            <span key={`${name}-${index}`} className="builder-collab-name">
-              {name}
-            </span>
-          ))}
-        </div>
-      </div>
-      <BuilderActions
-        savingDraft={savingDraft}
-        isProvisioning={isProvisioning}
-        provisionStep={provisionStep}
-        canSaveDraft={canSaveDraft}
-        canPublish={canPublish}
-        publishLabel={publishLabel}
-        publishFeedback={publishFeedback}
-        onSaveDraft={onSaveDraft}
-        onPublish={onPublish}
-      />
+    <div ref={topbarRef} className={`builder-topbar builder-topbar-toolbar ${isSticky ? "is-sticky" : ""}`}>
+      <aside className="builder-toolbar-rail" aria-label="Formatting tools">
+        <BuilderEditorToolbar
+          orientation="horizontal"
+          onRunCommand={onRunFormatCommand}
+          onRunLink={onRunFormatLink}
+          onUploadImage={onUploadFormatImage}
+          onCaptureSelection={onCaptureFormatSelection}
+          uploadingImage={isFormatImageUploading}
+          maxImageUploadBytes={maxFormatImageUploadBytes}
+        />
+      </aside>
     </div>
   );
 };

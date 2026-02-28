@@ -60,23 +60,43 @@ export default function App() {
       return;
     }
 
-    const syncHeaderHeight = () => {
-      const height = Math.ceil(headerShell.getBoundingClientRect().height);
+    let animationFrame = 0;
+    const syncHeaderVars = () => {
+      const rect = headerShell.getBoundingClientRect();
+      const height = Math.ceil(rect.height);
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+
       document.documentElement.style.setProperty("--site-header-height", `${height}px`);
+      document.documentElement.style.setProperty(
+        "--site-header-visible-height",
+        `${Math.ceil(visibleHeight)}px`
+      );
+    };
+    const scheduleHeaderVarsSync = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        syncHeaderVars();
+      });
     };
 
-    syncHeaderHeight();
+    syncHeaderVars();
     const resizeObserver =
       typeof ResizeObserver === "undefined"
         ? null
-        : new ResizeObserver(() => syncHeaderHeight());
+        : new ResizeObserver(() => scheduleHeaderVarsSync());
     resizeObserver?.observe(headerShell);
-    window.addEventListener("resize", syncHeaderHeight);
+    window.addEventListener("resize", scheduleHeaderVarsSync);
+    window.addEventListener("scroll", scheduleHeaderVarsSync, { passive: true });
 
     return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
       resizeObserver?.disconnect();
-      window.removeEventListener("resize", syncHeaderHeight);
+      window.removeEventListener("resize", scheduleHeaderVarsSync);
+      window.removeEventListener("scroll", scheduleHeaderVarsSync);
       document.documentElement.style.removeProperty("--site-header-height");
+      document.documentElement.style.removeProperty("--site-header-visible-height");
     };
   }, []);
 

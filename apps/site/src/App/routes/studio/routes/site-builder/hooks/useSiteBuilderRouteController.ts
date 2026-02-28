@@ -13,8 +13,7 @@ import {
   DEFAULT_OG_IMAGE_URL,
   MAX_IMAGE_UPLOAD_BYTES,
   normalizeFooterModules,
-  normalizeSitePath,
-  toExternalUrl
+  normalizeSitePath
 } from "../services/draft-utils";
 import {
   type SectionLockRecord
@@ -284,9 +283,6 @@ export const useSiteBuilderRouteController = ({
     const candidate = publishFeedback.pagesUrl?.trim() || siteUrl.trim();
     return candidate || null;
   }, [canDirectPublish, publishFeedback, siteUrl]);
-  const liveSiteUrl = toExternalUrl(publishedSiteBaseUrl ?? siteUrl);
-  const githubRepoFullName = draftState?.repoFullName?.trim() ?? "";
-  const githubRepoUrl = githubRepoFullName ? `https://github.com/${githubRepoFullName}` : null;
   const canDeleteSite = Boolean(isOwnerOnOwnerDraft && draftState?.siteId);
   const deleteSiteRepoFullName = draftState?.repoFullName ?? "";
   const siteSettingsInput = useMemo(
@@ -691,6 +687,13 @@ export const useSiteBuilderRouteController = ({
     publishFeedback?.kind !== "progress" &&
     (!canDirectPublish || !hasForeignSectionLocks) &&
     (canDirectPublish || hasEditorPublishableChanges);
+  const publishMode: "direct" | "pull_request" = canDirectPublish ? "direct" : "pull_request";
+  const publishButtonLabel = canDirectPublish ? "Publish Site" : "Suggest Edits";
+  const showTopbar =
+    activeSection === "settings" &&
+    activeSettingsSection === "pages" &&
+    isPageEditingMode &&
+    canFormatText;
   const canAccessSettingsPage = siteAccessRole === "owner" || siteAccessRole === "admin";
   const canSaveGeneralSettingsToLive =
     Boolean(draftState) &&
@@ -947,18 +950,6 @@ export const useSiteBuilderRouteController = ({
     } finally {
       setSavingConnectionsToLive(false);
     }
-  };
-
-  const handleSidebarBack = async () => {
-    if (activeSection === "settings" && activeSettingsSection === "pages" && isPageEditingMode) {
-      await handleExitPageEditingMode();
-      return;
-    }
-    if (activeSection !== "menu") {
-      await handleSectionChange("menu");
-      return;
-    }
-    navigate("/studio");
   };
 
   const handleStudioOnlyDomainUpdate = (rawDomain: string) => {
@@ -1328,27 +1319,19 @@ export const useSiteBuilderRouteController = ({
     showMetadataFullView,
     metadataLockedByOther,
     metadataLockHolderName: metadataLock?.holderName ?? "Another user",
+    showTopbar,
     isPreviewFullscreen,
     setIsPreviewFullscreen,
     bodyClassName: `builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""} ${
       showMetadataFullView ? "is-settings-full" : ""
     }`.trim(),
     topbarProps: {
-      savingDraft,
-      isProvisioning,
-      provisionStep,
-      canSaveDraft,
-      canPublish,
-      publishLabel: canDirectPublish ? "Publish" : "Create PR",
-      liveSiteUrl,
-      githubRepoUrl,
-      accessRole: siteAccessRole,
-      activeCollaborators: collaboratorPresenceNames,
-      isPreviewFullscreen,
-      onTogglePreviewFullscreen: () => setIsPreviewFullscreen((value) => !value),
-      publishFeedback,
-      onSaveDraft: handleSaveDraft,
-      onPublish: handlePublish
+      onRunFormatCommand: runPreviewCommand,
+      onRunFormatLink: runPreviewLink,
+      onUploadFormatImage: handleInlineImageUpload,
+      onCaptureFormatSelection: capturePreviewSelection,
+      isFormatImageUploading: uploadingInlineImage,
+      maxFormatImageUploadBytes: MAX_IMAGE_UPLOAD_BYTES
     },
     contentSectionProps: {
       siteTitle,
@@ -1428,24 +1411,15 @@ export const useSiteBuilderRouteController = ({
       activeSettingsSection,
       isPageEditingMode,
       canEditDraft,
-      canEditMetadata: Boolean(isOwnerOnOwnerDraft),
-      siteTitle,
-      siteDescription,
-      siteImagePreview,
-      collaboratorQuery,
-      collaboratorRole,
-      collaboratorSuggestions,
-      selectedCollaboratorSuggestion,
-      collaboratorSearchLoading,
-      invitingCollaborator,
-      collaborators: managedCollaborators,
-      collaboratorsLoading: managedCollaboratorsLoading,
-      updatingCollaboratorUserId,
+      accessRole: siteAccessRole,
+      activeCollaborators: collaboratorPresenceNames,
+      isPreviewFullscreen,
+      canSaveDraft,
+      savingDraft,
       pages,
       activePreviewSlug,
       pageTitleRef,
       tokensCss,
-      siteUrl,
       headerDisabled,
       headerFixed,
       headerBrandText,
@@ -1456,26 +1430,30 @@ export const useSiteBuilderRouteController = ({
       footerModules,
       pageLocksBySlug,
       sectionLocks: sidebarSectionLocks,
-      onBack: () => {
-        void handleSidebarBack();
+      canPublish,
+      isProvisioning,
+      provisionStep,
+      publishFeedback,
+      publishButtonLabel,
+      publishMode,
+      onTogglePreviewFullscreen: () => {
+        setIsPreviewFullscreen((value) => !value);
+      },
+      onBackToMenu: () => {
+        if (activeSection === "settings" && activeSettingsSection === "pages" && isPageEditingMode) {
+          void handleExitPageEditingMode();
+          return;
+        }
+        void handleSectionChange("menu");
       },
       onSettingsSectionChange: (section: BuilderSettingsSection) => {
         void handleSettingsSectionChange(section);
       },
-      onSiteTitleChange: setSiteTitle,
-      onSiteDescriptionChange: setSiteDescription,
-      onSiteImageChange: setSiteImage,
-      onCollaboratorQueryChange: handleCollaboratorQueryChange,
-      onCollaboratorRoleChange: setCollaboratorRole,
-      onCollaboratorSuggestionSelect: handleCollaboratorSuggestionSelect,
-      onInviteCollaborator: () => {
-        void handleInviteCollaborator();
+      onSaveDraft: () => {
+        void handleSaveDraft();
       },
-      onCollaboratorRoleUpdate: (collaboratorUserId: string, role: CollaboratorRole) => {
-        void handleCollaboratorRoleUpdate(collaboratorUserId, role);
-      },
-      onCollaboratorRemove: (collaboratorUserId: string) => {
-        void handleCollaboratorRemove(collaboratorUserId);
+      onPublish: () => {
+        void handlePublish();
       },
       onAddPage: addPage,
       onEnterPageEditingMode: (slug: string) => {
@@ -1484,7 +1462,6 @@ export const useSiteBuilderRouteController = ({
       onPageTitleChange: handlePageTitleChange,
       onPageSlugChange: handlePageSlugChange,
       onTokensCssChange: setTokensCss,
-      onSiteUrlChange: setSiteUrl,
       onHeaderDisabledChange: setHeaderDisabled,
       onHeaderFixedChange: setHeaderFixed,
       onHeaderBrandTextChange: setHeaderBrandText,
@@ -1507,7 +1484,6 @@ export const useSiteBuilderRouteController = ({
       isDraftLoading,
       draftLoadError,
       canEditContent: canEditPageContent,
-      showFormattingToolbar: canFormatText,
       readOnlyMessage: previewReadOnlyMessage,
       previewRef,
       previewBrand: siteTitle,
@@ -1532,13 +1508,7 @@ export const useSiteBuilderRouteController = ({
         void handleActivePreviewSlugChange(slug);
       },
       onPageBodyChange: updatePageBody,
-      onSelectedImageChange: setSelectedEditorImage,
-      onRunFormatCommand: runPreviewCommand,
-      onRunFormatLink: runPreviewLink,
-      onUploadFormatImage: handleInlineImageUpload,
-      onCaptureFormatSelection: capturePreviewSelection,
-      isFormatImageUploading: uploadingInlineImage,
-      maxFormatImageUploadBytes: MAX_IMAGE_UPLOAD_BYTES
+      onSelectedImageChange: setSelectedEditorImage
     }
   };
 };

@@ -3,9 +3,7 @@ import AstroTemplatePreview, {
   type AstroTemplatePreviewHandle,
   type PreviewSelectedImage
 } from "./AstroTemplatePreview";
-import BuilderEditorToolbar from "./BuilderEditorToolbar";
 import type {
-  BuilderImageUploadOptions,
   BuilderPage,
   DraftImageAsset,
   FooterOptions,
@@ -17,7 +15,6 @@ type BuilderPreviewPanelProps = {
   isDraftLoading: boolean;
   draftLoadError: string | null;
   canEditContent: boolean;
-  showFormattingToolbar: boolean;
   readOnlyMessage?: string | null;
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
   previewBrand: string;
@@ -32,12 +29,6 @@ type BuilderPreviewPanelProps = {
   onActivePreviewSlugChange: (slug: string) => void;
   onPageBodyChange: (safeSlug: string, body: string) => void;
   onSelectedImageChange: (selectedImage: PreviewSelectedImage | null) => void;
-  onRunFormatCommand: (command: string, value?: string) => void;
-  onRunFormatLink: () => void;
-  onUploadFormatImage: (file: File, options: BuilderImageUploadOptions) => Promise<void>;
-  onCaptureFormatSelection: () => void;
-  isFormatImageUploading: boolean;
-  maxFormatImageUploadBytes: number;
 };
 
 const BuilderPreviewPanel = ({
@@ -45,7 +36,6 @@ const BuilderPreviewPanel = ({
   isDraftLoading,
   draftLoadError,
   canEditContent,
-  showFormattingToolbar,
   readOnlyMessage,
   previewRef,
   previewBrand,
@@ -59,29 +49,9 @@ const BuilderPreviewPanel = ({
   footer,
   onActivePreviewSlugChange,
   onPageBodyChange,
-  onSelectedImageChange,
-  onRunFormatCommand,
-  onRunFormatLink,
-  onUploadFormatImage,
-  onCaptureFormatSelection,
-  isFormatImageUploading,
-  maxFormatImageUploadBytes
+  onSelectedImageChange
 }: BuilderPreviewPanelProps) => (
-  <div className={`builder-preview-shell ${showFormattingToolbar ? "has-toolbar" : ""}`.trim()}>
-    {showFormattingToolbar && (
-      <aside className="builder-toolbar-rail" aria-label="Formatting tools">
-        <BuilderEditorToolbar
-          orientation="vertical"
-          onRunCommand={onRunFormatCommand}
-          onRunLink={onRunFormatLink}
-          onUploadImage={onUploadFormatImage}
-          onCaptureSelection={onCaptureFormatSelection}
-          uploadingImage={isFormatImageUploading}
-          maxImageUploadBytes={maxFormatImageUploadBytes}
-        />
-      </aside>
-    )}
-
+  <div className="builder-preview-shell">
     <section className="builder-panel">
       {!isDraftLoading && !draftLoadError && readOnlyMessage && (
         <div className="builder-preview-readonly-note">{readOnlyMessage}</div>

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-27T23:10:55.331Z",
-  "latest_commit_sha": "33f721c092b28a11e9637a549b7cdbd9727a0f85",
+  "generated_at": "2026-02-28T15:36:41.538Z",
+  "latest_commit_sha": "88f3f8229ae08d5ba2fa7545fe77d0a04fb5ee3b",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -618,7 +618,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
                                     "description": "Reusable save/publish action group with provisioning state and publish feedback messaging.",
-                                    "LOC": 74
+                                    "LOC": 21
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderEditorToolbar.tsx",
@@ -653,7 +653,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
                                     "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
-                                    "LOC": 249
+                                    "LOC": 355
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
@@ -668,7 +668,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderTopbar.tsx",
                                     "description": "Builder topbar with external links, collaborator presence indicators, fullscreen toggle, and action controls.",
-                                    "LOC": 166
+                                    "LOC": 147
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/LockAvatarPill.tsx",
+                                    "description": "?",
+                                    "LOC": 42
                                   }
                                 ]
                               },
@@ -705,12 +710,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftPresence.ts",
                                     "description": "Realtime presence hook that tracks active collaborators on a draft and current editing context.",
-                                    "LOC": 133
+                                    "LOC": 135
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftSectionLocks.ts",
                                     "description": "Optimistic-lock hook for polling/acquiring/releasing section locks through Supabase RPC functions.",
-                                    "LOC": 197
+                                    "LOC": 242
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/usePublishStatusTracking.ts",
@@ -720,7 +725,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
                                     "description": "Derived-state hook that computes edit/publish permissions, read-only messages, and lock visibility flags.",
-                                    "LOC": 218
+                                    "LOC": 221
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
@@ -730,7 +735,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 1531
+                                    "LOC": 1549
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -825,7 +830,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.ts",
                                     "description": "Lock-key utilities for editable sections/pages/settings plus user-facing lock label helpers.",
-                                    "LOC": 116
+                                    "LOC": 119
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/publish-draft.ts",
@@ -894,7 +899,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1158
+                                "LOC": 1244
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -915,7 +920,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 208
+                                    "LOC": 210
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -945,7 +950,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
                                     "description": "Settings-specific topbar with section buttons and save/publish controls.",
-                                    "LOC": 40
+                                    "LOC": 50
                                   }
                                 ]
                               },
@@ -962,7 +967,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
                                     "description": "Route controller that composes settings section state, lock behavior, and topbar/content props from builder mode.",
-                                    "LOC": 115
+                                    "LOC": 160
                                   }
                                 ]
                               },
@@ -998,7 +1003,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 490
+                                "LOC": 541
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
@@ -1101,7 +1106,7 @@
               {
                 "path": "src/App/App.tsx",
                 "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
-                "LOC": 101
+                "LOC": 138
               }
             ]
           },
@@ -1266,7 +1271,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1293
+        "LOC": 1298
       },
       {
         "path": "tsconfig.app.json",
