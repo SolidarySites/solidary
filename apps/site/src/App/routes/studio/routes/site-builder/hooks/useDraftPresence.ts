@@ -24,6 +24,7 @@ type UseDraftPresenceParams = {
   sessionDisplayName: string;
   siteAccessRole: SiteAccessRole | null;
   activePreviewSlug: string;
+  surface: "builder" | "settings";
 };
 
 type UseDraftPresenceResult = {
@@ -35,7 +36,8 @@ export const useDraftPresence = ({
   sessionUserId,
   sessionDisplayName,
   siteAccessRole,
-  activePreviewSlug
+  activePreviewSlug,
+  surface
 }: UseDraftPresenceParams): UseDraftPresenceResult => {
   const [activePresenceMembers, setActivePresenceMembers] = useState<DraftPresenceMember[]>([]);
   const draftPresenceChannelRef = useRef<RealtimeChannel | null>(null);
@@ -47,7 +49,7 @@ export const useDraftPresence = ({
       return;
     }
 
-    const channel = supabase.channel(`draft-presence:${draftId}`, {
+    const channel = supabase.channel(`draft-presence:${surface}:${draftId}`, {
       config: {
         presence: {
           key: sessionUserId
@@ -113,7 +115,7 @@ export const useDraftPresence = ({
       }
       void channel.unsubscribe();
     };
-  }, [draftId, sessionDisplayName, sessionUserId, siteAccessRole]);
+  }, [draftId, sessionDisplayName, sessionUserId, siteAccessRole, surface]);
 
   useEffect(() => {
     const channel = draftPresenceChannelRef.current;

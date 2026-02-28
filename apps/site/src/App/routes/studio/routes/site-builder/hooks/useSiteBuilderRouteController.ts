@@ -254,12 +254,14 @@ export const useSiteBuilderRouteController = ({
     }
     return "Unknown";
   }, [session]);
+  const presenceSurface = mode === "settings" ? "settings" : "builder";
   const { activePresenceMembers } = useDraftPresence({
     draftId: draftState?.id ?? null,
     sessionUserId,
     sessionDisplayName,
     siteAccessRole,
-    activePreviewSlug
+    activePreviewSlug,
+    surface: presenceSurface
   });
   const collaboratorPresenceNames = useMemo(
     () =>
@@ -541,6 +543,7 @@ export const useSiteBuilderRouteController = ({
     canEditDraft,
     sessionDisplayName,
     activeLockKey: lockHeartbeatKey,
+    scope: mode === "settings" ? "settings" : "builder",
     setSectionLocks
   });
 

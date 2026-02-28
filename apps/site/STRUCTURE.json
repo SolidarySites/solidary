@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-02-27T20:36:53.850Z",
-  "latest_commit_sha": "a99020b72a25d16dfce89ec0bf27aa645aaf8411",
+  "generated_at": "2026-02-27T23:10:55.331Z",
+  "latest_commit_sha": "33f721c092b28a11e9637a549b7cdbd9727a0f85",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -576,7 +576,7 @@
                           {
                             "path": "src/App/routes/studio/components/SitesListSection.tsx",
                             "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
-                            "LOC": 148
+                            "LOC": 149
                           }
                         ]
                       },
@@ -588,7 +588,7 @@
                           {
                             "path": "src/App/routes/studio/hooks/useStudioDraftData.ts",
                             "description": "Data hook that loads owned drafts, resolves shared-access memberships/roles (including optional GitHub-admin role sync), fetches shared owner drafts, and loads open collaboration PR metadata.",
-                            "LOC": 217
+                            "LOC": 167
                           },
                           {
                             "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
@@ -613,7 +613,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
                                     "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 1761
+                                    "LOC": 1763
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
@@ -680,7 +680,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderCollaborators.ts",
                                     "description": "Collaborator management hook for searching users, sending invites, and updating/removing collaborator roles.",
-                                    "LOC": 458
+                                    "LOC": 472
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPageEditing.ts",
@@ -705,7 +705,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftPresence.ts",
                                     "description": "Realtime presence hook that tracks active collaborators on a draft and current editing context.",
-                                    "LOC": 130
+                                    "LOC": 133
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useDraftSectionLocks.ts",
@@ -720,7 +720,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
                                     "description": "Derived-state hook that computes edit/publish permissions, read-only messages, and lock visibility flags.",
-                                    "LOC": 217
+                                    "LOC": 218
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
@@ -730,7 +730,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 1193
+                                    "LOC": 1531
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -800,7 +800,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.ts",
                                     "description": "Collaborator service helpers for querying, inviting, updating roles, and removing collaborators via Supabase.",
-                                    "LOC": 86
+                                    "LOC": 88
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
@@ -815,7 +815,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 357
+                                    "LOC": 339
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
@@ -915,7 +915,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 174
+                                    "LOC": 208
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -930,7 +930,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionsSettingsSection.tsx",
                                     "description": "Settings section wrapper that mounts the embedded connection explorer when draft context exists.",
-                                    "LOC": 24
+                                    "LOC": 41
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
@@ -940,12 +940,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
                                     "description": "Settings section form for editable site title, description, URL, and image metadata.",
-                                    "LOC": 56
+                                    "LOC": 79
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
                                     "description": "Settings-specific topbar with section buttons and save/publish controls.",
-                                    "LOC": 70
+                                    "LOC": 40
                                   }
                                 ]
                               },
@@ -962,7 +962,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
                                     "description": "Route controller that composes settings section state, lock behavior, and topbar/content props from builder mode.",
-                                    "LOC": 102
+                                    "LOC": 115
                                   }
                                 ]
                               },
@@ -984,7 +984,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/services/site-connections.ts",
                                     "description": "Supabase RPC service layer for embedded connection explorer context, search, invites, and request responses.",
-                                    "LOC": 370
+                                    "LOC": 373
                                   }
                                 ]
                               }
@@ -998,7 +998,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 485
+                                "LOC": 490
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
@@ -1018,12 +1018,12 @@
                           {
                             "path": "src/App/routes/studio/services/studio-draft-mappers.ts",
                             "description": "Mapper utilities that locate and parse Solidary metadata files in draft payloads, derive display title/description/site URL, and normalize thumbnail image URLs.",
-                            "LOC": 37
+                            "LOC": 38
                           },
                           {
                             "path": "src/App/routes/studio/services/studio-types.ts",
                             "description": "Route-local types for draft rows, access roles, collaboration PR cards, rendered site cards, and delete-dialog mode/target state.",
-                            "LOC": 27
+                            "LOC": 28
                           }
                         ]
                       }

@@ -41,6 +41,7 @@ export const useStudioSettingsRouteController = () => {
     canEditDraft,
     sessionDisplayName: controller.settingsRouteContext.sessionDisplayName,
     activeLockKey,
+    scope: "settings",
     setSectionLocks: setSettingsSectionLocks
   });
 

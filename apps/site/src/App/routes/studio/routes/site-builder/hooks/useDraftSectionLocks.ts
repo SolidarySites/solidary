@@ -3,12 +3,22 @@ import type { Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../../../lib/supabase";
 import { isSupportedLockKey, type SectionLockAcquireResult, type SectionLockRecord } from "../services/locks";
 
+type DraftSectionLockScope = "builder" | "settings";
+
+type SectionLockListRow = {
+  section_key?: string | null;
+  locked_by_user_id?: string | null;
+  locked_by_name?: string | null;
+  updated_at?: string | null;
+};
+
 type UseDraftSectionLocksParams = {
   draftId: string | null | undefined;
   sessionUserId: string | null;
   canEditDraft: boolean;
   sessionDisplayName: string;
   activeLockKey: string | null;
+  scope: DraftSectionLockScope;
   setSectionLocks: Dispatch<SetStateAction<SectionLockRecord>>;
 };
 
@@ -24,45 +34,48 @@ export const useDraftSectionLocks = ({
   canEditDraft,
   sessionDisplayName,
   activeLockKey,
+  scope,
   setSectionLocks
 }: UseDraftSectionLocksParams): UseDraftSectionLocksResult => {
   const loadSectionLocks = useCallback(async (targetDraftId: string): Promise<SectionLockRecord> => {
-    const { data, error } = await supabase
-      .from("site_draft_section_locks")
-      .select("section_key, locked_by_user_id, locked_by_name, expires_at")
-      .eq("draft_id", targetDraftId);
+    const { data, error } = await supabase.rpc("site_draft_list_active_section_locks", {
+      p_draft_id: targetDraftId,
+      p_scope: scope
+    });
 
     if (error) {
       throw new Error(error.message);
     }
 
     const nextLocks: SectionLockRecord = {};
-    const nowTime = Date.now();
-    (data ?? []).forEach((row) => {
+    ((data ?? []) as SectionLockListRow[]).forEach((typedRow) => {
       const lockKey =
-        typeof row.section_key === "string" && isSupportedLockKey(row.section_key)
-          ? row.section_key
+        typeof typedRow.section_key === "string" && isSupportedLockKey(typedRow.section_key)
+          ? typedRow.section_key
           : null;
       if (!lockKey) return;
-      const userId = typeof row.locked_by_user_id === "string" ? row.locked_by_user_id.trim() : "";
+      const userId =
+        typeof typedRow.locked_by_user_id === "string" ? typedRow.locked_by_user_id.trim() : "";
       const holderName =
-        typeof row.locked_by_name === "string" && row.locked_by_name.trim()
-          ? row.locked_by_name.trim()
+        typeof typedRow.locked_by_name === "string" && typedRow.locked_by_name.trim()
+          ? typedRow.locked_by_name.trim()
           : "Unknown";
-      const expiresAt = typeof row.expires_at === "string" ? row.expires_at : "";
-      const expiresAtTime = Date.parse(expiresAt);
-      if (!userId || !expiresAt || Number.isNaN(expiresAtTime) || expiresAtTime <= nowTime) return;
+      if (!userId) return;
+      const updatedAt =
+        typeof typedRow.updated_at === "string" && typedRow.updated_at.trim()
+          ? typedRow.updated_at
+          : new Date().toISOString();
 
       nextLocks[lockKey] = {
         lockKey,
         userId,
         holderName,
-        expiresAt
+        updatedAt
       };
     });
     setSectionLocks(nextLocks);
     return nextLocks;
-  }, [setSectionLocks]);
+  }, [scope, setSectionLocks]);
 
   const acquireSectionLock = useCallback(async (lockKey: string) => {
     if (!draftId || !canEditDraft || !sessionUserId) return false;
@@ -70,7 +83,7 @@ export const useDraftSectionLocks = ({
       p_draft_id: draftId,
       p_section_key: lockKey,
       p_holder_name: sessionDisplayName,
-      p_ttl_seconds: 45
+      p_ttl_seconds: 60
     });
     if (error) {
       throw new Error(error.message);
@@ -85,10 +98,10 @@ export const useDraftSectionLocks = ({
       typeof response?.lock_name === "string" && response.lock_name.trim()
         ? response.lock_name.trim()
         : "Unknown";
-    const expiresAt =
-      typeof response?.expires_at === "string" && response.expires_at.trim()
-        ? response.expires_at
-        : new Date(Date.now() + 45_000).toISOString();
+    const updatedAt =
+      typeof response?.updated_at === "string" && response.updated_at.trim()
+        ? response.updated_at
+        : new Date().toISOString();
 
     setSectionLocks((current) => {
       const next = { ...current };
@@ -100,7 +113,7 @@ export const useDraftSectionLocks = ({
         lockKey,
         userId: lockUserId,
         holderName: lockName,
-        expiresAt
+        updatedAt
       };
       return next;
     });
@@ -133,7 +146,7 @@ export const useDraftSectionLocks = ({
     void loadSectionLocks(draftId).catch(() => undefined);
     const intervalId = window.setInterval(() => {
       void loadSectionLocks(draftId).catch(() => undefined);
-    }, 8_000);
+    }, 10_000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -159,7 +172,7 @@ export const useDraftSectionLocks = ({
           }
         })
         .catch(() => undefined);
-    }, 15_000);
+    }, 10_000);
 
     return () => {
       window.clearInterval(intervalId);
