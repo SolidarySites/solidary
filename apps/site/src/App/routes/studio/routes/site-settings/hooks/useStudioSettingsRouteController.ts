@@ -35,7 +35,7 @@ export const useStudioSettingsRouteController = () => {
     return getStudioSettingsLockKey(activeSection);
   }, [activeSection, canAccessDanger, canEditDraft]);
 
-  useDraftSectionLocks({
+  const { releaseSectionLock } = useDraftSectionLocks({
     draftId: controller.settingsRouteContext.draftId,
     sessionUserId,
     canEditDraft,
@@ -97,6 +97,10 @@ export const useStudioSettingsRouteController = () => {
       onSectionChange: (section: StudioSettingsSection) => {
         const target = sectionButtons.find((entry) => entry.section === section);
         if (target?.disabled) return;
+        const nextLockKey = getStudioSettingsLockKey(section);
+        if (activeLockKey && activeLockKey !== nextLockKey) {
+          void releaseSectionLock(activeLockKey).catch(() => undefined);
+        }
         if (activeSection === "general" && section !== "general") {
           void saveGeneralDraftSilently();
         }
