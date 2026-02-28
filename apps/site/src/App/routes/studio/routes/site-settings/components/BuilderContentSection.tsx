@@ -11,6 +11,7 @@ import GeneralSettingsSection from "./GeneralSettingsSection";
 
 type BuilderContentSectionProps = {
   settingsAccessBlocked?: boolean;
+  settingsAccessBlockedMessage?: string;
   activeSection: StudioSettingsSection;
   activeSectionLockedByOther: boolean;
   activeSectionLockHolderName: string;
@@ -68,6 +69,7 @@ type BuilderContentSectionProps = {
 
 const BuilderContentSection = ({
   settingsAccessBlocked = false,
+  settingsAccessBlockedMessage = "Your current role can edit the site builder, but cannot access this settings page.",
   activeSection,
   activeSectionLockedByOther,
   activeSectionLockHolderName,
@@ -121,7 +123,7 @@ const BuilderContentSection = ({
   <div className={`builder-section-lock-shell ${activeSectionLockedByOther ? "is-locked" : ""}`.trim()}>
     {settingsAccessBlocked && (
       <p className="builder-collaborator-hint">
-        Your current role can edit the site builder, but cannot access this settings page.
+        {settingsAccessBlockedMessage}
       </p>
     )}
 

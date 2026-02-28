@@ -254,6 +254,14 @@ export const useSiteBuilderRouteController = ({
     }
     return "Unknown";
   }, [session]);
+  const sessionAvatarUrl = useMemo(() => {
+    const metadata = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+    const candidates = [metadata.avatar_url, metadata.picture];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+    return null;
+  }, [session]);
   const presenceSurface = mode === "settings" ? "settings" : "builder";
   const { activePresenceMembers } = useDraftPresence({
     draftId: draftState?.id ?? null,
@@ -542,6 +550,7 @@ export const useSiteBuilderRouteController = ({
     sessionUserId,
     canEditDraft,
     sessionDisplayName,
+    sessionAvatarUrl,
     activeLockKey: lockHeartbeatKey,
     scope: mode === "settings" ? "settings" : "builder",
     setSectionLocks
@@ -1299,6 +1308,7 @@ export const useSiteBuilderRouteController = ({
       sessionUserId,
       canEditDraft,
       sessionDisplayName,
+      sessionAvatarUrl,
       siteAccessRole,
       canAccessSettingsPage,
       hasUnsavedChanges,

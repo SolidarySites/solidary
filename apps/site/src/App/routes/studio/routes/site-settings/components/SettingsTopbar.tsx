@@ -1,10 +1,13 @@
 import type { StudioSettingsSection } from "../services/settings-sections";
+import LockAvatarPill from "../../site-builder/components/LockAvatarPill";
 
 type SectionButton = {
   section: StudioSettingsSection;
   label: string;
   disabled: boolean;
   lockedByOther: boolean;
+  lockHolderName: string | null;
+  lockHolderAvatarUrl: string | null;
 };
 
 type SettingsTopbarProps = {
@@ -30,7 +33,13 @@ const SettingsTopbar = ({
           disabled={button.disabled}
           onClick={() => onSectionChange(button.section)}
         >
-          {button.label}
+          <span className="builder-section-nav-label">{button.label}</span>
+          {button.lockHolderName && (
+            <LockAvatarPill
+              holderName={button.lockHolderName}
+              holderAvatarUrl={button.lockHolderAvatarUrl}
+            />
+          )}
         </button>
       ))}
     </div>

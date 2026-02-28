@@ -18,6 +18,10 @@
 }
 
 .studio-settings-route .builder-topbar-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   border: 1px solid rgba(31, 34, 28, 0.28);
   background: rgba(255, 255, 255, 0.9);
   color: rgba(31, 34, 28, 0.9);
@@ -43,6 +47,37 @@
 
 .studio-settings-route .builder-topbar-link-button:disabled {
   opacity: 0.45;
+}
+
+.studio-settings-route .builder-section-nav-label {
+  min-width: 0;
+}
+
+.studio-settings-route .builder-lock-avatar-pill {
+  flex: 0 0 auto;
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 34, 28, 0.24);
+  overflow: hidden;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(31, 34, 28, 0.08);
+}
+
+.studio-settings-route .builder-lock-avatar-pill-image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.studio-settings-route .builder-lock-avatar-pill-fallback {
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(31, 34, 28, 0.9);
+  text-transform: uppercase;
 }
 
 .studio-settings-route .studio-settings-topbar {

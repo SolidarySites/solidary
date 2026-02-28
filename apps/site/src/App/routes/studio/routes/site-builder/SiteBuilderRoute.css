@@ -458,9 +458,44 @@
 }
 
 .builder-sidebar-nav button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   text-align: left;
   white-space: normal;
   line-height: 1.3;
+}
+
+.builder-section-nav-label {
+  min-width: 0;
+}
+
+.builder-lock-avatar-pill {
+  flex: 0 0 auto;
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 34, 28, 0.24);
+  overflow: hidden;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(31, 34, 28, 0.08);
+}
+
+.builder-lock-avatar-pill-image {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.builder-lock-avatar-pill-fallback {
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(31, 34, 28, 0.9);
+  text-transform: uppercase;
 }
 
 .builder-sidebar-nav button.is-locked {

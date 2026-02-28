@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "../../../../../lib/supabase";
 import { useSiteBuilderRouteController } from "../../site-builder/hooks/useSiteBuilderRouteController";
 import { useDraftSectionLocks } from "../../site-builder/hooks/useDraftSectionLocks";
 import type { SectionLockRecord } from "../../site-builder/services/locks";
@@ -26,8 +27,8 @@ export const useStudioSettingsRouteController = () => {
   const saveGeneralDraftSilently = controller.settingsRouteContext.saveGeneralDraftSilently;
   const sessionUserId = controller.settingsRouteContext.sessionUserId;
   const canEditDraft = controller.settingsRouteContext.canEditDraft && canAccessSettingsPage;
-  const activeSection: StudioSettingsSection =
-    !canAccessDanger && requestedSection === "danger" ? "general" : requestedSection;
+  const activeSection: StudioSettingsSection = requestedSection;
+  const [ownerDisplayName, setOwnerDisplayName] = useState("site owner");
 
   const activeLockKey = useMemo(() => {
     if (!canEditDraft) return null;
@@ -40,6 +41,7 @@ export const useStudioSettingsRouteController = () => {
     sessionUserId,
     canEditDraft,
     sessionDisplayName: controller.settingsRouteContext.sessionDisplayName,
+    sessionAvatarUrl: controller.settingsRouteContext.sessionAvatarUrl,
     activeLockKey,
     scope: "settings",
     setSectionLocks: setSettingsSectionLocks
@@ -53,14 +55,45 @@ export const useStudioSettingsRouteController = () => {
   const sectionButtons = STUDIO_SETTINGS_SECTION_ORDER.map((section) => {
     const lock = settingsSectionLocks[getStudioSettingsLockKey(section)];
     const lockedByOther = Boolean(lock && lock.userId !== sessionUserId);
-    const roleBlocked = !canAccessSettingsPage || (section === "danger" && !canAccessDanger);
+    const roleBlocked = !canAccessSettingsPage;
     return {
       section,
       label: STUDIO_SETTINGS_SECTION_LABELS[section],
       lockedByOther,
+      lockHolderName: lock?.holderName ?? null,
+      lockHolderAvatarUrl: lock?.holderAvatarUrl ?? null,
       disabled: roleBlocked || (lockedByOther && activeSection !== section)
     };
   });
+
+  useEffect(() => {
+    const draftId = controller.settingsRouteContext.draftId;
+    if (!draftId) {
+      setOwnerDisplayName("site owner");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc("site_draft_owner_display_name", {
+          p_draft_id: draftId
+        });
+        if (cancelled || error) return;
+        if (typeof data === "string" && data.trim()) {
+          setOwnerDisplayName(data.trim());
+          return;
+        }
+        setOwnerDisplayName("site owner");
+      } catch {
+        if (!cancelled) setOwnerDisplayName("site owner");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [controller.settingsRouteContext.draftId]);
 
   useEffect(() => {
     if (!canAccessSettingsPage) return;
@@ -86,6 +119,13 @@ export const useStudioSettingsRouteController = () => {
     : `${controller.bodyClassName} is-settings-full`.trim();
   const showContentLoadingPlaceholder =
     controller.previewPanelProps.shouldLoadDraft && controller.previewPanelProps.isDraftLoading;
+  const settingsAccessBlocked =
+    !canAccessSettingsPage || (activeSection === "danger" && !canAccessDanger);
+  const settingsAccessBlockedMessage = !canAccessSettingsPage
+    ? "Your current role can edit the site builder, but cannot access this settings page."
+    : activeSection === "danger" && !canAccessDanger
+      ? `Only the owner ${ownerDisplayName} can edit this page.`
+      : "";
 
   return {
     ...controller,
@@ -110,7 +150,8 @@ export const useStudioSettingsRouteController = () => {
     contentSectionProps: {
       ...controller.contentSectionProps,
       draftId: controller.settingsRouteContext.draftId,
-      settingsAccessBlocked: !canAccessSettingsPage,
+      settingsAccessBlocked,
+      settingsAccessBlockedMessage,
       activeSection,
       activeSectionLockedByOther,
       activeSectionLockHolderName: resolveSettingsLockHolderName(activeSectionLock?.holderName),

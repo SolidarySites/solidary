@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import BuilderFooterSection from "./BuilderFooterSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
 import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
+import LockAvatarPill from "./LockAvatarPill";
 import BuilderPagesSection from "./BuilderPagesSection";
 import BuilderStylesSection from "./BuilderStylesSection";
 import type { PreviewSelectedImage } from "./AstroTemplatePreview";
@@ -15,6 +16,7 @@ import type {
 
 type BuilderSectionLock = {
   holderName: string;
+  holderAvatarUrl: string | null;
   isSelf: boolean;
 };
 
@@ -114,6 +116,8 @@ const BuilderSidebar = ({
   const footerLockedByOther = Boolean(footerLock && !footerLock.isSelf);
   const stylesLock = sectionLocks.styles;
   const stylesLockedByOther = Boolean(stylesLock && !stylesLock.isSelf);
+  const pagesLock = sectionLocks.pages;
+  const pagesLockedByOther = Boolean(pagesLock && !pagesLock.isSelf);
   const activeSettingsLock = sectionLocks[activeSettingsSection];
   const activeSettingsLockedByOther = Boolean(activeSettingsLock && !activeSettingsLock.isSelf);
   const inPageEditingMode =
@@ -128,10 +132,19 @@ const BuilderSidebar = ({
       {canEditDraft && !inPageEditingMode && (
         <div className="builder-sidebar-nav">
           <button
-            className={`${activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"}`.trim()}
+            className={`${
+              activeSection === "settings" && activeSettingsSection === "pages" ? "primary" : "ghost"
+            } ${pagesLockedByOther ? "is-locked" : ""}`.trim()}
             onClick={() => onSettingsSectionChange("pages")}
+            disabled={pagesLockedByOther && activeSettingsSection !== "pages"}
           >
-            Pages
+            <span className="builder-section-nav-label">Pages</span>
+            {pagesLock && (
+              <LockAvatarPill
+                holderName={pagesLock.holderName}
+                holderAvatarUrl={pagesLock.holderAvatarUrl}
+              />
+            )}
           </button>
           <button
             className={`${
@@ -140,7 +153,13 @@ const BuilderSidebar = ({
             onClick={() => onSettingsSectionChange("header")}
             disabled={headerLockedByOther && activeSettingsSection !== "header"}
           >
-            Header
+            <span className="builder-section-nav-label">Header</span>
+            {headerLock && (
+              <LockAvatarPill
+                holderName={headerLock.holderName}
+                holderAvatarUrl={headerLock.holderAvatarUrl}
+              />
+            )}
           </button>
           <button
             className={`${
@@ -149,7 +168,13 @@ const BuilderSidebar = ({
             onClick={() => onSettingsSectionChange("footer")}
             disabled={footerLockedByOther && activeSettingsSection !== "footer"}
           >
-            Footer
+            <span className="builder-section-nav-label">Footer</span>
+            {footerLock && (
+              <LockAvatarPill
+                holderName={footerLock.holderName}
+                holderAvatarUrl={footerLock.holderAvatarUrl}
+              />
+            )}
           </button>
           <button
             className={`${
@@ -158,7 +183,13 @@ const BuilderSidebar = ({
             onClick={() => onSettingsSectionChange("styles")}
             disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
           >
-            Styles
+            <span className="builder-section-nav-label">Styles</span>
+            {stylesLock && (
+              <LockAvatarPill
+                holderName={stylesLock.holderName}
+                holderAvatarUrl={stylesLock.holderAvatarUrl}
+              />
+            )}
           </button>
         </div>
       )}

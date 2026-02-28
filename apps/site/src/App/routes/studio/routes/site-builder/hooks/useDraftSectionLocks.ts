@@ -9,6 +9,7 @@ type SectionLockListRow = {
   section_key?: string | null;
   locked_by_user_id?: string | null;
   locked_by_name?: string | null;
+  locked_by_avatar_url?: string | null;
   updated_at?: string | null;
 };
 
@@ -17,6 +18,7 @@ type UseDraftSectionLocksParams = {
   sessionUserId: string | null;
   canEditDraft: boolean;
   sessionDisplayName: string;
+  sessionAvatarUrl: string | null;
   activeLockKey: string | null;
   scope: DraftSectionLockScope;
   setSectionLocks: Dispatch<SetStateAction<SectionLockRecord>>;
@@ -33,6 +35,7 @@ export const useDraftSectionLocks = ({
   sessionUserId,
   canEditDraft,
   sessionDisplayName,
+  sessionAvatarUrl,
   activeLockKey,
   scope,
   setSectionLocks
@@ -60,6 +63,10 @@ export const useDraftSectionLocks = ({
         typeof typedRow.locked_by_name === "string" && typedRow.locked_by_name.trim()
           ? typedRow.locked_by_name.trim()
           : "Unknown";
+      const holderAvatarUrl =
+        typeof typedRow.locked_by_avatar_url === "string" && typedRow.locked_by_avatar_url.trim()
+          ? typedRow.locked_by_avatar_url.trim()
+          : null;
       if (!userId) return;
       const updatedAt =
         typeof typedRow.updated_at === "string" && typedRow.updated_at.trim()
@@ -70,6 +77,7 @@ export const useDraftSectionLocks = ({
         lockKey,
         userId,
         holderName,
+        holderAvatarUrl,
         updatedAt
       };
     });
@@ -83,6 +91,7 @@ export const useDraftSectionLocks = ({
       p_draft_id: draftId,
       p_section_key: lockKey,
       p_holder_name: sessionDisplayName,
+      p_holder_avatar_url: sessionAvatarUrl,
       p_ttl_seconds: 60
     });
     if (error) {
@@ -98,6 +107,10 @@ export const useDraftSectionLocks = ({
       typeof response?.lock_name === "string" && response.lock_name.trim()
         ? response.lock_name.trim()
         : "Unknown";
+    const lockAvatarUrl =
+      typeof response?.lock_avatar_url === "string" && response.lock_avatar_url.trim()
+        ? response.lock_avatar_url.trim()
+        : sessionAvatarUrl;
     const updatedAt =
       typeof response?.updated_at === "string" && response.updated_at.trim()
         ? response.updated_at
@@ -113,13 +126,14 @@ export const useDraftSectionLocks = ({
         lockKey,
         userId: lockUserId,
         holderName: lockName,
+        holderAvatarUrl: lockAvatarUrl,
         updatedAt
       };
       return next;
     });
 
     return Boolean(response?.acquired && lockUserId === sessionUserId);
-  }, [canEditDraft, draftId, sessionDisplayName, sessionUserId, setSectionLocks]);
+  }, [canEditDraft, draftId, sessionAvatarUrl, sessionDisplayName, sessionUserId, setSectionLocks]);
 
   const releaseSectionLock = useCallback(async (lockKey: string) => {
     if (!draftId || !sessionUserId) return;

@@ -20,6 +20,7 @@ import type {
 
 type BuilderSidebarSectionLock = {
   holderName: string;
+  holderAvatarUrl: string | null;
   isSelf: boolean;
 };
 
@@ -110,6 +111,7 @@ export const useSiteBuilderAccessAndLocks = ({
           if (!lock || !isBuilderEditableSectionKey(sectionKey)) return accumulator;
           accumulator[sectionKey] = {
             holderName: lock.holderName,
+            holderAvatarUrl: lock.holderAvatarUrl,
             isSelf: lock.userId === sessionUserId
           };
           return accumulator;
@@ -134,6 +136,7 @@ export const useSiteBuilderAccessAndLocks = ({
           if (!slug) return accumulator;
           accumulator[slug] = {
             holderName: lock.holderName,
+            holderAvatarUrl: lock.holderAvatarUrl,
             isSelf: lock.userId === sessionUserId
           };
           return accumulator;

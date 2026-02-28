@@ -10,6 +10,7 @@ export type SectionLockEntry = {
   lockKey: string;
   userId: string;
   holderName: string;
+  holderAvatarUrl: string | null;
   updatedAt: string;
 };
 
@@ -19,6 +20,7 @@ export type SectionLockAcquireResult = {
   acquired?: boolean;
   lock_user_id?: string | null;
   lock_name?: string | null;
+  lock_avatar_url?: string | null;
   updated_at?: string | null;
   expires_at?: string | null;
 };
