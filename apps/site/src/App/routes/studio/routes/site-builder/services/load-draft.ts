@@ -105,6 +105,7 @@ type DraftRow = {
   last_pull_request_number: number | null;
   last_pull_request_url: string | null;
   last_pull_request_state: string | null;
+  has_publish_pending_changes: boolean | null;
   revision: number | null;
   updated_at: string | null;
   last_edited_by_user_id: string | null;
@@ -116,7 +117,7 @@ const loadDraftRowById = async (draftId: string) => {
   const { data, error } = await supabase
     .from("site_drafts")
     .select(
-      "id, site_id, repo_full_name, branch, owner_user_id, draft_type, source_owner_draft_id, touched_sections, touched_page_slugs, deleted_page_slugs, editor_branch, last_pull_request_number, last_pull_request_url, last_pull_request_state, revision, updated_at, last_edited_by_user_id, last_edited_at, files"
+      "id, site_id, repo_full_name, branch, owner_user_id, draft_type, source_owner_draft_id, touched_sections, touched_page_slugs, deleted_page_slugs, editor_branch, last_pull_request_number, last_pull_request_url, last_pull_request_state, has_publish_pending_changes, revision, updated_at, last_edited_by_user_id, last_edited_at, files"
     )
     .eq("id", draftId)
     .maybeSingle();
@@ -178,6 +179,23 @@ export const loadDraftById = async ({
   const files = resolvedDraft.files as RepoFileSet;
   const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
   const solidary = parseSolidaryJson(solidaryRaw);
+  const touchedSections = (resolvedDraft.touched_sections ?? []).filter(
+    (entry): entry is "metadata" | "pages" | "header" | "footer" | "styles" =>
+      entry === "metadata" ||
+      entry === "pages" ||
+      entry === "header" ||
+      entry === "footer" ||
+      entry === "styles"
+  );
+  const touchedPageSlugs = (resolvedDraft.touched_page_slugs ?? []).filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+  );
+  const deletedPageSlugs = (resolvedDraft.deleted_page_slugs ?? []).filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+  );
+  const hasPublishPendingChangesFallback =
+    resolvedDraft.draft_type === "editor" &&
+    (touchedSections.length > 0 || touchedPageSlugs.length > 0 || deletedPageSlugs.length > 0);
 
   const draftState: DraftState = {
     id: resolvedDraft.id,
@@ -187,20 +205,9 @@ export const loadDraftById = async ({
     ownerUserId: resolvedDraft.owner_user_id,
     draftType: resolvedDraft.draft_type === "editor" ? "editor" : "owner",
     sourceOwnerDraftId: resolvedDraft.source_owner_draft_id,
-    touchedSections: (resolvedDraft.touched_sections ?? []).filter(
-      (entry): entry is "metadata" | "pages" | "header" | "footer" | "styles" =>
-        entry === "metadata" ||
-        entry === "pages" ||
-        entry === "header" ||
-        entry === "footer" ||
-        entry === "styles"
-    ),
-    touchedPageSlugs: (resolvedDraft.touched_page_slugs ?? []).filter(
-      (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
-    ),
-    deletedPageSlugs: (resolvedDraft.deleted_page_slugs ?? []).filter(
-      (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
-    ),
+    touchedSections,
+    touchedPageSlugs,
+    deletedPageSlugs,
     editorBranch:
       typeof resolvedDraft.editor_branch === "string" ? resolvedDraft.editor_branch : null,
     lastPullRequestNumber:
@@ -215,6 +222,10 @@ export const loadDraftById = async ({
       typeof resolvedDraft.last_pull_request_state === "string"
         ? resolvedDraft.last_pull_request_state
         : null,
+    hasPublishPendingChanges:
+      typeof resolvedDraft.has_publish_pending_changes === "boolean"
+        ? resolvedDraft.has_publish_pending_changes
+        : hasPublishPendingChangesFallback,
     revision: typeof resolvedDraft.revision === "number" ? resolvedDraft.revision : 1,
     lastEditedAt: typeof resolvedDraft.last_edited_at === "string" ? resolvedDraft.last_edited_at : null,
     lastEditedByUserId:

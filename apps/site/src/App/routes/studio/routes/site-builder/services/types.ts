@@ -85,6 +85,7 @@ export type DraftState = {
   lastPullRequestNumber?: number | null;
   lastPullRequestUrl?: string | null;
   lastPullRequestState?: string | null;
+  hasPublishPendingChanges: boolean;
   revision: number;
   lastEditedAt?: string | null;
   lastEditedByUserId?: string | null;

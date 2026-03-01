@@ -37,6 +37,10 @@ import { useDraftSectionLocks } from "./useDraftSectionLocks";
 import { usePublishStatusTracking } from "./usePublishStatusTracking";
 import { getPublishImageInfo } from "../services/publish/shared";
 import {
+  applyDraftPublishPendingResult,
+  setDraftPublishPending
+} from "../services/publish-pending";
+import {
   stripFrontmatter
 } from "../services/utils";
 import type { NoticeKind } from "../../../../../types/notice";
@@ -360,6 +364,15 @@ export const useSiteBuilderRouteController = ({
     if (cleanedPublishedDraftIdRef.current === draftState.id) return;
 
     (async () => {
+      if (draftState.hasPublishPendingChanges) {
+        try {
+          const pendingState = await setDraftPublishPending(draftState.id, false);
+          setDraftState((current) => applyDraftPublishPendingResult(current, pendingState));
+        } catch (error) {
+          console.warn("[publish] Failed to clear publish pending state after deployment.", error);
+        }
+      }
+
       const normalizedPublishedBaseUrl = (publishedSiteBaseUrl ?? "").trim().replace(/\/+$/, "");
       if (!normalizedPublishedBaseUrl) {
         setNotice("Site is live, but image cleanup skipped: missing published site URL.");
@@ -423,7 +436,14 @@ export const useSiteBuilderRouteController = ({
         })
       );
     })();
-  }, [draftState?.draftType, draftState?.id, publishFeedback?.kind, publishedSiteBaseUrl, session?.access_token]);
+  }, [
+    draftState?.draftType,
+    draftState?.hasPublishPendingChanges,
+    draftState?.id,
+    publishFeedback?.kind,
+    publishedSiteBaseUrl,
+    session?.access_token
+  ]);
 
   useEffect(() => {
     if (!siteImage) {
@@ -558,7 +578,6 @@ export const useSiteBuilderRouteController = ({
     canDirectPublish,
     hasForeignSectionLocks,
     activeEditableSection,
-    activeSectionLockedByOther,
     sectionLocks,
     activePreviewSlug,
     sessionUserId,
@@ -672,21 +691,15 @@ export const useSiteBuilderRouteController = ({
     hasUnsavedChanges &&
     Boolean(activeEditableSection) &&
     !activeSectionLockedByOther;
-  const hasEditorPublishableChanges =
-    draftState?.draftType === "editor" &&
-    (
-      hasUnsavedChanges ||
-      (draftState.touchedSections?.length ?? 0) > 0 ||
-      (draftState.touchedPageSlugs?.length ?? 0) > 0 ||
-      (draftState.deletedPageSlugs?.length ?? 0) > 0
-    );
+  const hasSavedPendingPublishChanges = Boolean(draftState?.hasPublishPendingChanges);
   const canPublish =
     !isProvisioning &&
     Boolean(draftState) &&
     canPublishByRole &&
     publishFeedback?.kind !== "progress" &&
-    (!canDirectPublish || !hasForeignSectionLocks) &&
-    (canDirectPublish || hasEditorPublishableChanges);
+    !hasUnsavedChanges &&
+    hasSavedPendingPublishChanges &&
+    (!canDirectPublish || !hasForeignSectionLocks);
   const publishMode: "direct" | "pull_request" = canDirectPublish ? "direct" : "pull_request";
   const publishButtonLabel = canDirectPublish ? "Publish Site" : "Suggest Edits";
   const showTopbar =

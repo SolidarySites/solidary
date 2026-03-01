@@ -28,6 +28,10 @@ import {
   saveHeaderSection as runSaveHeaderSection,
   saveStylesSection as runSaveStylesSection
 } from "../services/save-settings-sections";
+import {
+  applyDraftPublishPendingResult,
+  setDraftPublishPending
+} from "../services/publish-pending";
 import type {
   BuilderEditableSectionKey,
   BuilderPage,
@@ -45,7 +49,6 @@ type UseSiteBuilderSavePublishActionsParams = {
   canDirectPublish: boolean;
   hasForeignSectionLocks: boolean;
   activeEditableSection: BuilderEditableSectionKey | null;
-  activeSectionLockedByOther: boolean;
   sectionLocks: SectionLockRecord;
   activePreviewSlug: string;
   sessionUserId: string | null;
@@ -96,7 +99,6 @@ export const useSiteBuilderSavePublishActions = ({
   canDirectPublish,
   hasForeignSectionLocks,
   activeEditableSection,
-  activeSectionLockedByOther,
   sectionLocks,
   activePreviewSlug,
   sessionUserId,
@@ -251,6 +253,26 @@ export const useSiteBuilderSavePublishActions = ({
       deletedPageSlugs
     });
 
+  const setDraftPublishPendingState = async (pending: boolean) => {
+    const currentDraftState = draftStateRef.current;
+    if (!currentDraftState) return;
+
+    try {
+      const nextState = await setDraftPublishPending(currentDraftState.id, pending);
+      setDraftStateTracked((current) => applyDraftPublishPendingResult(current, nextState));
+    } catch (error) {
+      console.warn("[publish] Failed to sync publish pending state.", error);
+      setDraftStateTracked((current) =>
+        current
+          ? {
+              ...current,
+              hasPublishPendingChanges: pending
+            }
+          : current
+      );
+    }
+  };
+
   const saveMetadataSection = async () =>
     runSaveMetadataSection({
       draftState: draftStateRef.current,
@@ -321,19 +343,21 @@ export const useSiteBuilderSavePublishActions = ({
       throw new Error(`${lock.holderName} is editing ${getLockLabel(lockKey)}.`);
     }
 
+    let savedSignature = "";
     if (sectionKey === "metadata") {
-      return saveMetadataSection();
+      savedSignature = await saveMetadataSection();
     } else if (sectionKey === "pages") {
-      return savePagesSection();
+      savedSignature = await savePagesSection();
     } else if (sectionKey === "header") {
-      return saveHeaderSection();
+      savedSignature = await saveHeaderSection();
     } else if (sectionKey === "footer") {
-      return saveFooterSection();
+      savedSignature = await saveFooterSection();
     } else if (sectionKey === "styles") {
-      return saveStylesSection();
+      savedSignature = await saveStylesSection();
     }
 
-    return "";
+    await setDraftPublishPendingState(true);
+    return savedSignature;
   };
 
   const handlePublish = async () => {
@@ -387,11 +411,10 @@ export const useSiteBuilderSavePublishActions = ({
         throw new Error("Missing site draft. Create a site first.");
       }
 
-      if (hasUnsavedChanges && activeEditableSection && !activeSectionLockedByOther) {
-        const savedSignature = await saveSectionByKey(activeEditableSection);
-        if (typeof savedSignature === "string" && savedSignature) {
-          setLastSavedDraftSignature(savedSignature);
-        }
+      if (hasUnsavedChanges) {
+        setNotice("Save draft changes to enable publishing.");
+        setNoticeKind("error");
+        return;
       }
 
       if (canDirectPublish) {
@@ -453,6 +476,7 @@ export const useSiteBuilderSavePublishActions = ({
           setNoticeKind,
           buildDraftSignatureForState
         });
+        await setDraftPublishPendingState(false);
       }
     } catch (caught) {
       if (caught instanceof DraftConflictError) {
