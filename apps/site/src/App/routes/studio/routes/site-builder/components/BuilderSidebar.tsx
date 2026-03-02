@@ -91,8 +91,8 @@ type BuilderSidebarProps = {
   onSelectedEditorImageAltChange: (value: string) => void;
   onSelectedEditorImageCaptionChange: (value: string) => void;
   onSelectedEditorImageSizeChange: (value: number) => void;
-  onSelectedEditorElementClassNameChange: (value: string) => void;
-  onSelectedEditorElementInlineStyleChange: (value: string) => void;
+  onSelectedEditorElementClassNameChange: (value: string, elementId?: string) => void;
+  onSelectedEditorElementInlineStyleChange: (value: string, elementId?: string) => void;
 };
 
 const BuilderSidebar = ({

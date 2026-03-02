@@ -110,10 +110,12 @@ type PreviewCommandPayload =
   | {
       kind: "updateSelectedElementClassName";
       value: string;
+      elementId?: string;
     }
   | {
       kind: "updateSelectedElementInlineStyle";
       value: string;
+      elementId?: string;
     }
   | {
       kind: "clearSelectedImage";
@@ -175,6 +177,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR = "data-external-image-src-medium";
   var EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR = "data-external-image-src-original";
   var EXTERNAL_IMAGE_TOKEN_ATTR = "data-external-image-token";
+  var INSPECTABLE_ELEMENT_ID_ATTR = "data-builder-inspectable-element-id";
   var EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR = "--external-image-placeholder-height";
   var EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR = "--external-image-placeholder-width";
   var EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left";
@@ -209,6 +212,24 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var generated = "img-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
     image.setAttribute("data-builder-image-id", generated);
     return generated;
+  }
+
+  function ensureInspectableElementId(element) {
+    if (!(element instanceof HTMLElement)) return "";
+    var existing = (element.getAttribute(INSPECTABLE_ELEMENT_ID_ATTR) || "").trim();
+    if (existing) return existing;
+    var generated =
+      "el-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    element.setAttribute(INSPECTABLE_ELEMENT_ID_ATTR, generated);
+    return generated;
+  }
+
+  function findInspectableElementById(elementId) {
+    if (!editorElement) return null;
+    if (!elementId) return null;
+    var selector = "[" + INSPECTABLE_ELEMENT_ID_ATTR + "='" + elementId.replaceAll("'", "\\\\'") + "']";
+    var match = editorElement.querySelector(selector);
+    return match instanceof HTMLElement ? match : null;
   }
 
   function parseImageSizePercent(image) {
@@ -778,6 +799,11 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       figcaption.style.removeProperty("display");
     }
 
+    var inspectableElements = template.content.querySelectorAll("[" + INSPECTABLE_ELEMENT_ID_ATTR + "]");
+    for (var elementIndex = 0; elementIndex < inspectableElements.length; elementIndex += 1) {
+      inspectableElements[elementIndex].removeAttribute(INSPECTABLE_ELEMENT_ID_ATTR);
+    }
+
     return template.innerHTML;
   }
 
@@ -885,15 +911,17 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     }
 
     selectedElement = element;
+    var elementId = ensureInspectableElementId(element);
     var tagName = (element.tagName || "").toLowerCase();
     var className = (element.getAttribute("class") || "").trim();
     var inlineStyle = (element.getAttribute("style") || "").trim();
-    var nextKey = [state.activeSlug, tagName, className, inlineStyle].join("|");
+    var nextKey = [state.activeSlug, elementId, tagName, className, inlineStyle].join("|");
     if (nextKey === lastSelectedElementKey) return;
     lastSelectedElementKey = nextKey;
 
     post("selected-element-change", {
       selectedElement: {
+        elementId: elementId,
         pageSlug: state.activeSlug,
         tagName: tagName,
         className: className,
@@ -2310,11 +2338,18 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     return uniqueTokens.join(" ");
   }
 
-  function updateSelectedElementClassName(value) {
+  function getInspectableElementForMutation(elementId) {
+    if (typeof elementId === "string" && elementId.trim()) {
+      return findInspectableElementById(elementId.trim());
+    }
+    return getSelectedInspectableElement();
+  }
+
+  function updateSelectedElementClassName(value, elementId) {
     if (!state || !state.editable) return;
-    var element = getSelectedInspectableElement();
+    var element = getInspectableElementForMutation(elementId);
     if (!(element instanceof HTMLElement)) {
-      emitSelectedElementChange(null);
+      emitSelectedElementChange(getInspectableElementFromSelection());
       return;
     }
 
@@ -2329,11 +2364,11 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     emitSelectedElementChange(element);
   }
 
-  function updateSelectedElementInlineStyle(value) {
+  function updateSelectedElementInlineStyle(value, elementId) {
     if (!state || !state.editable) return;
-    var element = getSelectedInspectableElement();
+    var element = getInspectableElementForMutation(elementId);
     if (!(element instanceof HTMLElement)) {
-      emitSelectedElementChange(null);
+      emitSelectedElementChange(getInspectableElementFromSelection());
       return;
     }
 
@@ -2392,12 +2427,12 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     }
 
     if (payload.kind === "updateSelectedElementClassName") {
-      updateSelectedElementClassName(payload.value);
+      updateSelectedElementClassName(payload.value, payload.elementId);
       return;
     }
 
     if (payload.kind === "updateSelectedElementInlineStyle") {
-      updateSelectedElementInlineStyle(payload.value);
+      updateSelectedElementInlineStyle(payload.value, payload.elementId);
       return;
     }
 
@@ -2900,16 +2935,18 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
             value
           });
         },
-        updateSelectedElementClassName: (value: string) => {
+        updateSelectedElementClassName: (value: string, elementId?: string) => {
           sendCommandToFrame({
             kind: "updateSelectedElementClassName",
-            value
+            value,
+            elementId
           });
         },
-        updateSelectedElementInlineStyle: (value: string) => {
+        updateSelectedElementInlineStyle: (value: string, elementId?: string) => {
           sendCommandToFrame({
             kind: "updateSelectedElementInlineStyle",
-            value
+            value,
+            elementId
           });
         },
         clearSelectedImage: () => {

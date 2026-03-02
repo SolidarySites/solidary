@@ -38,12 +38,65 @@ type BuilderPagesSectionProps = {
   onSelectedEditorImageAltChange: (value: string) => void;
   onSelectedEditorImageCaptionChange: (value: string) => void;
   onSelectedEditorImageSizeChange: (value: number) => void;
-  onSelectedEditorElementClassNameChange: (value: string) => void;
-  onSelectedEditorElementInlineStyleChange: (value: string) => void;
+  onSelectedEditorElementClassNameChange: (value: string, elementId?: string) => void;
+  onSelectedEditorElementInlineStyleChange: (value: string, elementId?: string) => void;
 };
 
 const getPageItemKey = (page: BuilderPage, index: number) => page.id ?? `page-${index}`;
 const pageJavaScriptEditorExtensions = [javascriptLanguage()];
+
+type SelectedElementPropertiesFieldsProps = {
+  selectedElement: PreviewSelectedElement;
+  onSelectedEditorElementClassNameChange: (value: string, elementId?: string) => void;
+  onSelectedEditorElementInlineStyleChange: (value: string, elementId?: string) => void;
+};
+
+const SelectedElementPropertiesFields = ({
+  selectedElement,
+  onSelectedEditorElementClassNameChange,
+  onSelectedEditorElementInlineStyleChange
+}: SelectedElementPropertiesFieldsProps) => {
+  const [selectedElementClassDraft, setSelectedElementClassDraft] = useState(selectedElement.className);
+  const [selectedElementInlineStyleDraft, setSelectedElementInlineStyleDraft] = useState(
+    selectedElement.inlineStyle
+  );
+
+  return (
+    <>
+      <p className="builder-page-properties-tag">
+        Selected: <code>{`<${selectedElement.tagName}>`}</code>
+      </p>
+      <label>
+        Custom class
+        <input
+          value={selectedElementClassDraft}
+          onChange={(event) => setSelectedElementClassDraft(event.target.value)}
+          onBlur={() =>
+            onSelectedEditorElementClassNameChange(
+              selectedElementClassDraft,
+              selectedElement.elementId
+            )
+          }
+          placeholder="example-class another-class"
+        />
+      </label>
+      <label>
+        Inline style
+        <input
+          value={selectedElementInlineStyleDraft}
+          onChange={(event) => setSelectedElementInlineStyleDraft(event.target.value)}
+          onBlur={() =>
+            onSelectedEditorElementInlineStyleChange(
+              selectedElementInlineStyleDraft,
+              selectedElement.elementId
+            )
+          }
+          placeholder="color: #222; margin-top: 1rem;"
+        />
+      </label>
+    </>
+  );
+};
 
 const BuilderPagesSection = ({
   pages,
@@ -86,6 +139,15 @@ const BuilderPagesSection = ({
     selectedEditorImage && selectedEditorImage.pageSlug === activePageSafeSlug
       ? selectedEditorImage
       : null;
+  const selectedElementSnapshotKey = selectedElementForActivePage
+    ? [
+        selectedElementForActivePage.elementId,
+        selectedElementForActivePage.pageSlug,
+        selectedElementForActivePage.tagName,
+        selectedElementForActivePage.className,
+        selectedElementForActivePage.inlineStyle
+      ].join("|")
+    : "";
 
   if (isPageEditingMode) {
     return (
@@ -164,29 +226,16 @@ const BuilderPagesSection = ({
                 <div className="builder-page-properties-panel">
                   {selectedElementForActivePage ? (
                     <div className="builder-page-properties-card">
-                      <p className="builder-page-properties-tag">
-                        Selected: <code>{`<${selectedElementForActivePage.tagName}>`}</code>
-                      </p>
-                      <label>
-                        Custom class
-                        <input
-                          value={selectedElementForActivePage.className}
-                          onChange={(event) =>
-                            onSelectedEditorElementClassNameChange(event.target.value)
-                          }
-                          placeholder="example-class another-class"
-                        />
-                      </label>
-                      <label>
-                        Inline style
-                        <input
-                          value={selectedElementForActivePage.inlineStyle}
-                          onChange={(event) =>
-                            onSelectedEditorElementInlineStyleChange(event.target.value)
-                          }
-                          placeholder="color: #222; margin-top: 1rem;"
-                        />
-                      </label>
+                      <SelectedElementPropertiesFields
+                        key={selectedElementSnapshotKey}
+                        selectedElement={selectedElementForActivePage}
+                        onSelectedEditorElementClassNameChange={
+                          onSelectedEditorElementClassNameChange
+                        }
+                        onSelectedEditorElementInlineStyleChange={
+                          onSelectedEditorElementInlineStyleChange
+                        }
+                      />
                     </div>
                   ) : (
                     <p className="builder-image-settings-empty">

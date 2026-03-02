@@ -251,18 +251,22 @@ export const useBuilderPreviewEditor = ({
     previewRef.current?.updateSelectedImageSize(clamped);
   };
 
-  const handleSelectedEditorElementClassNameChange = (value: string) => {
+  const handleSelectedEditorElementClassNameChange = (value: string, elementId?: string) => {
     setSelectedEditorElement((current) =>
-      current ? { ...current, className: value } : current
+      current && (!elementId || current.elementId === elementId)
+        ? { ...current, className: value }
+        : current
     );
-    previewRef.current?.updateSelectedElementClassName(value);
+    previewRef.current?.updateSelectedElementClassName(value, elementId);
   };
 
-  const handleSelectedEditorElementInlineStyleChange = (value: string) => {
+  const handleSelectedEditorElementInlineStyleChange = (value: string, elementId?: string) => {
     setSelectedEditorElement((current) =>
-      current ? { ...current, inlineStyle: value } : current
+      current && (!elementId || current.elementId === elementId)
+        ? { ...current, inlineStyle: value }
+        : current
     );
-    previewRef.current?.updateSelectedElementInlineStyle(value);
+    previewRef.current?.updateSelectedElementInlineStyle(value, elementId);
   };
 
   const clearSelectedEditorImage = () => {

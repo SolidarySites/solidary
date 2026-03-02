@@ -20,6 +20,7 @@ export type PreviewSelectedImage = {
 };
 
 export type PreviewSelectedElement = {
+  elementId: string;
   pageSlug: string;
   tagName: string;
   className: string;
@@ -39,8 +40,8 @@ export type AstroTemplatePreviewHandle = {
   updateSelectedImageAlt: (value: string) => void;
   updateSelectedImageCaption: (value: string) => void;
   updateSelectedImageSize: (value: number) => void;
-  updateSelectedElementClassName: (value: string) => void;
-  updateSelectedElementInlineStyle: (value: string) => void;
+  updateSelectedElementClassName: (value: string, elementId?: string) => void;
+  updateSelectedElementInlineStyle: (value: string, elementId?: string) => void;
   clearSelectedImage: () => void;
 };
 
