@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type MouseEvent, type RefObject } from "react";
 import BuilderFooterSection from "./BuilderFooterSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
 import LockAvatarPill from "./LockAvatarPill";
@@ -244,9 +244,15 @@ const BuilderSidebar = ({
   const canEditPageJavaScript = accessRole === "owner" || accessRole === "admin";
   const inMainMenu = activeSection === "menu";
   const inSubmenu = activeSection === "settings";
+  const backDestinationPath =
+    activeSettingsSection === "pages" && isPageEditingMode ? "settings/pages" : "settings";
   const showPublishCta = canEditDraft && inMainMenu;
   const showSaveCta = canEditDraft && activeSection === "settings";
   const showPublishFeedback = showPublishCta && (isProvisioning || publishFeedback);
+  const handleBackLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onBackToMenu();
+  };
 
   useEffect(() => {
     const shell = sidebarShellRef.current;
@@ -296,15 +302,16 @@ const BuilderSidebar = ({
       className={`builder-sidebar-shell ${isPreviewFullscreen ? "is-collapsed" : ""}`}
     >
       <aside className="builder-sidebar">
-        <div className="builder-sidebar-content">
+        <div className="builder-sidebar-fixed-header">
           {canEditDraft && inSubmenu && (
-            <div className="builder-sidebar-back-row">
-              <button className="ghost" type="button" onClick={onBackToMenu}>
-                Back
-              </button>
-            </div>
+            <a className="builder-sidebar-back-link" href="#" onClick={handleBackLinkClick}>
+              <span className="builder-sidebar-back-link-word">back</span>
+              <span>to {backDestinationPath}</span>
+            </a>
           )}
+        </div>
 
+        <div className="builder-sidebar-content">
           {canEditDraft && inMainMenu && (
             <div className="builder-sidebar-nav">
               <div className="builder-sidebar-nav-item">
