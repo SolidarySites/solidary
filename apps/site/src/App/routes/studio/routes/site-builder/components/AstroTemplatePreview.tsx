@@ -159,6 +159,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
   var appliedStyleKeys = [];
   var savedSelection = null;
+  var savedSelectionTextOffset = null;
   var selectedImageId = "";
   var selectedElement = null;
   var lastSelectedElementKey = "";
@@ -183,7 +184,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left";
   var NON_PARAGRAPH_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,ul,ol,li,blockquote,pre,table,figure,section,article,header,footer,nav,main,aside";
   var FORMAT_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote";
-  var IMAGE_INSERT_REPLACE_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote,pre,div";
+  var IMAGE_INSERT_ANCHOR_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote,pre,li,div";
   var TEXT_BLOCK_MERGE_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote,pre,div";
   var INSPECTABLE_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,section,article,header,footer,nav,main,aside";
 
@@ -951,7 +952,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     return candidates;
   }
 
-  function findImageInsertReplaceTarget() {
+  function findImageInsertAnchorTarget() {
     if (!editorElement) return null;
     var candidates = getElementSelectionCandidates();
     if (!candidates.length) return null;
@@ -964,8 +965,12 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     }
 
     for (var blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
-      var blockCandidate = candidates[blockIndex].closest(IMAGE_INSERT_REPLACE_SELECTOR);
-      if (blockCandidate instanceof HTMLElement && editorElement.contains(blockCandidate)) {
+      var blockCandidate = candidates[blockIndex].closest(IMAGE_INSERT_ANCHOR_SELECTOR);
+      if (
+        blockCandidate instanceof HTMLElement &&
+        blockCandidate !== editorElement &&
+        editorElement.contains(blockCandidate)
+      ) {
         return blockCandidate;
       }
     }
@@ -1076,19 +1081,40 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       savedSelection = null;
     }
 
+    try {
+      var nextOffset = getTextOffsetWithinRangeContainer(editorElement, range);
+      savedSelectionTextOffset = Number.isFinite(nextOffset) ? nextOffset : null;
+    } catch {
+      savedSelectionTextOffset = null;
+    }
+
     syncSelectionState();
   }
 
   function restoreSelection() {
-    if (!savedSelection) return;
+    if (!savedSelection && !Number.isFinite(savedSelectionTextOffset)) return;
     var selection = window.getSelection();
     if (!selection) return;
 
-    try {
-      selection.removeAllRanges();
-      selection.addRange(savedSelection.cloneRange());
-    } catch {
-      savedSelection = null;
+    if (savedSelection) {
+      try {
+        selection.removeAllRanges();
+        selection.addRange(savedSelection.cloneRange());
+        return;
+      } catch {
+        savedSelection = null;
+      }
+    }
+
+    if (Number.isFinite(savedSelectionTextOffset) && editorElement) {
+      setCaretAtTextOffset(editorElement, savedSelectionTextOffset);
+      if (selection.rangeCount > 0) {
+        try {
+          savedSelection = selection.getRangeAt(0).cloneRange();
+        } catch {
+          savedSelection = null;
+        }
+      }
     }
   }
 
@@ -2109,8 +2135,16 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       currentPersistableBodyHtml !== nextBodyHtml &&
       editorElement.innerHTML !== nextBodyHtml
     ) {
+      var preservedSelectedImageId = selectedImageId;
       editorElement.innerHTML = nextBodyHtml;
-      clearSelectedImage(true);
+      var restoredSelectedImage = preservedSelectedImageId
+        ? findImageById(preservedSelectedImageId)
+        : null;
+      if (restoredSelectedImage instanceof HTMLImageElement) {
+        emitSelectedImageChange(restoredSelectedImage);
+      } else {
+        clearSelectedImage(true);
+      }
       emitSelectedElementChange(null);
     }
 
@@ -2143,9 +2177,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         selection.addRange(fallbackRange);
       }
 
-      var replaceTarget = findImageInsertReplaceTarget();
-      var insertionRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-      if (!insertionRange) return;
+      var insertAnchor = findImageInsertAnchorTarget();
 
       var figure = document.createElement("figure");
       var image = document.createElement("img");
@@ -2156,14 +2188,12 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       if (!(ensuredFigure instanceof HTMLElement)) return;
 
       if (
-        replaceTarget instanceof HTMLElement &&
-        replaceTarget !== editorElement &&
-        replaceTarget.parentNode
+        insertAnchor instanceof HTMLElement &&
+        insertAnchor.parentNode
       ) {
-        replaceTarget.parentNode.replaceChild(ensuredFigure, replaceTarget);
+        insertAnchor.insertAdjacentElement("afterend", ensuredFigure);
       } else {
-        insertionRange.deleteContents();
-        insertionRange.insertNode(ensuredFigure);
+        editorElement.appendChild(ensuredFigure);
       }
 
       processExternalImage(image);
