@@ -1,5 +1,6 @@
 import { css as cssLanguage } from "@codemirror/lang-css";
 import CodeMirror from "@uiw/react-codemirror";
+import { useState } from "react";
 import {
   buildPrimaryFontStack,
   buildSecondaryFontStack,
@@ -48,6 +49,7 @@ const spacingFields: TokenField[] = [
 ];
 
 const customCssEditorExtensions = [cssLanguage()];
+type BuilderStylesPanel = "colors" | "typography" | "layout" | "customCss";
 
 const RgbaColorControls = ({
   value,
@@ -103,6 +105,10 @@ const BuilderStylesSection = ({
   onStyleModeChange,
   onAdvancedStructureCssChange
 }: BuilderStylesSectionProps) => {
+  const [activePanel, setActivePanel] = useState<BuilderStylesPanel>(
+    styleMode === "advanced" ? "customCss" : "colors"
+  );
+
   const updateToken = (variable: string, value: string) =>
     onTokensCssChange(setCssVariableValue(tokensCss, variable, value));
 
@@ -125,51 +131,94 @@ const BuilderStylesSection = ({
       : selectedSecondaryFallback
     : "";
   const borderValue = getCssVariableValue(tokensCss, "--border", "rgba(0, 0, 0, 0.12)");
+  const isAdvancedMode = styleMode === "advanced";
+  const visiblePanel: BuilderStylesPanel = isAdvancedMode ? "customCss" : activePanel;
 
   return (
     <div className="builder-section builder-styles-section">
-      <div className="section-header">
-        <h2>Styles</h2>
-        <p>Choose between simple visual controls and full advanced stylesheet editing.</p>
-      </div>
-
-      <div className="builder-styles-mode-row" role="radiogroup" aria-label="Styles mode">
+      <div className="builder-styles-section-row" role="radiogroup" aria-label="Styles section">
         <button
           type="button"
-          className={`ghost builder-styles-mode-button ${styleMode === "simple" ? "is-active" : ""}`.trim()}
-          onClick={() => onStyleModeChange("simple")}
-          aria-pressed={styleMode === "simple"}
+          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+            visiblePanel === "colors" ? "is-active" : ""
+          }`.trim()}
+          onClick={() => setActivePanel("colors")}
+          aria-pressed={visiblePanel === "colors"}
+          disabled={isAdvancedMode}
         >
-          Simple
+          Color
         </button>
         <button
           type="button"
-          className={`ghost builder-styles-mode-button ${styleMode === "advanced" ? "is-active" : ""}`.trim()}
-          onClick={() => onStyleModeChange("advanced")}
-          aria-pressed={styleMode === "advanced"}
+          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+            visiblePanel === "typography" ? "is-active" : ""
+          }`.trim()}
+          onClick={() => setActivePanel("typography")}
+          aria-pressed={visiblePanel === "typography"}
+          disabled={isAdvancedMode}
         >
-          Advanced
+          Type
+        </button>
+        <button
+          type="button"
+          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+            visiblePanel === "layout" ? "is-active" : ""
+          }`.trim()}
+          onClick={() => setActivePanel("layout")}
+          aria-pressed={visiblePanel === "layout"}
+          disabled={isAdvancedMode}
+        >
+          Layout
+        </button>
+        <button
+          type="button"
+          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+            visiblePanel === "customCss" ? "is-active" : ""
+          }`.trim()}
+          onClick={() => setActivePanel("customCss")}
+          aria-pressed={visiblePanel === "customCss"}
+        >
+          CSS
         </button>
       </div>
 
-      {styleMode === "advanced" ? (
+      {visiblePanel === "colors" && (
         <div className="builder-styles-card">
           <div className="section-header">
-            <h3>Advanced structure.css</h3>
-            <p>
-              Edit <code>src/styles/partials/structure.css</code> directly. This combined editor includes
-              tokens at the top, and <code>tokens.css</code> import is disabled in global styles while this
-              mode is active.
-            </p>
+            <h3>Colors</h3>
+            <p>Adjust key color tokens used across the site.</p>
           </div>
-          <textarea
-            className="code-block builder-advanced-css-block"
-            value={advancedStructureCss}
-            onChange={(event) => onAdvancedStructureCssChange(event.target.value)}
-            rows={24}
-          />
+          <div className="builder-styles-fields">
+            {colorFields.map((field) => {
+              const value = getCssVariableValue(tokensCss, field.variable, "");
+              return (
+                <div key={field.variable} className="builder-styles-field">
+                  <label>
+                    {field.label}
+                    <p className="builder-format-toolbar-note">{field.description}</p>
+                    <RgbaColorControls value={value} onChange={(next) => updateToken(field.variable, next)} />
+                  </label>
+                </div>
+              );
+            })}
+            <div className="builder-styles-field">
+              <label>
+                Border color
+                <p className="builder-format-toolbar-note">
+                  Border and divider color with transparency support.
+                </p>
+                <RgbaColorControls
+                  value={borderValue}
+                  defaultAlpha={0.12}
+                  onChange={(value) => updateToken("--border", value)}
+                />
+              </label>
+            </div>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {visiblePanel === "typography" && (
         <>
           <div className="builder-styles-font-status">
             <p className="builder-format-toolbar-note">
@@ -179,129 +228,125 @@ const BuilderStylesSection = ({
             </p>
           </div>
           {fontsError && <p className="builder-section-lock-note">{fontsError}</p>}
-
-          <div className="builder-styles-grid">
-            <div className="builder-styles-card">
-              <div className="section-header">
-                <h3>Colors</h3>
-                <p>Adjust key color tokens used across the site.</p>
-              </div>
-              <div className="builder-styles-fields">
-                {colorFields.map((field) => {
-                  const value = getCssVariableValue(tokensCss, field.variable, "");
-                  return (
-                    <div key={field.variable} className="builder-styles-field">
-                      <label>
-                        {field.label}
-                        <p className="builder-format-toolbar-note">{field.description}</p>
-                        <RgbaColorControls
-                          value={value}
-                          onChange={(next) => updateToken(field.variable, next)}
-                        />
-                      </label>
-                    </div>
-                  );
-                })}
-                <div className="builder-styles-field">
-                  <label>
-                    Border color
-                    <p className="builder-format-toolbar-note">
-                      Border and divider color with transparency support.
-                    </p>
-                    <RgbaColorControls
-                      value={borderValue}
-                      defaultAlpha={0.12}
-                      onChange={(value) => updateToken("--border", value)}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="builder-styles-card">
-              <div className="section-header">
-                <h3>Typography</h3>
-                <p>Choose primary and secondary fonts. Fallback stacks are applied automatically.</p>
-              </div>
-              <div className="builder-styles-fields">
-                <label>
-                  Primary font
-                  <p className="builder-format-toolbar-note">Used for body and content text.</p>
-                  <select
-                    value={selectedPrimaryFont}
-                    disabled={!hasAvailableFonts}
-                    onChange={(event) => updateToken("--font-sans", buildPrimaryFontStack(event.target.value))}
-                  >
-                    {!hasAvailableFonts && <option value="">No fonts available</option>}
-                    {availableFonts.map((fontName, index) => (
-                      <option key={`primary-${fontName}-${index}`} value={fontName}>
-                        {fontName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Secondary font
-                  <p className="builder-format-toolbar-note">Used for monospace/code text roles.</p>
-                  <select
-                    value={selectedSecondaryFont}
-                    disabled={!hasAvailableFonts}
-                    onChange={(event) => updateToken("--font-mono", buildSecondaryFontStack(event.target.value))}
-                  >
-                    {!hasAvailableFonts && <option value="">No fonts available</option>}
-                    {availableFonts.map((fontName, index) => (
-                      <option key={`secondary-${fontName}-${index}`} value={fontName}>
-                        {fontName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="builder-styles-card">
-              <div className="section-header">
-                <h3>Layout & spacing</h3>
-                <p>Tune container width and shared spacing tokens.</p>
-              </div>
-              <div className="builder-styles-fields">
-                {spacingFields.map((field) => (
-                  <label key={field.variable}>
-                    {field.label}
-                    <p className="builder-format-toolbar-note">{field.description}</p>
-                    <input
-                      value={getCssVariableValue(tokensCss, field.variable, "")}
-                      onChange={(event) => updateToken(field.variable, event.target.value)}
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
           <div className="builder-styles-card">
             <div className="section-header">
-              <h3>Custom CSS</h3>
-              <p>
-                Add extra CSS appended inside <code>tokens.css</code> after the default variable block.
-              </p>
+              <h3>Typography</h3>
+              <p>Choose primary and secondary fonts. Fallback stacks are applied automatically.</p>
             </div>
-            <CodeMirror
-              className="builder-styles-custom-css-editor"
-              value={customCss}
-              extensions={customCssEditorExtensions}
-              basicSetup={{
-                lineNumbers: true,
-                foldGutter: true,
-                highlightActiveLine: true,
-                autocompletion: true
-              }}
-              onChange={(value) => onTokensCssChange(setCustomCssInTokens(tokensCss, value))}
-              height="220px"
-              aria-label="Custom CSS"
-            />
+            <div className="builder-styles-fields">
+              <label>
+                Primary font
+                <p className="builder-format-toolbar-note">Used for body and content text.</p>
+                <select
+                  value={selectedPrimaryFont}
+                  disabled={!hasAvailableFonts}
+                  onChange={(event) => updateToken("--font-sans", buildPrimaryFontStack(event.target.value))}
+                >
+                  {!hasAvailableFonts && <option value="">No fonts available</option>}
+                  {availableFonts.map((fontName, index) => (
+                    <option key={`primary-${fontName}-${index}`} value={fontName}>
+                      {fontName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Secondary font
+                <p className="builder-format-toolbar-note">Used for monospace/code text roles.</p>
+                <select
+                  value={selectedSecondaryFont}
+                  disabled={!hasAvailableFonts}
+                  onChange={(event) => updateToken("--font-mono", buildSecondaryFontStack(event.target.value))}
+                >
+                  {!hasAvailableFonts && <option value="">No fonts available</option>}
+                  {availableFonts.map((fontName, index) => (
+                    <option key={`secondary-${fontName}-${index}`} value={fontName}>
+                      {fontName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
         </>
+      )}
+
+      {visiblePanel === "layout" && (
+        <div className="builder-styles-card">
+          <div className="section-header">
+            <h3>Layout & spacing</h3>
+            <p>Tune container width and shared spacing tokens.</p>
+          </div>
+          <div className="builder-styles-fields">
+            {spacingFields.map((field) => (
+              <label key={field.variable}>
+                {field.label}
+                <p className="builder-format-toolbar-note">{field.description}</p>
+                <input
+                  value={getCssVariableValue(tokensCss, field.variable, "")}
+                  onChange={(event) => updateToken(field.variable, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {visiblePanel === "customCss" && (
+        <div className="builder-styles-card">
+          <div className="section-header">
+            <h3>Custom CSS</h3>
+            <p>Add extra CSS appended inside <code>tokens.css</code> after the default variable block.</p>
+          </div>
+          <CodeMirror
+            className="builder-styles-custom-css-editor"
+            value={customCss}
+            extensions={customCssEditorExtensions}
+            basicSetup={{
+              lineNumbers: true,
+              foldGutter: true,
+              highlightActiveLine: true,
+              autocompletion: true
+            }}
+            onChange={(value) => onTokensCssChange(setCustomCssInTokens(tokensCss, value))}
+            height="220px"
+            aria-label="Custom CSS"
+          />
+          <div
+            className={`builder-styles-advanced-toggle-shell ${isAdvancedMode ? "is-enabled" : ""}`.trim()}
+          >
+            <label className="builder-styles-advanced-toggle">
+              <input
+                type="checkbox"
+                checked={isAdvancedMode}
+                onChange={(event) => onStyleModeChange(event.target.checked ? "advanced" : "simple")}
+              />
+              <span>Enable advanced mode</span>
+            </label>
+            <p className="builder-styles-advanced-warning">
+              Warning: Advanced mode requires you to edit all styles for the page and is intended for
+              advanced users.
+            </p>
+          </div>
+          {isAdvancedMode && (
+            <>
+              <div className="section-header">
+                <h3>Advanced structure.css</h3>
+                <p>
+                  Edit <code>src/styles/partials/structure.css</code> directly. This combined editor includes
+                  tokens at the top, and <code>tokens.css</code> import is disabled in global styles while
+                  this mode is active.
+                </p>
+              </div>
+              <textarea
+                className="code-block builder-advanced-css-block"
+                value={advancedStructureCss}
+                onChange={(event) => onAdvancedStructureCssChange(event.target.value)}
+                rows={24}
+              />
+            </>
+          )}
+        </div>
       )}
     </div>
   );
