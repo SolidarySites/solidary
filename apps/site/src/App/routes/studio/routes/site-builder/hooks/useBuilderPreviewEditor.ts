@@ -104,6 +104,23 @@ const resolveImageAspectRatio = async (blob: Blob): Promise<number | null> => {
   }
 };
 
+const readFileAsDataUrl = async (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string" && result.trim()) {
+        resolve(result);
+        return;
+      }
+      reject(new Error("Failed to read image preview data."));
+    };
+    reader.onerror = () => {
+      reject(new Error("Failed to read image preview data."));
+    };
+    reader.readAsDataURL(file);
+  });
+
 const buildProcessedVariants = async ({
   file,
   options
@@ -286,7 +303,7 @@ export const useBuilderPreviewEditor = ({
     const uniqueToken = createImageToken();
     const imageAspectRatio = await resolveImageAspectRatio(file);
 
-    const localPreviewUrl = URL.createObjectURL(file);
+    const localPreviewUrl = await readFileAsDataUrl(file);
     previewRef.current?.execCommand("insertImage", localPreviewUrl);
     if (imageAspectRatio) {
       previewRef.current?.setImageAspectRatioBySource(localPreviewUrl, imageAspectRatio);
@@ -381,8 +398,6 @@ export const useBuilderPreviewEditor = ({
         const message = caught instanceof Error ? caught.message : "Failed to upload image.";
         setNotice(message);
         setNoticeKind("error");
-      } finally {
-        URL.revokeObjectURL(localPreviewUrl);
       }
     })();
   };

@@ -358,7 +358,7 @@ export const useSiteBuilderRouteController = ({
       tokensCss,
       styleMode,
       advancedStructureCss,
-      baseStructureCss,
+      baseStructureCss: styleMode === "simple" ? structureTemplate : baseStructureCss,
       baseGlobalCss
     }),
     [advancedStructureCss, baseGlobalCss, baseStructureCss, styleMode, tokensCss]
@@ -837,6 +837,10 @@ export const useSiteBuilderRouteController = ({
     if (nextMode === "advanced" && !advancedStructureCss.trim()) {
       const structureSource = baseStructureCss.trim() || structureTemplate;
       setAdvancedStructureCss(combineTokensAndStructureCss(tokensCss, structureSource));
+      return;
+    }
+    if (nextMode === "simple") {
+      setBaseStructureCss(structureTemplate);
     }
   };
   const availableFontsForControls = availableFonts.length ? availableFonts : defaultAvailableFonts;

@@ -153,8 +153,14 @@ const BuilderPreviewPanel = ({
 
   useEffect(() => {
     if (!showStylesHoverInspector || isDraftLoading || Boolean(draftLoadError)) {
-      clearHoverInspector();
+      const frameId = window.requestAnimationFrame(() => {
+        clearHoverInspector();
+      });
+      return () => {
+        window.cancelAnimationFrame(frameId);
+      };
     }
+    return undefined;
   }, [clearHoverInspector, draftLoadError, isDraftLoading, showStylesHoverInspector]);
 
   const handleShellMouseMove = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {

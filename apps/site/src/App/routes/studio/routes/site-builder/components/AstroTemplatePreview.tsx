@@ -163,6 +163,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR = "--external-image-placeholder-height";
   var EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR = "--external-image-placeholder-width";
   var EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left";
+  var NON_PARAGRAPH_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,ul,ol,li,blockquote,pre,table,figure,section,article,header,footer,nav,main,aside";
+  var FORMAT_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote";
 
   function post(type, payload) {
     window.parent.postMessage(
@@ -868,6 +870,576 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     }
   }
 
+  function getNodeElement(node) {
+    if (!node) return null;
+    return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  }
+
+  function getTextOffsetWithinRangeContainer(container, range) {
+    var offsetRange = range.cloneRange();
+    offsetRange.selectNodeContents(container);
+    offsetRange.setEnd(range.endContainer, range.endOffset);
+    return offsetRange.toString().length;
+  }
+
+  function setCaretAtTextOffset(container, offset) {
+    var selection = window.getSelection();
+    if (!selection) return;
+
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    var remaining = Math.max(0, Number(offset) || 0);
+    var node = walker.nextNode();
+    while (node) {
+      var textLength = node.textContent ? node.textContent.length : 0;
+      if (remaining <= textLength) {
+        var range = document.createRange();
+        range.setStart(node, remaining);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      remaining -= textLength;
+      node = walker.nextNode();
+    }
+
+    var fallbackRange = document.createRange();
+    fallbackRange.selectNodeContents(container);
+    fallbackRange.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(fallbackRange);
+  }
+
+  function normalizeTypedLineDivToParagraph() {
+    if (!editorElement) return;
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    var activeRange = selection.getRangeAt(0);
+    var activeElement = getNodeElement(activeRange.startContainer);
+    if (!activeElement || !editorElement.contains(activeElement)) return;
+
+    var lineDiv = activeElement.closest("div");
+    if (!(lineDiv instanceof HTMLDivElement)) return;
+    if (lineDiv.parentElement !== editorElement) return;
+    if ((lineDiv.getAttribute("data-builder-image-align-wrapper") || "").trim() === "true") return;
+    if (!(lineDiv.textContent || "").trim()) return;
+    if (lineDiv.querySelector("img,video,svg,iframe,object,embed,canvas")) return;
+    if (lineDiv.querySelector(NON_PARAGRAPH_BLOCK_SELECTOR)) return;
+
+    var caretOffset = selection.isCollapsed
+      ? getTextOffsetWithinRangeContainer(lineDiv, activeRange)
+      : null;
+
+    var paragraph = document.createElement("p");
+    var attributes = Array.from(lineDiv.attributes);
+    for (var index = 0; index < attributes.length; index += 1) {
+      var attribute = attributes[index];
+      paragraph.setAttribute(attribute.name, attribute.value);
+    }
+
+    while (lineDiv.firstChild) {
+      paragraph.appendChild(lineDiv.firstChild);
+    }
+    lineDiv.replaceWith(paragraph);
+
+    if (caretOffset !== null) {
+      setCaretAtTextOffset(paragraph, caretOffset);
+    }
+  }
+
+  function findFigcaptionFromSelection() {
+    if (!editorElement) return null;
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+
+    var range = selection.getRangeAt(0);
+    var nodesToCheck = [range.commonAncestorContainer, range.startContainer, range.endContainer];
+    for (var index = 0; index < nodesToCheck.length; index += 1) {
+      var node = nodesToCheck[index];
+      if (!node) continue;
+      var element = node instanceof Element ? node : node.parentElement;
+      if (!element || !editorElement.contains(element)) continue;
+      var figcaption = element.closest("figcaption");
+      if (!(figcaption instanceof HTMLElement)) continue;
+      var figure = figcaption.closest("figure[data-builder-image-figure='true']");
+      if (figure instanceof HTMLElement) return figcaption;
+    }
+
+    return null;
+  }
+
+  function findFigureFromSelection() {
+    if (!editorElement) return null;
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+
+    var range = selection.getRangeAt(0);
+    var nodesToCheck = [range.commonAncestorContainer, range.startContainer, range.endContainer];
+    for (var index = 0; index < nodesToCheck.length; index += 1) {
+      var node = nodesToCheck[index];
+      if (!node) continue;
+      var element = node instanceof Element ? node : node.parentElement;
+      if (!element || !editorElement.contains(element)) continue;
+      var figure = element.closest("figure[data-builder-image-figure='true']");
+      if (figure instanceof HTMLElement) return figure;
+    }
+
+    return null;
+  }
+
+  function findImageFromSelection() {
+    if (!editorElement) return null;
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+
+    var range = selection.getRangeAt(0);
+    var nodesToCheck = [range.commonAncestorContainer, range.startContainer, range.endContainer];
+
+    for (var index = 0; index < nodesToCheck.length; index += 1) {
+      var node = nodesToCheck[index];
+      if (!node) continue;
+      var element = node instanceof Element ? node : node.parentElement;
+      if (!element || !editorElement.contains(element)) continue;
+
+      if (element instanceof HTMLImageElement) {
+        return element;
+      }
+
+      var imageFromWrapper = element
+        .closest("[data-builder-image-align-wrapper='true']")
+        ?.querySelector("img");
+      if (imageFromWrapper instanceof HTMLImageElement && editorElement.contains(imageFromWrapper)) {
+        return imageFromWrapper;
+      }
+
+      var nearestImage = element.closest("img");
+      if (nearestImage instanceof HTMLImageElement && editorElement.contains(nearestImage)) {
+        return nearestImage;
+      }
+    }
+
+    var editorImages = editorElement.querySelectorAll("img");
+    for (var imageIndex = 0; imageIndex < editorImages.length; imageIndex += 1) {
+      var candidate = editorImages[imageIndex];
+      try {
+        if (range.intersectsNode(candidate)) {
+          return candidate;
+        }
+      } catch {
+        // Ignore invalid range/image combinations.
+      }
+    }
+
+    return null;
+  }
+
+  function insertParagraphAfterFigure(figure) {
+    if (!(figure instanceof HTMLElement)) return false;
+
+    var paragraph = document.createElement("p");
+    paragraph.appendChild(document.createElement("br"));
+    figure.insertAdjacentElement("afterend", paragraph);
+    setCaretAtTextOffset(paragraph, 0);
+
+    clearSelectedImage();
+    emitBodyChange();
+    captureSelection();
+    return true;
+  }
+
+  function insertParagraphBeforeFigure(figure) {
+    if (!(figure instanceof HTMLElement)) return false;
+
+    var paragraph = document.createElement("p");
+    paragraph.appendChild(document.createElement("br"));
+    figure.insertAdjacentElement("beforebegin", paragraph);
+    setCaretAtTextOffset(paragraph, 0);
+
+    clearSelectedImage();
+    emitBodyChange();
+    captureSelection();
+    return true;
+  }
+
+  function getCollapsedSelectionRange() {
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return null;
+    return selection.getRangeAt(0);
+  }
+
+  function isCaretBeforeFigure(figure) {
+    if (!(figure instanceof HTMLElement)) return false;
+    var range = getCollapsedSelectionRange();
+    if (!range) return false;
+
+    var container = range.startContainer;
+    var offset = range.startOffset;
+    var parent = figure.parentNode;
+
+    if (parent && container === parent) {
+      return parent.childNodes[offset] === figure;
+    }
+
+    if (container === figure) {
+      return offset === 0;
+    }
+
+    return false;
+  }
+
+  function getNodeBeforeCaretPosition(container, offset) {
+    if (!editorElement) return null;
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      if (offset > 0) return null;
+
+      var textNode = container;
+      while (textNode && textNode !== editorElement) {
+        if (textNode.previousSibling) return textNode.previousSibling;
+        textNode = textNode.parentNode;
+      }
+      return null;
+    }
+
+    if (container.nodeType === Node.ELEMENT_NODE) {
+      if (offset > 0 && container.childNodes[offset - 1]) {
+        return container.childNodes[offset - 1];
+      }
+
+      var elementNode = container;
+      while (elementNode && elementNode !== editorElement) {
+        if (elementNode.previousSibling) return elementNode.previousSibling;
+        elementNode = elementNode.parentNode;
+      }
+    }
+
+    return null;
+  }
+
+  function getNodeAfterCaretPosition(container, offset) {
+    if (!editorElement) return null;
+
+    if (container.nodeType === Node.TEXT_NODE) {
+      var textContentLength = container.textContent ? container.textContent.length : 0;
+      if (offset < textContentLength) return null;
+
+      var textNode = container;
+      while (textNode && textNode !== editorElement) {
+        if (textNode.nextSibling) return textNode.nextSibling;
+        textNode = textNode.parentNode;
+      }
+      return null;
+    }
+
+    if (container.nodeType === Node.ELEMENT_NODE) {
+      if (offset < container.childNodes.length && container.childNodes[offset]) {
+        return container.childNodes[offset];
+      }
+
+      var elementNode = container;
+      while (elementNode && elementNode !== editorElement) {
+        if (elementNode.nextSibling) return elementNode.nextSibling;
+        elementNode = elementNode.parentNode;
+      }
+    }
+
+    return null;
+  }
+
+  function resolveFigureFromNode(node) {
+    if (!(node instanceof Node)) return null;
+
+    if (node instanceof HTMLElement && node.matches("figure[data-builder-image-figure='true']")) {
+      return node;
+    }
+
+    if (node instanceof Element) {
+      var closestFigure = node.closest("figure[data-builder-image-figure='true']");
+      if (closestFigure instanceof HTMLElement) return closestFigure;
+    }
+
+    if (node instanceof Element) {
+      var nestedFigure = node.querySelector("figure[data-builder-image-figure='true']");
+      if (nestedFigure instanceof HTMLElement) return nestedFigure;
+    }
+
+    return null;
+  }
+
+  function findAdjacentFigureFromCaret(direction) {
+    var range = getCollapsedSelectionRange();
+    if (!range) return null;
+
+    var referenceNode =
+      direction === "backward"
+        ? getNodeBeforeCaretPosition(range.startContainer, range.startOffset)
+        : getNodeAfterCaretPosition(range.startContainer, range.startOffset);
+
+    return resolveFigureFromNode(referenceNode);
+  }
+
+  function ensureEditorHasParagraphWhenEmpty() {
+    if (!editorElement) return;
+    var hasMeaningfulContent = (editorElement.textContent || "").trim().length > 0 || editorElement.querySelector("img,figure,table,ul,ol,blockquote,pre");
+    if (hasMeaningfulContent) return;
+
+    if (editorElement.childNodes.length > 0) return;
+
+    var paragraph = document.createElement("p");
+    paragraph.appendChild(document.createElement("br"));
+    editorElement.appendChild(paragraph);
+    setCaretAtTextOffset(paragraph, 0);
+  }
+
+  function deleteNodeWithUndo(node) {
+    if (!(node instanceof Node)) return false;
+
+    var selection = window.getSelection();
+    if (!selection) return false;
+
+    var range = document.createRange();
+    try {
+      range.selectNode(node);
+    } catch {
+      return false;
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    try {
+      var deleted = document.execCommand("delete", false);
+      if (deleted) {
+        return true;
+      }
+    } catch {
+      // Fall through to manual removal.
+    }
+
+    if (node.parentNode) {
+      node.parentNode.removeChild(node);
+      return true;
+    }
+
+    return false;
+  }
+
+  function deleteRangeWithUndo(range) {
+    if (!(range instanceof Range)) return false;
+    var selection = window.getSelection();
+    if (!selection) return false;
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    try {
+      var deleted = document.execCommand("delete", false);
+      if (deleted) return true;
+    } catch {
+      // Fall through to manual deletion.
+    }
+
+    try {
+      range.deleteContents();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function isIgnorableFigureElement(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    var tagName = element.tagName.toLowerCase();
+
+    if (tagName === "img") return true;
+
+    if (tagName === "figcaption") {
+      var captionText = (element.textContent || "").replace(/\u200B/g, "").trim();
+      var hasNonBreakChild = Array.from(element.querySelectorAll("*")).some(function (child) {
+        return child.tagName.toLowerCase() !== "br";
+      });
+      return !captionText && !hasNonBreakChild;
+    }
+
+    if ((element.getAttribute("data-builder-image-align-wrapper") || "").trim() === "true") {
+      var wrapperText = (element.textContent || "").replace(/\u200B/g, "").trim();
+      var hasNonImageDescendant = Array.from(element.querySelectorAll("*")).some(function (child) {
+        return child.tagName.toLowerCase() !== "img";
+      });
+      return !wrapperText && !hasNonImageDescendant;
+    }
+
+    var elementText = (element.textContent || "").replace(/\u200B/g, "").trim();
+    var hasMeaningfulMedia = Boolean(
+      element.querySelector("img,video,svg,iframe,object,embed,canvas,table,ul,ol,li,blockquote,pre,figure")
+    );
+    var childElements = Array.from(element.children).filter(function (child) {
+      return child.tagName.toLowerCase() !== "br";
+    });
+    if (!elementText && !hasMeaningfulMedia && childElements.length === 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function findFigureInnerDeletableTarget(figure, direction) {
+    if (!(figure instanceof HTMLElement)) return null;
+
+    var walker = document.createTreeWalker(figure, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    var textCandidates = [];
+    var elementCandidates = [];
+    var node = walker.nextNode();
+
+    while (node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        if ((node.textContent || "").replace(/\u200B/g, "").trim()) {
+          textCandidates.push(node);
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE && node instanceof HTMLElement) {
+        if (!isIgnorableFigureElement(node)) {
+          elementCandidates.push(node);
+        }
+      }
+
+      node = walker.nextNode();
+    }
+
+    if (textCandidates.length > 0) {
+      return direction === "forward"
+        ? textCandidates[0]
+        : textCandidates[textCandidates.length - 1];
+    }
+
+    if (elementCandidates.length > 0) {
+      return direction === "forward"
+        ? elementCandidates[0]
+        : elementCandidates[elementCandidates.length - 1];
+    }
+
+    return null;
+  }
+
+  function deleteFigureInnerContent(figure, direction) {
+    var target = findFigureInnerDeletableTarget(figure, direction);
+    if (!(target instanceof Node)) return false;
+
+    var deleted = false;
+    if (target.nodeType === Node.TEXT_NODE) {
+      var textValue = target.textContent || "";
+      if (!textValue.length) return false;
+      var textRange = document.createRange();
+      if (direction === "forward") {
+        textRange.setStart(target, 0);
+        textRange.setEnd(target, 1);
+      } else {
+        textRange.setStart(target, Math.max(0, textValue.length - 1));
+        textRange.setEnd(target, textValue.length);
+      }
+      deleted = deleteRangeWithUndo(textRange);
+    } else {
+      deleted = deleteNodeWithUndo(target);
+    }
+
+    if (!deleted) return false;
+
+    ensureEditorHasParagraphWhenEmpty();
+    clearSelectedImage();
+    normalizeTypedLineDivToParagraph();
+    emitBodyChange();
+    captureSelection();
+    return true;
+  }
+
+  function deleteFigureContentOrFigure(figure, direction) {
+    if (!(figure instanceof HTMLElement)) return false;
+    if (deleteFigureInnerContent(figure, direction)) return true;
+    return deleteFigureElement(figure);
+  }
+
+  function deleteFigureElement(figure) {
+    if (!(figure instanceof HTMLElement)) return false;
+    if (!deleteNodeWithUndo(figure)) return false;
+
+    ensureEditorHasParagraphWhenEmpty();
+    clearSelectedImage();
+    normalizeTypedLineDivToParagraph();
+    emitBodyChange();
+    captureSelection();
+    return true;
+  }
+
+  function deleteImageElement(image) {
+    if (!(image instanceof HTMLImageElement)) return false;
+    if (!deleteNodeWithUndo(image)) return false;
+
+    ensureEditorHasParagraphWhenEmpty();
+    clearSelectedImage();
+    normalizeTypedLineDivToParagraph();
+    emitBodyChange();
+    captureSelection();
+    return true;
+  }
+
+  function normalizeFormatBlockTag(value) {
+    if (typeof value !== "string") return "";
+    var normalized = value.trim().toLowerCase();
+    if (!normalized) return "";
+    if (normalized.startsWith("<") && normalized.endsWith(">")) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+    if (!normalized) return "";
+    return normalized;
+  }
+
+  function applyFormatBlockBySelection(tagName) {
+    if (!editorElement) return false;
+    if (!tagName || !/^(p|h1|h2|h3|h4|h5|h6|blockquote)$/.test(tagName)) return false;
+
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
+
+    var range = selection.getRangeAt(0);
+    var commonAncestor =
+      range.commonAncestorContainer && range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+    if (!isElementInEditor(commonAncestor)) return false;
+
+    var allBlocks = editorElement.querySelectorAll(FORMAT_BLOCK_SELECTOR);
+    var blocks = [];
+    for (var index = 0; index < allBlocks.length; index += 1) {
+      var block = allBlocks[index];
+      try {
+        if (!range.intersectsNode(block)) continue;
+      } catch {
+        continue;
+      }
+      blocks.push(block);
+    }
+
+    if (blocks.length === 0) return false;
+
+    for (var blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
+      var blockToFormat = blocks[blockIndex];
+      if (!(blockToFormat instanceof HTMLElement)) continue;
+      if (blockToFormat.tagName.toLowerCase() === tagName) continue;
+
+      var replacement = document.createElement(tagName);
+      var className = (blockToFormat.getAttribute("class") || "").trim();
+      var styleValue = (blockToFormat.getAttribute("style") || "").trim();
+      if (className) replacement.setAttribute("class", className);
+      if (styleValue) replacement.setAttribute("style", styleValue);
+
+      while (blockToFormat.firstChild) {
+        replacement.appendChild(blockToFormat.firstChild);
+      }
+      blockToFormat.replaceWith(replacement);
+    }
+
+    return true;
+  }
+
   function emitBodyChange() {
     if (!state || !editorElement) return;
     post("page-body-change", {
@@ -1024,6 +1596,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     if (editorElement) {
       editorElement.addEventListener("input", function () {
         if (!state || !state.editable) return;
+        normalizeTypedLineDivToParagraph();
         emitBodyChange();
         captureSelection();
       });
@@ -1055,27 +1628,66 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
       editorElement.addEventListener("keydown", function (event) {
         if (!state || !state.editable) return;
-        if (event.key !== "Backspace" && event.key !== "Delete") return;
-        if (!selectedImageId) return;
+        if (event.isComposing) return;
 
-        var selectedImage = getSelectedImageElement();
-        if (!(selectedImage instanceof HTMLImageElement)) return;
+        if (event.key === "Enter" && !event.shiftKey) {
+          var figcaption = findFigcaptionFromSelection();
+          if (figcaption instanceof HTMLElement) {
+            var figcaptionFigure = figcaption.closest("figure[data-builder-image-figure='true']");
+            if (figcaptionFigure instanceof HTMLElement) {
+              event.preventDefault();
+              insertParagraphAfterFigure(figcaptionFigure);
+              return;
+            }
+          }
 
-        var figure = selectedImage.closest("figure[data-builder-image-figure='true']");
-        if (figure instanceof HTMLElement) {
+          var figureFromSelection = findFigureFromSelection();
+          if (figureFromSelection instanceof HTMLElement) {
+            event.preventDefault();
+            if (isCaretBeforeFigure(figureFromSelection)) {
+              insertParagraphBeforeFigure(figureFromSelection);
+            } else {
+              insertParagraphAfterFigure(figureFromSelection);
+            }
+            return;
+          }
+
           event.preventDefault();
-          var placeholderParagraph = document.createElement("p");
-          placeholderParagraph.appendChild(document.createElement("br"));
-          figure.insertAdjacentElement("afterend", placeholderParagraph);
-          figure.remove();
-          clearSelectedImage();
+          document.execCommand("insertParagraph", false);
+          normalizeTypedLineDivToParagraph();
           emitBodyChange();
+          captureSelection();
           return;
         }
 
-        selectedImage.remove();
-        clearSelectedImage();
-        emitBodyChange();
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
+
+        var selectedImage = getSelectedImageElement();
+        if (!(selectedImage instanceof HTMLImageElement)) {
+          selectedImage = findImageFromSelection();
+        }
+        if (!(selectedImage instanceof HTMLImageElement)) {
+          var deleteDirection = event.key === "Backspace" ? "backward" : "forward";
+          var adjacentFigure = findAdjacentFigureFromCaret(
+            deleteDirection
+          );
+          if (!(adjacentFigure instanceof HTMLElement)) return;
+
+          event.preventDefault();
+          deleteFigureContentOrFigure(adjacentFigure, deleteDirection);
+          return;
+        }
+
+        var figure = selectedImage.closest("figure[data-builder-image-figure='true']");
+        event.preventDefault();
+
+        if (figure instanceof HTMLElement) {
+          var selectedDeleteDirection = event.key === "Backspace" ? "backward" : "forward";
+          deleteFigureContentOrFigure(figure, selectedDeleteDirection);
+          return;
+        }
+
+        deleteImageElement(selectedImage);
       });
 
       ensureExternalImageObserver();
@@ -1162,10 +1774,30 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       document.execCommand("unlink", false);
       document.execCommand("formatBlock", false, "p");
       document.execCommand("justifyLeft", false);
-    } else {
-      document.execCommand(command, false, value);
+      normalizeTypedLineDivToParagraph();
+      emitBodyChange();
+      captureSelection();
+      return;
     }
 
+    if (command === "formatBlock") {
+      var normalizedTag = normalizeFormatBlockTag(value);
+      if (normalizedTag && applyFormatBlockBySelection(normalizedTag)) {
+        normalizeTypedLineDivToParagraph();
+        emitBodyChange();
+        captureSelection();
+        return;
+      }
+
+      document.execCommand("formatBlock", false, normalizedTag || value);
+      normalizeTypedLineDivToParagraph();
+      emitBodyChange();
+      captureSelection();
+      return;
+    }
+
+    document.execCommand(command, false, value);
+    normalizeTypedLineDivToParagraph();
     emitBodyChange();
     captureSelection();
   }
