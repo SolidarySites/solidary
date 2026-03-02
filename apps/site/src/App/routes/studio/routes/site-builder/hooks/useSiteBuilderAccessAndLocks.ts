@@ -34,9 +34,6 @@ type UseSiteBuilderAccessAndLocksParams = {
   siteAccessRole: SiteAccessRole | null;
   draftState: DraftState | null;
   sessionUserId: string | null;
-  shouldLoadDraft: boolean;
-  isDraftLoading: boolean;
-  draftLoadError: string | null;
 };
 
 export type SiteBuilderAccessAndLocksState = {
@@ -59,7 +56,6 @@ export type SiteBuilderAccessAndLocksState = {
   } | null;
   metadataLockedByOther: boolean;
   showMetadataFullView: boolean;
-  previewReadOnlyMessage: string | null;
 };
 
 export const useSiteBuilderAccessAndLocks = ({
@@ -71,10 +67,7 @@ export const useSiteBuilderAccessAndLocks = ({
   sectionLocks,
   siteAccessRole,
   draftState,
-  sessionUserId,
-  shouldLoadDraft,
-  isDraftLoading,
-  draftLoadError
+  sessionUserId
 }: UseSiteBuilderAccessAndLocksParams): SiteBuilderAccessAndLocksState => {
   const isOwner = siteAccessRole === "owner";
   const isOwnerOnOwnerDraft = isOwner && draftState?.draftType === "owner";
@@ -170,35 +163,6 @@ export const useSiteBuilderAccessAndLocks = ({
   const metadataLockedByOther = Boolean(metadataLock && metadataLock.userId !== sessionUserId);
   const showMetadataFullView = activeSection === "content" && Boolean(isOwnerOnOwnerDraft);
 
-  const previewReadOnlyMessage = useMemo(() => {
-    if (shouldLoadDraft && isDraftLoading) return null;
-    if (draftLoadError) return null;
-    if (!canEditDraft) return "This draft is read-only for your current role.";
-    if (activeSection !== "settings" || activeSettingsSection !== "pages") {
-      return "Open Pages to edit content in the live preview.";
-    }
-    if (!isPageEditingMode) {
-      return "Select a page in the sidebar to start editing content.";
-    }
-    if (activePageLockedByOther) {
-      return `${
-        activePageLock?.holderName ?? "Another collaborator"
-      } is editing page "${normalizePageSlug(activePreviewSlug) || "home"}" right now.`;
-    }
-    return null;
-  }, [
-    activePageLock?.holderName,
-    activePageLockedByOther,
-    activePreviewSlug,
-    activeSection,
-    activeSettingsSection,
-    isPageEditingMode,
-    canEditDraft,
-    draftLoadError,
-    isDraftLoading,
-    shouldLoadDraft
-  ]);
-
   return {
     isOwnerOnOwnerDraft,
     canEditDraft,
@@ -215,7 +179,6 @@ export const useSiteBuilderAccessAndLocks = ({
     canEditPageContent,
     metadataLock,
     metadataLockedByOther,
-    showMetadataFullView,
-    previewReadOnlyMessage
+    showMetadataFullView
   };
 };

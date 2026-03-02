@@ -26,11 +26,11 @@ type BuilderPreviewPanelProps = {
   draftLoadError: string | null;
   canEditContent: boolean;
   showStylesHoverInspector: boolean;
-  readOnlyMessage?: string | null;
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
   previewBrand: string;
   pages: BuilderPage[];
   draftImages: DraftImageAsset[];
+  repoFontsCss: string;
   tokensCss: string;
   styleMode: BuilderStylesMode;
   advancedStructureCss: string;
@@ -38,6 +38,7 @@ type BuilderPreviewPanelProps = {
   homeFallbackBody: string;
   activePreviewSlug: string;
   publishedSiteBaseUrl: string | null;
+  previewAssetBaseUrl: string | null;
   header: HeaderOptions;
   footer: FooterOptions;
   onActivePreviewSlugChange: (slug: string) => void;
@@ -106,11 +107,11 @@ const BuilderPreviewPanel = ({
   draftLoadError,
   canEditContent,
   showStylesHoverInspector,
-  readOnlyMessage,
   previewRef,
   previewBrand,
   pages,
   draftImages,
+  repoFontsCss,
   tokensCss,
   styleMode,
   advancedStructureCss,
@@ -118,6 +119,7 @@ const BuilderPreviewPanel = ({
   homeFallbackBody,
   activePreviewSlug,
   publishedSiteBaseUrl,
+  previewAssetBaseUrl,
   header,
   footer,
   onActivePreviewSlugChange,
@@ -268,10 +270,6 @@ const BuilderPreviewPanel = ({
       onMouseLeave={showStylesHoverInspector ? clearHoverInspector : undefined}
     >
       <section className="builder-panel">
-        {!isDraftLoading && !draftLoadError && readOnlyMessage && (
-          <div className="builder-preview-readonly-note">{readOnlyMessage}</div>
-        )}
-
         {shouldLoadDraft && isDraftLoading && (
           <div className="provisioning">
             <div className="spinner" />
@@ -294,6 +292,7 @@ const BuilderPreviewPanel = ({
             previewBrand={previewBrand}
             pages={pages}
             draftImages={draftImages}
+            repoFontsCss={repoFontsCss}
             tokensCss={tokensCss}
             styleMode={styleMode}
             advancedStructureCss={advancedStructureCss}
@@ -301,6 +300,7 @@ const BuilderPreviewPanel = ({
             homeFallbackBody={homeFallbackBody}
             activePageSlug={activePreviewSlug}
             publishedSiteBaseUrl={publishedSiteBaseUrl}
+            previewAssetBaseUrl={previewAssetBaseUrl}
             header={header}
             footer={footer}
             onActivePageChange={onActivePreviewSlugChange}

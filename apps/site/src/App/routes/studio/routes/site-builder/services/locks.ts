@@ -41,6 +41,7 @@ export const getEditableSectionFromUi = (
   if (section === "content") return "metadata";
   if (section !== "settings") return null;
   if (settingsSection === "pages" && !pageEditingMode) return null;
+  if (settingsSection === "media") return "styles";
   return settingsSection;
 };
 
@@ -101,6 +102,7 @@ export const getLockKeyFromUi = (
   if (section !== "settings") return null;
   if (settingsSection === "pages" && !pageEditingMode) return null;
   if (settingsSection === "pages") return getPageLockKeyForSlug(pages, activePageSlug);
+  if (settingsSection === "media") return "styles";
   return settingsSection;
 };
 

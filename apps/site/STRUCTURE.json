@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-02T00:26:27.593Z",
-  "latest_commit_sha": "e036f4eaf6385023c5cb6c20673260d4c88d26b1",
+  "generated_at": "2026-03-02T15:33:24.829Z",
+  "latest_commit_sha": "b2f15731157fe9da8d91772cb075496ded82b1da",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -169,12 +169,12 @@
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.test.ts",
                             "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
-                            "LOC": 65
+                            "LOC": 67
                           },
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.ts",
                             "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-                            "LOC": 39
+                            "LOC": 41
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.test.ts",
@@ -193,7 +193,7 @@
                       {
                         "path": "src/App/features/site-draft/types.ts",
                         "description": "Shared draft content contracts (`RepoFileSet`, `AstroSettings`, `AstroPageDraft`, header/footer shapes) reused by create, studio, and builder flows.",
-                        "LOC": 34
+                        "LOC": 35
                       }
                     ]
                   }
@@ -496,7 +496,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 247
+                            "LOC": 248
                           }
                         ]
                       },
@@ -522,7 +522,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
                                 "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-                                "LOC": 228
+                                "LOC": 229
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/types.ts",
@@ -617,7 +617,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/AstroPreviewEditableSurface.tsx",
                                         "description": "Contenteditable preview surface that syncs page body HTML, preserves selection, and manages inline image editing state/metadata.",
-                                        "LOC": 962
+                                        "LOC": 964
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/AstroPreviewLayout.tsx",
@@ -652,7 +652,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/types.ts",
                                         "description": "Type contracts for preview page data, editor imperative handles, selected image state, and footer/nav render segments.",
-                                        "LOC": 79
+                                        "LOC": 93
                                       }
                                     ]
                                   }
@@ -661,7 +661,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
                                     "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 220
+                                    "LOC": 3054
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
@@ -686,27 +686,32 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderImageSettingsPanel.tsx",
                                     "description": "Inspector panel for the currently selected preview image (alt text, caption, and size controls).",
-                                    "LOC": 68
+                                    "LOC": 78
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderMediaSection.tsx",
+                                    "description": "Media manager section UI with lazy-loaded folder tree browsing, grouped image assets (thumbnail + metadata/actions), usage hints, and font upload/remove controls.",
+                                    "LOC": 388
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPagesSection.tsx",
                                     "description": "Sidebar pages manager for creating/selecting pages and editing page title/slug metadata.",
-                                    "LOC": 135
+                                    "LOC": 343
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
                                     "description": "Preview panel wrapper that hosts the Astro preview surface and page editor toolbar/read-only notices.",
-                                    "LOC": 107
+                                    "LOC": 332
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
                                     "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
-                                    "LOC": 473
+                                    "LOC": 600
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
                                     "description": "Section editor for custom design-token CSS used by the preview and publish output.",
-                                    "LOC": 298
+                                    "LOC": 310
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderToolbarIcons.tsx",
@@ -738,17 +743,17 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPageEditing.ts",
                                     "description": "Page/content mutation hook for title/slug/body changes plus header/footer ordering helpers.",
-                                    "LOC": 212
+                                    "LOC": 223
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
                                     "description": "Preview editing hook handling command execution, selection tracking, and inline image upload/edit behavior.",
-                                    "LOC": 404
+                                    "LOC": 445
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
                                     "description": "Navigation hook that coordinates section/page switches with lock handling and save-on-transition safeguards.",
-                                    "LOC": 208
+                                    "LOC": 209
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.types.ts",
@@ -773,7 +778,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderAccessAndLocks.ts",
                                     "description": "Derived-state hook that computes edit/publish permissions, read-only messages, and lock visibility flags.",
-                                    "LOC": 221
+                                    "LOC": 184
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
@@ -783,7 +788,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 1694
+                                    "LOC": 2566
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -843,7 +848,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 85
+                                    "LOC": 100
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
@@ -866,24 +871,39 @@
                                     "LOC": 24
                                   },
                                   {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
+                                    "description": "Unit tests for draft utility helpers, including page-row serialization and save-signature generation with embedded page JavaScript.",
+                                    "LOC": 64
+                                  },
+                                  {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.ts",
                                     "description": "Draft normalization/signature/url utility helpers reused across builder load/save/publish logic.",
-                                    "LOC": 158
+                                    "LOC": 161
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 367
+                                    "LOC": 368
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
                                     "description": "Unit tests for section/page/settings lock-key parsing, validation, and label helpers.",
-                                    "LOC": 60
+                                    "LOC": 68
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.ts",
                                     "description": "Lock-key utilities for editable sections/pages/settings plus user-facing lock label helpers.",
-                                    "LOC": 119
+                                    "LOC": 121
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/media-repo.test.ts",
+                                    "description": "Unit tests for media-repo helpers covering image variant grouping/tree structure and font-face descriptor/block generation.",
+                                    "LOC": 114
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/media-repo.ts",
+                                    "description": "Repository media service layer for listing folders/assets, grouping image variants, protecting reserved image names, inspecting uploaded fonts via fontkit, and managing @font-face CSS helpers.",
+                                    "LOC": 723
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/publish-draft.ts",
@@ -972,7 +992,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1347
+                                "LOC": 1678
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -1224,17 +1244,17 @@
                       {
                         "path": "src/templates/astro/runtime/pages-index.astro.txt",
                         "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-                        "LOC": 27
+                        "LOC": 31
                       },
                       {
                         "path": "src/templates/astro/runtime/pages-slug.astro.txt",
                         "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-                        "LOC": 29
+                        "LOC": 32
                       },
                       {
                         "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
                         "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
-                        "LOC": 102
+                        "LOC": 103
                       },
                       {
                         "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
@@ -1258,7 +1278,7 @@
                   {
                     "path": "src/templates/astro/page.md",
                     "description": "Parameterized markdown page template used when creating draft-backed content pages.",
-                    "LOC": 8
+                    "LOC": 9
                   },
                   {
                     "path": "src/templates/astro/runtime-files.ts",
@@ -1284,6 +1304,18 @@
               }
             ],
             "files": []
+          },
+          {
+            "path": "src/types",
+            "description": "App-level ambient type declarations for third-party modules without bundled TypeScript definitions.",
+            "directories": [],
+            "files": [
+              {
+                "path": "src/types/fontkit.d.ts",
+                "description": "Ambient module declaration for `fontkit` exposing the `create` entrypoint used by builder-side font inspection.",
+                "LOC": 3
+              }
+            ]
           }
         ],
         "files": [
@@ -1334,7 +1366,7 @@
       {
         "path": "package.json",
         "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-        "LOC": 42
+        "LOC": 46
       },
       {
         "path": "README.md",
@@ -1344,7 +1376,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1371
+        "LOC": 1403
       },
       {
         "path": "tsconfig.app.json",

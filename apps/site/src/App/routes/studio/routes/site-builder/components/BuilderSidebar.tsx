@@ -3,8 +3,10 @@ import BuilderFooterSection from "./BuilderFooterSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
 import LockAvatarPill from "./LockAvatarPill";
 import BuilderPagesSection from "./BuilderPagesSection";
+import BuilderMediaSection from "./BuilderMediaSection";
 import BuilderStylesSection from "./BuilderStylesSection";
 import type { PreviewSelectedElement, PreviewSelectedImage } from "./AstroTemplatePreview";
+import type { RepoImageObject, RepoMediaFileEntry } from "../services/media-repo";
 import type { PublishFeedback, SiteAccessRole } from "../services/types";
 import type {
   BuilderEditableSectionKey,
@@ -22,6 +24,16 @@ type BuilderSectionLock = {
 };
 
 type PublishMode = "direct" | "pull_request";
+
+type MediaFolderNode = {
+  path: string;
+  name: string;
+  folders: Array<{ name: string; path: string }>;
+  images: RepoImageObject[];
+  loaded: boolean;
+  loading: boolean;
+  error: string | null;
+};
 
 type BuilderSidebarProps = {
   activeSection: BuilderSection;
@@ -48,6 +60,22 @@ type BuilderSidebarProps = {
   availableFonts: string[];
   fontsLoading: boolean;
   fontsError: string | null;
+  mediaWarning: string | null;
+  mediaError: string | null;
+  mediaLoading: boolean;
+  mediaCanonicalBaseUrl: string | null;
+  mediaRootFolderNode: MediaFolderNode | null;
+  mediaFolderNodes: Record<string, MediaFolderNode>;
+  mediaImageUsageByKey: Record<string, Array<{ slug: string; title: string }>>;
+  repoFontAssets: RepoMediaFileEntry[];
+  selectedMediaImageFileNames: string[];
+  mediaUploadingImages: boolean;
+  mediaRemovingImageKey: string | null;
+  mediaRenamingImageKey: string | null;
+  selectedMediaFontFileName: string;
+  mediaFontFamilyName: string;
+  mediaUploadingFont: boolean;
+  mediaRemovingFontPath: string | null;
   headerDisabled: boolean;
   headerFixed: boolean;
   headerBrandText: string;
@@ -74,6 +102,16 @@ type BuilderSidebarProps = {
   onTokensCssChange: (value: string) => void;
   onStyleModeChange: (value: BuilderStylesMode) => void;
   onAdvancedStructureCssChange: (value: string) => void;
+  onRefreshMediaAssets: () => void;
+  onEnsureMediaFolderLoaded: (folderPath: string, folderName: string) => void;
+  onImageFilesChange: (files: File[]) => void;
+  onUploadImages: () => void;
+  onRemoveImageObject: (imageObject: RepoImageObject) => void;
+  onRenameImageObject: (imageObject: RepoImageObject, nextTitle: string) => void;
+  onMediaFontFileChange: (file: File | null) => void;
+  onMediaFontFamilyNameChange: (value: string) => void;
+  onUploadMediaFont: () => void;
+  onRemoveMediaFont: (entry: RepoMediaFileEntry) => void;
   onHeaderDisabledChange: (value: boolean) => void;
   onHeaderFixedChange: (value: boolean) => void;
   onHeaderBrandTextChange: (value: string) => void;
@@ -120,6 +158,22 @@ const BuilderSidebar = ({
   availableFonts,
   fontsLoading,
   fontsError,
+  mediaWarning,
+  mediaError,
+  mediaLoading,
+  mediaCanonicalBaseUrl,
+  mediaRootFolderNode,
+  mediaFolderNodes,
+  mediaImageUsageByKey,
+  repoFontAssets,
+  selectedMediaImageFileNames,
+  mediaUploadingImages,
+  mediaRemovingImageKey,
+  mediaRenamingImageKey,
+  selectedMediaFontFileName,
+  mediaFontFamilyName,
+  mediaUploadingFont,
+  mediaRemovingFontPath,
   headerDisabled,
   headerFixed,
   headerBrandText,
@@ -143,6 +197,16 @@ const BuilderSidebar = ({
   onTokensCssChange,
   onStyleModeChange,
   onAdvancedStructureCssChange,
+  onRefreshMediaAssets,
+  onEnsureMediaFolderLoaded,
+  onImageFilesChange,
+  onUploadImages,
+  onRemoveImageObject,
+  onRenameImageObject,
+  onMediaFontFileChange,
+  onMediaFontFamilyNameChange,
+  onUploadMediaFont,
+  onRemoveMediaFont,
   onHeaderDisabledChange,
   onHeaderFixedChange,
   onHeaderBrandTextChange,
@@ -170,9 +234,12 @@ const BuilderSidebar = ({
   const footerLockedByOther = Boolean(footerLock && !footerLock.isSelf);
   const stylesLock = sectionLocks.styles;
   const stylesLockedByOther = Boolean(stylesLock && !stylesLock.isSelf);
+  const mediaLock = sectionLocks.styles;
+  const mediaLockedByOther = Boolean(mediaLock && !mediaLock.isSelf);
   const pagesLock = sectionLocks.pages;
   const pagesLockedByOther = Boolean(pagesLock && !pagesLock.isSelf);
-  const activeSettingsLock = sectionLocks[activeSettingsSection];
+  const activeSettingsLock =
+    activeSettingsSection === "media" ? sectionLocks.styles : sectionLocks[activeSettingsSection];
   const activeSettingsLockedByOther = Boolean(activeSettingsLock && !activeSettingsLock.isSelf);
   const canEditPageJavaScript = accessRole === "owner" || accessRole === "admin";
   const inMainMenu = activeSection === "menu";
@@ -300,6 +367,21 @@ const BuilderSidebar = ({
                   />
                 )}
               </div>
+              <div className="builder-sidebar-nav-item">
+                <button
+                  className={`ghost ${mediaLockedByOther ? "is-locked" : ""}`.trim()}
+                  onClick={() => onSettingsSectionChange("media")}
+                  disabled={mediaLockedByOther && activeSettingsSection !== "media"}
+                >
+                  <span className="builder-section-nav-label">Media</span>
+                </button>
+                {mediaLock && !mediaLock.isSelf && (
+                  <LockAvatarPill
+                    holderName={mediaLock.holderName}
+                    holderAvatarUrl={mediaLock.holderAvatarUrl}
+                  />
+                )}
+              </div>
             </div>
           )}
 
@@ -393,6 +475,37 @@ const BuilderSidebar = ({
                     onTokensCssChange={onTokensCssChange}
                     onStyleModeChange={onStyleModeChange}
                     onAdvancedStructureCssChange={onAdvancedStructureCssChange}
+                  />
+                )}
+
+                {activeSettingsSection === "media" && (
+                  <BuilderMediaSection
+                    mediaCanonicalBaseUrl={mediaCanonicalBaseUrl}
+                    rootFolderNode={mediaRootFolderNode}
+                    folderNodes={mediaFolderNodes}
+                    imageUsageByKey={mediaImageUsageByKey}
+                    fonts={repoFontAssets}
+                    mediaLoading={mediaLoading}
+                    mediaError={mediaError}
+                    mediaWarning={mediaWarning}
+                    selectedImageFileNames={selectedMediaImageFileNames}
+                    uploadingImages={mediaUploadingImages}
+                    removingImageKey={mediaRemovingImageKey}
+                    renamingImageKey={mediaRenamingImageKey}
+                    selectedFontFileName={selectedMediaFontFileName}
+                    fontFamilyName={mediaFontFamilyName}
+                    uploadingFont={mediaUploadingFont}
+                    removingFontPath={mediaRemovingFontPath}
+                    onRefresh={onRefreshMediaAssets}
+                    onEnsureFolderLoaded={onEnsureMediaFolderLoaded}
+                    onImageFilesChange={onImageFilesChange}
+                    onUploadImages={onUploadImages}
+                    onRemoveImageObject={onRemoveImageObject}
+                    onRenameImageObject={onRenameImageObject}
+                    onFontFileChange={onMediaFontFileChange}
+                    onFontFamilyNameChange={onMediaFontFamilyNameChange}
+                    onUploadFont={onUploadMediaFont}
+                    onRemoveFont={onRemoveMediaFont}
                   />
                 )}
               </fieldset>

@@ -66,7 +66,7 @@ export type ManagedCollaborator = {
 
 export type BuilderSection = "menu" | "content" | "settings";
 
-export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
+export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles" | "media";
 
 export type BuilderEditableSectionKey = "metadata" | "pages" | "header" | "footer" | "styles";
 

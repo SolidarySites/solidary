@@ -161,7 +161,7 @@ export const useBuilderSectionNavigation = ({
       return;
     }
 
-    const settingsOrder: BuilderSettingsSection[] = ["pages", "header", "footer", "styles"];
+    const settingsOrder: BuilderSettingsSection[] = ["pages", "header", "footer", "styles", "media"];
     const preferredSettingsSections = [
       activeSettingsSection,
       ...settingsOrder.filter((entry) => entry !== activeSettingsSection)
@@ -169,7 +169,8 @@ export const useBuilderSectionNavigation = ({
     const nextSettingsSection =
       preferredSettingsSections.find((entry) => {
         if (entry === "pages") return true;
-        const lock = sectionLocks[entry];
+        const lockKey = entry === "media" ? "styles" : entry;
+        const lock = sectionLocks[lockKey];
         return !lock || lock.userId === sessionUserId;
       }) ?? activeSettingsSection;
 

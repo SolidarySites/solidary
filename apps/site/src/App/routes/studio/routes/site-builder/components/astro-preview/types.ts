@@ -50,6 +50,7 @@ export type AstroTemplatePreviewProps = {
   previewBrand: string;
   pages: PreviewPage[];
   draftImages: DraftImageAsset[];
+  repoFontsCss: string;
   tokensCss: string;
   styleMode: BuilderStylesMode;
   advancedStructureCss: string;
@@ -57,6 +58,7 @@ export type AstroTemplatePreviewProps = {
   homeFallbackBody: string;
   activePageSlug: string;
   publishedSiteBaseUrl: string | null;
+  previewAssetBaseUrl: string | null;
   header: HeaderOptions;
   footer: FooterOptions;
   onActivePageChange: (slug: string) => void;

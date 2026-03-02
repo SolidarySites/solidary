@@ -134,6 +134,52 @@ const escapeInlineTagContent = (value: string) =>
     .replace(/<\/script/gi, "<\\/script")
     .replace(/<\/style/gi, "<\\/style");
 
+const rewriteCssUrlsForPreview = (css: string, previewAssetBaseUrl: string | null) => {
+  const baseUrl = previewAssetBaseUrl?.trim() ?? "";
+  if (!baseUrl) return css;
+
+  let parsedBase: URL;
+  try {
+    parsedBase = new URL(baseUrl);
+  } catch {
+    return css;
+  }
+
+  const origin = parsedBase.origin;
+  const normalizedBasePath = (() => {
+    const pathname = parsedBase.pathname.trim();
+    if (!pathname || pathname === "/") return "";
+    return `/${pathname.replace(/^\/+|\/+$/g, "")}`;
+  })();
+  const baseHref = `${origin}${normalizedBasePath ? `${normalizedBasePath}/` : "/"}`;
+
+  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (fullMatch, _quote, rawUrl: string) => {
+    const urlValue = rawUrl.trim();
+    if (!urlValue) return fullMatch;
+
+    if (
+      /^(?:data:|blob:|https?:|mailto:|tel:|\/\/|#)/i.test(urlValue) ||
+      /^[a-z][a-z0-9+.-]*:/i.test(urlValue)
+    ) {
+      return fullMatch;
+    }
+
+    if (urlValue.startsWith("/")) {
+      const resolvedPath =
+        normalizedBasePath && urlValue.startsWith("/fonts/")
+          ? `${normalizedBasePath}${urlValue}`
+          : urlValue;
+      return `url("${origin}${resolvedPath}")`;
+    }
+
+    try {
+      return `url("${new URL(urlValue, baseHref).toString()}")`;
+    } catch {
+      return fullMatch;
+    }
+  });
+};
+
 const createBridgeToken = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -2550,6 +2596,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       previewBrand,
       pages,
       draftImages,
+      repoFontsCss,
       tokensCss,
       styleMode,
       advancedStructureCss,
@@ -2557,6 +2604,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       homeFallbackBody,
       activePageSlug,
       publishedSiteBaseUrl,
+      previewAssetBaseUrl,
       header,
       footer,
       onActivePageChange,
@@ -2669,12 +2717,14 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     }, [previewStyle]);
 
     const previewInlineCss = useMemo(() => {
-      const rawCss =
+      const baseCss =
         styleMode === "advanced"
           ? effectivePreviewCss
           : extractCustomCssFromTokens(tokensCss).trim();
-      return scopePreviewCss(rawCss);
-    }, [effectivePreviewCss, styleMode, tokensCss]);
+      const combinedCss = [repoFontsCss.trim(), baseCss.trim()].filter(Boolean).join("\n\n");
+      const rewrittenCss = rewriteCssUrlsForPreview(combinedCss, previewAssetBaseUrl);
+      return scopePreviewCss(rewrittenCss);
+    }, [effectivePreviewCss, previewAssetBaseUrl, repoFontsCss, styleMode, tokensCss]);
 
     const currentYear = new Date().getFullYear();
     const footerCopyright = `© ${currentYear}`;

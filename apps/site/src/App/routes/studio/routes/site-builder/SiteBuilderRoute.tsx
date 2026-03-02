@@ -14,7 +14,7 @@ export default function SiteBuilderRoute() {
 
       <div className={controller.bodyClassName}>
         <BuilderSidebar {...controller.sidebarProps} />
-        <BuilderPreviewPanel {...controller.previewPanelProps} />
+        {controller.showPreviewPanel && <BuilderPreviewPanel {...controller.previewPanelProps} />}
       </div>
 
       <SiteFooter notice={controller.notice} noticeKind={controller.noticeKind} />

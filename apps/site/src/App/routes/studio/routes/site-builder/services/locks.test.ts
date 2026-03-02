@@ -18,6 +18,10 @@ describe("getEditableSectionFromUi", () => {
   it("returns null for non-editing pages settings", () => {
     expect(getEditableSectionFromUi("settings", "pages", false)).toBeNull();
   });
+
+  it("maps media settings to styles editable section", () => {
+    expect(getEditableSectionFromUi("settings", "media", false)).toBe("styles");
+  });
 });
 
 describe("page lock keys", () => {
@@ -50,6 +54,10 @@ describe("getLockKeyFromUi and getLockLabel", () => {
 
   it("returns page lock key while editing pages", () => {
     expect(getLockKeyFromUi("settings", "pages", "home", pages, true)).toBe("page:home");
+  });
+
+  it("maps media settings to styles lock key", () => {
+    expect(getLockKeyFromUi("settings", "media", "home", pages, false)).toBe("styles");
   });
 
   it("returns human-readable labels for section and page keys", () => {

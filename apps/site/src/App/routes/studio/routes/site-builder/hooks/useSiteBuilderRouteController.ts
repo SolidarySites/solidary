@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { requireFreshGithubAuth } from "../../../../../features/auth/services/github-auth";
 import { supabase } from "../../../../../lib/supabase";
 import { toBase64 } from "../../../../../lib/base64";
 import { githubRequest } from "../../../../../services/github";
+import { sanitizeFilename } from "../../../../../services/filename-sanitizer";
 import { buildSolidaryMarkdown } from "../../../../../features/site-draft/services/astro-builders";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import {
@@ -13,7 +14,8 @@ import {
   DEFAULT_OG_IMAGE_URL,
   MAX_IMAGE_UPLOAD_BYTES,
   normalizeFooterModules,
-  normalizeSitePath
+  normalizeSitePath,
+  toExternalUrl
 } from "../services/draft-utils";
 import {
   type SectionLockRecord
@@ -58,6 +60,22 @@ import {
   extractFontFamiliesFromFontsCss
 } from "../services/style-editor";
 import { loadRepoStyleAssets } from "../services/style-repo";
+import {
+  appendFontFaceBlock,
+  getSupportedFontExtension,
+  inspectUploadedFont,
+  isProtectedImageObject,
+  loadRepoFontAssets,
+  loadRepoMediaFolderContents,
+  removeFontFaceBlocksByPublicPath,
+  REPO_SOLIDARY_MEDIA_BASE_PATH,
+  REPO_FONTS_BASE_PATH,
+  REPO_FONTS_CSS_PATH,
+  resolveFontFaceDescriptors,
+  type RepoImageObject,
+  type RepoMediaFolderEntry,
+  type RepoMediaFileEntry
+} from "../services/media-repo";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
 import { useBuilderPreviewEditor } from "./useBuilderPreviewEditor";
@@ -102,6 +120,104 @@ const normalizeCustomDomainInput = (value: string) => {
   const domainOnly = withoutProtocol.split("/")[0] ?? "";
   return domainOnly.replace(/\.+$/, "").trim().toLowerCase();
 };
+
+const IMAGE_EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/svg+xml": "svg",
+  "image/avif": "avif"
+};
+
+const getImageUploadExtension = (file: File): string => {
+  const extensionFromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (extensionFromName) return extensionFromName;
+  return IMAGE_EXTENSION_BY_MIME[file.type] ?? "png";
+};
+
+const MEDIA_IMAGE_UPLOAD_FOLDER = "images/uploads";
+
+const getFilenameExtension = (filename: string) =>
+  filename.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ?? "";
+
+const getBasePathFromSiteUrl = (siteUrl: string) => {
+  const trimmed = siteUrl.trim();
+  if (!trimmed) return "";
+  try {
+    const pathname = new URL(trimmed).pathname.trim();
+    if (!pathname || pathname === "/") return "";
+    return `/${pathname.replace(/^\/+|\/+$/g, "")}`;
+  } catch {
+    return "";
+  }
+};
+
+const withBasePath = (basePath: string, path: string) => {
+  const normalizedPath = `/${path.replace(/^\/+/, "")}`;
+  if (!basePath) return normalizedPath;
+  return `${basePath}${normalizedPath}`;
+};
+
+type MediaFolderNodeState = {
+  path: string;
+  name: string;
+  folders: RepoMediaFolderEntry[];
+  images: RepoImageObject[];
+  loaded: boolean;
+  loading: boolean;
+  error: string | null;
+};
+
+type MediaImageUsageEntry = {
+  slug: string;
+  title: string;
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const pageBodyReferencesImagePath = (pageBody: string, candidatePaths: string[]) => {
+  const body = pageBody.trim();
+  if (!body || candidatePaths.length === 0) return false;
+
+  const escapedCandidates = candidatePaths
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => escapeRegExp(value));
+  if (!escapedCandidates.length) return false;
+  const combined = escapedCandidates.join("|");
+
+  const figurePattern = new RegExp(
+    `<figure\\b[^>]*>[\\s\\S]*?(?:${combined})[\\s\\S]*?<\\/figure>`,
+    "i"
+  );
+  if (figurePattern.test(body)) return true;
+
+  const htmlImagePattern = new RegExp(
+    `<img\\b[^>]*?(?:src|srcset)\\s*=\\s*["'][^"']*(?:${combined})[^"']*["'][^>]*>`,
+    "i"
+  );
+  if (htmlImagePattern.test(body)) return true;
+
+  const markdownImagePattern = new RegExp(`!\\[[^\\]]*\\]\\([^)]*(?:${combined})[^)]*\\)`, "i");
+  return markdownImagePattern.test(body);
+};
+
+const createMediaFolderNodeState = ({
+  path,
+  name
+}: {
+  path: string;
+  name: string;
+}): MediaFolderNodeState => ({
+  path,
+  name,
+  folders: [],
+  images: [],
+  loaded: false,
+  loading: false,
+  error: null
+});
 
 export const useSiteBuilderRouteController = ({
   mode = "editor"
@@ -149,9 +265,23 @@ export const useSiteBuilderRouteController = ({
   const [advancedStructureCss, setAdvancedStructureCss] = useState("");
   const [baseStructureCss, setBaseStructureCss] = useState(structureTemplate);
   const [baseGlobalCss, setBaseGlobalCss] = useState(globalStylesTemplate);
+  const [repoFontsCss, setRepoFontsCss] = useState(fallbackFontsTemplate);
   const [availableFonts, setAvailableFonts] = useState<string[]>(defaultAvailableFonts);
   const [fontsLoading, setFontsLoading] = useState(false);
   const [fontsError, setFontsError] = useState<string | null>(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [mediaWarning, setMediaWarning] = useState<string | null>(null);
+  const [mediaFolderNodes, setMediaFolderNodes] = useState<Record<string, MediaFolderNodeState>>({});
+  const [repoFontAssets, setRepoFontAssets] = useState<RepoMediaFileEntry[]>([]);
+  const [selectedMediaImageFiles, setSelectedMediaImageFiles] = useState<File[]>([]);
+  const [mediaUploadingImages, setMediaUploadingImages] = useState(false);
+  const [mediaRemovingImageKey, setMediaRemovingImageKey] = useState<string | null>(null);
+  const [mediaRenamingImageKey, setMediaRenamingImageKey] = useState<string | null>(null);
+  const [selectedMediaFontFile, setSelectedMediaFontFile] = useState<File | null>(null);
+  const [mediaFontFamilyName, setMediaFontFamilyName] = useState("");
+  const [mediaUploadingFont, setMediaUploadingFont] = useState(false);
+  const [mediaRemovingFontPath, setMediaRemovingFontPath] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [siteAccessRole, setSiteAccessRole] = useState<SiteAccessRole | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(() => {
@@ -184,6 +314,7 @@ export const useSiteBuilderRouteController = ({
       string,
       {
         availableFonts: string[];
+        fontsCss: string;
         baseStructureCss: string;
         baseGlobalCss: string;
         warning: string | null;
@@ -213,8 +344,7 @@ export const useSiteBuilderRouteController = ({
     canEditPageContent,
     metadataLock,
     metadataLockedByOther,
-    showMetadataFullView,
-    previewReadOnlyMessage
+    showMetadataFullView
   } = useSiteBuilderAccessAndLocks({
     activeSection,
     activeSettingsSection,
@@ -224,10 +354,7 @@ export const useSiteBuilderRouteController = ({
     sectionLocks,
     siteAccessRole,
     draftState,
-    sessionUserId,
-    shouldLoadDraft,
-    isDraftLoading,
-    draftLoadError
+    sessionUserId
   });
   const {
     collaboratorQuery,
@@ -509,7 +636,10 @@ export const useSiteBuilderRouteController = ({
   }, [siteImage]);
 
   useEffect(() => {
-    if (activeSection !== "settings" || activeSettingsSection !== "styles") {
+    if (
+      activeSection !== "settings" ||
+      (activeSettingsSection !== "styles" && activeSettingsSection !== "media")
+    ) {
       setFontsLoading(false);
       return;
     }
@@ -517,6 +647,7 @@ export const useSiteBuilderRouteController = ({
     if (!draftState?.repoFullName) {
       setFontsLoading(false);
       setFontsError(null);
+      setRepoFontsCss(fallbackFontsTemplate);
       setAvailableFonts(defaultAvailableFonts);
       return;
     }
@@ -525,6 +656,7 @@ export const useSiteBuilderRouteController = ({
     if (!branch) {
       setFontsLoading(false);
       setFontsError("Draft branch is missing. Unable to load repository fonts.");
+      setRepoFontsCss(fallbackFontsTemplate);
       setAvailableFonts(defaultAvailableFonts);
       return;
     }
@@ -532,6 +664,7 @@ export const useSiteBuilderRouteController = ({
     const cacheKey = `${draftState.repoFullName}:${branch}`;
     const cachedStyles = styleRepoCacheRef.current.get(cacheKey);
     if (cachedStyles) {
+      setRepoFontsCss(cachedStyles.fontsCss);
       setAvailableFonts(cachedStyles.availableFonts.length ? cachedStyles.availableFonts : defaultAvailableFonts);
       setFontsError(cachedStyles.warning);
       setFontsLoading(false);
@@ -560,10 +693,12 @@ export const useSiteBuilderRouteController = ({
         if (cancelled) return;
         styleRepoCacheRef.current.set(cacheKey, {
           availableFonts: repoStyles.availableFonts,
+          fontsCss: repoStyles.fontsCss,
           baseStructureCss: repoStyles.baseStructureCss,
           baseGlobalCss: repoStyles.baseGlobalCss,
           warning: repoStyles.warning
         });
+        setRepoFontsCss(repoStyles.fontsCss);
         setAvailableFonts(repoStyles.availableFonts.length ? repoStyles.availableFonts : defaultAvailableFonts);
         setFontsError(repoStyles.warning);
         if (!baseStructureCss.trim() || baseStructureCss === structureTemplate) {
@@ -580,6 +715,7 @@ export const useSiteBuilderRouteController = ({
         const message =
           caught instanceof Error ? caught.message : "Unable to load style files from this repository.";
         setFontsError(message);
+        setRepoFontsCss(fallbackFontsTemplate);
         setAvailableFonts(defaultAvailableFonts);
       } finally {
         if (!cancelled) {
@@ -601,6 +737,628 @@ export const useSiteBuilderRouteController = ({
     draftState?.repoFullName,
     hasUnsavedChanges
   ]);
+
+  const resolveRepoContext = useCallback(() => {
+    const repoFullName = draftState?.repoFullName?.trim() ?? "";
+    const [owner, repo] = repoFullName.split("/");
+    const branch = (draftState?.editorBranch ?? draftState?.branch ?? "").trim();
+    if (!owner || !repo || !branch || !repoFullName) return null;
+    return {
+      owner,
+      repo,
+      branch,
+      repoFullName
+    };
+  }, [draftState?.branch, draftState?.editorBranch, draftState?.repoFullName]);
+
+  const updateCachedFontsForRepo = useCallback(({
+    repoFullName,
+    branch,
+    fontsCss,
+    warning
+  }: {
+    repoFullName: string;
+    branch: string;
+    fontsCss: string;
+    warning?: string | null;
+  }) => {
+    const cacheKey = `${repoFullName}:${branch}`;
+    const cached = styleRepoCacheRef.current.get(cacheKey);
+    const nextFonts = extractFontFamiliesFromFontsCss(fontsCss);
+    styleRepoCacheRef.current.set(cacheKey, {
+      availableFonts: nextFonts.length ? nextFonts : defaultAvailableFonts,
+      fontsCss,
+      baseStructureCss: cached?.baseStructureCss ?? baseStructureCss,
+      baseGlobalCss: cached?.baseGlobalCss ?? baseGlobalCss,
+      warning: warning ?? cached?.warning ?? null
+    });
+  }, [baseGlobalCss, baseStructureCss]);
+
+  const refreshMediaAssets = useCallback(async () => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setMediaLoading(false);
+      setMediaFolderNodes({
+        "": {
+          ...createMediaFolderNodeState({ path: "", name: "solidary-media" }),
+          error: "Draft repository settings are missing."
+        }
+      });
+      setRepoFontAssets([]);
+      setMediaWarning(null);
+      setMediaError("Draft repository settings are missing.");
+      return;
+    }
+
+    setMediaLoading(true);
+    setMediaError(null);
+    setMediaFolderNodes({
+      "": {
+        ...createMediaFolderNodeState({ path: "", name: "solidary-media" }),
+        loading: true
+      }
+    });
+    try {
+      const [fontAssets, rootContents] = await Promise.all([
+        loadRepoFontAssets({
+          repoFullName: repoContext.repoFullName,
+          branch: repoContext.branch
+        }),
+        loadRepoMediaFolderContents({
+          repoFullName: repoContext.repoFullName,
+          branch: repoContext.branch,
+          folderPath: ""
+        })
+      ]);
+
+      setRepoFontAssets(fontAssets.fonts);
+      setMediaWarning(fontAssets.warning ?? rootContents.warning);
+      setMediaFolderNodes(() => {
+        const rootNode: MediaFolderNodeState = {
+          path: "",
+          name: "solidary-media",
+          folders: rootContents.folders,
+          images: rootContents.images,
+          loaded: true,
+          loading: false,
+          error: null
+        };
+
+        const next: Record<string, MediaFolderNodeState> = {
+          "": rootNode
+        };
+
+        rootContents.folders.forEach((folder) => {
+          next[folder.path] = createMediaFolderNodeState({
+            path: folder.path,
+            name: folder.name
+          });
+        });
+
+        return next;
+      });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Unable to load repository media files.";
+      setMediaError(message);
+      setMediaWarning(null);
+      setRepoFontAssets([]);
+      setMediaFolderNodes({
+        "": {
+          ...createMediaFolderNodeState({ path: "", name: "solidary-media" }),
+          error: message
+        }
+      });
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [resolveRepoContext]);
+
+  const ensureMediaFolderLoaded = useCallback((folderPath: string, folderName: string) => {
+    const normalizedPath = folderPath.trim().replace(/^\/+|\/+$/g, "");
+    const currentNode = mediaFolderNodes[normalizedPath];
+    if (currentNode?.loaded || currentNode?.loading) return;
+
+    const repoContext = resolveRepoContext();
+    if (!repoContext) return;
+
+    setMediaFolderNodes((current) => {
+      const existing = current[normalizedPath];
+      return {
+        ...current,
+        [normalizedPath]: {
+          ...(existing ??
+            createMediaFolderNodeState({
+              path: normalizedPath,
+              name: folderName
+            })),
+          loading: true,
+          error: null
+        }
+      };
+    });
+
+    void (async () => {
+      try {
+        const contents = await loadRepoMediaFolderContents({
+          repoFullName: repoContext.repoFullName,
+          branch: repoContext.branch,
+          folderPath: normalizedPath
+        });
+        setMediaFolderNodes((current) => {
+          const existing = current[normalizedPath];
+          const next: Record<string, MediaFolderNodeState> = {
+            ...current,
+            [normalizedPath]: {
+              path: normalizedPath,
+              name: existing?.name ?? folderName,
+              folders: contents.folders,
+              images: contents.images,
+              loaded: true,
+              loading: false,
+              error: null
+            }
+          };
+          contents.folders.forEach((folder) => {
+            if (next[folder.path]) return;
+            next[folder.path] = createMediaFolderNodeState({
+              path: folder.path,
+              name: folder.name
+            });
+          });
+          return next;
+        });
+      } catch (caught) {
+        const message =
+          caught instanceof Error ? caught.message : "Unable to load folder contents.";
+        setMediaFolderNodes((current) => {
+          const existing = current[normalizedPath];
+          return {
+            ...current,
+            [normalizedPath]: {
+              ...(existing ??
+                createMediaFolderNodeState({
+                  path: normalizedPath,
+                  name: folderName
+                })),
+              loading: false,
+              loaded: false,
+              error: message
+            }
+          };
+        });
+      }
+    })();
+  }, [mediaFolderNodes, resolveRepoContext]);
+
+  const handleUploadMediaImages = useCallback(async () => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setNotice("Draft repository settings are missing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!selectedMediaImageFiles.length) {
+      setNotice("Choose one or more images to upload.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setMediaUploadingImages(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      await requireFreshGithubAuth();
+
+      for (const file of selectedMediaImageFiles) {
+        const extension = getImageUploadExtension(file);
+        const safeBaseName = sanitizeFilename(file.name, {
+          stripExtension: true,
+          fallback: "image",
+          lowercase: true,
+          spaces: "hyphen"
+        });
+        const fileName = `${safeBaseName}.${extension}`;
+        const repoPath = `${REPO_SOLIDARY_MEDIA_BASE_PATH}/${MEDIA_IMAGE_UPLOAD_FOLDER}/${fileName}`;
+        await githubRequest("/.netlify/functions/github-contents-write", {
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          path: repoPath,
+          message: `Upload image ${fileName}`,
+          content: toBase64(await file.arrayBuffer()),
+          branch: repoContext.branch
+        });
+      }
+
+      setSelectedMediaImageFiles([]);
+      setNotice(
+        selectedMediaImageFiles.length === 1
+          ? "Uploaded 1 image."
+          : `Uploaded ${selectedMediaImageFiles.length} images.`
+      );
+      setNoticeKind("notice");
+      void refreshMediaAssets();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to upload image files.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setMediaUploadingImages(false);
+    }
+  }, [
+    refreshMediaAssets,
+    resolveRepoContext,
+    selectedMediaImageFiles
+  ]);
+
+  const handleRemoveMediaImageObject = useCallback(async (imageObject: RepoImageObject) => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setNotice("Draft repository settings are missing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (isProtectedImageObject(imageObject)) {
+      setNotice("This image is protected and cannot be deleted.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!imageObject.deletePaths.length) {
+      setNotice("No files found for this image object.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setMediaRemovingImageKey(imageObject.key);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      await requireFreshGithubAuth();
+
+      for (const path of imageObject.deletePaths) {
+        await githubRequest("/.netlify/functions/github-contents-delete", {
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          path,
+          message: `Delete image asset ${path.split("/").pop() ?? "image"}`,
+          branch: repoContext.branch
+        });
+      }
+
+      setNotice(`Deleted "${imageObject.title}".`);
+      setNoticeKind("notice");
+      void refreshMediaAssets();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to delete image files.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setMediaRemovingImageKey(null);
+    }
+  }, [refreshMediaAssets, resolveRepoContext]);
+
+  const handleRenameMediaImageObject = useCallback(async (
+    imageObject: RepoImageObject,
+    nextTitle: string
+  ) => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setNotice("Draft repository settings are missing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (isProtectedImageObject(imageObject)) {
+      setNotice("This image is protected and cannot be renamed.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const safeTitle = sanitizeFilename(nextTitle, {
+      fallback: "image",
+      lowercase: true,
+      spaces: "hyphen"
+    });
+    if (!safeTitle.trim()) {
+      setNotice("Enter a valid filename.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const folderPrefix = imageObject.folderPath
+      ? `${REPO_SOLIDARY_MEDIA_BASE_PATH}/${imageObject.folderPath}`
+      : REPO_SOLIDARY_MEDIA_BASE_PATH;
+    const renameTargets = new Map<string, string>();
+    const usedTargetPaths = new Set<string>();
+
+    imageObject.variants.forEach((variant, index) => {
+      const extension = getFilenameExtension(variant.fileName) || "jpg";
+      const variantSuffix =
+        imageObject.uuid && variant.variant !== "custom"
+          ? `${safeTitle}_${imageObject.uuid}_${variant.variant}`
+          : imageObject.variants.length > 1
+            ? `${safeTitle}-${index + 1}`
+            : safeTitle;
+      let nextPath = `${folderPrefix}/${variantSuffix}.${extension}`;
+      let dedupeIndex = 1;
+      while (usedTargetPaths.has(nextPath)) {
+        nextPath = `${folderPrefix}/${variantSuffix}-${dedupeIndex}.${extension}`;
+        dedupeIndex += 1;
+      }
+      usedTargetPaths.add(nextPath);
+      renameTargets.set(variant.path, nextPath);
+    });
+
+    const changedEntries = Array.from(renameTargets.entries()).filter(([fromPath, toPath]) => fromPath !== toPath);
+    if (!changedEntries.length) {
+      setNotice("Filename already matches.");
+      setNoticeKind("notice");
+      return;
+    }
+
+    setMediaRenamingImageKey(imageObject.key);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      await requireFreshGithubAuth();
+
+      for (const [fromPath, toPath] of changedEntries) {
+        const readResult = await githubRequest<{ content?: string; encoding?: string }>(
+          "/.netlify/functions/github-contents-read",
+          {
+            owner: repoContext.owner,
+            repo: repoContext.repo,
+            path: fromPath,
+            branch: repoContext.branch
+          }
+        );
+
+        const rawContent = typeof readResult.content === "string" ? readResult.content : "";
+        const contentBase64 =
+          readResult.encoding === "base64"
+            ? rawContent.replace(/\n/g, "")
+            : toBase64(new TextEncoder().encode(rawContent).buffer);
+
+        await githubRequest("/.netlify/functions/github-contents-write", {
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          path: toPath,
+          message: `Rename image ${fromPath.split("/").pop() ?? "image"}`,
+          content: contentBase64,
+          branch: repoContext.branch
+        });
+
+        await githubRequest("/.netlify/functions/github-contents-delete", {
+          owner: repoContext.owner,
+          repo: repoContext.repo,
+          path: fromPath,
+          message: `Remove renamed source ${fromPath.split("/").pop() ?? "image"}`,
+          branch: repoContext.branch
+        });
+      }
+
+      setNotice(`Renamed "${imageObject.title}".`);
+      setNoticeKind("notice");
+      void refreshMediaAssets();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to rename image.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setMediaRenamingImageKey(null);
+    }
+  }, [refreshMediaAssets, resolveRepoContext]);
+
+  const handleUploadMediaFont = useCallback(async () => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setNotice("Draft repository settings are missing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!selectedMediaFontFile) {
+      setNotice("Choose a font package to upload.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const extension = getSupportedFontExtension(selectedMediaFontFile.name);
+    if (!extension) {
+      setNotice("Unsupported font type. Use OTF, TTF, WOFF, or WOFF2.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const familyName = mediaFontFamilyName.trim();
+    if (!familyName) {
+      setNotice("Enter a font-family name before uploading.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const rawName = sanitizeFilename(selectedMediaFontFile.name, {
+      lowercase: true,
+      spaces: "hyphen"
+    });
+    const safeBaseName = sanitizeFilename(rawName, {
+      stripExtension: true,
+      fallback: "font",
+      lowercase: true,
+      spaces: "hyphen"
+    });
+    const fileName = `${safeBaseName}.${extension}`;
+    const fontRepoPath = `${REPO_FONTS_BASE_PATH}/${fileName}`;
+    const basePath = getBasePathFromSiteUrl(siteUrl);
+    const fontPublicPath = withBasePath(basePath, fontRepoPath.replace(/^public\//, ""));
+
+    setMediaUploadingFont(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      const inspectedFaces = await inspectUploadedFont(selectedMediaFontFile);
+      const fontFaceDescriptors = resolveFontFaceDescriptors(inspectedFaces);
+
+      await requireFreshGithubAuth();
+
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        path: fontRepoPath,
+        message: `Upload font package ${fileName}`,
+        content: toBase64(await selectedMediaFontFile.arrayBuffer()),
+        branch: repoContext.branch
+      });
+
+      let nextFontsCss = repoFontsCss;
+      fontFaceDescriptors.forEach((descriptor) => {
+        nextFontsCss = appendFontFaceBlock({
+          fontsCss: nextFontsCss,
+          fontFamily: familyName,
+          publicPath: fontPublicPath,
+          extension,
+          fontWeight: descriptor.fontWeight,
+          fontStyle: descriptor.fontStyle
+        });
+      });
+      const fontsCssToWrite = nextFontsCss.trim() ? nextFontsCss : "/* no custom font faces */\n";
+
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        path: REPO_FONTS_CSS_PATH,
+        message: `Update fonts.css for ${familyName}`,
+        content: toBase64(new TextEncoder().encode(fontsCssToWrite).buffer),
+        branch: repoContext.branch
+      });
+
+      const nextFonts = extractFontFamiliesFromFontsCss(fontsCssToWrite);
+      setRepoFontsCss(fontsCssToWrite);
+      setAvailableFonts(nextFonts.length ? nextFonts : defaultAvailableFonts);
+      updateCachedFontsForRepo({
+        repoFullName: repoContext.repoFullName,
+        branch: repoContext.branch,
+        fontsCss: fontsCssToWrite
+      });
+      setSelectedMediaFontFile(null);
+      setMediaFontFamilyName("");
+      const descriptorSummary = fontFaceDescriptors
+        .map((descriptor) => `${descriptor.fontWeight} ${descriptor.fontStyle}`)
+        .join(", ");
+      setNotice(
+        `Uploaded ${fileName} and added @font-face for "${familyName}" (${descriptorSummary}).`
+      );
+      setNoticeKind("notice");
+      void refreshMediaAssets();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to upload font package.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setMediaUploadingFont(false);
+    }
+  }, [
+    mediaFontFamilyName,
+    refreshMediaAssets,
+    repoFontsCss,
+    resolveRepoContext,
+    selectedMediaFontFile,
+    siteUrl,
+    updateCachedFontsForRepo
+  ]);
+
+  const handleRemoveMediaFont = useCallback(async (entry: RepoMediaFileEntry) => {
+    const repoContext = resolveRepoContext();
+    if (!repoContext) {
+      setNotice("Draft repository settings are missing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!entry.path.trim()) {
+      setNotice("Missing font package path.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setMediaRemovingFontPath(entry.path);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      await requireFreshGithubAuth();
+
+      await githubRequest("/.netlify/functions/github-contents-delete", {
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        path: entry.path,
+        message: `Remove font package ${entry.name}`,
+        branch: repoContext.branch
+      });
+
+      const nextFontsCss = removeFontFaceBlocksByPublicPath({
+        fontsCss: repoFontsCss,
+        publicPath: entry.publicPath
+      });
+      const basePath = getBasePathFromSiteUrl(siteUrl);
+      const prefixedEntryPublicPath = withBasePath(basePath, entry.publicPath);
+      const withoutPrefixedPath = removeFontFaceBlocksByPublicPath({
+        fontsCss: nextFontsCss,
+        publicPath: prefixedEntryPublicPath
+      });
+      const fontsCssToWrite = withoutPrefixedPath.trim()
+        ? withoutPrefixedPath
+        : "/* no custom font faces */\n";
+
+      await githubRequest("/.netlify/functions/github-contents-write", {
+        owner: repoContext.owner,
+        repo: repoContext.repo,
+        path: REPO_FONTS_CSS_PATH,
+        message: `Remove font-face entries for ${entry.name}`,
+        content: toBase64(new TextEncoder().encode(fontsCssToWrite).buffer),
+        branch: repoContext.branch
+      });
+
+      const nextFonts = extractFontFamiliesFromFontsCss(fontsCssToWrite);
+      setRepoFontsCss(fontsCssToWrite);
+      setAvailableFonts(nextFonts.length ? nextFonts : defaultAvailableFonts);
+      updateCachedFontsForRepo({
+        repoFullName: repoContext.repoFullName,
+        branch: repoContext.branch,
+        fontsCss: fontsCssToWrite
+      });
+      setNotice(`Removed ${entry.name}.`);
+      setNoticeKind("notice");
+      void refreshMediaAssets();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to remove font package.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setMediaRemovingFontPath(null);
+    }
+  }, [
+    refreshMediaAssets,
+    repoFontsCss,
+    resolveRepoContext,
+    siteUrl,
+    updateCachedFontsForRepo
+  ]);
+
+  useEffect(() => {
+    if (activeSection !== "settings" || activeSettingsSection !== "media") {
+      setMediaLoading(false);
+      return;
+    }
+
+    void refreshMediaAssets();
+  }, [activeSection, activeSettingsSection, refreshMediaAssets]);
 
   const { reloadLatestDraftAfterConflict, refreshDraftAfterSectionChange } = useSiteBuilderDraftLifecycle({
     builderRoutePath,
@@ -848,6 +1606,56 @@ export const useSiteBuilderRouteController = ({
     }
   };
   const availableFontsForControls = availableFonts.length ? availableFonts : defaultAvailableFonts;
+  const mediaRootFolderNode = mediaFolderNodes[""] ?? null;
+  const mediaImageUsageByKey = useMemo<Record<string, MediaImageUsageEntry[]>>(() => {
+    const imagesByKey = new Map<string, RepoImageObject>();
+    Object.values(mediaFolderNodes).forEach((node) => {
+      node.images.forEach((imageObject) => {
+        imagesByKey.set(imageObject.key, imageObject);
+      });
+    });
+
+    const usageByKey: Record<string, MediaImageUsageEntry[]> = {};
+    imagesByKey.forEach((imageObject, key) => {
+      const candidatePaths = new Set<string>();
+      imageObject.variants.forEach((variant) => {
+        const publicPath = variant.publicPath.trim();
+        if (publicPath) {
+          candidatePaths.add(publicPath);
+          candidatePaths.add(publicPath.replace(/^\/+/, ""));
+        }
+      });
+
+      const candidates = Array.from(candidatePaths);
+      const pagesUsingImage = pages
+        .filter((page) => pageBodyReferencesImagePath(page.body ?? "", candidates))
+        .map((page) => ({
+          slug: page.slug,
+          title: page.title.trim() || page.slug || "Untitled page"
+        }));
+      usageByKey[key] = pagesUsingImage;
+    });
+
+    return usageByKey;
+  }, [mediaFolderNodes, pages]);
+  const selectedMediaImageFileNames = selectedMediaImageFiles.map((file) => file.name);
+  const selectedMediaFontFileName = selectedMediaFontFile?.name ?? "";
+  const mediaCanonicalBaseUrl = useMemo(() => {
+    const external = toExternalUrl(siteUrl);
+    if (!external) return null;
+    return external.replace(/\/+$/, "");
+  }, [siteUrl]);
+  const previewAssetBaseUrl = useMemo(() => {
+    const candidates = [publishedSiteBaseUrl, toExternalUrl(siteUrl)];
+    for (const candidate of candidates) {
+      if (typeof candidate !== "string") continue;
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+      return trimmed.replace(/\/+$/, "");
+    }
+    return null;
+  }, [publishedSiteBaseUrl, siteUrl]);
+  const isMediaManagerView = activeSection === "settings" && activeSettingsSection === "media";
 
   const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError && canEditPageContent;
   const canSaveDraft =
@@ -874,6 +1682,9 @@ export const useSiteBuilderRouteController = ({
     activeSettingsSection === "pages" &&
     isPageEditingMode &&
     canFormatText;
+  const showPreviewPanel = !isMediaManagerView;
+  const showFullFrameSidebar = showMetadataFullView || isMediaManagerView;
+  const isSidebarCollapsed = !isMediaManagerView && isPreviewFullscreen;
   const canAccessSettingsPage = siteAccessRole === "owner" || siteAccessRole === "admin";
   const canSaveGeneralSettingsToLive =
     Boolean(draftState) &&
@@ -1500,10 +2311,11 @@ export const useSiteBuilderRouteController = ({
     metadataLockedByOther,
     metadataLockHolderName: metadataLock?.holderName ?? "Another user",
     showTopbar,
+    showPreviewPanel,
     isPreviewFullscreen,
     setIsPreviewFullscreen,
-    bodyClassName: `builder-body ${isPreviewFullscreen ? "is-preview-fullscreen" : ""} ${
-      showMetadataFullView ? "is-settings-full" : ""
+    bodyClassName: `builder-body ${isSidebarCollapsed ? "is-preview-fullscreen" : ""} ${
+      showFullFrameSidebar ? "is-settings-full" : ""
     }`.trim(),
     topbarProps: {
       onRunFormatCommand: runPreviewCommand,
@@ -1593,7 +2405,7 @@ export const useSiteBuilderRouteController = ({
       canEditDraft,
       accessRole: siteAccessRole,
       activeCollaborators: collaboratorPresenceNames,
-      isPreviewFullscreen,
+      isPreviewFullscreen: isSidebarCollapsed,
       canSaveDraft,
       savingDraft,
       pages,
@@ -1605,6 +2417,22 @@ export const useSiteBuilderRouteController = ({
       availableFonts: availableFontsForControls,
       fontsLoading,
       fontsError,
+      mediaWarning,
+      mediaError,
+      mediaLoading,
+      mediaCanonicalBaseUrl,
+      mediaRootFolderNode,
+      mediaFolderNodes,
+      mediaImageUsageByKey,
+      repoFontAssets,
+      selectedMediaImageFileNames,
+      mediaUploadingImages,
+      mediaRemovingImageKey,
+      mediaRenamingImageKey,
+      selectedMediaFontFileName,
+      mediaFontFamilyName,
+      mediaUploadingFont,
+      mediaRemovingFontPath,
       headerDisabled,
       headerFixed,
       headerBrandText,
@@ -1653,6 +2481,30 @@ export const useSiteBuilderRouteController = ({
       onTokensCssChange: setTokensCss,
       onStyleModeChange: handleStyleModeChange,
       onAdvancedStructureCssChange: setAdvancedStructureCss,
+      onRefreshMediaAssets: () => {
+        void refreshMediaAssets();
+      },
+      onEnsureMediaFolderLoaded: (folderPath: string, folderName: string) => {
+        ensureMediaFolderLoaded(folderPath, folderName);
+      },
+      onImageFilesChange: setSelectedMediaImageFiles,
+      onUploadImages: () => {
+        void handleUploadMediaImages();
+      },
+      onRemoveImageObject: (imageObject: RepoImageObject) => {
+        void handleRemoveMediaImageObject(imageObject);
+      },
+      onRenameImageObject: (imageObject: RepoImageObject, nextTitle: string) => {
+        void handleRenameMediaImageObject(imageObject, nextTitle);
+      },
+      onMediaFontFileChange: setSelectedMediaFontFile,
+      onMediaFontFamilyNameChange: setMediaFontFamilyName,
+      onUploadMediaFont: () => {
+        void handleUploadMediaFont();
+      },
+      onRemoveMediaFont: (entry: RepoMediaFileEntry) => {
+        void handleRemoveMediaFont(entry);
+      },
       onHeaderDisabledChange: setHeaderDisabled,
       onHeaderFixedChange: setHeaderFixed,
       onHeaderBrandTextChange: setHeaderBrandText,
@@ -1679,11 +2531,11 @@ export const useSiteBuilderRouteController = ({
       draftLoadError,
       canEditContent: canEditPageContent,
       showStylesHoverInspector: activeSection === "settings" && activeSettingsSection === "styles",
-      readOnlyMessage: previewReadOnlyMessage,
       previewRef,
       previewBrand: siteTitle,
       pages,
       draftImages,
+      repoFontsCss,
       tokensCss,
       styleMode,
       advancedStructureCss,
@@ -1691,6 +2543,7 @@ export const useSiteBuilderRouteController = ({
       homeFallbackBody: defaultHomeContent,
       activePreviewSlug,
       publishedSiteBaseUrl,
+      previewAssetBaseUrl,
       header: {
         disabled: headerDisabled,
         fixed: headerFixed,
