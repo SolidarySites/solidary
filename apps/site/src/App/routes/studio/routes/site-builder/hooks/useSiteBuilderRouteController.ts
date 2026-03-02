@@ -1661,6 +1661,7 @@ export const useSiteBuilderRouteController = ({
       isDraftLoading,
       draftLoadError,
       canEditContent: canEditPageContent,
+      showStylesHoverInspector: activeSection === "settings" && activeSettingsSection === "styles",
       readOnlyMessage: previewReadOnlyMessage,
       previewRef,
       previewBrand: siteTitle,
