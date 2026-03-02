@@ -871,6 +871,8 @@ const AstroPreviewEditableSurface = forwardRef<AstroTemplatePreviewHandle, Astro
       updateSelectedImageAlt,
       updateSelectedImageCaption,
       updateSelectedImageSize,
+      updateSelectedElementClassName: () => {},
+      updateSelectedElementInlineStyle: () => {},
       clearSelectedImage: () => {
         selectedImageElementRef.current = null;
         setSelectedImage(null);

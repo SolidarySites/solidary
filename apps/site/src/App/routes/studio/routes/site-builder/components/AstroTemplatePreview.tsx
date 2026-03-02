@@ -21,10 +21,15 @@ import type {
   AstroTemplatePreviewProps,
   ParsedPage,
   PreviewSelectedImage,
+  PreviewSelectedElement,
   PreviewNavItem
 } from "./astro-preview/types";
 
-export type { AstroTemplatePreviewHandle, PreviewSelectedImage } from "./astro-preview/types";
+export type {
+  AstroTemplatePreviewHandle,
+  PreviewSelectedImage,
+  PreviewSelectedElement
+} from "./astro-preview/types";
 
 const PREVIEW_BRIDGE_CHANNEL = "solidary:builder-preview";
 const PREVIEW_IMAGE_ASPECT_RATIO_ATTR = "data-builder-image-aspect-ratio";
@@ -103,6 +108,14 @@ type PreviewCommandPayload =
       value: number;
     }
   | {
+      kind: "updateSelectedElementClassName";
+      value: string;
+    }
+  | {
+      kind: "updateSelectedElementInlineStyle";
+      value: string;
+    }
+  | {
       kind: "clearSelectedImage";
     };
 
@@ -145,6 +158,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var appliedStyleKeys = [];
   var savedSelection = null;
   var selectedImageId = "";
+  var selectedElement = null;
+  var lastSelectedElementKey = "";
   var lastExecutedScriptKey = "";
   var lastAppliedBodySlug = "";
   var lastAppliedBodyHtml = "";
@@ -165,6 +180,9 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left";
   var NON_PARAGRAPH_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,ul,ol,li,blockquote,pre,table,figure,section,article,header,footer,nav,main,aside";
   var FORMAT_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote";
+  var IMAGE_INSERT_REPLACE_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote,pre,div";
+  var TEXT_BLOCK_MERGE_SELECTOR = "p,h1,h2,h3,h4,h5,h6,blockquote,pre,div";
+  var INSPECTABLE_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,section,article,header,footer,nav,main,aside";
 
   function post(type, payload) {
     window.parent.postMessage(
@@ -750,6 +768,16 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       containers[containerIndex].removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
     }
 
+    var figcaptions = template.content.querySelectorAll("figure[data-builder-image-figure='true'] > figcaption");
+    for (var captionIndex = 0; captionIndex < figcaptions.length; captionIndex += 1) {
+      var figcaption = figcaptions[captionIndex];
+      if (!(figcaption instanceof HTMLElement)) continue;
+      figcaption.style.removeProperty("width");
+      figcaption.style.removeProperty("max-width");
+      figcaption.style.removeProperty("margin-left");
+      figcaption.style.removeProperty("display");
+    }
+
     return template.innerHTML;
   }
 
@@ -832,9 +860,173 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     });
   }
 
-  function clearSelectedImage() {
+  function clearSelectedImage(forceEmit) {
+    var hadSelection = Boolean(selectedImageId);
     selectedImageId = "";
-    emitSelectedImageChange(null);
+    if (forceEmit || hadSelection) {
+      emitSelectedImageChange(null);
+    }
+  }
+
+  function emitSelectedElementChange(element) {
+    if (!state) return;
+
+    if (
+      !(element instanceof HTMLElement) ||
+      !isElementInEditor(element) ||
+      element === editorElement
+    ) {
+      selectedElement = null;
+      if (lastSelectedElementKey) {
+        lastSelectedElementKey = "";
+        post("selected-element-change", { selectedElement: null });
+      }
+      return;
+    }
+
+    selectedElement = element;
+    var tagName = (element.tagName || "").toLowerCase();
+    var className = (element.getAttribute("class") || "").trim();
+    var inlineStyle = (element.getAttribute("style") || "").trim();
+    var nextKey = [state.activeSlug, tagName, className, inlineStyle].join("|");
+    if (nextKey === lastSelectedElementKey) return;
+    lastSelectedElementKey = nextKey;
+
+    post("selected-element-change", {
+      selectedElement: {
+        pageSlug: state.activeSlug,
+        tagName: tagName,
+        className: className,
+        inlineStyle: inlineStyle
+      }
+    });
+  }
+
+  function getElementSelectionCandidates() {
+    if (!editorElement) return [];
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return [];
+
+    var range = selection.getRangeAt(0);
+    var nodesToCheck = [range.commonAncestorContainer, range.startContainer, range.endContainer];
+    var candidates = [];
+
+    for (var index = 0; index < nodesToCheck.length; index += 1) {
+      var node = nodesToCheck[index];
+      if (!node) continue;
+      var element = node instanceof Element ? node : node.parentElement;
+      if (!(element instanceof Element)) continue;
+      if (!editorElement.contains(element)) continue;
+      candidates.push(element);
+    }
+
+    return candidates;
+  }
+
+  function findImageInsertReplaceTarget() {
+    if (!editorElement) return null;
+    var candidates = getElementSelectionCandidates();
+    if (!candidates.length) return null;
+
+    for (var figureIndex = 0; figureIndex < candidates.length; figureIndex += 1) {
+      var figureCandidate = candidates[figureIndex].closest("figure[data-builder-image-figure='true']");
+      if (figureCandidate instanceof HTMLElement && editorElement.contains(figureCandidate)) {
+        return figureCandidate;
+      }
+    }
+
+    for (var blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
+      var blockCandidate = candidates[blockIndex].closest(IMAGE_INSERT_REPLACE_SELECTOR);
+      if (blockCandidate instanceof HTMLElement && editorElement.contains(blockCandidate)) {
+        return blockCandidate;
+      }
+    }
+
+    return null;
+  }
+
+  function getInspectableElementFromSelection() {
+    if (!editorElement) return null;
+    var candidates = getElementSelectionCandidates();
+    if (!candidates.length) return null;
+
+    for (var imageIndex = 0; imageIndex < candidates.length; imageIndex += 1) {
+      var imageCandidate = candidates[imageIndex];
+      if (imageCandidate instanceof HTMLImageElement) {
+        return imageCandidate;
+      }
+      var nearestImage = imageCandidate.closest("img");
+      if (nearestImage instanceof HTMLImageElement && editorElement.contains(nearestImage)) {
+        return nearestImage;
+      }
+    }
+
+    for (var figcaptionIndex = 0; figcaptionIndex < candidates.length; figcaptionIndex += 1) {
+      var figcaptionCandidate = candidates[figcaptionIndex].closest("figcaption");
+      if (figcaptionCandidate instanceof HTMLElement && editorElement.contains(figcaptionCandidate)) {
+        return figcaptionCandidate;
+      }
+    }
+
+    for (var figureIndex = 0; figureIndex < candidates.length; figureIndex += 1) {
+      var figureCandidate = candidates[figureIndex].closest("figure[data-builder-image-figure='true']");
+      if (figureCandidate instanceof HTMLElement && editorElement.contains(figureCandidate)) {
+        return figureCandidate;
+      }
+    }
+
+    for (var linkIndex = 0; linkIndex < candidates.length; linkIndex += 1) {
+      var linkCandidate = candidates[linkIndex].closest("a");
+      if (linkCandidate instanceof HTMLElement && editorElement.contains(linkCandidate)) {
+        return linkCandidate;
+      }
+    }
+
+    for (var blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
+      var blockCandidate = candidates[blockIndex].closest(INSPECTABLE_BLOCK_SELECTOR);
+      if (blockCandidate instanceof HTMLElement && editorElement.contains(blockCandidate)) {
+        return blockCandidate;
+      }
+    }
+
+    for (var fallbackIndex = 0; fallbackIndex < candidates.length; fallbackIndex += 1) {
+      var fallbackCandidate = candidates[fallbackIndex];
+      if (fallbackCandidate instanceof HTMLElement && fallbackCandidate !== editorElement) {
+        return fallbackCandidate;
+      }
+    }
+
+    return null;
+  }
+
+  function getSelectedInspectableElement() {
+    if (selectedElement instanceof HTMLElement && isElementInEditor(selectedElement)) {
+      return selectedElement;
+    }
+
+    var fromSelection = getInspectableElementFromSelection();
+    if (fromSelection instanceof HTMLElement) {
+      selectedElement = fromSelection;
+      return fromSelection;
+    }
+
+    selectedElement = null;
+    return null;
+  }
+
+  function syncSelectionState() {
+    if (!editorElement) return;
+
+    var selectedImage = findImageFromSelection();
+
+    if (selectedImage instanceof HTMLImageElement) {
+      ensureImageFigure(selectedImage);
+      emitSelectedImageChange(selectedImage);
+    } else {
+      clearSelectedImage();
+    }
+
+    emitSelectedElementChange(getInspectableElementFromSelection());
   }
 
   function captureSelection() {
@@ -855,6 +1047,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     } catch {
       savedSelection = null;
     }
+
+    syncSelectionState();
   }
 
   function restoreSelection() {
@@ -1011,6 +1205,14 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         ?.querySelector("img");
       if (imageFromWrapper instanceof HTMLImageElement && editorElement.contains(imageFromWrapper)) {
         return imageFromWrapper;
+      }
+
+      var figureFromElement = element.closest("figure[data-builder-image-figure='true']");
+      if (figureFromElement instanceof HTMLElement) {
+        var imageFromFigure = figureFromElement.querySelector("img");
+        if (imageFromFigure instanceof HTMLImageElement && editorElement.contains(imageFromFigure)) {
+          return imageFromFigure;
+        }
       }
 
       var nearestImage = element.closest("img");
@@ -1177,6 +1379,111 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         : getNodeAfterCaretPosition(range.startContainer, range.startOffset);
 
     return resolveFigureFromNode(referenceNode);
+  }
+
+  function findTextBlockFromSelection() {
+    if (!editorElement) return null;
+    var range = getCollapsedSelectionRange();
+    if (!range) return null;
+
+    var node = range.startContainer;
+    var element = node instanceof Element ? node : node.parentElement;
+    if (!(element instanceof HTMLElement)) return null;
+    if (!editorElement.contains(element)) return null;
+
+    var block = element.closest(TEXT_BLOCK_MERGE_SELECTOR);
+    if (!(block instanceof HTMLElement) || !editorElement.contains(block)) return null;
+    return block;
+  }
+
+  function isCaretAtStartOfElement(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    var range = getCollapsedSelectionRange();
+    if (!range) return false;
+    if (!element.contains(range.startContainer)) return false;
+    return getTextOffsetWithinRangeContainer(element, range) === 0;
+  }
+
+  function findPreviousMergeableTextBlock(currentBlock) {
+    if (!(currentBlock instanceof HTMLElement)) return null;
+    var candidate = currentBlock.previousSibling;
+
+    while (candidate) {
+      if (candidate.nodeType === Node.TEXT_NODE) {
+        if (!(candidate.textContent || "").trim()) {
+          candidate = candidate.previousSibling;
+          continue;
+        }
+        return null;
+      }
+
+      if (candidate.nodeType === Node.ELEMENT_NODE && candidate instanceof HTMLElement) {
+        if (candidate.matches("figure[data-builder-image-figure='true']")) {
+          return null;
+        }
+        if (candidate.matches(TEXT_BLOCK_MERGE_SELECTOR)) {
+          return candidate;
+        }
+        if (candidate.tagName.toLowerCase() === "br") {
+          candidate = candidate.previousSibling;
+          continue;
+        }
+        return null;
+      }
+
+      candidate = candidate.previousSibling;
+    }
+
+    return null;
+  }
+
+  function canContainNestedTextBlock(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    var tagName = element.tagName.toLowerCase();
+    return tagName === "div" || tagName === "blockquote";
+  }
+
+  function promoteTextBlockToContainer(element) {
+    if (!(element instanceof HTMLElement)) return null;
+    var parent = element.parentNode;
+    if (!parent) return null;
+
+    var container = document.createElement("div");
+    var attributes = Array.from(element.attributes);
+    for (var index = 0; index < attributes.length; index += 1) {
+      var attribute = attributes[index];
+      container.setAttribute(attribute.name, attribute.value);
+    }
+
+    while (element.firstChild) {
+      container.appendChild(element.firstChild);
+    }
+
+    parent.replaceChild(container, element);
+    return container;
+  }
+
+  function mergeCurrentTextBlockIntoPrevious(currentBlock) {
+    if (!(currentBlock instanceof HTMLElement)) return false;
+    var previousBlock = findPreviousMergeableTextBlock(currentBlock);
+    if (!(previousBlock instanceof HTMLElement)) return false;
+
+    var range = getCollapsedSelectionRange();
+    var caretOffset = 0;
+    if (range && currentBlock.contains(range.startContainer)) {
+      caretOffset = getTextOffsetWithinRangeContainer(currentBlock, range);
+    }
+
+    var mergeTarget = previousBlock;
+    if (!canContainNestedTextBlock(mergeTarget)) {
+      var promoted = promoteTextBlockToContainer(mergeTarget);
+      if (!(promoted instanceof HTMLElement)) return false;
+      mergeTarget = promoted;
+    }
+
+    mergeTarget.appendChild(currentBlock);
+    setCaretAtTextOffset(currentBlock, caretOffset);
+    return true;
   }
 
   function ensureEditorHasParagraphWhenEmpty() {
@@ -1603,18 +1910,16 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
       editorElement.addEventListener("click", function (event) {
         if (!state || !state.editable) {
-          clearSelectedImage();
+          clearSelectedImage(true);
+          emitSelectedElementChange(null);
           return;
         }
 
         var target = event.target;
-        if (!(target instanceof HTMLImageElement)) {
-          clearSelectedImage();
-          return;
+        if (target instanceof HTMLImageElement) {
+          ensureImageFigure(target);
         }
 
-        ensureImageFigure(target);
-        emitSelectedImageChange(target);
         captureSelection();
       });
 
@@ -1671,10 +1976,25 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
           var adjacentFigure = findAdjacentFigureFromCaret(
             deleteDirection
           );
-          if (!(adjacentFigure instanceof HTMLElement)) return;
+          if (adjacentFigure instanceof HTMLElement) {
+            event.preventDefault();
+            deleteFigureContentOrFigure(adjacentFigure, deleteDirection);
+            return;
+          }
 
-          event.preventDefault();
-          deleteFigureContentOrFigure(adjacentFigure, deleteDirection);
+          if (event.key === "Backspace") {
+            var currentTextBlock = findTextBlockFromSelection();
+            if (
+              currentTextBlock instanceof HTMLElement &&
+              isCaretAtStartOfElement(currentTextBlock) &&
+              mergeCurrentTextBlockIntoPrevious(currentTextBlock)
+            ) {
+              event.preventDefault();
+              normalizeTypedLineDivToParagraph();
+              emitBodyChange();
+              captureSelection();
+            }
+          }
           return;
         }
 
@@ -1749,10 +2069,21 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var isEditorFocused = document.activeElement === editorElement;
     var shouldApplyBodyHtml =
       state.activeSlug !== lastAppliedBodySlug || nextBodyHtml !== lastAppliedBodyHtml;
+    var currentPersistableBodyHtml = "";
 
-    if (shouldApplyBodyHtml && !isEditorFocused && editorElement.innerHTML !== nextBodyHtml) {
+    if (shouldApplyBodyHtml && !isEditorFocused) {
+      currentPersistableBodyHtml = getPersistableEditorHtml();
+    }
+
+    if (
+      shouldApplyBodyHtml &&
+      !isEditorFocused &&
+      currentPersistableBodyHtml !== nextBodyHtml &&
+      editorElement.innerHTML !== nextBodyHtml
+    ) {
       editorElement.innerHTML = nextBodyHtml;
-      clearSelectedImage();
+      clearSelectedImage(true);
+      emitSelectedElementChange(null);
     }
 
     if (shouldApplyBodyHtml && (!isEditorFocused || editorElement.innerHTML === nextBodyHtml)) {
@@ -1768,6 +2099,58 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     if (!state || !state.editable || !editorElement) return;
     editorElement.focus();
     restoreSelection();
+
+    if (command === "insertImage") {
+      var source = typeof value === "string" ? value.trim() : "";
+      if (!source) return;
+
+      var selection = window.getSelection();
+      if (!selection) return;
+
+      if (selection.rangeCount === 0) {
+        var fallbackRange = document.createRange();
+        fallbackRange.selectNodeContents(editorElement);
+        fallbackRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(fallbackRange);
+      }
+
+      var replaceTarget = findImageInsertReplaceTarget();
+      var insertionRange = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+      if (!insertionRange) return;
+
+      var figure = document.createElement("figure");
+      var image = document.createElement("img");
+      image.setAttribute("src", source);
+      figure.appendChild(image);
+
+      var ensuredFigure = ensureImageFigure(image);
+      if (!(ensuredFigure instanceof HTMLElement)) return;
+
+      if (
+        replaceTarget instanceof HTMLElement &&
+        replaceTarget !== editorElement &&
+        replaceTarget.parentNode
+      ) {
+        replaceTarget.parentNode.replaceChild(ensuredFigure, replaceTarget);
+      } else {
+        insertionRange.deleteContents();
+        insertionRange.insertNode(ensuredFigure);
+      }
+
+      processExternalImage(image);
+
+      var paragraph = document.createElement("p");
+      paragraph.appendChild(document.createElement("br"));
+      ensuredFigure.insertAdjacentElement("afterend", paragraph);
+      setCaretAtTextOffset(paragraph, 0);
+
+      clearSelectedImage(true);
+      normalizeTypedLineDivToParagraph();
+      emitBodyChange();
+      captureSelection();
+      return;
+    }
 
     if (command === "clearAllFormatting") {
       document.execCommand("removeFormat", false);
@@ -1874,7 +2257,6 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     image.setAttribute("alt", value || "");
     emitBodyChange();
     emitSelectedImageChange(image);
-    captureSelection();
   }
 
   function updateSelectedImageCaption(value) {
@@ -1894,7 +2276,6 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
     emitBodyChange();
     emitSelectedImageChange(image);
-    captureSelection();
   }
 
   function updateSelectedImageSize(value) {
@@ -1913,7 +2294,58 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
     emitBodyChange();
     emitSelectedImageChange(image);
-    captureSelection();
+  }
+
+  function normalizeClassName(value) {
+    if (typeof value !== "string") return "";
+    var tokens = value.split(/\\s+/);
+    var uniqueTokens = [];
+    var seen = new Set();
+    for (var index = 0; index < tokens.length; index += 1) {
+      var token = tokens[index].trim();
+      if (!token || seen.has(token)) continue;
+      seen.add(token);
+      uniqueTokens.push(token);
+    }
+    return uniqueTokens.join(" ");
+  }
+
+  function updateSelectedElementClassName(value) {
+    if (!state || !state.editable) return;
+    var element = getSelectedInspectableElement();
+    if (!(element instanceof HTMLElement)) {
+      emitSelectedElementChange(null);
+      return;
+    }
+
+    var normalizedClassName = normalizeClassName(value);
+    if (normalizedClassName) {
+      element.setAttribute("class", normalizedClassName);
+    } else {
+      element.removeAttribute("class");
+    }
+
+    emitBodyChange();
+    emitSelectedElementChange(element);
+  }
+
+  function updateSelectedElementInlineStyle(value) {
+    if (!state || !state.editable) return;
+    var element = getSelectedInspectableElement();
+    if (!(element instanceof HTMLElement)) {
+      emitSelectedElementChange(null);
+      return;
+    }
+
+    var nextStyle = typeof value === "string" ? value.trim() : "";
+    if (nextStyle) {
+      element.setAttribute("style", nextStyle);
+    } else {
+      element.removeAttribute("style");
+    }
+
+    emitBodyChange();
+    emitSelectedElementChange(element);
   }
 
   function handleCommand(payload) {
@@ -1956,6 +2388,16 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
     if (payload.kind === "updateSelectedImageSize") {
       updateSelectedImageSize(payload.value);
+      return;
+    }
+
+    if (payload.kind === "updateSelectedElementClassName") {
+      updateSelectedElementClassName(payload.value);
+      return;
+    }
+
+    if (payload.kind === "updateSelectedElementInlineStyle") {
+      updateSelectedElementInlineStyle(payload.value);
       return;
     }
 
@@ -2054,7 +2496,8 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       footer,
       onActivePageChange,
       onPageBodyChange,
-      onSelectedImageChange
+      onSelectedImageChange,
+      onSelectedElementChange
     },
     ref
   ) {
@@ -2378,6 +2821,15 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           const payload = data.payload as { selectedImage?: PreviewSelectedImage | null } | undefined;
           const selectedImage = payload?.selectedImage ?? null;
           onSelectedImageChange?.(selectedImage);
+          return;
+        }
+
+        if (data.type === "selected-element-change") {
+          const payload = data.payload as
+            | { selectedElement?: PreviewSelectedElement | null }
+            | undefined;
+          const selectedElement = payload?.selectedElement ?? null;
+          onSelectedElementChange?.(selectedElement);
         }
       };
 
@@ -2389,6 +2841,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       draftImages,
       onActivePageChange,
       onPageBodyChange,
+      onSelectedElementChange,
       onSelectedImageChange,
       publishedSiteBaseUrl,
       sendStateToFrame
@@ -2444,6 +2897,18 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
         updateSelectedImageSize: (value: number) => {
           sendCommandToFrame({
             kind: "updateSelectedImageSize",
+            value
+          });
+        },
+        updateSelectedElementClassName: (value: string) => {
+          sendCommandToFrame({
+            kind: "updateSelectedElementClassName",
+            value
+          });
+        },
+        updateSelectedElementInlineStyle: (value: string) => {
+          sendCommandToFrame({
+            kind: "updateSelectedElementInlineStyle",
             value
           });
         },

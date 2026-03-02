@@ -9,6 +9,7 @@ import {
 } from "react";
 import AstroTemplatePreview, {
   type AstroTemplatePreviewHandle,
+  type PreviewSelectedElement,
   type PreviewSelectedImage
 } from "./AstroTemplatePreview";
 import type {
@@ -42,6 +43,7 @@ type BuilderPreviewPanelProps = {
   onActivePreviewSlugChange: (slug: string) => void;
   onPageBodyChange: (safeSlug: string, body: string) => void;
   onSelectedImageChange: (selectedImage: PreviewSelectedImage | null) => void;
+  onSelectedElementChange: (selectedElement: PreviewSelectedElement | null) => void;
 };
 
 type HoverInspectorState = {
@@ -120,7 +122,8 @@ const BuilderPreviewPanel = ({
   footer,
   onActivePreviewSlugChange,
   onPageBodyChange,
-  onSelectedImageChange
+  onSelectedImageChange,
+  onSelectedElementChange
 }: BuilderPreviewPanelProps) => {
   const previewShellRef = useRef<HTMLDivElement | null>(null);
   const copyStateResetTimeoutRef = useRef<number | null>(null);
@@ -303,6 +306,7 @@ const BuilderPreviewPanel = ({
             onActivePageChange={onActivePreviewSlugChange}
             onPageBodyChange={onPageBodyChange}
             onSelectedImageChange={onSelectedImageChange}
+            onSelectedElementChange={onSelectedElementChange}
           />
         )}
       </section>

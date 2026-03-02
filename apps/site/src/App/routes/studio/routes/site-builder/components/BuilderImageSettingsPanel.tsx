@@ -8,18 +8,23 @@ type BuilderImageSettingsPanelProps = {
   onAltChange: (value: string) => void;
   onCaptionChange: (value: string) => void;
   onSizeChange: (value: number) => void;
+  showHeading?: boolean;
+  showEmptyState?: boolean;
 };
 
 const BuilderImageSettingsPanel = ({
   image,
   onAltChange,
   onCaptionChange,
-  onSizeChange
+  onSizeChange,
+  showHeading = true,
+  showEmptyState = true
 }: BuilderImageSettingsPanelProps) => {
   if (!image) {
+    if (!showEmptyState) return null;
     return (
       <section className="builder-section builder-image-settings">
-        <h3>Image Settings</h3>
+        {showHeading && <h3>Image Settings</h3>}
         <p className="builder-image-settings-empty">Select an image in the preview to edit it.</p>
       </section>
     );
@@ -27,7 +32,7 @@ const BuilderImageSettingsPanel = ({
 
   return (
     <section className="builder-section builder-image-settings">
-      <h3>Image Settings</h3>
+      {showHeading && <h3>Image Settings</h3>}
       <label>
         URL
         <input value={image.src} readOnly />
@@ -43,8 +48,13 @@ const BuilderImageSettingsPanel = ({
       <label>
         Figcaption
         <input
-          value={image.caption}
-          onChange={(event) => onCaptionChange(event.target.value)}
+          key={`caption-${image.src}`}
+          defaultValue={image.caption}
+          onBlur={(event) => {
+            const nextCaption = event.target.value;
+            if (nextCaption === image.caption) return;
+            onCaptionChange(nextCaption);
+          }}
           placeholder="Add a caption"
         />
       </label>

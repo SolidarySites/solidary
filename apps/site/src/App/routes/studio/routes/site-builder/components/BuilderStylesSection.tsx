@@ -1,3 +1,5 @@
+import { css as cssLanguage } from "@codemirror/lang-css";
+import CodeMirror from "@uiw/react-codemirror";
 import {
   buildPrimaryFontStack,
   buildSecondaryFontStack,
@@ -44,6 +46,8 @@ const spacingFields: TokenField[] = [
   { variable: "--space-4", label: "Spacing LG", description: "Large spacing token." },
   { variable: "--space-5", label: "Spacing XL", description: "Extra-large spacing token." }
 ];
+
+const customCssEditorExtensions = [cssLanguage()];
 
 const RgbaColorControls = ({
   value,
@@ -282,11 +286,19 @@ const BuilderStylesSection = ({
                 Add extra CSS appended inside <code>tokens.css</code> after the default variable block.
               </p>
             </div>
-            <textarea
-              className="code-block builder-styles-custom-css"
+            <CodeMirror
+              className="builder-styles-custom-css-editor"
               value={customCss}
-              onChange={(event) => onTokensCssChange(setCustomCssInTokens(tokensCss, event.target.value))}
-              rows={8}
+              extensions={customCssEditorExtensions}
+              basicSetup={{
+                lineNumbers: true,
+                foldGutter: true,
+                highlightActiveLine: true,
+                autocompletion: true
+              }}
+              onChange={(value) => onTokensCssChange(setCustomCssInTokens(tokensCss, value))}
+              height="220px"
+              aria-label="Custom CSS"
             />
           </div>
         </>

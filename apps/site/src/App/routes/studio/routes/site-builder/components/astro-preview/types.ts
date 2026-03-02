@@ -19,6 +19,13 @@ export type PreviewSelectedImage = {
   sizePercent: number;
 };
 
+export type PreviewSelectedElement = {
+  pageSlug: string;
+  tagName: string;
+  className: string;
+  inlineStyle: string;
+};
+
 export type AstroTemplatePreviewHandle = {
   execCommand: (command: string, value?: string) => void;
   focusEditor: () => void;
@@ -32,6 +39,8 @@ export type AstroTemplatePreviewHandle = {
   updateSelectedImageAlt: (value: string) => void;
   updateSelectedImageCaption: (value: string) => void;
   updateSelectedImageSize: (value: number) => void;
+  updateSelectedElementClassName: (value: string) => void;
+  updateSelectedElementInlineStyle: (value: string) => void;
   clearSelectedImage: () => void;
 };
 
@@ -52,6 +61,7 @@ export type AstroTemplatePreviewProps = {
   onActivePageChange: (slug: string) => void;
   onPageBodyChange: (slug: string, body: string) => void;
   onSelectedImageChange?: (selectedImage: PreviewSelectedImage | null) => void;
+  onSelectedElementChange?: (selectedElement: PreviewSelectedElement | null) => void;
 };
 
 export type ParsedPage = PreviewPage & {

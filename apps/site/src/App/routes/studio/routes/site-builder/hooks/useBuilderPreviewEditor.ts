@@ -2,6 +2,7 @@ import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type {
   AstroTemplatePreviewHandle,
+  PreviewSelectedElement,
   PreviewSelectedImage
 } from "../components/AstroTemplatePreview";
 import {
@@ -207,6 +208,8 @@ export const useBuilderPreviewEditor = ({
   setDraftImages
 }: UseBuilderPreviewEditorParams) => {
   const [selectedEditorImage, setSelectedEditorImage] = useState<PreviewSelectedImage | null>(null);
+  const [selectedEditorElement, setSelectedEditorElement] =
+    useState<PreviewSelectedElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
 
   const resetNotices = () => {
@@ -248,8 +251,23 @@ export const useBuilderPreviewEditor = ({
     previewRef.current?.updateSelectedImageSize(clamped);
   };
 
+  const handleSelectedEditorElementClassNameChange = (value: string) => {
+    setSelectedEditorElement((current) =>
+      current ? { ...current, className: value } : current
+    );
+    previewRef.current?.updateSelectedElementClassName(value);
+  };
+
+  const handleSelectedEditorElementInlineStyleChange = (value: string) => {
+    setSelectedEditorElement((current) =>
+      current ? { ...current, inlineStyle: value } : current
+    );
+    previewRef.current?.updateSelectedElementInlineStyle(value);
+  };
+
   const clearSelectedEditorImage = () => {
     setSelectedEditorImage(null);
+    setSelectedEditorElement(null);
   };
 
   const handleInlineImageUpload = async (
@@ -405,7 +423,9 @@ export const useBuilderPreviewEditor = ({
   return {
     previewRef,
     selectedEditorImage,
+    selectedEditorElement,
     setSelectedEditorImage,
+    setSelectedEditorElement,
     clearSelectedEditorImage,
     uploadingInlineImage: false,
     runPreviewCommand,
@@ -414,6 +434,8 @@ export const useBuilderPreviewEditor = ({
     handleSelectedEditorImageAltChange,
     handleSelectedEditorImageCaptionChange,
     handleSelectedEditorImageSizeChange,
+    handleSelectedEditorElementClassNameChange,
+    handleSelectedEditorElementInlineStyleChange,
     handleInlineImageUpload
   };
 };

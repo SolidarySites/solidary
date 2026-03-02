@@ -1,11 +1,10 @@
 import { useEffect, useRef, type RefObject } from "react";
 import BuilderFooterSection from "./BuilderFooterSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
-import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
 import LockAvatarPill from "./LockAvatarPill";
 import BuilderPagesSection from "./BuilderPagesSection";
 import BuilderStylesSection from "./BuilderStylesSection";
-import type { PreviewSelectedImage } from "./AstroTemplatePreview";
+import type { PreviewSelectedElement, PreviewSelectedImage } from "./AstroTemplatePreview";
 import type { PublishFeedback, SiteAccessRole } from "../services/types";
 import type {
   BuilderEditableSectionKey,
@@ -88,9 +87,12 @@ type BuilderSidebarProps = {
   onMoveFooterModuleUp: (index: number) => void;
   onMoveFooterModuleDown: (index: number) => void;
   selectedEditorImage: PreviewSelectedImage | null;
+  selectedEditorElement: PreviewSelectedElement | null;
   onSelectedEditorImageAltChange: (value: string) => void;
   onSelectedEditorImageCaptionChange: (value: string) => void;
   onSelectedEditorImageSizeChange: (value: number) => void;
+  onSelectedEditorElementClassNameChange: (value: string) => void;
+  onSelectedEditorElementInlineStyleChange: (value: string) => void;
 };
 
 const BuilderSidebar = ({
@@ -154,9 +156,12 @@ const BuilderSidebar = ({
   onMoveFooterModuleUp,
   onMoveFooterModuleDown,
   selectedEditorImage,
+  selectedEditorElement,
   onSelectedEditorImageAltChange,
   onSelectedEditorImageCaptionChange,
-  onSelectedEditorImageSizeChange
+  onSelectedEditorImageSizeChange,
+  onSelectedEditorElementClassNameChange,
+  onSelectedEditorElementInlineStyleChange
 }: BuilderSidebarProps) => {
   const sidebarShellRef = useRef<HTMLDivElement | null>(null);
   const headerLock = sectionLocks.header;
@@ -331,15 +336,19 @@ const BuilderSidebar = ({
                       onPageSlugChange={onPageSlugChange}
                       onPageJavaScriptChange={onPageJavaScriptChange}
                       canEditPageJavaScript={canEditPageJavaScript}
+                      isEditingDisabled={activeSettingsLockedByOther}
+                      selectedEditorImage={selectedEditorImage}
+                      selectedEditorElement={selectedEditorElement}
+                      onSelectedEditorImageAltChange={onSelectedEditorImageAltChange}
+                      onSelectedEditorImageCaptionChange={onSelectedEditorImageCaptionChange}
+                      onSelectedEditorImageSizeChange={onSelectedEditorImageSizeChange}
+                      onSelectedEditorElementClassNameChange={
+                        onSelectedEditorElementClassNameChange
+                      }
+                      onSelectedEditorElementInlineStyleChange={
+                        onSelectedEditorElementInlineStyleChange
+                      }
                     />
-                    {isPageEditingMode && (
-                      <BuilderImageSettingsPanel
-                        image={selectedEditorImage}
-                        onAltChange={onSelectedEditorImageAltChange}
-                        onCaptionChange={onSelectedEditorImageCaptionChange}
-                        onSizeChange={onSelectedEditorImageSizeChange}
-                      />
-                    )}
                   </>
                 )}
 

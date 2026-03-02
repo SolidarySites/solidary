@@ -786,9 +786,22 @@
   min-width: 0;
 }
 
-.builder-styles-custom-css,
 .builder-advanced-css-block {
   min-height: 220px;
+}
+
+.builder-styles-custom-css-editor {
+  border: 1px solid rgba(31, 34, 28, 0.35);
+  background: #fff;
+}
+
+.builder-styles-custom-css-editor .cm-editor {
+  min-height: 220px;
+}
+
+.builder-styles-custom-css-editor .cm-scroller {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 780px) {
@@ -857,6 +870,60 @@
   display: grid;
   gap: 0.8rem;
   background: rgba(248, 245, 239, 0.6);
+}
+
+.builder-page-editor-mode-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.builder-page-editor-mode-button {
+  width: 100%;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.builder-page-editor-mode-button.is-active {
+  background: #1f221c;
+  color: #f8f5ef;
+}
+
+.builder-page-javascript-editor {
+  border: 1px solid rgba(31, 34, 28, 0.35);
+  background: #fff;
+}
+
+.builder-page-javascript-editor .cm-editor {
+  min-height: 280px;
+}
+
+.builder-page-javascript-editor .cm-scroller {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.builder-page-properties-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.builder-page-properties-card {
+  border: 1px dashed rgba(31, 34, 28, 0.2);
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.builder-page-properties-tag {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(31, 34, 28, 0.75);
 }
 
 .builder-page-card {
@@ -999,11 +1066,15 @@
 }
 
 .astro-preview .prose figure[data-builder-image-figure="true"] figcaption {
-  margin-top: 0;
+  margin-top: 0.18rem;
   color: var(--muted);
-  font-size: 0.86em;
-  line-height: 1.4;
+  font-size: 0.74rem;
+  line-height: 1.25;
   font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-family: var(--font-sans);
 }
 
 .astro-preview .prose figure[data-builder-image-figure="true"] figcaption:empty {

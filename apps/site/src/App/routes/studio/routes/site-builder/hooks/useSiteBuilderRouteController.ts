@@ -256,7 +256,9 @@ export const useSiteBuilderRouteController = ({
   const {
     previewRef,
     selectedEditorImage,
+    selectedEditorElement,
     setSelectedEditorImage,
+    setSelectedEditorElement,
     clearSelectedEditorImage,
     uploadingInlineImage,
     runPreviewCommand,
@@ -265,6 +267,8 @@ export const useSiteBuilderRouteController = ({
     handleSelectedEditorImageAltChange,
     handleSelectedEditorImageCaptionChange,
     handleSelectedEditorImageSizeChange,
+    handleSelectedEditorElementClassNameChange,
+    handleSelectedEditorElementInlineStyleChange,
     handleInlineImageUpload
   } = useBuilderPreviewEditor({
     canEditPageContent,
@@ -1662,9 +1666,12 @@ export const useSiteBuilderRouteController = ({
       onMoveFooterModuleUp: (index: number) => moveFooterModule(index, -1),
       onMoveFooterModuleDown: (index: number) => moveFooterModule(index, 1),
       selectedEditorImage,
+      selectedEditorElement,
       onSelectedEditorImageAltChange: handleSelectedEditorImageAltChange,
       onSelectedEditorImageCaptionChange: handleSelectedEditorImageCaptionChange,
-      onSelectedEditorImageSizeChange: handleSelectedEditorImageSizeChange
+      onSelectedEditorImageSizeChange: handleSelectedEditorImageSizeChange,
+      onSelectedEditorElementClassNameChange: handleSelectedEditorElementClassNameChange,
+      onSelectedEditorElementInlineStyleChange: handleSelectedEditorElementInlineStyleChange
     },
     previewPanelProps: {
       shouldLoadDraft,
@@ -1699,7 +1706,8 @@ export const useSiteBuilderRouteController = ({
         void handleActivePreviewSlugChange(slug);
       },
       onPageBodyChange: updatePageBody,
-      onSelectedImageChange: setSelectedEditorImage
+      onSelectedImageChange: setSelectedEditorImage,
+      onSelectedElementChange: setSelectedEditorElement
     }
   };
 };
