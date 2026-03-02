@@ -5,6 +5,7 @@ import AstroTemplatePreview, {
 } from "./AstroTemplatePreview";
 import type {
   BuilderPage,
+  BuilderStylesMode,
   DraftImageAsset,
   FooterOptions,
   HeaderOptions
@@ -21,6 +22,9 @@ type BuilderPreviewPanelProps = {
   pages: BuilderPage[];
   draftImages: DraftImageAsset[];
   tokensCss: string;
+  styleMode: BuilderStylesMode;
+  advancedStructureCss: string;
+  previewStylesCss: string;
   homeFallbackBody: string;
   activePreviewSlug: string;
   publishedSiteBaseUrl: string | null;
@@ -42,6 +46,9 @@ const BuilderPreviewPanel = ({
   pages,
   draftImages,
   tokensCss,
+  styleMode,
+  advancedStructureCss,
+  previewStylesCss,
   homeFallbackBody,
   activePreviewSlug,
   publishedSiteBaseUrl,
@@ -80,6 +87,9 @@ const BuilderPreviewPanel = ({
           pages={pages}
           draftImages={draftImages}
           tokensCss={tokensCss}
+          styleMode={styleMode}
+          advancedStructureCss={advancedStructureCss}
+          previewStylesCss={previewStylesCss}
           homeFallbackBody={homeFallbackBody}
           activePageSlug={activePreviewSlug}
           publishedSiteBaseUrl={publishedSiteBaseUrl}

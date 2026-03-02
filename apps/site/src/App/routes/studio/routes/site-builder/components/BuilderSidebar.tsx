@@ -12,6 +12,7 @@ import type {
   BuilderPage,
   BuilderSection,
   BuilderSettingsSection,
+  BuilderStylesMode,
   FooterModule
 } from "../services/types";
 
@@ -43,6 +44,11 @@ type BuilderSidebarProps = {
   activePreviewSlug: string;
   pageTitleRef: RefObject<HTMLInputElement | null>;
   tokensCss: string;
+  styleMode: BuilderStylesMode;
+  advancedStructureCss: string;
+  availableFonts: string[];
+  fontsLoading: boolean;
+  fontsError: string | null;
   headerDisabled: boolean;
   headerFixed: boolean;
   headerBrandText: string;
@@ -66,6 +72,8 @@ type BuilderSidebarProps = {
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
   onTokensCssChange: (value: string) => void;
+  onStyleModeChange: (value: BuilderStylesMode) => void;
+  onAdvancedStructureCssChange: (value: string) => void;
   onHeaderDisabledChange: (value: boolean) => void;
   onHeaderFixedChange: (value: boolean) => void;
   onHeaderBrandTextChange: (value: string) => void;
@@ -104,6 +112,11 @@ const BuilderSidebar = ({
   activePreviewSlug,
   pageTitleRef,
   tokensCss,
+  styleMode,
+  advancedStructureCss,
+  availableFonts,
+  fontsLoading,
+  fontsError,
   headerDisabled,
   headerFixed,
   headerBrandText,
@@ -124,6 +137,8 @@ const BuilderSidebar = ({
   onPageTitleChange,
   onPageSlugChange,
   onTokensCssChange,
+  onStyleModeChange,
+  onAdvancedStructureCssChange,
   onHeaderDisabledChange,
   onHeaderFixedChange,
   onHeaderBrandTextChange,
@@ -354,7 +369,17 @@ const BuilderSidebar = ({
                 )}
 
                 {activeSettingsSection === "styles" && (
-                  <BuilderStylesSection tokensCss={tokensCss} onTokensCssChange={onTokensCssChange} />
+                  <BuilderStylesSection
+                    styleMode={styleMode}
+                    tokensCss={tokensCss}
+                    advancedStructureCss={advancedStructureCss}
+                    availableFonts={availableFonts}
+                    fontsLoading={fontsLoading}
+                    fontsError={fontsError}
+                    onTokensCssChange={onTokensCssChange}
+                    onStyleModeChange={onStyleModeChange}
+                    onAdvancedStructureCssChange={onAdvancedStructureCssChange}
+                  />
                 )}
               </fieldset>
             </>
@@ -381,7 +406,7 @@ const BuilderSidebar = ({
                   ))}
                 </div>
                 <p className="builder-sidebar-publish-note">
-                  Publish the whole site with all saved changes when you're ready.
+                  Publish the whole site when it's ready to go live.
                 </p>
                 <button className="primary" type="button" onClick={onPublish} disabled={!canPublish}>
                   {isProvisioning

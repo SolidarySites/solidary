@@ -1,6 +1,6 @@
 import { supabase } from "../../../../../lib/supabase";
 import { normalizeFooterModules, type DraftSaveSettingsInput } from "./draft-utils";
-import type { DraftState } from "./types";
+import type { BuilderStyleSettings, DraftState } from "./types";
 
 export const saveHeaderSection = async ({
   draftState,
@@ -61,22 +61,27 @@ export const saveFooterSection = async ({
 
 export const saveStylesSection = async ({
   draftState,
-  tokensCss,
+  styles,
   markEditorDraftTouched,
   buildDraftSignatureForState
 }: {
   draftState: DraftState | null;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   markEditorDraftTouched: (section: "styles") => Promise<void>;
   buildDraftSignatureForState: () => string;
 }): Promise<string> => {
   if (!draftState) {
     throw new Error("Missing draft data.");
   }
-  const { error } = await supabase.rpc("site_draft_upsert_settings_styles", {
-    p_draft_id: draftState.id,
-    p_tokens_css: tokensCss
-  });
+  const { error } = await supabase
+    .from("site_draft_settings")
+    .upsert(
+      {
+        draft_id: draftState.id,
+        styles
+      },
+      { onConflict: "draft_id" }
+    );
   if (error) {
     throw new Error(error.message);
   }

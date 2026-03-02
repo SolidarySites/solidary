@@ -7,7 +7,8 @@ import {
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/astro/runtime-files";
 import { FILE_KEYS, PAGE_PATH_PREFIX, TEMPLATE_RUNTIME_FILE_PATHS } from "./constants";
-import type { BuilderPage, FooterOptions, HeaderOptions } from "./types";
+import { combineTokensAndStructureCss, toggleTokensImportInGlobalCss } from "./style-editor";
+import type { BuilderPage, BuilderStyleSettings, FooterOptions, HeaderOptions } from "./types";
 import { getPageSafeSlug } from "./utils";
 
 type SiteSettingsInput = {
@@ -164,7 +165,7 @@ type BuildFilesInput = {
   siteId: string;
   imageUrl: string;
   settingsInput: SiteSettingsInput;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   templateSolidary: string;
   pages: BuilderPage[];
   defaultHomeContent: string;
@@ -176,7 +177,7 @@ export const buildFiles = ({
   siteId,
   imageUrl,
   settingsInput,
-  tokensCss,
+  styles,
   templateSolidary,
   pages,
   defaultHomeContent,
@@ -185,6 +186,13 @@ export const buildFiles = ({
 }: BuildFilesInput) => {
   const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
   const publishBasePath = getBasePathFromSiteUrl(settings.siteUrl);
+  const tokensCss = styles.tokensCss;
+  const baseStructureCss = styles.baseStructureCss.trim();
+  const structureCss =
+    styles.styleMode === "advanced"
+      ? styles.advancedStructureCss.trim() || combineTokensAndStructureCss(tokensCss, baseStructureCss)
+      : baseStructureCss;
+  const globalCss = toggleTokensImportInGlobalCss(styles.baseGlobalCss, styles.styleMode !== "advanced");
   const runtimeTemplateFiles: RepoFileSet = {};
   TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
     const content = RUNTIME_TEMPLATE_FILES[path];
@@ -198,6 +206,8 @@ export const buildFiles = ({
     [FILE_KEYS.headerContent]: buildHeaderMarkdown(settings),
     [FILE_KEYS.footerContent]: buildFooterMarkdown(settings),
     [FILE_KEYS.tokens]: tokensCss,
+    [FILE_KEYS.globalStyles]: `${globalCss.trimEnd()}\n`,
+    [FILE_KEYS.structureStyles]: `${structureCss.trimEnd()}\n`,
     [FILE_KEYS.solidary]: buildSolidaryFile({
       templateSolidary,
       siteId,

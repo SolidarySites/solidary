@@ -1,21 +1,298 @@
+import {
+  buildPrimaryFontStack,
+  buildSecondaryFontStack,
+  extractCustomCssFromTokens,
+  extractLeadingFontName,
+  formatRgbaFromHex,
+  getCssVariableValue,
+  parseCssColor,
+  setCssVariableValue,
+  setCustomCssInTokens
+} from "../services/style-editor";
+import type { BuilderStylesMode } from "../services/types";
+
 type BuilderStylesSectionProps = {
+  styleMode: BuilderStylesMode;
   tokensCss: string;
+  advancedStructureCss: string;
+  availableFonts: string[];
+  fontsLoading: boolean;
+  fontsError: string | null;
   onTokensCssChange: (value: string) => void;
+  onStyleModeChange: (value: BuilderStylesMode) => void;
+  onAdvancedStructureCssChange: (value: string) => void;
 };
 
-const BuilderStylesSection = ({ tokensCss, onTokensCssChange }: BuilderStylesSectionProps) => (
-  <div className="builder-section">
-    <div className="section-header">
-      <h2>Styles</h2>
-      <p>Edit design tokens to adjust colors, spacing, and typography.</p>
+type TokenField = {
+  variable: string;
+  label: string;
+  description: string;
+};
+
+const colorFields: TokenField[] = [
+  { variable: "--bg", label: "Background color", description: "Main page background color." },
+  { variable: "--fg", label: "Text color", description: "Primary text color used across content." },
+  { variable: "--muted", label: "Muted text color", description: "Secondary text color for helper text." },
+  { variable: "--link", label: "Link color", description: "Link and interactive text color." }
+];
+
+const spacingFields: TokenField[] = [
+  { variable: "--maxw", label: "Content max width", description: "Maximum width of the main content area." },
+  { variable: "--space-1", label: "Spacing XS", description: "Small spacing token." },
+  { variable: "--space-2", label: "Spacing SM", description: "Small-medium spacing token." },
+  { variable: "--space-3", label: "Spacing MD", description: "Medium spacing token." },
+  { variable: "--space-4", label: "Spacing LG", description: "Large spacing token." },
+  { variable: "--space-5", label: "Spacing XL", description: "Extra-large spacing token." }
+];
+
+const RgbaColorControls = ({
+  value,
+  onChange,
+  defaultAlpha = 1
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  defaultAlpha?: number;
+}) => {
+  const parsed = parseCssColor(value) ?? { hex: "#000000", alpha: defaultAlpha };
+  return (
+    <div className="builder-styles-color-row">
+      <div className="builder-styles-color-top-row">
+        <label className="builder-styles-color-picker">
+          Color
+          <input
+            type="color"
+            value={parsed.hex}
+            onChange={(event) => onChange(formatRgbaFromHex(event.target.value, parsed.alpha))}
+          />
+        </label>
+        <label className="builder-styles-alpha-value">
+          Alpha
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={parsed.alpha}
+            onChange={(event) =>
+              onChange(formatRgbaFromHex(parsed.hex, Number.parseFloat(event.target.value || "0")))
+            }
+          />
+        </label>
+      </div>
+      <label className="builder-styles-color-value">
+        Value
+        <input value={value} onChange={(event) => onChange(event.target.value)} />
+      </label>
     </div>
-    <textarea
-      className="code-block"
-      value={tokensCss}
-      onChange={(event) => onTokensCssChange(event.target.value)}
-      rows={20}
-    />
-  </div>
-);
+  );
+};
+
+const BuilderStylesSection = ({
+  styleMode,
+  tokensCss,
+  advancedStructureCss,
+  availableFonts,
+  fontsLoading,
+  fontsError,
+  onTokensCssChange,
+  onStyleModeChange,
+  onAdvancedStructureCssChange
+}: BuilderStylesSectionProps) => {
+  const updateToken = (variable: string, value: string) =>
+    onTokensCssChange(setCssVariableValue(tokensCss, variable, value));
+
+  const primaryFontStack = getCssVariableValue(tokensCss, "--font-sans", "");
+  const secondaryFontStack = getCssVariableValue(tokensCss, "--font-mono", "");
+  const primarySelectedFont = extractLeadingFontName(primaryFontStack);
+  const secondarySelectedFont = extractLeadingFontName(secondaryFontStack);
+  const customCss = extractCustomCssFromTokens(tokensCss);
+  const hasAvailableFonts = availableFonts.length > 0;
+  const selectedPrimaryFallback = hasAvailableFonts ? availableFonts[0] : "";
+  const selectedSecondaryFallback = hasAvailableFonts ? availableFonts[0] : "";
+  const selectedPrimaryFont = hasAvailableFonts
+    ? availableFonts.includes(primarySelectedFont)
+      ? primarySelectedFont
+      : selectedPrimaryFallback
+    : "";
+  const selectedSecondaryFont = hasAvailableFonts
+    ? availableFonts.includes(secondarySelectedFont)
+      ? secondarySelectedFont
+      : selectedSecondaryFallback
+    : "";
+  const borderValue = getCssVariableValue(tokensCss, "--border", "rgba(0, 0, 0, 0.12)");
+
+  return (
+    <div className="builder-section builder-styles-section">
+      <div className="section-header">
+        <h2>Styles</h2>
+        <p>Choose between simple visual controls and full advanced stylesheet editing.</p>
+      </div>
+
+      <div className="builder-styles-mode-row" role="radiogroup" aria-label="Styles mode">
+        <button
+          type="button"
+          className={`ghost builder-styles-mode-button ${styleMode === "simple" ? "is-active" : ""}`.trim()}
+          onClick={() => onStyleModeChange("simple")}
+          aria-pressed={styleMode === "simple"}
+        >
+          Simple
+        </button>
+        <button
+          type="button"
+          className={`ghost builder-styles-mode-button ${styleMode === "advanced" ? "is-active" : ""}`.trim()}
+          onClick={() => onStyleModeChange("advanced")}
+          aria-pressed={styleMode === "advanced"}
+        >
+          Advanced
+        </button>
+      </div>
+
+      {styleMode === "advanced" ? (
+        <div className="builder-styles-card">
+          <div className="section-header">
+            <h3>Advanced structure.css</h3>
+            <p>
+              Edit <code>src/styles/partials/structure.css</code> directly. This combined editor includes
+              tokens at the top, and <code>tokens.css</code> import is disabled in global styles while this
+              mode is active.
+            </p>
+          </div>
+          <textarea
+            className="code-block builder-advanced-css-block"
+            value={advancedStructureCss}
+            onChange={(event) => onAdvancedStructureCssChange(event.target.value)}
+            rows={24}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="builder-styles-font-status">
+            <p className="builder-format-toolbar-note">
+              {fontsLoading
+                ? "Loading fonts from src/styles/partials/fonts.css..."
+                : "Font options are loaded from src/styles/partials/fonts.css."}
+            </p>
+          </div>
+          {fontsError && <p className="builder-section-lock-note">{fontsError}</p>}
+
+          <div className="builder-styles-grid">
+            <div className="builder-styles-card">
+              <div className="section-header">
+                <h3>Colors</h3>
+                <p>Adjust key color tokens used across the site.</p>
+              </div>
+              <div className="builder-styles-fields">
+                {colorFields.map((field) => {
+                  const value = getCssVariableValue(tokensCss, field.variable, "");
+                  return (
+                    <div key={field.variable} className="builder-styles-field">
+                      <label>
+                        {field.label}
+                        <p className="builder-format-toolbar-note">{field.description}</p>
+                        <RgbaColorControls
+                          value={value}
+                          onChange={(next) => updateToken(field.variable, next)}
+                        />
+                      </label>
+                    </div>
+                  );
+                })}
+                <div className="builder-styles-field">
+                  <label>
+                    Border color
+                    <p className="builder-format-toolbar-note">
+                      Border and divider color with transparency support.
+                    </p>
+                    <RgbaColorControls
+                      value={borderValue}
+                      defaultAlpha={0.12}
+                      onChange={(value) => updateToken("--border", value)}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="builder-styles-card">
+              <div className="section-header">
+                <h3>Typography</h3>
+                <p>Choose primary and secondary fonts. Fallback stacks are applied automatically.</p>
+              </div>
+              <div className="builder-styles-fields">
+                <label>
+                  Primary font
+                  <p className="builder-format-toolbar-note">Used for body and content text.</p>
+                  <select
+                    value={selectedPrimaryFont}
+                    disabled={!hasAvailableFonts}
+                    onChange={(event) => updateToken("--font-sans", buildPrimaryFontStack(event.target.value))}
+                  >
+                    {!hasAvailableFonts && <option value="">No fonts available</option>}
+                    {availableFonts.map((fontName, index) => (
+                      <option key={`primary-${fontName}-${index}`} value={fontName}>
+                        {fontName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Secondary font
+                  <p className="builder-format-toolbar-note">Used for monospace/code text roles.</p>
+                  <select
+                    value={selectedSecondaryFont}
+                    disabled={!hasAvailableFonts}
+                    onChange={(event) => updateToken("--font-mono", buildSecondaryFontStack(event.target.value))}
+                  >
+                    {!hasAvailableFonts && <option value="">No fonts available</option>}
+                    {availableFonts.map((fontName, index) => (
+                      <option key={`secondary-${fontName}-${index}`} value={fontName}>
+                        {fontName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="builder-styles-card">
+              <div className="section-header">
+                <h3>Layout & spacing</h3>
+                <p>Tune container width and shared spacing tokens.</p>
+              </div>
+              <div className="builder-styles-fields">
+                {spacingFields.map((field) => (
+                  <label key={field.variable}>
+                    {field.label}
+                    <p className="builder-format-toolbar-note">{field.description}</p>
+                    <input
+                      value={getCssVariableValue(tokensCss, field.variable, "")}
+                      onChange={(event) => updateToken(field.variable, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="builder-styles-card">
+            <div className="section-header">
+              <h3>Custom CSS</h3>
+              <p>
+                Add extra CSS appended inside <code>tokens.css</code> after the default variable block.
+              </p>
+            </div>
+            <textarea
+              className="code-block builder-styles-custom-css"
+              value={customCss}
+              onChange={(event) => onTokensCssChange(setCustomCssInTokens(tokensCss, event.target.value))}
+              rows={8}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export default BuilderStylesSection;

@@ -7,6 +7,7 @@ import {
 } from "../../../../../lib/site-image-url";
 import { FILE_KEYS } from "./constants";
 import type {
+  BuilderStylesMode,
   BuilderPage,
   DraftImageAsset,
   DraftType,
@@ -29,6 +30,10 @@ export type LoadedDraftResult = {
   siteDescription?: string;
   siteUrl?: string;
   tokensCss?: string;
+  styleMode?: BuilderStylesMode;
+  advancedStructureCss?: string;
+  baseStructureCss?: string;
+  baseGlobalCss?: string;
   siteImagePreview?: string;
   draftImageUrl?: string;
   draftImages?: DraftImageAsset[];
@@ -310,6 +315,18 @@ export const loadDraftById = async ({
   else if (solidary?.site_url) result.siteUrl = solidary.site_url;
 
   if (typeof styles.tokensCss === "string") result.tokensCss = styles.tokensCss;
+  if (styles.styleMode === "simple" || styles.styleMode === "advanced") {
+    result.styleMode = styles.styleMode;
+  }
+  if (typeof styles.advancedStructureCss === "string") {
+    result.advancedStructureCss = styles.advancedStructureCss;
+  }
+  if (typeof styles.baseStructureCss === "string") {
+    result.baseStructureCss = styles.baseStructureCss;
+  }
+  if (typeof styles.baseGlobalCss === "string") {
+    result.baseGlobalCss = styles.baseGlobalCss;
+  }
 
   const header = settings.header as Record<string, unknown> | undefined;
   if (header) {

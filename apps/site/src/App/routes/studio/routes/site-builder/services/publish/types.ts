@@ -3,6 +3,7 @@ import type { NoticeKind } from "../../../../../../types/notice";
 import type { DraftSaveSettingsInput } from "../draft-utils";
 import type {
   BuilderPage,
+  BuilderStyleSettings,
   DraftImageAsset,
   DraftState,
   PublishFeedback
@@ -32,7 +33,7 @@ export type CommonPublishParams = {
   pages: BuilderPage[];
   draftImages: DraftImageAsset[];
   siteSettingsInput: DraftSaveSettingsInput;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   templateSolidary: string;
   defaultHomeContent: string;
   setProvisionStep: (step: string) => void;

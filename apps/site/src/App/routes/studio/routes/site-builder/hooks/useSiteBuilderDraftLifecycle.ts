@@ -12,6 +12,7 @@ import type {
   DraftImageAsset,
   DraftState,
   FooterModule,
+  BuilderStylesMode,
   SiteAccessRole
 } from "../services/types";
 import { getPageSafeSlug, normalizePageSlug } from "../services/utils";
@@ -23,6 +24,10 @@ type UseSiteBuilderDraftLifecycleParams = {
   sessionResolved: boolean;
   sessionUserId: string | null;
   defaultHomeContent: string;
+  defaultTokensCss: string;
+  defaultStylesMode: BuilderStylesMode;
+  defaultBaseStructureCss: string;
+  defaultBaseGlobalCss: string;
   activePreviewSlug: string;
   currentDraftSignature: string;
   draftState: DraftState | null;
@@ -45,6 +50,10 @@ type UseSiteBuilderDraftLifecycleParams = {
   setSiteDescription: Dispatch<SetStateAction<string>>;
   setSiteUrl: Dispatch<SetStateAction<string>>;
   setTokensCss: Dispatch<SetStateAction<string>>;
+  setStyleMode: Dispatch<SetStateAction<BuilderStylesMode>>;
+  setAdvancedStructureCss: Dispatch<SetStateAction<string>>;
+  setBaseStructureCss: Dispatch<SetStateAction<string>>;
+  setBaseGlobalCss: Dispatch<SetStateAction<string>>;
   setSiteImagePreview: Dispatch<SetStateAction<string | null>>;
   setDraftImageUrl: Dispatch<SetStateAction<string | null>>;
   setFooterDisabled: Dispatch<SetStateAction<boolean>>;
@@ -73,6 +82,10 @@ export const useSiteBuilderDraftLifecycle = ({
   sessionResolved,
   sessionUserId,
   defaultHomeContent,
+  defaultTokensCss,
+  defaultStylesMode,
+  defaultBaseStructureCss,
+  defaultBaseGlobalCss,
   activePreviewSlug,
   currentDraftSignature,
   draftState,
@@ -95,6 +108,10 @@ export const useSiteBuilderDraftLifecycle = ({
   setSiteDescription,
   setSiteUrl,
   setTokensCss,
+  setStyleMode,
+  setAdvancedStructureCss,
+  setBaseStructureCss,
+  setBaseGlobalCss,
   setSiteImagePreview,
   setDraftImageUrl,
   setFooterDisabled,
@@ -157,7 +174,17 @@ export const useSiteBuilderDraftLifecycle = ({
 
       if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
       if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
-      if (typeof loaded.tokensCss === "string") setTokensCss(loaded.tokensCss);
+      setTokensCss(typeof loaded.tokensCss === "string" ? loaded.tokensCss : defaultTokensCss);
+      setStyleMode(loaded.styleMode ?? defaultStylesMode);
+      setAdvancedStructureCss(
+        typeof loaded.advancedStructureCss === "string" ? loaded.advancedStructureCss : ""
+      );
+      setBaseStructureCss(
+        typeof loaded.baseStructureCss === "string" ? loaded.baseStructureCss : defaultBaseStructureCss
+      );
+      setBaseGlobalCss(
+        typeof loaded.baseGlobalCss === "string" ? loaded.baseGlobalCss : defaultBaseGlobalCss
+      );
       if (typeof loaded.siteImagePreview === "string") setSiteImagePreview(loaded.siteImagePreview);
       if (typeof loaded.draftImageUrl === "string") setDraftImageUrl(loaded.draftImageUrl);
 
@@ -192,9 +219,17 @@ export const useSiteBuilderDraftLifecycle = ({
       setSiteImagePreview,
       setSiteTitle,
       setSiteUrl,
+      setStyleMode,
+      setAdvancedStructureCss,
+      setBaseStructureCss,
+      setBaseGlobalCss,
       setTokensCss,
       shouldCaptureLoadedDraftSignatureRef,
-      touchedPageSlugsRef
+      touchedPageSlugsRef,
+      defaultTokensCss,
+      defaultStylesMode,
+      defaultBaseStructureCss,
+      defaultBaseGlobalCss
     ]
   );
 
@@ -204,6 +239,11 @@ export const useSiteBuilderDraftLifecycle = ({
       setDraftLoadError(null);
       setDraftImages([]);
       setSiteAccessRole(null);
+      setTokensCss(defaultTokensCss);
+      setStyleMode(defaultStylesMode);
+      setAdvancedStructureCss("");
+      setBaseStructureCss(defaultBaseStructureCss);
+      setBaseGlobalCss(defaultBaseGlobalCss);
       setIsPageEditingMode(false);
       setLastSavedDraftSignature("");
       setSectionLocks({});
@@ -267,6 +307,10 @@ export const useSiteBuilderDraftLifecycle = ({
     builderRoutePath,
     cleanedPublishedDraftIdRef,
     defaultHomeContent,
+    defaultTokensCss,
+    defaultStylesMode,
+    defaultBaseStructureCss,
+    defaultBaseGlobalCss,
     deletedPageSlugsRef,
     draftId,
     navigate,
@@ -275,6 +319,11 @@ export const useSiteBuilderDraftLifecycle = ({
     sessionUserId,
     setDraftImages,
     setDraftLoadError,
+    setTokensCss,
+    setStyleMode,
+    setAdvancedStructureCss,
+    setBaseStructureCss,
+    setBaseGlobalCss,
     setIsDraftLoading,
     setIsPageEditingMode,
     setLastSavedDraftSignature,

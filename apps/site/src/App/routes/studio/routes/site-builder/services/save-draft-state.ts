@@ -1,7 +1,7 @@
 import { buildSettingsPayload } from "./build-files";
 import { FILE_KEYS } from "./constants";
 import { buildDraftPageRows, type DraftSaveSettingsInput } from "./draft-utils";
-import type { BuilderPage, DraftImageAsset, DraftState } from "./types";
+import type { BuilderPage, BuilderStyleSettings, DraftImageAsset, DraftState } from "./types";
 import { supabase } from "../../../../../lib/supabase";
 
 export class DraftConflictError extends Error {
@@ -25,7 +25,7 @@ type SaveDraftStateParams = {
   imageUrl: string;
   pagesSnapshot: BuilderPage[];
   siteSettingsInput: DraftSaveSettingsInput;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   draftImages: DraftImageAsset[];
   draftPageSlugs: string[];
   applyDraftRevisionRow: (draftRow: DraftRevisionRow | null | undefined) => void;
@@ -40,7 +40,7 @@ export const saveDraftState = async ({
   imageUrl,
   pagesSnapshot,
   siteSettingsInput,
-  tokensCss,
+  styles,
   draftImages,
   draftPageSlugs,
   applyDraftRevisionRow,
@@ -80,9 +80,7 @@ export const saveDraftState = async ({
   const { error: settingsError } = await supabase.from("site_draft_settings").upsert({
     draft_id: repoInfo.id,
     settings: buildSettingsPayload(siteSettingsInput, imageUrl),
-    styles: {
-      tokensCss
-    }
+    styles
   });
 
   if (settingsError) {

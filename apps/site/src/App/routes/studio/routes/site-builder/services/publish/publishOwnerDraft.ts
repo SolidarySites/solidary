@@ -26,7 +26,7 @@ export const publishOwnerDraft = async ({
   pages,
   draftImages,
   siteSettingsInput,
-  tokensCss,
+  styles,
   templateSolidary,
   defaultHomeContent,
   setProvisionStep,
@@ -71,7 +71,7 @@ export const publishOwnerDraft = async ({
     draftId: draftState.id,
     settingsInput: siteSettingsInput,
     imageUrl,
-    tokensCss,
+    styles,
     pagesSnapshot: normalizedPages,
     draftImages
   });
@@ -118,7 +118,7 @@ export const publishOwnerDraft = async ({
     siteId: draftState.siteId,
     imageUrl,
     settingsInput: siteSettingsInput,
-    tokensCss,
+    styles,
     templateSolidary,
     pages: publishPages,
     defaultHomeContent,

@@ -3,6 +3,8 @@ export const FILE_KEYS = {
   headerContent: "src/content/header.md",
   footerContent: "src/content/footer.md",
   tokens: "src/styles/partials/tokens.css",
+  globalStyles: "src/styles/global.css",
+  structureStyles: "src/styles/partials/structure.css",
   solidary: "public/.well-known/solidary-links.json"
 } as const;
 

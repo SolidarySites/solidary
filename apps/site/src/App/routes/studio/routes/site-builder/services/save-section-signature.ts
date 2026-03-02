@@ -2,19 +2,19 @@ import {
   buildDraftSaveSignature,
   type DraftSaveSettingsInput
 } from "./draft-utils";
-import type { BuilderPage, DraftImageAsset, DraftState } from "./types";
+import type { BuilderPage, BuilderStyleSettings, DraftImageAsset, DraftState } from "./types";
 
 export const buildDraftSignatureForState = ({
   draftState,
   siteSettingsInput,
-  tokensCss,
+  styles,
   draftImages,
   pagesSnapshot,
   imageUrl
 }: {
   draftState: DraftState | null;
   siteSettingsInput: DraftSaveSettingsInput;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   draftImages: DraftImageAsset[];
   pagesSnapshot: BuilderPage[];
   imageUrl: string;
@@ -24,7 +24,7 @@ export const buildDraftSignatureForState = ({
     draftId: draftState.id,
     settingsInput: siteSettingsInput,
     imageUrl,
-    tokensCss,
+    styles,
     pagesSnapshot,
     draftImages
   });

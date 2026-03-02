@@ -1,6 +1,7 @@
 import { buildSettingsPayload } from "./build-files";
 import type {
   BuilderPage,
+  BuilderStyleSettings,
   DraftImageAsset,
   FooterModule,
   FooterModuleAlignment
@@ -132,22 +133,20 @@ export const buildDraftSaveSignature = ({
   draftId,
   settingsInput,
   imageUrl,
-  tokensCss,
+  styles,
   pagesSnapshot,
   draftImages
 }: {
   draftId: string;
   settingsInput: DraftSaveSettingsInput;
   imageUrl: string;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   pagesSnapshot: BuilderPage[];
   draftImages: DraftImageAsset[];
 }): string =>
   JSON.stringify({
     settings: buildSettingsPayload(settingsInput, imageUrl),
-    styles: {
-      tokensCss
-    },
+    styles,
     pages: buildDraftPageRows(draftId, pagesSnapshot, draftImages).map((row) => ({
       slug: row.slug,
       title: row.title,

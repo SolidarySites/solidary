@@ -70,6 +70,16 @@ export type BuilderSettingsSection = "pages" | "header" | "footer" | "styles";
 
 export type BuilderEditableSectionKey = "metadata" | "pages" | "header" | "footer" | "styles";
 
+export type BuilderStylesMode = "simple" | "advanced";
+
+export type BuilderStyleSettings = {
+  tokensCss: string;
+  styleMode: BuilderStylesMode;
+  advancedStructureCss: string;
+  baseStructureCss: string;
+  baseGlobalCss: string;
+};
+
 export type DraftState = {
   id: string;
   siteId: string;

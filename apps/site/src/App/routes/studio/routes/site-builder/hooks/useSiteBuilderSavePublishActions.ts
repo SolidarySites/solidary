@@ -35,6 +35,7 @@ import {
 import type {
   BuilderEditableSectionKey,
   BuilderPage,
+  BuilderStyleSettings,
   DraftImageAsset,
   DraftState,
   PublishFeedback
@@ -66,7 +67,7 @@ type UseSiteBuilderSavePublishActionsParams = {
   draftPageSlugs: string[];
   draftState: DraftState | null;
   siteSettingsInput: DraftSaveSettingsInput;
-  tokensCss: string;
+  styles: BuilderStyleSettings;
   templateSolidary: string;
   defaultHomeContent: string;
   hasUnsavedChanges: boolean;
@@ -116,7 +117,7 @@ export const useSiteBuilderSavePublishActions = ({
   draftPageSlugs,
   draftState,
   siteSettingsInput,
-  tokensCss,
+  styles,
   templateSolidary,
   defaultHomeContent,
   hasUnsavedChanges,
@@ -216,7 +217,7 @@ export const useSiteBuilderSavePublishActions = ({
       imageUrl,
       pagesSnapshot,
       siteSettingsInput,
-      tokensCss,
+      styles,
       draftImages,
       draftPageSlugs,
       applyDraftRevisionRow,
@@ -234,7 +235,7 @@ export const useSiteBuilderSavePublishActions = ({
     buildDraftSignatureFromState({
       draftState: draftStateRef.current,
       siteSettingsInput,
-      tokensCss,
+      styles,
       draftImages,
       pagesSnapshot,
       imageUrl
@@ -324,7 +325,7 @@ export const useSiteBuilderSavePublishActions = ({
   const saveStylesSection = async () =>
     runSaveStylesSection({
       draftState: draftStateRef.current,
-      tokensCss,
+      styles,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
       buildDraftSignatureForState: () => buildDraftSignatureForState()
     });
@@ -432,7 +433,7 @@ export const useSiteBuilderSavePublishActions = ({
           pages,
           draftImages,
           siteSettingsInput,
-          tokensCss,
+          styles,
           templateSolidary,
           defaultHomeContent,
           setProvisionStep,
@@ -458,7 +459,7 @@ export const useSiteBuilderSavePublishActions = ({
           pages,
           draftImages,
           siteSettingsInput,
-          tokensCss,
+          styles,
           templateSolidary,
           defaultHomeContent,
           setProvisionStep,

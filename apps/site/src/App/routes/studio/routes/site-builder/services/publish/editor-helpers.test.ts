@@ -25,6 +25,8 @@ const buildFilesFixture = () => {
     [FILE_KEYS.headerContent]: "---\nbrandText: \"Site\"\n---\n",
     [FILE_KEYS.footerContent]: "---\nmodules: []\n---\n",
     [FILE_KEYS.tokens]: ":root { --color: #000; }\n",
+    [FILE_KEYS.globalStyles]: "@import \"./partials/tokens.css\";\n",
+    [FILE_KEYS.structureStyles]: ".page { color: var(--fg); }\n",
     [PAGE_PATH]: "---\ntitle: \"Home\"\n---\nHome content\n"
   };
   TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
@@ -63,5 +65,20 @@ describe("buildEditorFileChanges", () => {
 
     expect(upsertsByPath.get(PAGE_PATH)).toContain('title: "Home"');
     expect(upsertsByPath.has(FILE_KEYS.solidaryContent)).toBe(false);
+  });
+
+  it("includes tokens, global, and structure files when styles are edited", () => {
+    const touchedSections = new Set<BuilderEditableSectionKey>(["styles"]);
+    const { upsertsByPath } = buildEditorFileChanges({
+      touchedSections,
+      touchedPageSlugs: new Set<string>(),
+      deletedPageSlugs: new Set<string>(),
+      normalizedPages: [BASE_PAGE],
+      files: buildFilesFixture()
+    });
+
+    expect(upsertsByPath.get(FILE_KEYS.tokens)).toContain("--color");
+    expect(upsertsByPath.get(FILE_KEYS.globalStyles)).toContain("tokens.css");
+    expect(upsertsByPath.get(FILE_KEYS.structureStyles)).toContain(".page");
   });
 });

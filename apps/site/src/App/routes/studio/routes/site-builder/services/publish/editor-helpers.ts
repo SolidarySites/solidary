@@ -52,6 +52,10 @@ export const buildEditorFileChanges = ({
   if (touchedSections.has("styles")) {
     const tokensFile = files[FILE_KEYS.tokens];
     if (tokensFile) upsertsByPath.set(FILE_KEYS.tokens, tokensFile);
+    const globalStylesFile = files[FILE_KEYS.globalStyles];
+    if (globalStylesFile) upsertsByPath.set(FILE_KEYS.globalStyles, globalStylesFile);
+    const structureStylesFile = files[FILE_KEYS.structureStyles];
+    if (structureStylesFile) upsertsByPath.set(FILE_KEYS.structureStyles, structureStylesFile);
   }
   if (touchedSections.has("pages") || touchedPageSlugs.size || deletedPageSlugs.size) {
     normalizedPages.forEach((page, index) => {

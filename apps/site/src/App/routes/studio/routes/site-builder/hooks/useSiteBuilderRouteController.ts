@@ -24,6 +24,8 @@ import type {
   BuilderPage,
   BuilderSection,
   BuilderSettingsSection,
+  BuilderStyleSettings,
+  BuilderStylesMode,
   CollaboratorRole,
   DraftImageAsset,
   DraftState,
@@ -47,7 +49,15 @@ import type { NoticeKind } from "../../../../../types/notice";
 import templateSolidary from "../../../../../../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../../../../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import tokensTemplate from "../../../../../../templates/astro/tokens.css?raw";
+import structureTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/partials/structure.css?raw";
+import globalStylesTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/global.css?raw";
+import fallbackFontsTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/partials/fonts.css?raw";
 import { slugify } from "../../../../../lib/slugify";
+import {
+  combineTokensAndStructureCss,
+  extractFontFamiliesFromFontsCss
+} from "../services/style-editor";
+import { loadRepoStyleAssets } from "../services/style-repo";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
 import { useBuilderPreviewEditor } from "./useBuilderPreviewEditor";
@@ -56,6 +66,8 @@ import { useSiteBuilderDraftLifecycle } from "./useSiteBuilderDraftLifecycle";
 import { useSiteBuilderSavePublishActions } from "./useSiteBuilderSavePublishActions";
 
 const defaultHomeContent = stripFrontmatter(homeTemplate);
+const defaultAvailableFonts = extractFontFamiliesFromFontsCss(fallbackFontsTemplate);
+const defaultStyleMode: BuilderStylesMode = "simple";
 
 type UseSiteBuilderRouteControllerOptions = {
   mode?: "editor" | "settings";
@@ -133,6 +145,13 @@ export const useSiteBuilderRouteController = ({
   );
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
+  const [styleMode, setStyleMode] = useState<BuilderStylesMode>(defaultStyleMode);
+  const [advancedStructureCss, setAdvancedStructureCss] = useState("");
+  const [baseStructureCss, setBaseStructureCss] = useState(structureTemplate);
+  const [baseGlobalCss, setBaseGlobalCss] = useState(globalStylesTemplate);
+  const [availableFonts, setAvailableFonts] = useState<string[]>(defaultAvailableFonts);
+  const [fontsLoading, setFontsLoading] = useState(false);
+  const [fontsError, setFontsError] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [siteAccessRole, setSiteAccessRole] = useState<SiteAccessRole | null>(null);
   const [isDraftLoading, setIsDraftLoading] = useState(() => {
@@ -160,6 +179,17 @@ export const useSiteBuilderRouteController = ({
   const shouldCaptureLoadedDraftSignature = useRef(false);
   const touchedPageSlugsRef = useRef<Set<string>>(new Set());
   const deletedPageSlugsRef = useRef<Set<string>>(new Set());
+  const styleRepoCacheRef = useRef(
+    new Map<
+      string,
+      {
+        availableFonts: string[];
+        baseStructureCss: string;
+        baseGlobalCss: string;
+        warning: string | null;
+      }
+    >()
+  );
 
   const draftId = useMemo(
     () => searchParams.get("draftId") ?? (location.state as { draftId?: string } | null)?.draftId ?? null,
@@ -323,17 +353,34 @@ export const useSiteBuilderRouteController = ({
     if (siteImage) return draftImageUrl || DEFAULT_OG_IMAGE_URL;
     return siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
   }, [siteImage, siteImagePreview, draftImageUrl]);
+  const styleSettings = useMemo<BuilderStyleSettings>(
+    () => ({
+      tokensCss,
+      styleMode,
+      advancedStructureCss,
+      baseStructureCss,
+      baseGlobalCss
+    }),
+    [advancedStructureCss, baseGlobalCss, baseStructureCss, styleMode, tokensCss]
+  );
+  const previewStylesCss = useMemo(
+    () =>
+      styleMode === "advanced"
+        ? advancedStructureCss.trim() || combineTokensAndStructureCss(tokensCss, baseStructureCss)
+        : tokensCss,
+    [advancedStructureCss, baseStructureCss, styleMode, tokensCss]
+  );
   const currentDraftSignature = useMemo(() => {
     if (!draftState) return "";
     return buildDraftSaveSignature({
       draftId: draftState.id,
       settingsInput: siteSettingsInput,
       imageUrl: draftSaveImageUrl,
-      tokensCss,
+      styles: styleSettings,
       pagesSnapshot: pages,
       draftImages
     });
-  }, [draftImages, draftSaveImageUrl, draftState, pages, siteSettingsInput, tokensCss]);
+  }, [draftImages, draftSaveImageUrl, draftState, pages, siteSettingsInput, styleSettings]);
   const hasUnsavedChanges =
     Boolean(draftState) && !isDraftLoading && currentDraftSignature !== lastSavedDraftSignature;
 
@@ -457,12 +504,110 @@ export const useSiteBuilderRouteController = ({
     return () => URL.revokeObjectURL(url);
   }, [siteImage]);
 
+  useEffect(() => {
+    if (activeSection !== "settings" || activeSettingsSection !== "styles") {
+      setFontsLoading(false);
+      return;
+    }
+
+    if (!draftState?.repoFullName) {
+      setFontsLoading(false);
+      setFontsError(null);
+      setAvailableFonts(defaultAvailableFonts);
+      return;
+    }
+
+    const branch = (draftState.editorBranch ?? draftState.branch).trim();
+    if (!branch) {
+      setFontsLoading(false);
+      setFontsError("Draft branch is missing. Unable to load repository fonts.");
+      setAvailableFonts(defaultAvailableFonts);
+      return;
+    }
+
+    const cacheKey = `${draftState.repoFullName}:${branch}`;
+    const cachedStyles = styleRepoCacheRef.current.get(cacheKey);
+    if (cachedStyles) {
+      setAvailableFonts(cachedStyles.availableFonts.length ? cachedStyles.availableFonts : defaultAvailableFonts);
+      setFontsError(cachedStyles.warning);
+      setFontsLoading(false);
+      if (!baseStructureCss.trim() || baseStructureCss === structureTemplate) {
+        setBaseStructureCss(cachedStyles.baseStructureCss);
+      }
+      if (!baseGlobalCss.trim() || baseGlobalCss === globalStylesTemplate) {
+        setBaseGlobalCss(cachedStyles.baseGlobalCss);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setFontsLoading(true);
+    setFontsError(null);
+
+    void (async () => {
+      try {
+        const repoStyles = await loadRepoStyleAssets({
+          repoFullName: draftState.repoFullName,
+          branch,
+          fallbackFontsCss: fallbackFontsTemplate,
+          fallbackStructureCss: structureTemplate,
+          fallbackGlobalCss: globalStylesTemplate
+        });
+        if (cancelled) return;
+        styleRepoCacheRef.current.set(cacheKey, {
+          availableFonts: repoStyles.availableFonts,
+          baseStructureCss: repoStyles.baseStructureCss,
+          baseGlobalCss: repoStyles.baseGlobalCss,
+          warning: repoStyles.warning
+        });
+        setAvailableFonts(repoStyles.availableFonts.length ? repoStyles.availableFonts : defaultAvailableFonts);
+        setFontsError(repoStyles.warning);
+        if (!baseStructureCss.trim() || baseStructureCss === structureTemplate) {
+          setBaseStructureCss(repoStyles.baseStructureCss);
+        }
+        if (!baseGlobalCss.trim() || baseGlobalCss === globalStylesTemplate) {
+          setBaseGlobalCss(repoStyles.baseGlobalCss);
+        }
+        if (!hasUnsavedChanges) {
+          shouldCaptureLoadedDraftSignature.current = true;
+        }
+      } catch (caught) {
+        if (cancelled) return;
+        const message =
+          caught instanceof Error ? caught.message : "Unable to load style files from this repository.";
+        setFontsError(message);
+        setAvailableFonts(defaultAvailableFonts);
+      } finally {
+        if (!cancelled) {
+          setFontsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeSection,
+    activeSettingsSection,
+    baseGlobalCss,
+    baseStructureCss,
+    draftState?.branch,
+    draftState?.editorBranch,
+    draftState?.repoFullName,
+    hasUnsavedChanges
+  ]);
+
   const { reloadLatestDraftAfterConflict, refreshDraftAfterSectionChange } = useSiteBuilderDraftLifecycle({
     builderRoutePath,
     draftId,
     sessionResolved,
     sessionUserId,
     defaultHomeContent,
+    defaultTokensCss: tokensTemplate,
+    defaultStylesMode: defaultStyleMode,
+    defaultBaseStructureCss: structureTemplate,
+    defaultBaseGlobalCss: globalStylesTemplate,
     activePreviewSlug,
     currentDraftSignature,
     draftState,
@@ -485,6 +630,10 @@ export const useSiteBuilderRouteController = ({
     setSiteDescription,
     setSiteUrl,
     setTokensCss,
+    setStyleMode,
+    setAdvancedStructureCss,
+    setBaseStructureCss,
+    setBaseGlobalCss,
     setSiteImagePreview,
     setDraftImageUrl,
     setFooterDisabled,
@@ -595,7 +744,7 @@ export const useSiteBuilderRouteController = ({
     draftPageSlugs,
     draftState,
     siteSettingsInput,
-    tokensCss,
+    styles: styleSettings,
     templateSolidary,
     defaultHomeContent,
     hasUnsavedChanges,
@@ -682,6 +831,14 @@ export const useSiteBuilderRouteController = ({
     await runHandleEnterPageEditingMode(slug);
     requestAnimationFrame(() => pageTitleRef.current?.focus());
   };
+  const handleStyleModeChange = (nextMode: BuilderStylesMode) => {
+    setStyleMode(nextMode);
+    if (nextMode === "advanced" && !advancedStructureCss.trim()) {
+      const structureSource = baseStructureCss.trim() || structureTemplate;
+      setAdvancedStructureCss(combineTokensAndStructureCss(tokensCss, structureSource));
+    }
+  };
+  const availableFontsForControls = availableFonts.length ? availableFonts : defaultAvailableFonts;
 
   const canFormatText = !(shouldLoadDraft && isDraftLoading) && !draftLoadError && canEditPageContent;
   const canSaveDraft =
@@ -1433,6 +1590,11 @@ export const useSiteBuilderRouteController = ({
       activePreviewSlug,
       pageTitleRef,
       tokensCss,
+      styleMode,
+      advancedStructureCss,
+      availableFonts: availableFontsForControls,
+      fontsLoading,
+      fontsError,
       headerDisabled,
       headerFixed,
       headerBrandText,
@@ -1475,6 +1637,8 @@ export const useSiteBuilderRouteController = ({
       onPageTitleChange: handlePageTitleChange,
       onPageSlugChange: handlePageSlugChange,
       onTokensCssChange: setTokensCss,
+      onStyleModeChange: handleStyleModeChange,
+      onAdvancedStructureCssChange: setAdvancedStructureCss,
       onHeaderDisabledChange: setHeaderDisabled,
       onHeaderFixedChange: setHeaderFixed,
       onHeaderBrandTextChange: setHeaderBrandText,
@@ -1503,6 +1667,9 @@ export const useSiteBuilderRouteController = ({
       pages,
       draftImages,
       tokensCss,
+      styleMode,
+      advancedStructureCss,
+      previewStylesCss,
       homeFallbackBody: defaultHomeContent,
       activePreviewSlug,
       publishedSiteBaseUrl,
