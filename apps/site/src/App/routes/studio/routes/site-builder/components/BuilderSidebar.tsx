@@ -71,6 +71,7 @@ type BuilderSidebarProps = {
   onEnterPageEditingMode: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
+  onPageJavaScriptChange: (safeSlug: string, value: string) => void;
   onTokensCssChange: (value: string) => void;
   onStyleModeChange: (value: BuilderStylesMode) => void;
   onAdvancedStructureCssChange: (value: string) => void;
@@ -136,6 +137,7 @@ const BuilderSidebar = ({
   onEnterPageEditingMode,
   onPageTitleChange,
   onPageSlugChange,
+  onPageJavaScriptChange,
   onTokensCssChange,
   onStyleModeChange,
   onAdvancedStructureCssChange,
@@ -167,6 +169,7 @@ const BuilderSidebar = ({
   const pagesLockedByOther = Boolean(pagesLock && !pagesLock.isSelf);
   const activeSettingsLock = sectionLocks[activeSettingsSection];
   const activeSettingsLockedByOther = Boolean(activeSettingsLock && !activeSettingsLock.isSelf);
+  const canEditPageJavaScript = accessRole === "owner" || accessRole === "admin";
   const inMainMenu = activeSection === "menu";
   const inSubmenu = activeSection === "settings";
   const showPublishCta = canEditDraft && inMainMenu;
@@ -326,6 +329,8 @@ const BuilderSidebar = ({
                       onEnterPageEditingMode={onEnterPageEditingMode}
                       onPageTitleChange={onPageTitleChange}
                       onPageSlugChange={onPageSlugChange}
+                      onPageJavaScriptChange={onPageJavaScriptChange}
+                      canEditPageJavaScript={canEditPageJavaScript}
                     />
                     {isPageEditingMode && (
                       <BuilderImageSettingsPanel

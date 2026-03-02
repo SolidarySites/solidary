@@ -17,6 +17,7 @@ const INITIAL_PAGES: AstroPageDraft[] = [
     title: "Home",
     slug: "home",
     body: "",
+    javascript: "",
     showInNav: false
   }
 ];

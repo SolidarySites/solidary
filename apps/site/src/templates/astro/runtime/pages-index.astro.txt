@@ -19,9 +19,13 @@ const jsonLd = {
 
 const homeEntry = await getEntry("pages", "home");
 const { Content: HomeContent } = homeEntry ? await homeEntry.render() : { Content: null };
+const homeJavaScript =
+  typeof homeEntry?.data.javascript === "string" ? homeEntry.data.javascript.trim() : "";
+const sanitizedHomeJavaScript = homeJavaScript.replaceAll("</script", "<\\/script");
 ---
 <Base title={siteName} description={siteDescription} canonicalPath="/" jsonLd={jsonLd}>
   <article class="prose">
     {HomeContent ? <HomeContent /> : null}
   </article>
+  {sanitizedHomeJavaScript && <script is:inline set:html={sanitizedHomeJavaScript} />}
 </Base>

@@ -29,6 +29,7 @@ export type AstroPageDraft = {
   title: string;
   slug: string;
   body: string;
+  javascript?: string;
   showInNav: boolean;
   navOrder?: number;
 };

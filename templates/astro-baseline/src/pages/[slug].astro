@@ -20,10 +20,13 @@ const { Content } = await entry.render();
 const title = entry.data.title;
 const description = entry.data.description ?? siteDescription;
 const canonicalPath = `/${entry.slug}`;
+const pageJavaScript = typeof entry.data.javascript === "string" ? entry.data.javascript.trim() : "";
+const sanitizedPageJavaScript = pageJavaScript.replaceAll("</script", "<\\/script");
 ---
 
 <Base title={title} description={description} canonicalPath={canonicalPath}>
   <article class="prose">
     <Content />
   </article>
+  {sanitizedPageJavaScript && <script is:inline set:html={sanitizedPageJavaScript} />}
 </Base>

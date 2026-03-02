@@ -5,6 +5,7 @@ export type PreviewPage = {
   title: string;
   slug: string;
   body: string;
+  javascript?: string;
   showInNav?: boolean;
   isHome?: boolean;
 };

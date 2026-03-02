@@ -1,22 +1,1408 @@
-import { forwardRef, useMemo, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  type CSSProperties
+} from "react";
+import siteBuilderStylesRaw from "../SiteBuilderRoute.css?raw";
 import { normalizePageSlug } from "../services/utils";
 import {
   extractCssVariables as extractStyleVariables,
   extractCustomCssFromTokens
 } from "../services/style-editor";
-import { getTrackedExternalImageSource } from "../../../../../lib/external-image-loading";
-import AstroPreviewLayout from "./astro-preview/AstroPreviewLayout";
-import AstroPreviewEditableSurface from "./astro-preview/AstroPreviewEditableSurface";
 import { scopePreviewCss } from "./astro-preview/css-scope-utils";
 import { markdownToHtml, parseFooterLineSegments } from "./astro-preview/content-utils";
-import { mapHtmlImageSources, parseInertHtmlTemplate } from "./astro-preview/image-source-utils";
+import { mapHtmlImageSources } from "./astro-preview/image-source-utils";
 import type {
   AstroTemplatePreviewHandle,
   AstroTemplatePreviewProps,
-  ParsedPage
+  ParsedPage,
+  PreviewSelectedImage,
+  PreviewNavItem
 } from "./astro-preview/types";
 
 export type { AstroTemplatePreviewHandle, PreviewSelectedImage } from "./astro-preview/types";
+
+const PREVIEW_BRIDGE_CHANNEL = "solidary:builder-preview";
+const PREVIEW_IMAGE_ASPECT_RATIO_ATTR = "data-builder-image-aspect-ratio";
+
+type PreviewFooterModule = {
+  alignment: "left" | "center" | "right";
+  html: string;
+  hidden: boolean;
+};
+
+type PreviewFrameState = {
+  editable: boolean;
+  styleMode: "simple" | "advanced";
+  previewStyleVars: Record<string, string>;
+  previewInlineCss: string;
+  previewBrand: string;
+  homePageSlug: string;
+  activeSlug: string;
+  activeBodyHtml: string;
+  activePageJavaScript: string;
+  navItems: PreviewNavItem[];
+  header: {
+    disabled: boolean;
+    fixed: boolean;
+    brandText: string;
+    disableBrand: boolean;
+  };
+  footer: {
+    disabled: boolean;
+    fixed: boolean;
+    modules: PreviewFooterModule[];
+    visibleModuleCount: number;
+  };
+};
+
+type PreviewBridgeMessage = {
+  channel: string;
+  type: string;
+  token?: string;
+  payload?: unknown;
+};
+
+type PreviewCommandPayload =
+  | {
+      kind: "execCommand";
+      command: string;
+      value?: string;
+    }
+  | {
+      kind: "focusEditor";
+    }
+  | {
+      kind: "captureSelection";
+    }
+  | {
+      kind: "replaceImageSource";
+      previousSrc: string;
+      nextSrc: string | null;
+      aspectRatioOverride?: number;
+    }
+  | {
+      kind: "setImageAspectRatioBySource";
+      source: string;
+      aspectRatio: number;
+    }
+  | {
+      kind: "updateSelectedImageAlt";
+      value: string;
+    }
+  | {
+      kind: "updateSelectedImageCaption";
+      value: string;
+    }
+  | {
+      kind: "updateSelectedImageSize";
+      value: number;
+    }
+  | {
+      kind: "clearSelectedImage";
+    };
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
+const escapeInlineTagContent = (value: string) =>
+  value
+    .replace(/<\/script/gi, "<\\/script")
+    .replace(/<\/style/gi, "<\\/style");
+
+const createBridgeToken = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+};
+
+const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: string) => `
+(function () {
+  var CHANNEL = ${JSON.stringify(channel)};
+  var IMAGE_ASPECT_RATIO_ATTR = ${JSON.stringify(imageAspectRatioAttr)};
+  var bridgeToken = "";
+  var state = null;
+  var root = document.getElementById("astro-preview-frame-root");
+  var inlineCssStyle = document.getElementById("preview-inline-css");
+
+  var previewRoot = null;
+  var brandLinkElement = null;
+  var navListElement = null;
+  var footerElement = null;
+  var footerInnerElement = null;
+  var editorElement = null;
+
+  var appliedStyleKeys = [];
+  var savedSelection = null;
+  var selectedImageId = "";
+  var lastExecutedScriptKey = "";
+  var lastAppliedBodySlug = "";
+  var lastAppliedBodyHtml = "";
+  var externalImageTrackers = new Map();
+  var externalImageObserver = null;
+  var externalImageDimensionsCache = new Map();
+
+  var EXTERNAL_IMAGE_PLACEHOLDER_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24' fill='none'%3E%3Ccircle cx='12' cy='12' r='9' stroke='rgba(31%2C34%2C28%2C0.2)' stroke-width='2'/%3E%3Cpath d='M12 3a9 9 0 0 1 7.8 4.5' stroke='rgba(31%2C34%2C28%2C0.65)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E";
+  var EXTERNAL_IMAGE_SOURCE_ATTR = "data-external-image-src";
+  var EXTERNAL_IMAGE_STATE_ATTR = "data-external-image-state";
+  var EXTERNAL_IMAGE_CONTAINER_ATTR = "data-external-image-container";
+  var EXTERNAL_IMAGE_VARIANT_SMALL_ATTR = "data-external-image-src-small";
+  var EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR = "data-external-image-src-medium";
+  var EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR = "data-external-image-src-original";
+  var EXTERNAL_IMAGE_TOKEN_ATTR = "data-external-image-token";
+  var EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR = "--external-image-placeholder-height";
+  var EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR = "--external-image-placeholder-width";
+  var EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left";
+
+  function post(type, payload) {
+    window.parent.postMessage(
+      {
+        channel: CHANNEL,
+        type: type,
+        token: bridgeToken,
+        payload: payload || {}
+      },
+      "*"
+    );
+  }
+
+  function isElementInEditor(node) {
+    if (!editorElement || !node) return false;
+    if (node === editorElement) return true;
+    return editorElement.contains(node);
+  }
+
+  function ensureImageId(image) {
+    if (!image) return "";
+    var existing = (image.getAttribute("data-builder-image-id") || "").trim();
+    if (existing) return existing;
+    var generated = "img-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    image.setAttribute("data-builder-image-id", generated);
+    return generated;
+  }
+
+  function parseImageSizePercent(image) {
+    if (!image) return 100;
+    var widthFromStyle = (image.style.width || "").trim();
+    if (widthFromStyle.endsWith("%")) {
+      var parsedStyle = Number.parseFloat(widthFromStyle);
+      if (Number.isFinite(parsedStyle)) {
+        return Math.max(1, Math.min(100, Math.round(parsedStyle)));
+      }
+    }
+
+    var widthFromAttribute = (image.getAttribute("width") || "").trim();
+    if (widthFromAttribute.endsWith("%")) {
+      var parsedAttribute = Number.parseFloat(widthFromAttribute.replace("%", ""));
+      if (Number.isFinite(parsedAttribute)) {
+        return Math.max(1, Math.min(100, Math.round(parsedAttribute)));
+      }
+    }
+
+    return 100;
+  }
+
+  function isManagedVariantSource(image, source) {
+    if (!source) return false;
+    var normalizedSource = source.trim();
+    if (!normalizedSource) return false;
+
+    var candidates = [
+      (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim(),
+      (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim(),
+      (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim()
+    ];
+
+    for (var index = 0; index < candidates.length; index += 1) {
+      if (candidates[index] && candidates[index] === normalizedSource) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function getTrackedImageSource(image) {
+    var tracked = (image.getAttribute(EXTERNAL_IMAGE_SOURCE_ATTR) || "").trim();
+    var current = (image.getAttribute("src") || "").trim();
+
+    if (!current || current === EXTERNAL_IMAGE_PLACEHOLDER_SRC) {
+      return tracked || current;
+    }
+
+    if (!tracked) return current;
+    if (tracked === current) return tracked;
+    if (isManagedVariantSource(image, current)) return tracked;
+    return current;
+  }
+
+  function isExternalImageSource(source) {
+    if (typeof source !== "string") return false;
+    var normalized = source.trim();
+    if (!normalized) return false;
+
+    var lower = normalized.toLowerCase();
+    if (
+      lower.startsWith("javascript:") ||
+      lower.startsWith("mailto:") ||
+      lower.startsWith("tel:") ||
+      lower.startsWith("blob:") ||
+      lower.startsWith("data:") ||
+      lower.startsWith("about:") ||
+      lower.startsWith("file:")
+    ) {
+      return false;
+    }
+
+    if (normalized.startsWith("//")) return true;
+    if (lower.startsWith("http://") || lower.startsWith("https://")) return true;
+    if (normalized.startsWith("/solidary-media/")) return true;
+    return false;
+  }
+
+  function setExternalImageState(image, stateValue) {
+    var figure = image.closest("figure[data-builder-image-figure='true']");
+    var container = image.closest("[" + EXTERNAL_IMAGE_CONTAINER_ATTR + "='true']");
+    var targets = [image, figure, container];
+
+    for (var index = 0; index < targets.length; index += 1) {
+      var target = targets[index];
+      if (!(target instanceof Element)) continue;
+      if (stateValue) {
+        target.setAttribute(EXTERNAL_IMAGE_STATE_ATTR, stateValue);
+      } else {
+        target.removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
+      }
+    }
+  }
+
+  function clearExternalImageTrackingAttributes(image) {
+    image.removeAttribute(EXTERNAL_IMAGE_SOURCE_ATTR);
+    image.removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
+    image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
+    setExternalImageState(image, null);
+    clearExternalImagePlaceholderSizing(image);
+  }
+
+  function parsePositiveNumber(value) {
+    if (!value) return null;
+    var normalized = Number.parseFloat(String(value).trim());
+    if (!Number.isFinite(normalized) || normalized <= 0) return null;
+    return normalized;
+  }
+
+  function parsePercentWidth(value) {
+    if (!value) return null;
+    var trimmed = value.trim();
+    if (!trimmed.endsWith("%")) return null;
+    var parsed = Number.parseFloat(trimmed.slice(0, -1));
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  }
+
+  function getImageDisplayWidthEstimate(image) {
+    var measuredImageWidth = image.getBoundingClientRect().width;
+    if (measuredImageWidth > 0) return measuredImageWidth;
+
+    var alignWrapper = image.closest("[data-builder-image-align-wrapper='true']");
+    if (alignWrapper instanceof HTMLElement) {
+      var wrapperWidth = alignWrapper.getBoundingClientRect().width;
+      if (wrapperWidth > 0) {
+        var percentageWidth =
+          parsePercentWidth(image.style.width) ||
+          parsePercentWidth(image.getAttribute("width") || "");
+        if (percentageWidth) {
+          return (wrapperWidth * percentageWidth) / 100;
+        }
+        return wrapperWidth;
+      }
+    }
+
+    var figure = image.closest("figure[data-builder-image-figure='true']");
+    if (figure instanceof HTMLElement) {
+      var figureWidth = figure.getBoundingClientRect().width;
+      if (figureWidth > 0) return figureWidth;
+    }
+
+    return 0;
+  }
+
+  function collectUniqueSources(sources) {
+    var unique = [];
+    var seen = new Set();
+    for (var index = 0; index < sources.length; index += 1) {
+      var source = typeof sources[index] === "string" ? sources[index].trim() : "";
+      if (!source || seen.has(source)) continue;
+      seen.add(source);
+      unique.push(source);
+    }
+    return unique;
+  }
+
+  function resolveImageAspectRatio(image, sourceCandidates) {
+    var ratioFromMetadata = parsePositiveNumber(image.getAttribute(IMAGE_ASPECT_RATIO_ATTR));
+    if (ratioFromMetadata) {
+      return ratioFromMetadata;
+    }
+
+    var widthFromAttributes = parsePositiveNumber(image.getAttribute("width"));
+    var heightFromAttributes = parsePositiveNumber(image.getAttribute("height"));
+    if (widthFromAttributes && heightFromAttributes) {
+      return widthFromAttributes / heightFromAttributes;
+    }
+
+    var uniqueSources = collectUniqueSources(sourceCandidates || []);
+    for (var index = 0; index < uniqueSources.length; index += 1) {
+      var dimensions = externalImageDimensionsCache.get(uniqueSources[index]);
+      if (!dimensions || dimensions.width <= 0 || dimensions.height <= 0) continue;
+      return dimensions.width / dimensions.height;
+    }
+
+    return null;
+  }
+
+  function getImagePlaceholderLeftOffset(image, placeholderWidth) {
+    var alignWrapper = image.closest("[data-builder-image-align-wrapper='true']");
+    if (alignWrapper instanceof HTMLElement) {
+      var wrapperWidth = alignWrapper.getBoundingClientRect().width;
+      if (wrapperWidth > 0) {
+        var textAlign = (window.getComputedStyle(alignWrapper).textAlign || alignWrapper.style.textAlign || "")
+          .trim()
+          .toLowerCase();
+        if (textAlign === "right" || textAlign === "end") {
+          return Math.max(0, Math.round(wrapperWidth - placeholderWidth));
+        }
+        if (textAlign === "center") {
+          return Math.max(0, Math.round((wrapperWidth - placeholderWidth) / 2));
+        }
+      }
+      return 0;
+    }
+
+    var figure = image.closest("figure[data-builder-image-figure='true']");
+    if (!(figure instanceof HTMLElement)) return 0;
+
+    var figureRect = figure.getBoundingClientRect();
+    var imageRect = image.getBoundingClientRect();
+    if (figureRect.width <= 0 || imageRect.width <= 0) return 0;
+    return Math.max(0, Math.round(imageRect.left - figureRect.left));
+  }
+
+  function applyExternalImagePlaceholderSizing(image, sourceCandidates) {
+    var figure = image.closest("figure[data-builder-image-figure='true']");
+    if (!(figure instanceof HTMLElement)) return;
+
+    var width = getImageDisplayWidthEstimate(image);
+    if (!Number.isFinite(width) || width <= 0) {
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR);
+      return;
+    }
+
+    var aspectRatio = resolveImageAspectRatio(image, sourceCandidates || []);
+    if (!aspectRatio || !Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR);
+      return;
+    }
+
+    var placeholderWidth = Math.max(1, Math.round(width));
+    var placeholderLeft = getImagePlaceholderLeftOffset(image, placeholderWidth);
+    var placeholderHeight = Math.max(72, Math.round(width / aspectRatio));
+
+    figure.style.setProperty(EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR, String(placeholderWidth) + "px");
+    figure.style.setProperty(EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR, String(placeholderLeft) + "px");
+    figure.style.setProperty(EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR, String(placeholderHeight) + "px");
+    image.style.height = String(placeholderHeight) + "px";
+  }
+
+  function clearExternalImagePlaceholderSizing(image) {
+    var figure = image.closest("figure[data-builder-image-figure='true']");
+    if (figure instanceof HTMLElement) {
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_HEIGHT_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR);
+      figure.style.removeProperty(EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR);
+    }
+    image.style.height = "auto";
+  }
+
+  function cacheExternalImageDimensions(width, height, sources) {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return;
+    }
+
+    var uniqueSources = collectUniqueSources(sources || []);
+    for (var index = 0; index < uniqueSources.length; index += 1) {
+      externalImageDimensionsCache.set(uniqueSources[index], {
+        width: width,
+        height: height
+      });
+    }
+  }
+
+  function resolveExternalImageLoadSource(image, fallbackSource) {
+    var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
+    var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
+    var original = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim();
+
+    if (!small && !medium && !original) {
+      return fallbackSource;
+    }
+
+    var estimatedDisplayWidth = getImageDisplayWidthEstimate(image);
+    if (!Number.isFinite(estimatedDisplayWidth) || estimatedDisplayWidth <= 0) {
+      estimatedDisplayWidth = 1200;
+    }
+
+    var devicePixelRatio = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+      ? window.devicePixelRatio
+      : 1;
+    var targetDisplayPixels = estimatedDisplayWidth * devicePixelRatio;
+
+    if (targetDisplayPixels <= 560) {
+      return small || medium || original || fallbackSource;
+    }
+
+    if (targetDisplayPixels <= 1080) {
+      return medium || original || small || fallbackSource;
+    }
+
+    return original || medium || small || fallbackSource;
+  }
+
+  function startExternalImageLoadWithPlaceholder(image, source) {
+    var targetSource = typeof source === "string" ? source.trim() : "";
+    if (!isExternalImageSource(targetSource)) {
+      clearExternalImageTrackingAttributes(image);
+      return function () {};
+    }
+
+    var loadSource = resolveExternalImageLoadSource(image, targetSource);
+    var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
+    var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
+    var original = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim();
+    var placeholderSource = small || medium || original || EXTERNAL_IMAGE_PLACEHOLDER_SRC;
+    var placeholderCandidates = collectUniqueSources([
+      targetSource,
+      loadSource,
+      original,
+      medium,
+      small
+    ]);
+
+    image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, targetSource);
+
+    if (image.getAttribute("src") === loadSource && image.complete && image.naturalWidth > 0) {
+      image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
+      cacheExternalImageDimensions(image.naturalWidth, image.naturalHeight, placeholderCandidates);
+      clearExternalImagePlaceholderSizing(image);
+      setExternalImageState(image, "loaded");
+      return function () {};
+    }
+
+    var token = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    var cancelled = false;
+    var revealLoadListener = null;
+    var revealErrorListener = null;
+    var loader = new Image();
+    var placeholderSizingFrameId = null;
+
+    image.setAttribute(EXTERNAL_IMAGE_TOKEN_ATTR, token);
+    setExternalImageState(image, "loading");
+    applyExternalImagePlaceholderSizing(image, placeholderCandidates);
+
+    if (placeholderSource && placeholderSource !== loadSource) {
+      image.setAttribute("src", placeholderSource);
+    }
+
+    function syncPlaceholderSizing() {
+      if (cancelled) return;
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+      applyExternalImagePlaceholderSizing(image, placeholderCandidates);
+    }
+
+    function schedulePlaceholderSizingSync() {
+      if (placeholderSizingFrameId !== null) {
+        window.cancelAnimationFrame(placeholderSizingFrameId);
+      }
+      placeholderSizingFrameId = window.requestAnimationFrame(function () {
+        placeholderSizingFrameId = null;
+        syncPlaceholderSizing();
+      });
+    }
+
+    function stopPlaceholderSizingSync() {
+      window.removeEventListener("resize", schedulePlaceholderSizingSync);
+      if (placeholderSizingFrameId !== null) {
+        window.cancelAnimationFrame(placeholderSizingFrameId);
+        placeholderSizingFrameId = null;
+      }
+    }
+
+    schedulePlaceholderSizingSync();
+    window.addEventListener("resize", schedulePlaceholderSizingSync);
+
+    function clearRevealListeners() {
+      if (revealLoadListener) {
+        image.removeEventListener("load", revealLoadListener);
+        revealLoadListener = null;
+      }
+      if (revealErrorListener) {
+        image.removeEventListener("error", revealErrorListener);
+        revealErrorListener = null;
+      }
+    }
+
+    function complete(stateValue) {
+      if (cancelled) return;
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+      image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
+      stopPlaceholderSizingSync();
+      clearExternalImagePlaceholderSizing(image);
+      setExternalImageState(image, stateValue);
+      clearRevealListeners();
+    }
+
+    loader.onload = function () {
+      if (cancelled) return;
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+      cacheExternalImageDimensions(loader.naturalWidth, loader.naturalHeight, placeholderCandidates);
+      syncPlaceholderSizing();
+
+      clearRevealListeners();
+      revealLoadListener = function () {
+        complete("loaded");
+      };
+      revealErrorListener = function () {
+        complete("error");
+      };
+
+      image.addEventListener("load", revealLoadListener);
+      image.addEventListener("error", revealErrorListener);
+      image.setAttribute("src", loadSource);
+
+      if (image.complete && image.naturalWidth > 0) {
+        complete("loaded");
+      }
+    };
+
+    loader.onerror = function () {
+      if (cancelled) return;
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+      image.setAttribute("src", loadSource);
+      complete("error");
+    };
+
+    loader.src = loadSource;
+
+    return function () {
+      cancelled = true;
+      stopPlaceholderSizingSync();
+      loader.onload = null;
+      loader.onerror = null;
+      clearRevealListeners();
+
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) === token) {
+        image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
+        clearExternalImagePlaceholderSizing(image);
+        setExternalImageState(image, null);
+      }
+    };
+  }
+
+  function stopTrackingExternalImage(image, clearAttributes) {
+    var tracked = externalImageTrackers.get(image);
+    if (tracked) {
+      tracked.cleanup();
+      externalImageTrackers.delete(image);
+    }
+
+    if (clearAttributes) {
+      clearExternalImageTrackingAttributes(image);
+    }
+  }
+
+  function processExternalImage(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+
+    ensureImageId(image);
+    ensureImageFigure(image);
+
+    var source = getTrackedImageSource(image);
+    if (!isExternalImageSource(source)) {
+      stopTrackingExternalImage(image, true);
+      return;
+    }
+
+    var tracked = externalImageTrackers.get(image);
+    if (tracked && tracked.source === source) return;
+
+    stopTrackingExternalImage(image, false);
+    externalImageTrackers.set(image, {
+      source: source,
+      cleanup: startExternalImageLoadWithPlaceholder(image, source)
+    });
+  }
+
+  function forEachImageInNode(node, visitor) {
+    if (node instanceof HTMLImageElement) {
+      visitor(node);
+    }
+
+    if (!(node instanceof Element)) return;
+    var nested = node.querySelectorAll("img");
+    for (var index = 0; index < nested.length; index += 1) {
+      visitor(nested[index]);
+    }
+  }
+
+  function syncExternalImagesInEditor() {
+    if (!editorElement) return;
+    var images = editorElement.querySelectorAll("img");
+    for (var index = 0; index < images.length; index += 1) {
+      processExternalImage(images[index]);
+    }
+  }
+
+  function ensureExternalImageObserver() {
+    if (externalImageObserver || !editorElement || typeof MutationObserver === "undefined") return;
+
+    externalImageObserver = new MutationObserver(function (records) {
+      for (var recordIndex = 0; recordIndex < records.length; recordIndex += 1) {
+        var record = records[recordIndex];
+
+        if (record.type === "attributes" && record.target instanceof HTMLImageElement) {
+          processExternalImage(record.target);
+          continue;
+        }
+
+        if (record.type !== "childList") continue;
+
+        for (var addedIndex = 0; addedIndex < record.addedNodes.length; addedIndex += 1) {
+          forEachImageInNode(record.addedNodes[addedIndex], processExternalImage);
+        }
+
+        for (var removedIndex = 0; removedIndex < record.removedNodes.length; removedIndex += 1) {
+          forEachImageInNode(record.removedNodes[removedIndex], function (image) {
+            stopTrackingExternalImage(image, false);
+          });
+        }
+      }
+    });
+
+    externalImageObserver.observe(editorElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: [
+        "src",
+        EXTERNAL_IMAGE_SOURCE_ATTR,
+        EXTERNAL_IMAGE_VARIANT_SMALL_ATTR,
+        EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
+        EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR
+      ]
+    });
+  }
+
+  function getPersistableEditorHtml() {
+    if (!editorElement) return "";
+
+    var template = document.createElement("template");
+    template.innerHTML = editorElement.innerHTML;
+
+    var images = template.content.querySelectorAll("img");
+    for (var index = 0; index < images.length; index += 1) {
+      var image = images[index];
+      var source = getTrackedImageSource(image);
+      if (source) {
+        image.setAttribute("src", source);
+      }
+
+      image.removeAttribute(EXTERNAL_IMAGE_SOURCE_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR);
+    }
+
+    var figures = template.content.querySelectorAll("figure[data-builder-image-figure='true']");
+    for (var figureIndex = 0; figureIndex < figures.length; figureIndex += 1) {
+      figures[figureIndex].removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
+    }
+
+    var containers = template.content.querySelectorAll("[" + EXTERNAL_IMAGE_CONTAINER_ATTR + "='true']");
+    for (var containerIndex = 0; containerIndex < containers.length; containerIndex += 1) {
+      containers[containerIndex].removeAttribute(EXTERNAL_IMAGE_STATE_ATTR);
+    }
+
+    return template.innerHTML;
+  }
+
+  function getImageCaptionText(image) {
+    var figure = image ? image.closest("figure") : null;
+    if (!(figure instanceof HTMLElement)) return "";
+    var caption = figure.querySelector(":scope > figcaption");
+    if (!(caption instanceof HTMLElement)) return "";
+    return caption.textContent || "";
+  }
+
+  function ensureImageFigure(image) {
+    if (!(image instanceof HTMLImageElement)) return null;
+
+    var figure = image.closest("figure");
+    if (!(figure instanceof HTMLElement)) {
+      figure = document.createElement("figure");
+      var parent = image.parentElement;
+      if (!parent) return null;
+      parent.insertBefore(figure, image);
+      figure.appendChild(image);
+    }
+
+    figure.setAttribute("data-builder-image-figure", "true");
+    if (!figure.style.display) figure.style.display = "block";
+    if (!figure.style.maxWidth) figure.style.maxWidth = "100%";
+    if (!figure.style.margin) figure.style.margin = "0";
+
+    if (!image.style.display) image.style.display = "inline-block";
+    if (!image.style.maxWidth) image.style.maxWidth = "100%";
+    if (!image.style.height) image.style.height = "auto";
+
+    var caption = figure.querySelector(":scope > figcaption");
+    if (!(caption instanceof HTMLElement)) {
+      caption = document.createElement("figcaption");
+      figure.appendChild(caption);
+    }
+
+    return figure;
+  }
+
+  function findImageById(imageId) {
+    if (!editorElement) return null;
+    if (!imageId) return null;
+    var images = editorElement.querySelectorAll("img[data-builder-image-id]");
+    for (var index = 0; index < images.length; index += 1) {
+      var candidate = images[index];
+      if ((candidate.getAttribute("data-builder-image-id") || "") === imageId) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  function getSelectedImageElement() {
+    if (!editorElement) return null;
+    if (!selectedImageId) return null;
+    return findImageById(selectedImageId);
+  }
+
+  function emitSelectedImageChange(image) {
+    if (!state) return;
+    if (!(image instanceof HTMLImageElement)) {
+      post("selected-image-change", { selectedImage: null });
+      return;
+    }
+
+    var imageId = ensureImageId(image);
+    selectedImageId = imageId;
+
+    post("selected-image-change", {
+      selectedImage: {
+        pageSlug: state.activeSlug,
+        id: imageId,
+        src: getTrackedImageSource(image),
+        alt: image.getAttribute("alt") || "",
+        caption: getImageCaptionText(image),
+        sizePercent: parseImageSizePercent(image)
+      }
+    });
+  }
+
+  function clearSelectedImage() {
+    selectedImageId = "";
+    emitSelectedImageChange(null);
+  }
+
+  function captureSelection() {
+    if (!editorElement) return;
+    var selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    var range = selection.getRangeAt(0);
+    var commonAncestor =
+      range.commonAncestorContainer && range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement;
+
+    if (!isElementInEditor(commonAncestor)) return;
+
+    try {
+      savedSelection = range.cloneRange();
+    } catch {
+      savedSelection = null;
+    }
+  }
+
+  function restoreSelection() {
+    if (!savedSelection) return;
+    var selection = window.getSelection();
+    if (!selection) return;
+
+    try {
+      selection.removeAllRanges();
+      selection.addRange(savedSelection.cloneRange());
+    } catch {
+      savedSelection = null;
+    }
+  }
+
+  function emitBodyChange() {
+    if (!state || !editorElement) return;
+    post("page-body-change", {
+      slug: state.activeSlug,
+      bodyHtml: getPersistableEditorHtml()
+    });
+  }
+
+  function applyStyleVariables(nextStyleVars) {
+    if (!previewRoot) return;
+
+    for (var index = 0; index < appliedStyleKeys.length; index += 1) {
+      previewRoot.style.removeProperty(appliedStyleKeys[index]);
+    }
+    appliedStyleKeys = [];
+
+    var entries = Object.entries(nextStyleVars || {});
+    for (var entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+      var entry = entries[entryIndex];
+      var key = entry[0];
+      var value = entry[1];
+      if (!key || value === null || value === undefined) continue;
+      previewRoot.style.setProperty(key, String(value));
+      appliedStyleKeys.push(key);
+    }
+  }
+
+  function renderNavigation() {
+    if (!navListElement || !state) return;
+    navListElement.innerHTML = "";
+
+    var navItems = Array.isArray(state.navItems) ? state.navItems : [];
+    for (var index = 0; index < navItems.length; index += 1) {
+      var item = navItems[index];
+      if (!item || typeof item !== "object") continue;
+
+      var listItem = document.createElement("li");
+      listItem.className = "nav__item";
+
+      var link = document.createElement("a");
+      link.className = "nav__link" + (state.activeSlug === item.slug ? " is-active" : "");
+      link.href = typeof item.href === "string" ? item.href : "#";
+      link.textContent = typeof item.label === "string" ? item.label : "Untitled page";
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+        var nextSlug = this.getAttribute("data-preview-slug") || "";
+        if (!nextSlug) return;
+        post("active-page-change", {
+          slug: nextSlug
+        });
+      });
+      link.setAttribute("data-preview-slug", typeof item.slug === "string" ? item.slug : "");
+
+      listItem.appendChild(link);
+      navListElement.appendChild(listItem);
+    }
+  }
+
+  function renderFooter() {
+    if (!footerElement || !footerInnerElement || !state) return;
+
+    var footerState = state.footer || {};
+    footerElement.style.display = footerState.disabled ? "none" : "";
+    if (footerState.fixed) {
+      footerElement.style.position = "sticky";
+      footerElement.style.bottom = "0";
+      footerElement.style.zIndex = "40";
+      footerElement.style.background = "var(--bg)";
+    } else {
+      footerElement.style.position = "";
+      footerElement.style.bottom = "";
+      footerElement.style.zIndex = "";
+      footerElement.style.background = "";
+    }
+
+    var visibleCount = Number.isFinite(footerState.visibleModuleCount)
+      ? Math.max(0, Math.min(3, Math.floor(footerState.visibleModuleCount)))
+      : 0;
+    if (visibleCount > 0) {
+      footerInnerElement.style.gridTemplateColumns = "repeat(" + visibleCount + ", minmax(0, 1fr))";
+    } else {
+      footerInnerElement.style.removeProperty("grid-template-columns");
+    }
+
+    footerInnerElement.innerHTML = "";
+
+    var modules = Array.isArray(footerState.modules) ? footerState.modules : [];
+    for (var index = 0; index < modules.length; index += 1) {
+      var moduleData = modules[index];
+      if (!moduleData || typeof moduleData !== "object") continue;
+
+      var moduleElement = document.createElement("p");
+      var alignment =
+        moduleData.alignment === "left" || moduleData.alignment === "center" || moduleData.alignment === "right"
+          ? moduleData.alignment
+          : "left";
+
+      moduleElement.className = "footer__module footer__module--" + alignment;
+      moduleElement.innerHTML = typeof moduleData.html === "string" ? moduleData.html : "";
+      if (moduleData.hidden) {
+        moduleElement.style.display = "none";
+      }
+
+      footerInnerElement.appendChild(moduleElement);
+    }
+  }
+
+  function runActivePageScript() {
+    if (!state) return;
+    var scriptSource = typeof state.activePageJavaScript === "string" ? state.activePageJavaScript.trim() : "";
+    var nextKey = state.activeSlug + "::" + scriptSource;
+    if (nextKey === lastExecutedScriptKey) return;
+    lastExecutedScriptKey = nextKey;
+
+    if (!scriptSource) return;
+
+    try {
+      var runner = new Function(scriptSource);
+      runner();
+    } catch (error) {
+      console.error("[builder-preview] Failed to run page script", error);
+    }
+  }
+
+  function ensureLayout() {
+    if (!root) return;
+    if (previewRoot) return;
+
+    root.innerHTML =
+      '<div class="astro-preview-shell astro-preview-frame"><div class="astro-preview page is-simple">'
+      + '<a class="skip-link" href="#astro-preview-main">Skip to content</a>'
+      + '<header class="header"><div class="header__inner"><a class="header__brand" href="/">Preview</a><nav class="header__nav" aria-label="Primary"><ul class="nav"></ul></nav></div></header>'
+      + '<main id="astro-preview-main" class="page__main"><article class="prose"><div class="astro-editor"></div></article></main>'
+      + '<footer class="footer"><div class="footer__inner"></div></footer>'
+      + '</div></div>';
+
+    previewRoot = root.querySelector(".astro-preview");
+    brandLinkElement = root.querySelector(".header__brand");
+    navListElement = root.querySelector(".nav");
+    footerElement = root.querySelector(".footer");
+    footerInnerElement = root.querySelector(".footer__inner");
+    editorElement = root.querySelector(".astro-editor");
+
+    if (brandLinkElement) {
+      brandLinkElement.addEventListener("click", function (event) {
+        event.preventDefault();
+        if (!state) return;
+        post("active-page-change", {
+          slug: state.homePageSlug
+        });
+      });
+    }
+
+    if (editorElement) {
+      editorElement.addEventListener("input", function () {
+        if (!state || !state.editable) return;
+        emitBodyChange();
+        captureSelection();
+      });
+
+      editorElement.addEventListener("click", function (event) {
+        if (!state || !state.editable) {
+          clearSelectedImage();
+          return;
+        }
+
+        var target = event.target;
+        if (!(target instanceof HTMLImageElement)) {
+          clearSelectedImage();
+          return;
+        }
+
+        ensureImageFigure(target);
+        emitSelectedImageChange(target);
+        captureSelection();
+      });
+
+      editorElement.addEventListener("keyup", function () {
+        captureSelection();
+      });
+
+      editorElement.addEventListener("mouseup", function () {
+        captureSelection();
+      });
+
+      editorElement.addEventListener("keydown", function (event) {
+        if (!state || !state.editable) return;
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
+        if (!selectedImageId) return;
+
+        var selectedImage = getSelectedImageElement();
+        if (!(selectedImage instanceof HTMLImageElement)) return;
+
+        var figure = selectedImage.closest("figure[data-builder-image-figure='true']");
+        if (figure instanceof HTMLElement) {
+          event.preventDefault();
+          var placeholderParagraph = document.createElement("p");
+          placeholderParagraph.appendChild(document.createElement("br"));
+          figure.insertAdjacentElement("afterend", placeholderParagraph);
+          figure.remove();
+          clearSelectedImage();
+          emitBodyChange();
+          return;
+        }
+
+        selectedImage.remove();
+        clearSelectedImage();
+        emitBodyChange();
+      });
+
+      ensureExternalImageObserver();
+      syncExternalImagesInEditor();
+    }
+
+    document.addEventListener("selectionchange", function () {
+      captureSelection();
+    });
+  }
+
+  function applyState(nextState) {
+    state = nextState;
+    ensureLayout();
+
+    if (!state || !previewRoot || !editorElement) return;
+
+    if (inlineCssStyle) {
+      inlineCssStyle.textContent = typeof state.previewInlineCss === "string" ? state.previewInlineCss : "";
+    }
+
+    applyStyleVariables(state.previewStyleVars || {});
+
+    previewRoot.className = "astro-preview page " + (state.styleMode === "advanced" ? "is-advanced" : "is-simple");
+
+    if (brandLinkElement) {
+      var brandText =
+        state.header && !state.header.disableBrand
+          ? (state.header.brandText || "").trim() || (state.previewBrand || "").trim() || "New Astro Site"
+          : "";
+      brandLinkElement.textContent = brandText || "New Astro Site";
+      brandLinkElement.style.display = state.header && state.header.disableBrand ? "none" : "";
+    }
+
+    var headerElement = root.querySelector(".header");
+    if (headerElement instanceof HTMLElement) {
+      headerElement.style.display = state.header && state.header.disabled ? "none" : "";
+      if (state.header && state.header.fixed) {
+        headerElement.style.position = "sticky";
+        headerElement.style.top = "0";
+        headerElement.style.zIndex = "40";
+        headerElement.style.background = "var(--bg)";
+      } else {
+        headerElement.style.position = "";
+        headerElement.style.top = "";
+        headerElement.style.zIndex = "";
+        headerElement.style.background = "";
+      }
+    }
+
+    renderNavigation();
+    renderFooter();
+
+    editorElement.contentEditable = state.editable ? "true" : "false";
+    editorElement.setAttribute("aria-readonly", state.editable ? "false" : "true");
+    editorElement.className = "astro-editor" + (state.editable ? "" : " is-read-only");
+
+    var nextBodyHtml = typeof state.activeBodyHtml === "string" ? state.activeBodyHtml : "";
+    var isEditorFocused = document.activeElement === editorElement;
+    var shouldApplyBodyHtml =
+      state.activeSlug !== lastAppliedBodySlug || nextBodyHtml !== lastAppliedBodyHtml;
+
+    if (shouldApplyBodyHtml && !isEditorFocused && editorElement.innerHTML !== nextBodyHtml) {
+      editorElement.innerHTML = nextBodyHtml;
+      clearSelectedImage();
+    }
+
+    if (shouldApplyBodyHtml && (!isEditorFocused || editorElement.innerHTML === nextBodyHtml)) {
+      lastAppliedBodySlug = state.activeSlug;
+      lastAppliedBodyHtml = nextBodyHtml;
+    }
+
+    syncExternalImagesInEditor();
+    runActivePageScript();
+  }
+
+  function applyExecCommand(command, value) {
+    if (!state || !state.editable || !editorElement) return;
+    editorElement.focus();
+    restoreSelection();
+
+    if (command === "clearAllFormatting") {
+      document.execCommand("removeFormat", false);
+      document.execCommand("unlink", false);
+      document.execCommand("formatBlock", false, "p");
+      document.execCommand("justifyLeft", false);
+    } else {
+      document.execCommand(command, false, value);
+    }
+
+    emitBodyChange();
+    captureSelection();
+  }
+
+  function replaceImageSource(previousSrc, nextSrc, aspectRatioOverride) {
+    if (!editorElement || !previousSrc) return;
+
+    var images = editorElement.querySelectorAll("img");
+    var didUpdate = false;
+
+    for (var index = 0; index < images.length; index += 1) {
+      var image = images[index];
+      var currentSrc = (image.getAttribute("src") || "").trim();
+      var trackedSrc = (image.getAttribute(EXTERNAL_IMAGE_SOURCE_ATTR) || "").trim();
+      if (currentSrc !== previousSrc && trackedSrc !== previousSrc) {
+        continue;
+      }
+
+      if (nextSrc && nextSrc.trim()) {
+        image.setAttribute("src", nextSrc);
+        image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, nextSrc);
+        if (Number.isFinite(aspectRatioOverride) && aspectRatioOverride > 0) {
+          image.setAttribute(IMAGE_ASPECT_RATIO_ATTR, String(aspectRatioOverride));
+        }
+        processExternalImage(image);
+        didUpdate = true;
+        continue;
+      }
+
+      var figure = image.closest("figure[data-builder-image-figure='true']");
+      stopTrackingExternalImage(image, false);
+      if (figure instanceof HTMLElement) {
+        figure.remove();
+      } else {
+        image.remove();
+      }
+      didUpdate = true;
+    }
+
+    if (!didUpdate) return;
+
+    emitBodyChange();
+    captureSelection();
+
+    var selectedImage = getSelectedImageElement();
+    if (!(selectedImage instanceof HTMLImageElement)) {
+      clearSelectedImage();
+    } else {
+      emitSelectedImageChange(selectedImage);
+    }
+  }
+
+  function setImageAspectRatioBySource(source, aspectRatio) {
+    if (!editorElement || !source) return;
+    if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) return;
+
+    var images = editorElement.querySelectorAll("img");
+    for (var index = 0; index < images.length; index += 1) {
+      var image = images[index];
+      var currentSrc = (image.getAttribute("src") || "").trim();
+      var trackedSrc = (image.getAttribute(EXTERNAL_IMAGE_SOURCE_ATTR) || "").trim();
+      if (currentSrc !== source && trackedSrc !== source) continue;
+      image.setAttribute(IMAGE_ASPECT_RATIO_ATTR, String(aspectRatio));
+    }
+  }
+
+  function updateSelectedImageAlt(value) {
+    var image = getSelectedImageElement();
+    if (!(image instanceof HTMLImageElement)) {
+      clearSelectedImage();
+      return;
+    }
+
+    image.setAttribute("alt", value || "");
+    emitBodyChange();
+    emitSelectedImageChange(image);
+    captureSelection();
+  }
+
+  function updateSelectedImageCaption(value) {
+    var image = getSelectedImageElement();
+    if (!(image instanceof HTMLImageElement)) {
+      clearSelectedImage();
+      return;
+    }
+
+    var figure = ensureImageFigure(image);
+    if (!figure) return;
+
+    var caption = figure.querySelector(":scope > figcaption");
+    if (caption instanceof HTMLElement) {
+      caption.textContent = value || "";
+    }
+
+    emitBodyChange();
+    emitSelectedImageChange(image);
+    captureSelection();
+  }
+
+  function updateSelectedImageSize(value) {
+    var image = getSelectedImageElement();
+    if (!(image instanceof HTMLImageElement)) {
+      clearSelectedImage();
+      return;
+    }
+
+    var numericValue = Number(value);
+    var clamped = Number.isFinite(numericValue) ? Math.max(1, Math.min(100, Math.round(numericValue))) : 100;
+
+    image.style.width = clamped + "%";
+    image.style.height = "auto";
+    image.style.maxWidth = "100%";
+
+    emitBodyChange();
+    emitSelectedImageChange(image);
+    captureSelection();
+  }
+
+  function handleCommand(payload) {
+    if (!payload || typeof payload !== "object") return;
+
+    if (payload.kind === "execCommand") {
+      applyExecCommand(payload.command, payload.value);
+      return;
+    }
+
+    if (payload.kind === "focusEditor") {
+      if (editorElement) editorElement.focus();
+      return;
+    }
+
+    if (payload.kind === "captureSelection") {
+      captureSelection();
+      return;
+    }
+
+    if (payload.kind === "replaceImageSource") {
+      replaceImageSource(payload.previousSrc, payload.nextSrc, payload.aspectRatioOverride);
+      return;
+    }
+
+    if (payload.kind === "setImageAspectRatioBySource") {
+      setImageAspectRatioBySource(payload.source, payload.aspectRatio);
+      return;
+    }
+
+    if (payload.kind === "updateSelectedImageAlt") {
+      updateSelectedImageAlt(payload.value);
+      return;
+    }
+
+    if (payload.kind === "updateSelectedImageCaption") {
+      updateSelectedImageCaption(payload.value);
+      return;
+    }
+
+    if (payload.kind === "updateSelectedImageSize") {
+      updateSelectedImageSize(payload.value);
+      return;
+    }
+
+    if (payload.kind === "clearSelectedImage") {
+      clearSelectedImage();
+    }
+  }
+
+  function handleMessage(event) {
+    var message = event.data;
+    if (!message || typeof message !== "object") return;
+    if (message.channel !== CHANNEL || typeof message.type !== "string") return;
+
+    if (message.type === "init") {
+      var initPayload = message.payload && typeof message.payload === "object" ? message.payload : {};
+      bridgeToken = typeof initPayload.token === "string" ? initPayload.token : "";
+      post("ready", {});
+      return;
+    }
+
+    if (!bridgeToken || message.token !== bridgeToken) return;
+
+    if (message.type === "state") {
+      var statePayload = message.payload && typeof message.payload === "object" ? message.payload : {};
+      applyState(statePayload.state || statePayload);
+      return;
+    }
+
+    if (message.type === "command") {
+      handleCommand(message.payload);
+    }
+  }
+
+  window.addEventListener("message", handleMessage);
+})();
+`;
+
+const buildPreviewFrameSrcDoc = () => {
+  const runtimeScript = escapeInlineTagContent(
+    buildPreviewFrameRuntimeScript(PREVIEW_BRIDGE_CHANNEL, PREVIEW_IMAGE_ASPECT_RATIO_ATTR)
+  );
+  const baseStyles = escapeInlineTagContent(siteBuilderStylesRaw);
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>${baseStyles}</style>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+
+      body {
+        background: transparent;
+      }
+
+      #astro-preview-frame-root {
+        height: 100%;
+      }
+
+      .astro-preview-frame {
+        height: 100%;
+      }
+    </style>
+    <style id="preview-inline-css"></style>
+  </head>
+  <body>
+    <div id="astro-preview-frame-root"></div>
+    <script>${runtimeScript}</script>
+  </body>
+</html>`;
+};
+
+const footerModuleAlignmentFallback: Array<"left" | "center" | "right"> = ["left", "center", "right"];
 
 const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplatePreviewProps>(
   function AstroTemplatePreview(
@@ -40,6 +1426,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     },
     ref
   ) {
+    const frameRef = useRef<HTMLIFrameElement | null>(null);
+    const bridgeStateRef = useRef({
+      token: createBridgeToken(),
+      isReady: false
+    });
+    const srcDoc = useMemo(() => buildPreviewFrameSrcDoc(), []);
+
     const parsedPages = useMemo<ParsedPage[]>(
       () =>
         pages.map((page, index) => {
@@ -59,6 +1452,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
           title: "Home",
           slug: "home",
           body: homeFallbackBody,
+          javascript: "",
           showInNav: false,
           isHome: true,
           safeSlug: "home"
@@ -99,18 +1493,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       activePage.safeSlug === homePage.safeSlug
         ? (activePage.body || "").trim() || homeFallbackBody
         : (activePage.body || "").trim();
+
     const activeBodyHtml = useMemo(() => markdownToHtml(activeBodyRaw), [activeBodyRaw]);
+
     const displayBodyHtml = useMemo(
       () => mapHtmlImageSources(activeBodyHtml, draftImages, publishedSiteBaseUrl, "display"),
       [activeBodyHtml, draftImages, publishedSiteBaseUrl]
     );
-    const displayImageSignature = useMemo(() => {
-      if (!displayBodyHtml.trim()) return "";
-      const template = parseInertHtmlTemplate(displayBodyHtml);
-      return Array.from(template.content.querySelectorAll("img"))
-        .map((image, index) => `${index}:${getTrackedExternalImageSource(image)}`)
-        .join("|");
-    }, [displayBodyHtml]);
 
     const effectivePreviewCss = useMemo(() => {
       if (styleMode === "advanced") {
@@ -125,6 +1514,20 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       [effectivePreviewCss]
     );
 
+    const previewStyleVars = useMemo(() => {
+      const styleRecord = previewStyle as Record<string, unknown>;
+      const result: Record<string, string> = {};
+
+      Object.entries(styleRecord).forEach(([key, value]) => {
+        if (!key) return;
+        if (typeof value === "string" || typeof value === "number") {
+          result[key] = String(value);
+        }
+      });
+
+      return result;
+    }, [previewStyle]);
+
     const previewInlineCss = useMemo(() => {
       const rawCss =
         styleMode === "advanced"
@@ -135,17 +1538,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
 
     const currentYear = new Date().getFullYear();
     const footerCopyright = `© ${currentYear}`;
-    const footerModules = useMemo(() => {
-      const footerAlignmentFallback: Array<"left" | "center" | "right"> = [
-        "left",
-        "center",
-        "right"
-      ];
+
+    const normalizedFooterModules = useMemo(() => {
       const normalized = Array.isArray(footer.modules)
         ? footer.modules
             .slice(0, 3)
             .map((module, index) => {
-              const fallbackAlignment = footerAlignmentFallback[index] ?? "left";
+              const fallbackAlignment = footerModuleAlignmentFallback[index] ?? "left";
               if (!module || typeof module !== "object") {
                 return {
                   content: "",
@@ -165,53 +1564,274 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
               };
             })
         : [];
+
       while (normalized.length < 3) {
-        const fallbackAlignment = footerAlignmentFallback[normalized.length] ?? "left";
+        const fallbackAlignment = footerModuleAlignmentFallback[normalized.length] ?? "left";
         normalized.push({
           content: "",
           alignment: fallbackAlignment
         });
       }
+
       return normalized;
     }, [footer.modules]);
 
-    const visibleFooterModuleCount = footerModules.filter((module) => module.content.trim().length > 0).length;
-    const footerInnerStyle =
-      visibleFooterModuleCount > 0
-        ? ({
-            gridTemplateColumns: `repeat(${Math.min(3, visibleFooterModuleCount)}, minmax(0, 1fr))`
-          } as CSSProperties)
-        : undefined;
+    const footerModulesForFrame = useMemo<PreviewFooterModule[]>(() => {
+      const renderFooterSegmentsToHtml = (line: string) =>
+        parseFooterLineSegments(line)
+          .map((segment) => {
+            if (segment.type === "link") {
+              const href = segment.href?.trim() ?? "";
+              if (!href) return "";
+              return `<a class="footer__link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(segment.text)}</a>`;
+            }
+            return `<span>${escapeHtml(segment.text)}</span>`;
+          })
+          .join("");
+
+      return normalizedFooterModules.map((module) => {
+        const resolvedModule = module.content
+          .replaceAll("%copyright%", footerCopyright)
+          .replace(/\r/g, "");
+        const html = resolvedModule
+          .split("\n")
+          .map((line) => renderFooterSegmentsToHtml(line))
+          .join("<br />");
+
+        return {
+          alignment: module.alignment,
+          html,
+          hidden: module.content.trim().length === 0
+        };
+      });
+    }, [footerCopyright, normalizedFooterModules]);
+
+    const visibleFooterModuleCount = footerModulesForFrame.filter((module) => !module.hidden).length;
+
+    const frameState = useMemo<PreviewFrameState>(
+      () => ({
+        editable,
+        styleMode,
+        previewStyleVars,
+        previewInlineCss,
+        previewBrand,
+        homePageSlug: homePage.safeSlug,
+        activeSlug,
+        activeBodyHtml: displayBodyHtml,
+        activePageJavaScript: (activePage.javascript ?? "").trim(),
+        navItems,
+        header,
+        footer: {
+          disabled: footer.disabled,
+          fixed: footer.fixed,
+          modules: footerModulesForFrame,
+          visibleModuleCount: Math.min(3, visibleFooterModuleCount)
+        }
+      }),
+      [
+        activePage.javascript,
+        activeSlug,
+        displayBodyHtml,
+        editable,
+        footer.disabled,
+        footer.fixed,
+        footerModulesForFrame,
+        header,
+        homePage.safeSlug,
+        navItems,
+        previewBrand,
+        previewInlineCss,
+        previewStyleVars,
+        styleMode,
+        visibleFooterModuleCount
+      ]
+    );
+
+    const postMessageToFrame = useCallback((message: PreviewBridgeMessage) => {
+      const target = frameRef.current?.contentWindow;
+      if (!target) return;
+      target.postMessage(message, "*");
+    }, []);
+
+    const sendStateToFrame = useCallback(() => {
+      const { token, isReady } = bridgeStateRef.current;
+      if (!isReady) return;
+      postMessageToFrame({
+        channel: PREVIEW_BRIDGE_CHANNEL,
+        type: "state",
+        token,
+        payload: {
+          state: frameState
+        }
+      });
+    }, [frameState, postMessageToFrame]);
+
+    const sendCommandToFrame = useCallback(
+      (payload: PreviewCommandPayload) => {
+        const { token, isReady } = bridgeStateRef.current;
+        if (!isReady) return;
+        postMessageToFrame({
+          channel: PREVIEW_BRIDGE_CHANNEL,
+          type: "command",
+          token,
+          payload
+        });
+      },
+      [postMessageToFrame]
+    );
+
+    const initializeBridge = useCallback(() => {
+      const token = createBridgeToken();
+      bridgeStateRef.current = {
+        token,
+        isReady: false
+      };
+      postMessageToFrame({
+        channel: PREVIEW_BRIDGE_CHANNEL,
+        type: "init",
+        payload: {
+          token
+        }
+      });
+    }, [postMessageToFrame]);
+
+    useEffect(() => {
+      sendStateToFrame();
+    }, [sendStateToFrame]);
+
+    useEffect(() => {
+      const handleMessage = (event: MessageEvent) => {
+        const frameWindow = frameRef.current?.contentWindow;
+        if (!frameWindow || event.source !== frameWindow) return;
+
+        const data = event.data as PreviewBridgeMessage;
+        if (!data || typeof data !== "object") return;
+        if (data.channel !== PREVIEW_BRIDGE_CHANNEL || typeof data.type !== "string") return;
+
+        const { token } = bridgeStateRef.current;
+
+        if (data.type === "ready") {
+          if (data.token !== token) return;
+          bridgeStateRef.current.isReady = true;
+          sendStateToFrame();
+          return;
+        }
+
+        if (data.token !== token) return;
+
+        if (data.type === "active-page-change") {
+          const payload = data.payload as { slug?: string } | undefined;
+          const nextSlug = payload?.slug?.trim();
+          if (!nextSlug) return;
+          onActivePageChange(nextSlug);
+          return;
+        }
+
+        if (data.type === "page-body-change") {
+          const payload = data.payload as { slug?: string; bodyHtml?: string } | undefined;
+          const slug = payload?.slug?.trim();
+          if (!slug) return;
+          const bodyHtml = typeof payload?.bodyHtml === "string" ? payload.bodyHtml : "";
+          const normalizedBody = mapHtmlImageSources(
+            bodyHtml,
+            draftImages,
+            publishedSiteBaseUrl,
+            "persist"
+          );
+          onPageBodyChange(slug, normalizedBody);
+          return;
+        }
+
+        if (data.type === "selected-image-change") {
+          const payload = data.payload as { selectedImage?: PreviewSelectedImage | null } | undefined;
+          const selectedImage = payload?.selectedImage ?? null;
+          onSelectedImageChange?.(selectedImage);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+      return () => {
+        window.removeEventListener("message", handleMessage);
+      };
+    }, [
+      draftImages,
+      onActivePageChange,
+      onPageBodyChange,
+      onSelectedImageChange,
+      publishedSiteBaseUrl,
+      sendStateToFrame
+    ]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        execCommand: (command: string, value?: string) => {
+          sendCommandToFrame({
+            kind: "execCommand",
+            command,
+            value
+          });
+        },
+        focusEditor: () => {
+          sendCommandToFrame({ kind: "focusEditor" });
+        },
+        captureSelection: () => {
+          sendCommandToFrame({ kind: "captureSelection" });
+        },
+        replaceImageSource: (
+          previousSrc: string,
+          nextSrc: string | null,
+          aspectRatioOverride?: number
+        ) => {
+          sendCommandToFrame({
+            kind: "replaceImageSource",
+            previousSrc,
+            nextSrc,
+            aspectRatioOverride
+          });
+        },
+        setImageAspectRatioBySource: (source: string, aspectRatio: number) => {
+          sendCommandToFrame({
+            kind: "setImageAspectRatioBySource",
+            source,
+            aspectRatio
+          });
+        },
+        updateSelectedImageAlt: (value: string) => {
+          sendCommandToFrame({
+            kind: "updateSelectedImageAlt",
+            value
+          });
+        },
+        updateSelectedImageCaption: (value: string) => {
+          sendCommandToFrame({
+            kind: "updateSelectedImageCaption",
+            value
+          });
+        },
+        updateSelectedImageSize: (value: number) => {
+          sendCommandToFrame({
+            kind: "updateSelectedImageSize",
+            value
+          });
+        },
+        clearSelectedImage: () => {
+          sendCommandToFrame({
+            kind: "clearSelectedImage"
+          });
+        }
+      }),
+      [sendCommandToFrame]
+    );
 
     return (
-      <AstroPreviewLayout
-        styleMode={styleMode}
-        previewStyle={previewStyle}
-        previewInlineCss={previewInlineCss}
-        header={header}
-        footer={footer}
-        previewBrand={previewBrand}
-        homePageSlug={homePage.safeSlug}
-        navItems={navItems}
-        activeSlug={activeSlug}
-        footerModules={footerModules}
-        footerInnerStyle={footerInnerStyle}
-        footerCopyright={footerCopyright}
-        onActivePageChange={onActivePageChange}
-        parseFooterLineSegments={parseFooterLineSegments}
-        editor={
-          <AstroPreviewEditableSurface
-            ref={ref}
-            editable={editable}
-            activeSlug={activeSlug}
-            draftImages={draftImages}
-            publishedSiteBaseUrl={publishedSiteBaseUrl}
-            displayBodyHtml={displayBodyHtml}
-            displayImageSignature={displayImageSignature}
-            onPageBodyChange={onPageBodyChange}
-            onSelectedImageChange={onSelectedImageChange}
-          />
-        }
+      <iframe
+        ref={frameRef}
+        className="astro-preview-iframe"
+        sandbox="allow-scripts"
+        srcDoc={srcDoc}
+        title="Builder preview"
+        onLoad={initializeBridge}
       />
     );
   }

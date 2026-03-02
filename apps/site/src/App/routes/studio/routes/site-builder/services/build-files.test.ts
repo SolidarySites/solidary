@@ -29,6 +29,7 @@ const pages: BuilderPage[] = [
     slug: "home",
     title: "Home",
     body: "Hello",
+    javascript: "console.log('home')",
     showInNav: true,
     isHome: true
   }
@@ -81,5 +82,19 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.structureStyles]).toContain("background: var(--bg)");
     expect(files[FILE_KEYS.structureStyles]).toContain(":root");
     expect(files[FILE_KEYS.tokens]).toContain("--bg");
+  });
+
+  it("includes page javascript frontmatter in generated markdown", () => {
+    const files = buildFiles({
+      siteId: "site-1",
+      imageUrl: "/og.jpg",
+      settingsInput,
+      styles: baseStyles,
+      templateSolidary: "{}",
+      pages,
+      defaultHomeContent: "Default home"
+    });
+
+    expect(files["src/content/pages/home.md"]).toContain('javascript: "console.log(\'home\')"');
   });
 });

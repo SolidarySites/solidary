@@ -53,6 +53,7 @@ describe("astro markdown builders", () => {
       title: "About Us",
       slug: "about",
       body: "Hello world",
+      javascript: "console.log('about')",
       showInNav: true,
       navOrder: 2
     });
@@ -60,6 +61,7 @@ describe("astro markdown builders", () => {
     expect(output).toContain('title: "About Us"');
     expect(output).toContain('navLabel: "About Us"');
     expect(output).toContain("navOrder: 2");
+    expect(output).toContain('javascript: "console.log(\'about\')"');
     expect(output).toContain("Hello world");
   });
 });

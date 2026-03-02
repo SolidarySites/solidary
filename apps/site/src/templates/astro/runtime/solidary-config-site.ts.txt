@@ -4,6 +4,7 @@ export const pageSchema = z.object({
   title: z.string(),
   navLabel: z.string(),
   description: z.string().optional(),
+  javascript: z.string().optional(),
   showInNav: z.boolean(),
   navOrder: z.number().int()
 });

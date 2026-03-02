@@ -211,6 +211,7 @@ export const saveProvisionedSiteDraft = async ({
       slug: page.slug,
       title: page.title,
       content: page.body,
+      javascript: (page.javascript ?? "").trim(),
       show_in_nav: page.showInNav,
       position: index,
       is_home: page.slug === "home"

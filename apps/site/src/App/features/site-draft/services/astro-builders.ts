@@ -29,11 +29,13 @@ export const buildFooterMarkdown = (settings: AstroSettings) =>
 export const buildPageMarkdown = (page: AstroPageDraft) => {
   const body = page.body.trim();
   const navLabel = page.title.trim() || page.slug || "Untitled";
+  const javascript = (page.javascript ?? "").trim();
 
   return pageTemplate
     .replaceAll("{{TITLE}}", toYamlValue(page.title))
     .replaceAll("{{NAV_LABEL}}", toYamlValue(navLabel))
     .replaceAll("{{SHOW_IN_NAV}}", page.showInNav ? "true" : "false")
     .replaceAll("{{NAV_ORDER}}", String(page.navOrder ?? 0))
+    .replaceAll("{{JAVASCRIPT}}", toYamlValue(javascript))
     .replaceAll("{{BODY}}", body);
 };

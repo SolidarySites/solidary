@@ -18,6 +18,8 @@ type BuilderPagesSectionProps = {
   onEnterPageEditingMode: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
+  onPageJavaScriptChange: (safeSlug: string, value: string) => void;
+  canEditPageJavaScript: boolean;
 };
 
 const getPageItemKey = (page: BuilderPage, index: number) => page.id ?? `page-${index}`;
@@ -31,7 +33,9 @@ const BuilderPagesSection = ({
   onAddPage,
   onEnterPageEditingMode,
   onPageTitleChange,
-  onPageSlugChange
+  onPageSlugChange,
+  onPageJavaScriptChange,
+  canEditPageJavaScript
 }: BuilderPagesSectionProps) => {
   const activePageIndex = pages.findIndex(
     (page, index) => getPageSafeSlug(page, index) === activePreviewSlug
@@ -76,6 +80,22 @@ const BuilderPagesSection = ({
                   disabled={activePage.isHome || activePageLockedByOther}
                 />
               </label>
+              <label>
+                JavaScript
+                <textarea
+                  className="code-block"
+                  value={activePage.javascript ?? ""}
+                  onChange={(event) => {
+                    if (!canEditPageJavaScript) return;
+                    onPageJavaScriptChange(activePageSafeSlug, event.target.value);
+                  }}
+                  disabled={activePageLockedByOther || !canEditPageJavaScript}
+                  placeholder="console.log('Hello from this page');"
+                />
+              </label>
+              {!canEditPageJavaScript && (
+                <p className="builder-page-lock-note">Only owner/admin roles can edit JavaScript.</p>
+              )}
             </fieldset>
           </div>
         ) : (

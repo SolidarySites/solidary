@@ -808,6 +808,7 @@ export const useSiteBuilderRouteController = ({
   const {
     addPage,
     updatePageBody,
+    updatePageJavaScript,
     handlePageTitleChange,
     handlePageSlugChange,
     headerNavItems,
@@ -857,6 +858,7 @@ export const useSiteBuilderRouteController = ({
     !hasUnsavedChanges &&
     hasSavedPendingPublishChanges &&
     (!canDirectPublish || !hasForeignSectionLocks);
+  const canEditPageJavaScript = siteAccessRole === "owner" || siteAccessRole === "admin";
   const publishMode: "direct" | "pull_request" = canDirectPublish ? "direct" : "pull_request";
   const publishButtonLabel = canDirectPublish ? "Publish Site" : "Suggest Edits";
   const showTopbar =
@@ -1636,6 +1638,10 @@ export const useSiteBuilderRouteController = ({
       },
       onPageTitleChange: handlePageTitleChange,
       onPageSlugChange: handlePageSlugChange,
+      onPageJavaScriptChange: (safeSlug: string, value: string) => {
+        if (!canEditPageJavaScript) return;
+        updatePageJavaScript(safeSlug, value);
+      },
       onTokensCssChange: setTokensCss,
       onStyleModeChange: handleStyleModeChange,
       onAdvancedStructureCssChange: setAdvancedStructureCss,

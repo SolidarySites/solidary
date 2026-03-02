@@ -60,6 +60,7 @@ export const useBuilderPageEditing = ({
         title: "New page",
         slug,
         body: "<p>Write your page content here.</p>",
+        javascript: "",
         showInNav: true,
         position: items.length
       }
@@ -97,6 +98,15 @@ export const useBuilderPageEditing = ({
     setPages((items) =>
       items.map((item, index) =>
         getPageSafeSlug(item, index) === safeSlug ? { ...item, body } : item
+      )
+    );
+  };
+
+  const updatePageJavaScript = (safeSlug: string, javascript: string) => {
+    markPageSlugTouched(safeSlug);
+    setPages((items) =>
+      items.map((item, index) =>
+        getPageSafeSlug(item, index) === safeSlug ? { ...item, javascript } : item
       )
     );
   };
@@ -201,6 +211,7 @@ export const useBuilderPageEditing = ({
   return {
     addPage,
     updatePageBody,
+    updatePageJavaScript,
     handlePageTitleChange,
     handlePageSlugChange,
     headerNavItems,

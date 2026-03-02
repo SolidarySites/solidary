@@ -243,7 +243,7 @@ export const loadDraftById = async ({
   const [{ data: pagesData }, { data: settingsData }, { data: draftImagesData }] = await Promise.all([
     supabase
       .from("site_draft_pages")
-      .select("id, slug, title, content, show_in_nav, position, is_home")
+      .select("id, slug, title, content, javascript, show_in_nav, position, is_home")
       .eq("draft_id", resolvedDraft.id)
       .order("position", { ascending: true }),
     supabase
@@ -281,6 +281,7 @@ export const loadDraftById = async ({
       page.is_home && !page.content?.trim() ? defaultHomeContent : page.content ?? "",
       draftImages
     ),
+    javascript: typeof page.javascript === "string" ? page.javascript : "",
     showInNav: page.show_in_nav ?? true,
     position: page.position,
     isHome: page.is_home ?? false

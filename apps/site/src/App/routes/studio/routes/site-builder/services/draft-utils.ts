@@ -38,6 +38,7 @@ export type DraftPageRow = {
   slug: string;
   title: string;
   content: string;
+  javascript: string;
   show_in_nav: boolean;
   position: number;
   is_home: boolean;
@@ -124,6 +125,7 @@ export const buildDraftPageRows = (
     slug: getPageSafeSlug(page, index),
     title: page.title.trim() || page.slug || `Page ${index + 1}`,
     content: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages),
+    javascript: (page.javascript ?? "").trim(),
     show_in_nav: page.showInNav ?? true,
     position: index,
     is_home: Boolean(page.isHome)
@@ -151,6 +153,7 @@ export const buildDraftSaveSignature = ({
       slug: row.slug,
       title: row.title,
       content: row.content,
+      javascript: row.javascript,
       show_in_nav: row.show_in_nav,
       position: row.position,
       is_home: row.is_home

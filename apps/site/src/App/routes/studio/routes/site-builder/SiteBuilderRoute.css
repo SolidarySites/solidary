@@ -894,6 +894,15 @@
   position: relative;
 }
 
+.astro-preview-iframe {
+  width: 100%;
+  min-height: 640px;
+  height: 100%;
+  border: none;
+  display: block;
+  background: transparent;
+}
+
 .astro-preview {
   --bg: #fbfbf9;
   --fg: #1a1a1a;
