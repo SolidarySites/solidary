@@ -2,15 +2,11 @@ import { runHandler } from "../_shared/request-adapter.ts";
 import { Buffer } from "node:buffer";
 import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
-import { existsSync } from "node:fs";
-import { promises as fsp } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import { auditGitHubRepoAction } from "../_shared/github-repo-guardrails.ts";
+import { bundledTemplateFiles } from "./template-files.ts";
 
 const GITHUB_API = "https://api.github.com";
-const TEMPLATE_DIR = "templates/astro-baseline";
 const TARGET_DEFAULT_BRANCH = "main";
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
@@ -19,9 +15,6 @@ const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
-
-const EXCLUDE_DIRS = new Set(["node_modules", ".git", ".netlify", "dist", ".astro", ".turbo"]);
-const EXCLUDE_FILES = new Set<string>([".DS_Store"]);
 const SOLIDARY_CONTENT_FILE_REL_PATH = "src/content/solidary.md";
 const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";
 const FOOTER_CONTENT_FILE_REL_PATH = "src/content/footer.md";
@@ -500,96 +493,11 @@ async function ghUserWithRetry<T>({
   return last as { res: Response; data: T };
 }
 
-function normalizeGitPath(pathValue: string) {
-  return pathValue.split(sep).join("/");
-}
-
-function findTemplateRoot(): string {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-  const pushCandidate = (value: string) => {
-    const normalized = value.trim();
-    if (!normalized || seen.has(normalized)) return;
-    seen.add(normalized);
-    candidates.push(normalized);
-  };
-
-  pushCandidate(join(Deno.cwd(), TEMPLATE_DIR));
-  pushCandidate(join(Deno.cwd(), "..", TEMPLATE_DIR));
-  pushCandidate(join(Deno.cwd(), "_shared", TEMPLATE_DIR));
-
-  const moduleDir = dirname(fileURLToPath(import.meta.url));
-  pushCandidate(join(moduleDir, TEMPLATE_DIR));
-  pushCandidate(join(moduleDir, "_shared", TEMPLATE_DIR));
-  pushCandidate(join(moduleDir, "..", TEMPLATE_DIR));
-  pushCandidate(join(moduleDir, "..", "_shared", TEMPLATE_DIR));
-  pushCandidate(join(moduleDir, "..", "..", "_shared", TEMPLATE_DIR));
-  pushCandidate(join(moduleDir, "..", "..", "functions", "_shared", TEMPLATE_DIR));
-
-  if (typeof __dirname === "string" && __dirname.length > 0) {
-    pushCandidate(join(__dirname, TEMPLATE_DIR));
-    pushCandidate(join(__dirname, "..", TEMPLATE_DIR));
-    pushCandidate(join(__dirname, "..", "..", TEMPLATE_DIR));
-    pushCandidate(join(__dirname, "..", "..", "..", TEMPLATE_DIR));
-  }
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-
-  throw new Error(
-    `Template directory not found in function bundle. Checked: ${candidates.join(
-      " | "
-    )}. Ensure supabase/config.toml static_files includes "./functions/github-create-repo-worker-background/templates/astro-baseline/**/*".`
-  );
-}
-
-async function walkFiles(rootAbs: string): Promise<FileRecord[]> {
-  const out: FileRecord[] = [];
-
-  async function walk(dirAbs: string) {
-    const entries = await fsp.readdir(dirAbs, { withFileTypes: true });
-
-    for (const ent of entries) {
-      const absPath = join(dirAbs, ent.name);
-      const relPath = normalizeGitPath(relative(rootAbs, absPath));
-
-      if (!relPath || relPath.startsWith("..")) continue;
-      if (EXCLUDE_FILES.has(ent.name)) continue;
-
-      if (ent.isDirectory()) {
-        if (EXCLUDE_DIRS.has(ent.name)) continue;
-        await walk(absPath);
-        continue;
-      }
-
-      if (ent.isSymbolicLink()) {
-        throw new Error(`Template contains unsupported symlink: ${relPath}`);
-      }
-
-      if (ent.isFile()) {
-        const stat = await fsp.stat(absPath);
-        const isExecutable = (stat.mode & 0o111) !== 0;
-        out.push({
-          relPath,
-          mode: isExecutable ? "100755" : "100644",
-          contentB64: (await fsp.readFile(absPath)).toString("base64")
-        });
-      }
-    }
-  }
-
-  await walk(rootAbs);
-  return out;
-}
-
 async function loadTemplateFiles(): Promise<FileRecord[]> {
-  const templateRoot = findTemplateRoot();
-  const files = await walkFiles(templateRoot);
-  if (files.length === 0) {
-    throw new Error("Template directory is empty.");
+  if (!bundledTemplateFiles.length) {
+    throw new Error("Template bundle is empty. Regenerate template-files.ts.");
   }
-  return files.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  return bundledTemplateFiles.map((file) => ({ ...file }));
 }
 
 function getGhErrorMessage(payload: unknown, fallback: string) {
