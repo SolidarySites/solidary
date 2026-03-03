@@ -46,7 +46,7 @@ verify_jwt = false
 
 [functions."github-create-repo-worker-background"]
 verify_jwt = false
-static_files = ["./functions/github-create-repo-worker-background/templates/astro-baseline/**"]
+static_files = ["./functions/github-create-repo-worker-background/templates/astro-baseline/**/*"]
 
 [functions."github-delete-repo"]
 verify_jwt = false

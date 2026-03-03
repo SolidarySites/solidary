@@ -537,7 +537,11 @@ function findTemplateRoot(): string {
     if (existsSync(candidate)) return candidate;
   }
 
-  throw new Error(`Template directory not found in function bundle. Checked: ${candidates.join(" | ")}`);
+  throw new Error(
+    `Template directory not found in function bundle. Checked: ${candidates.join(
+      " | "
+    )}. Ensure supabase/config.toml static_files includes "./functions/github-create-repo-worker-background/templates/astro-baseline/**/*".`
+  );
 }
 
 async function walkFiles(rootAbs: string): Promise<FileRecord[]> {
