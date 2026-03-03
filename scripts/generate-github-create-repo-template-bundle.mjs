@@ -10,9 +10,6 @@ const rootDir = path.resolve(__dirname, "..");
 
 const templateRoot = path.join(
   rootDir,
-  "supabase",
-  "functions",
-  "github-create-repo-worker-background",
   "templates",
   "astro-baseline"
 );
