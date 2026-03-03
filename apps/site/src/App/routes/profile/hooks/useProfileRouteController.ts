@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import {
   getGitHubAuthStatusForCurrentUser,
+  switchToSolidaryOAuthForCurrentUser,
+  type GitHubAppConnectionState,
   type GitHubAuthMode
 } from "../../../features/auth/services/github-auth";
 import type { NoticeKind } from "../../../types/notice";
@@ -37,8 +39,12 @@ export const useProfileRouteController = () => {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
+  const [switchAuthModeBusy, setSwitchAuthModeBusy] = useState(false);
   const [githubAuthMode, setGithubAuthMode] = useState<GitHubAuthMode>("solidary");
   const [githubAppConnected, setGithubAppConnected] = useState(false);
+  const [githubAppConnectionState, setGithubAppConnectionState] =
+    useState<GitHubAppConnectionState>("not_connected");
+  const [githubAppConnectionMessage, setGithubAppConnectionMessage] = useState<string | null>(null);
   const [githubAuthStatusLoading, setGithubAuthStatusLoading] = useState(false);
 
   const avatarController = useProfileAvatarController({
@@ -61,6 +67,8 @@ export const useProfileRouteController = () => {
     if (!session) {
       setGithubAuthMode("solidary");
       setGithubAppConnected(false);
+      setGithubAppConnectionState("not_connected");
+      setGithubAppConnectionMessage(null);
       setGithubAuthStatusLoading(false);
       return;
     }
@@ -70,6 +78,8 @@ export const useProfileRouteController = () => {
       const status = await getGitHubAuthStatusForCurrentUser();
       setGithubAuthMode(status.authMode);
       setGithubAppConnected(status.githubAppConnected);
+      setGithubAppConnectionState(status.githubAppConnectionState);
+      setGithubAppConnectionMessage(status.githubAppConnectionMessage);
     } catch {
       // Keep previous status when the request fails.
     } finally {
@@ -214,6 +224,43 @@ export const useProfileRouteController = () => {
       });
   };
 
+  const onSwitchToSolidaryOAuth = () => {
+    if (!session) {
+      setNotice("Sign in with GitHub to switch auth mode.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Switch to Solidary OAuth for GitHub actions? This will stop using GitHub App mode."
+      )
+    ) {
+      return;
+    }
+
+    setSwitchAuthModeBusy(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    void switchToSolidaryOAuthForCurrentUser()
+      .then(async () => {
+        await refreshGitHubAuthStatus();
+        setNotice("Switched to Solidary OAuth.");
+        setNoticeKind("notice");
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error ? error.message : "Could not switch to Solidary OAuth.";
+        setNotice(message);
+        setNoticeKind("error");
+      })
+      .finally(() => {
+        setSwitchAuthModeBusy(false);
+      });
+  };
+
   return {
     displayName,
     connectedGithub: profileData.connectedGithub,
@@ -229,8 +276,11 @@ export const useProfileRouteController = () => {
     avatarAddBusy: avatarController.avatarAddBusy,
     avatarRemoveBusy: avatarController.avatarRemoveBusy,
     connectBusy,
+    switchAuthModeBusy,
     githubAuthMode,
     githubAppConnected,
+    githubAppConnectionState,
+    githubAppConnectionMessage,
     githubAuthStatusLoading,
     notice,
     noticeKind,
@@ -240,6 +290,7 @@ export const useProfileRouteController = () => {
     onAvatarFileChange: avatarController.onAvatarFileChange,
     onSelectAvatar: avatarController.onSelectAvatar,
     onRemoveAvatar: avatarController.onRemoveAvatar,
-    onConnectGitHubApp
+    onConnectGitHubApp,
+    onSwitchToSolidaryOAuth
   };
 };

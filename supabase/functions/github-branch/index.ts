@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -31,7 +32,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or branch." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-branch",
       action: "read_branch_head",
       owner,
@@ -57,8 +58,15 @@ export const handler: Handler = async (event) => {
       commit?: { sha?: string };
     };
     if (!response.ok) {
+      const rawMessage = payload.message?.trim() || "Failed to read branch.";
       return safeJson(response.status, {
-        error: payload.message?.trim() || "Failed to read branch."
+        error: mapGitHubApiFailureToActionableAuthMessage({
+          tokenSource,
+          owner,
+          repo,
+          statusCode: response.status,
+          message: rawMessage
+        })
       });
     }
 

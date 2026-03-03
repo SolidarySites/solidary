@@ -14,11 +14,11 @@ const GITHUB_API = "https://api.github.com";
 const GITHUB_OAUTH_CLIENT_ID = Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "";
 const GITHUB_OAUTH_CLIENT_SECRET = Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
-const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
 
 type StoreProviderTokenBody = {
   provider_token?: string;
   provider_refresh_token?: string;
+  force_auth_mode?: string;
   debug_trigger?: string;
   session_has_provider_token?: boolean;
   session_has_provider_refresh_token?: boolean;
@@ -41,9 +41,6 @@ type GitHubOAuthTokenCheckPayload = {
 
 type StoredAuthModeRow = {
   auth_mode?: GitHubAuthMode | null;
-  access_token_encrypted?: string | null;
-  access_token_expires_at?: string | null;
-  refresh_token_encrypted?: string | null;
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {
@@ -81,22 +78,6 @@ const normalizeStoredProviderToken = (value: string) =>
     .trim()
     .replace(/^Bearer\s+/i, "")
     .replace(/[\s\r\n\t]+/g, "");
-
-const hasUsableStoredCredential = (row: StoredAuthModeRow | null): boolean => {
-  if (!row) return false;
-
-  const accessTokenEncrypted = row.access_token_encrypted?.trim() ?? "";
-  const refreshTokenEncrypted = row.refresh_token_encrypted?.trim() ?? "";
-  if (refreshTokenEncrypted) return true;
-  if (!accessTokenEncrypted) return false;
-
-  const expiresAt = row.access_token_expires_at?.trim() ?? "";
-  if (!expiresAt) return true;
-
-  const expiresAtMs = Date.parse(expiresAt);
-  if (!Number.isFinite(expiresAtMs)) return false;
-  return expiresAtMs - Date.now() > TOKEN_EXPIRY_SKEW_MS;
-};
 
 const fetchGitHubUser = async (providerToken: string): Promise<GitHubUserPayload | null> => {
   try {
@@ -188,6 +169,14 @@ export const handler: Handler = async (event) => {
     });
   }
 
+  const forceAuthMode = body.force_auth_mode === "solidary" ? "solidary" : null;
+  if (body.force_auth_mode && !forceAuthMode) {
+    return safeJson(400, {
+      error: "Invalid force_auth_mode. Only \"solidary\" is supported."
+    });
+  }
+  const forceSolidaryMode = forceAuthMode === "solidary";
+
   const providerToken = normalizeStoredProviderToken(body.provider_token ?? "");
   const providerRefreshToken = body.provider_refresh_token?.trim() ?? "";
   if (!providerToken) {
@@ -215,7 +204,7 @@ export const handler: Handler = async (event) => {
 
   const { data: existingAuthModeRow, error: existingAuthModeError } = await supabase
     .from("github_app_user_tokens")
-    .select("auth_mode, access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
+    .select("auth_mode")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -225,11 +214,12 @@ export const handler: Handler = async (event) => {
 
   const existingCredential = existingAuthModeRow as StoredAuthModeRow | null;
   const existingAuthMode = normalizeGitHubAuthMode(existingCredential?.auth_mode ?? null);
-  if (existingAuthMode === "github" && hasUsableStoredCredential(existingCredential)) {
+  if (existingAuthMode === "github" && !forceSolidaryMode) {
     return safeJson(200, {
       ok: true,
       skipped: true,
-      auth_mode: "github"
+      auth_mode: "github",
+      mode_switched: false
     });
   }
 
@@ -238,6 +228,7 @@ export const handler: Handler = async (event) => {
     trigger: body.debug_trigger ?? "unknown",
     sessionHasProviderToken: body.session_has_provider_token ?? null,
     sessionHasProviderRefreshToken: body.session_has_provider_refresh_token ?? null,
+    forceAuthMode,
     providerTokenPrefix: providerToken.slice(0, 4),
     providerTokenLength: providerToken.length,
     hasProviderRefreshToken: Boolean(providerRefreshToken)
@@ -323,6 +314,7 @@ export const handler: Handler = async (event) => {
   return safeJson(200, {
     ok: true,
     auth_mode: normalizeGitHubAuthMode(storedRowObject?.auth_mode ?? null),
+    mode_switched: forceSolidaryMode && existingAuthMode === "github",
     debug: GITHUB_TOKEN_DEBUG
       ? {
           trigger: body.debug_trigger ?? "unknown",

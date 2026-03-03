@@ -13,11 +13,19 @@ const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
 
 export type GitHubAuthMode = "solidary" | "github";
+export type GitHubAppConnectionState =
+  | "connected"
+  | "installation_missing"
+  | "token_invalid"
+  | "unknown"
+  | "not_connected";
 
 export type GitHubAuthStatus = {
   authMode: GitHubAuthMode;
   githubAppConnected: boolean;
   hasStoredCredentials: boolean;
+  githubAppConnectionState: GitHubAppConnectionState;
+  githubAppConnectionMessage: string | null;
 };
 
 export type FreshGithubAuthSnapshot = {
@@ -245,6 +253,20 @@ const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
   return normalized === "github" ? "github" : "solidary";
 };
 
+const normalizeGitHubAppConnectionState = (value: unknown): GitHubAppConnectionState => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (
+    normalized === "connected" ||
+    normalized === "installation_missing" ||
+    normalized === "token_invalid" ||
+    normalized === "unknown" ||
+    normalized === "not_connected"
+  ) {
+    return normalized;
+  }
+  return "unknown";
+};
+
 export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthStatus> => {
   const { supabaseAccessToken } = await requireFreshSupabaseAuth();
 
@@ -259,6 +281,8 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
     auth_mode?: string;
     github_app_connected?: boolean;
     has_stored_credentials?: boolean;
+    github_app_connection_state?: string;
+    github_app_connection_message?: string | null;
     error?: string;
   };
 
@@ -269,7 +293,54 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
   return {
     authMode: normalizeGitHubAuthMode(payload.auth_mode),
     githubAppConnected: Boolean(payload.github_app_connected),
-    hasStoredCredentials: Boolean(payload.has_stored_credentials)
+    hasStoredCredentials: Boolean(payload.has_stored_credentials),
+    githubAppConnectionState: normalizeGitHubAppConnectionState(payload.github_app_connection_state),
+    githubAppConnectionMessage:
+      typeof payload.github_app_connection_message === "string"
+        ? payload.github_app_connection_message
+        : null
+  };
+};
+
+export const switchToSolidaryOAuthForCurrentUser = async (): Promise<{ modeSwitched: boolean }> => {
+  const { session, providerToken, supabaseAccessToken } = await requireFreshSupabaseAuth();
+  if (!providerToken) {
+    throw new Error("GitHub OAuth session token is missing. Sign in with GitHub again, then retry.");
+  }
+  const providerRefreshToken = getSessionProviderRefreshToken(session);
+
+  const response = await fetch(supabaseFunctionUrl("github-store-provider-token"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${supabaseAccessToken}`
+    },
+    body: JSON.stringify({
+      provider_token: providerToken,
+      provider_refresh_token: providerRefreshToken || undefined,
+      force_auth_mode: "solidary",
+      debug_trigger: "profile_manual_mode_switch",
+      session_has_provider_token: true,
+      session_has_provider_refresh_token: Boolean(providerRefreshToken)
+    })
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    auth_mode?: string;
+    mode_switched?: boolean;
+    error?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not switch back to Solidary OAuth.");
+  }
+
+  if (normalizeGitHubAuthMode(payload.auth_mode) !== "solidary") {
+    throw new Error("GitHub auth mode is still set to GitHub App. Please retry.");
+  }
+
+  return {
+    modeSwitched: Boolean(payload.mode_switched)
   };
 };
 

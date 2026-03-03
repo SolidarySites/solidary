@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -69,7 +70,7 @@ export const handler: Handler = async (event) => {
   };
 
   try {
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-ensure-branch",
       action: "ensure_branch",
       owner,
@@ -92,22 +93,36 @@ export const handler: Handler = async (event) => {
       };
     }
     if (existing.response.status !== 404) {
+      const rawMessage = getErrorMessage(existing.data, "Failed to read target branch.");
       return {
         statusCode: existing.response.status,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          error: getErrorMessage(existing.data, "Failed to read target branch.")
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: existing.response.status,
+            message: rawMessage
+          })
         })
       };
     }
 
     const base = await readBranch(baseBranch, githubToken);
     if (!base.response.ok) {
+      const rawMessage = getErrorMessage(base.data, "Failed to read base branch.");
       return {
         statusCode: base.response.status,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          error: getErrorMessage(base.data, "Failed to read base branch.")
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: base.response.status,
+            message: rawMessage
+          })
         })
       };
     }
@@ -135,22 +150,36 @@ export const handler: Handler = async (event) => {
     };
 
     if (!createResponse.ok && createResponse.status !== 422) {
+      const rawMessage = getErrorMessage(createPayload, "Failed to create branch.");
       return {
         statusCode: createResponse.status,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          error: getErrorMessage(createPayload, "Failed to create branch.")
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: createResponse.status,
+            message: rawMessage
+          })
         })
       };
     }
 
     const finalBranch = await readBranch(branch, githubToken);
     if (!finalBranch.response.ok) {
+      const rawMessage = getErrorMessage(finalBranch.data, "Failed to verify branch after create.");
       return {
         statusCode: finalBranch.response.status,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          error: getErrorMessage(finalBranch.data, "Failed to verify branch after create.")
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: finalBranch.response.status,
+            message: rawMessage
+          })
         })
       };
     }

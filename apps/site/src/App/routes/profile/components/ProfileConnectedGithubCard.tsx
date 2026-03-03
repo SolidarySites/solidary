@@ -1,4 +1,7 @@
-import type { GitHubAuthMode } from "../../../features/auth/services/github-auth";
+import type {
+  GitHubAppConnectionState,
+  GitHubAuthMode
+} from "../../../features/auth/services/github-auth";
 
 type ProfileConnectedGithubCardProps = {
   githubAvatarUrl: string | null;
@@ -6,10 +9,14 @@ type ProfileConnectedGithubCardProps = {
   profileUrl: string | null;
   email: string;
   connectBusy: boolean;
+  switchAuthModeBusy: boolean;
   githubAuthMode: GitHubAuthMode;
   githubAppConnected: boolean;
+  githubAppConnectionState: GitHubAppConnectionState;
+  githubAppConnectionMessage: string | null;
   githubAuthStatusLoading: boolean;
   onConnectGitHubApp: () => void;
+  onSwitchToSolidaryOAuth: () => void;
 };
 
 export default function ProfileConnectedGithubCard({
@@ -18,14 +25,23 @@ export default function ProfileConnectedGithubCard({
   profileUrl,
   email,
   connectBusy,
+  switchAuthModeBusy,
   githubAuthMode,
   githubAppConnected,
+  githubAppConnectionState,
+  githubAppConnectionMessage,
   githubAuthStatusLoading,
-  onConnectGitHubApp
+  onConnectGitHubApp,
+  onSwitchToSolidaryOAuth
 }: ProfileConnectedGithubCardProps) {
   const authModeLabel =
     githubAuthMode === "github" ? "GitHub App (repo scoped)" : "Solidary OAuth";
   const connectLabel = githubAuthMode === "github" ? "Reconnect GitHub App" : "Connect GitHub App";
+  const showSwitchToSolidary = githubAuthMode === "github" && !githubAppConnected;
+  const showConnectionWarning =
+    showSwitchToSolidary &&
+    githubAppConnectionState !== "connected" &&
+    Boolean(githubAppConnectionMessage?.trim());
 
   return (
     <section className="profile-github-card">
@@ -61,12 +77,25 @@ export default function ProfileConnectedGithubCard({
               type="button"
               className="ghost profile-connect-github-app"
               onClick={onConnectGitHubApp}
-              disabled={connectBusy}
+              disabled={connectBusy || switchAuthModeBusy}
             >
               {connectBusy ? "Connecting..." : connectLabel}
             </button>
+            {showSwitchToSolidary ? (
+              <button
+                type="button"
+                className="ghost profile-switch-auth-mode"
+                onClick={onSwitchToSolidaryOAuth}
+                disabled={switchAuthModeBusy || connectBusy}
+              >
+                {switchAuthModeBusy ? "Switching..." : "Switch to Solidary OAuth"}
+              </button>
+            ) : null}
           </div>
         </div>
+        {showConnectionWarning ? (
+          <p className="profile-github-warning">{githubAppConnectionMessage}</p>
+        ) : null}
         <p className="profile-github-field">
           <span>Auth mode</span>
           <strong>{githubAuthStatusLoading ? "Loading..." : authModeLabel}</strong>

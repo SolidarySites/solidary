@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -26,7 +27,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or path." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-contents-read",
       action: "read_contents",
       owner,
@@ -56,10 +57,17 @@ export const handler: Handler = async (event) => {
       encoding?: string;
     };
     if (!response.ok) {
+      const rawMessage = payload.message?.trim() ?? "Failed to read file.";
       return {
         statusCode: response.status,
         body: JSON.stringify({
-          error: payload.message ?? "Failed to read file."
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: response.status,
+            message: rawMessage
+          })
         })
       };
     }

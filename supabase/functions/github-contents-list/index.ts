@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -26,7 +27,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or path." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-contents-list",
       action: "list_contents",
       owner,
@@ -51,10 +52,17 @@ export const handler: Handler = async (event) => {
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const rawMessage = (payload as { message?: string })?.message ?? "Failed to list directory.";
       return {
         statusCode: response.status,
         body: JSON.stringify({
-          error: (payload as { message?: string })?.message ?? "Failed to list directory."
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: response.status,
+            message: rawMessage
+          })
         })
       };
     }

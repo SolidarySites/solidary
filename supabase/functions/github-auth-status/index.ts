@@ -1,16 +1,18 @@
 import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
+import {
+  getGitHubAppConnectionStatusForUser,
+  type GitHubAppConnectionState
+} from "../_shared/github-auth-broker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
-const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
 
 type StoredCredentialRow = {
   auth_mode?: string | null;
   access_token_encrypted?: string | null;
-  access_token_expires_at?: string | null;
   refresh_token_encrypted?: string | null;
 };
 
@@ -29,17 +31,6 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
 const normalizeGitHubAuthMode = (value: unknown): "solidary" | "github" => {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   return normalized === "github" ? "github" : "solidary";
-};
-
-const hasUsableAccessToken = (
-  accessToken: string,
-  accessTokenExpiresAt: string | null | undefined
-) => {
-  if (!accessToken) return false;
-  if (!accessTokenExpiresAt) return true;
-  const expiresAtMs = Date.parse(accessTokenExpiresAt);
-  if (!Number.isFinite(expiresAtMs)) return false;
-  return expiresAtMs - Date.now() > TOKEN_EXPIRY_SKEW_MS;
 };
 
 export const handler: Handler = async (event) => {
@@ -74,7 +65,7 @@ export const handler: Handler = async (event) => {
 
   const { data, error } = await supabase
     .from("github_app_user_tokens")
-    .select("auth_mode, access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
+    .select("auth_mode, access_token_encrypted, refresh_token_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -86,23 +77,44 @@ export const handler: Handler = async (event) => {
     return safeJson(200, {
       auth_mode: "solidary",
       github_app_connected: false,
-      has_stored_credentials: false
+      has_stored_credentials: false,
+      github_app_connection_state: "not_connected",
+      github_app_connection_message: null
     });
   }
 
   const credential = data as StoredCredentialRow;
   const authMode = normalizeGitHubAuthMode(credential.auth_mode);
-  const accessToken = credential.access_token_encrypted?.trim() ?? "";
-  const refreshToken = credential.refresh_token_encrypted?.trim() ?? "";
-  const hasStoredCredentials = Boolean(accessToken || refreshToken);
-  const githubAppConnected =
-    authMode === "github" &&
-    (hasUsableAccessToken(accessToken, credential.access_token_expires_at) || Boolean(refreshToken));
+  const hasStoredCredentials = Boolean(
+    credential.access_token_encrypted?.trim() || credential.refresh_token_encrypted?.trim()
+  );
+
+  let githubAppConnected = false;
+  let githubAppConnectionState: GitHubAppConnectionState = "not_connected";
+  let githubAppConnectionMessage: string | null = null;
+
+  if (authMode === "github") {
+    try {
+      const connectionStatus = await getGitHubAppConnectionStatusForUser({
+        supabase,
+        userId: user.id
+      });
+      githubAppConnected = connectionStatus.connected;
+      githubAppConnectionState = connectionStatus.state;
+      githubAppConnectionMessage = connectionStatus.message;
+    } catch {
+      githubAppConnected = false;
+      githubAppConnectionState = "unknown";
+      githubAppConnectionMessage = "Could not verify GitHub App installation right now.";
+    }
+  }
 
   return safeJson(200, {
     auth_mode: authMode,
     github_app_connected: githubAppConnected,
-    has_stored_credentials: hasStoredCredentials
+    has_stored_credentials: hasStoredCredentials,
+    github_app_connection_state: githubAppConnectionState,
+    github_app_connection_message: githubAppConnectionMessage
   });
 };
 

@@ -10,6 +10,7 @@ const GITHUB_APP_CLIENT_SECRET = Deno.env.get("GITHUB_APP_CLIENT_SECRET") ?? "";
 const GITHUB_OAUTH_CLIENT_ID = Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "";
 const GITHUB_OAUTH_CLIENT_SECRET = Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "";
 const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
+const GITHUB_API = "https://api.github.com";
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
 
@@ -66,6 +67,19 @@ export type ResolvedGitHubToken = {
   source: GitHubTokenSource;
 };
 
+export type GitHubAppConnectionState =
+  | "connected"
+  | "installation_missing"
+  | "token_invalid"
+  | "unknown"
+  | "not_connected";
+
+export type GitHubAppConnectionCheckResult = {
+  connected: boolean;
+  state: GitHubAppConnectionState;
+  message: string | null;
+};
+
 export type GitHubAppTokenExchange = {
   accessToken: string;
   refreshToken: string;
@@ -114,12 +128,37 @@ const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
   return normalized === "github" ? "github" : "solidary";
 };
 
+const normalizeInstallationId = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.floor(parsed);
+    }
+  }
+  return null;
+};
+
 const isTokenStillUsable = (expiresAt: string | null | undefined): boolean => {
   if (!expiresAt) return true;
   const expiresAtMs = parseDateToMs(expiresAt);
   if (!expiresAtMs) return false;
   const nowMs = Date.now();
   return expiresAtMs - nowMs > TOKEN_EXPIRY_SKEW_SECONDS * 1000;
+};
+
+const githubHeaders = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2022-11-28"
+});
+
+const getGitHubApiMessage = (payload: unknown) => {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "";
+  const message = (payload as { message?: unknown }).message;
+  return typeof message === "string" ? message.trim() : "";
 };
 
 const parseGitHubTokenPayload = (payload: GitHubTokenPayload): GitHubAppTokenExchange => {
@@ -450,4 +489,162 @@ export const resolveGitHubTokenForUser = async ({
   }
 
   return null;
+};
+
+export const getGitHubAppConnectionStatusForUser = async ({
+  supabase,
+  userId
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<GitHubAppConnectionCheckResult> => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    return {
+      connected: false,
+      state: "not_connected",
+      message: null
+    };
+  }
+
+  const credential = await getStoredCredential({
+    supabase,
+    userId: normalizedUserId
+  });
+  const authMode = normalizeGitHubAuthMode(credential?.auth_mode ?? null);
+  if (!credential || authMode !== "github") {
+    return {
+      connected: false,
+      state: "not_connected",
+      message: null
+    };
+  }
+
+  const resolved = await resolveGitHubTokenForUser({
+    supabase,
+    userId: normalizedUserId
+  });
+  const token = resolved?.token?.trim() ?? "";
+  if (!token || resolved?.source !== "github") {
+    return {
+      connected: false,
+      state: "token_invalid",
+      message:
+        "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+    };
+  }
+
+  const installationId = normalizeInstallationId(credential.installation_id);
+
+  try {
+    if (installationId) {
+      const installationResponse = await fetch(
+        `${GITHUB_API}/user/installations/${encodeURIComponent(String(installationId))}`,
+        {
+          headers: githubHeaders(token)
+        }
+      );
+      const installationPayload = await installationResponse.json().catch(() => ({}));
+
+      if (installationResponse.ok) {
+        return {
+          connected: true,
+          state: "connected",
+          message: null
+        };
+      }
+
+      if (installationResponse.status === 404) {
+        return {
+          connected: false,
+          state: "installation_missing",
+          message:
+            getGitHubApiMessage(installationPayload) ||
+            "GitHub App is no longer installed or no longer granted to your repositories. Grant access in GitHub App settings, or uninstall it and switch to Solidary OAuth from Profile."
+        };
+      }
+
+      if (installationResponse.status === 401 || installationResponse.status === 403) {
+        return {
+          connected: false,
+          state: "token_invalid",
+          message:
+            getGitHubApiMessage(installationPayload) ||
+            "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+        };
+      }
+
+      return {
+        connected: false,
+        state: "unknown",
+        message:
+          getGitHubApiMessage(installationPayload) ||
+          `Could not verify GitHub App installation (${installationResponse.status}).`
+      };
+    }
+
+    const installationsResponse = await fetch(`${GITHUB_API}/user/installations?per_page=1`, {
+      headers: githubHeaders(token)
+    });
+    const installationsPayload = (await installationsResponse
+      .json()
+      .catch(() => ({}))) as {
+      total_count?: unknown;
+      installations?: unknown[];
+      message?: unknown;
+    };
+
+    if (installationsResponse.ok) {
+      const totalCountRaw = installationsPayload.total_count;
+      const installationCount =
+        typeof totalCountRaw === "number" && Number.isFinite(totalCountRaw)
+          ? totalCountRaw
+          : Array.isArray(installationsPayload.installations)
+            ? installationsPayload.installations.length
+            : 0;
+
+      if (installationCount > 0) {
+        return {
+          connected: true,
+          state: "connected",
+          message: null
+        };
+      }
+
+      return {
+        connected: false,
+        state: "installation_missing",
+        message:
+          "GitHub App is not installed for this account. Install or reconnect the GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+      };
+    }
+
+    if (installationsResponse.status === 401 || installationsResponse.status === 403) {
+      return {
+        connected: false,
+        state: "token_invalid",
+        message:
+          getGitHubApiMessage(installationsPayload) ||
+          "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+      };
+    }
+
+    return {
+      connected: false,
+      state: "unknown",
+      message:
+        getGitHubApiMessage(installationsPayload) ||
+        `Could not verify GitHub App installation (${installationsResponse.status}).`
+    };
+  } catch (error) {
+    debugLog("GitHub App connection check failed", {
+      userId: normalizedUserId,
+      message: error instanceof Error ? error.message : "unknown error"
+    });
+    return {
+      connected: false,
+      state: "unknown",
+      message: "Could not verify GitHub App installation right now. Please retry."
+    };
+  }
 };

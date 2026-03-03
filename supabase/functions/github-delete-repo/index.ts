@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -19,7 +20,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner or repo." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-delete-repo",
       action: "delete_repo",
       owner,
@@ -46,9 +47,18 @@ export const handler: Handler = async (event) => {
     const payload = (await response.json().catch(() => ({}))) as {
       message?: string;
     };
+    const rawMessage = payload?.message ?? "Failed to delete repo.";
     return {
       statusCode: response.status,
-      body: JSON.stringify({ error: payload?.message ?? "Failed to delete repo." })
+      body: JSON.stringify({
+        error: mapGitHubApiFailureToActionableAuthMessage({
+          tokenSource,
+          owner,
+          repo,
+          statusCode: response.status,
+          message: rawMessage
+        })
+      })
     };
   } catch (error) {
     if (error instanceof HttpError) {

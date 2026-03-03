@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.93.3";
 import {
+  getGitHubAppConnectionStatusForUser,
   resolveGitHubTokenForUser,
   type GitHubTokenSource
 } from "./github-auth-broker.ts";
@@ -9,6 +10,7 @@ const SUPABASE_SERVICE_KEY =
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
 type AuditDecision = "allowed" | "denied" | "error";
+type TokenSourceWithNone = GitHubTokenSource | "none";
 
 export class HttpError extends Error {
   statusCode: number;
@@ -43,6 +45,41 @@ const buildSupabaseAdmin = () => {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+};
+
+const buildGitHubAppRepoAccessMessage = ({ owner, repo }: { owner: string; repo: string }) =>
+  `GitHub App is connected but cannot access ${owner}/${repo}. Grant this repository in GitHub App settings, or uninstall the app and switch to Solidary OAuth from Profile.`;
+
+const buildGitHubAppTokenInvalidMessage = () =>
+  "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile.";
+
+export const mapGitHubApiFailureToActionableAuthMessage = ({
+  tokenSource,
+  owner,
+  repo,
+  statusCode,
+  message
+}: {
+  tokenSource: TokenSourceWithNone;
+  owner: string;
+  repo: string;
+  statusCode: number;
+  message: string;
+}) => {
+  if (tokenSource !== "github") {
+    return message;
+  }
+
+  const normalizedMessage = message.trim();
+  if (statusCode === 401 || statusCode === 403) {
+    return buildGitHubAppRepoAccessMessage({ owner, repo });
+  }
+
+  if (statusCode === 404 && /not found|resource not accessible|repository/i.test(normalizedMessage)) {
+    return buildGitHubAppRepoAccessMessage({ owner, repo });
+  }
+
+  return normalizedMessage || buildGitHubAppTokenInvalidMessage();
 };
 
 const isRepoLinkedToUser = async ({
@@ -201,7 +238,7 @@ export const authorizeGitHubRepoAction = async ({
   supabase: SupabaseClient;
   userId: string;
   githubToken: string;
-  tokenSource: GitHubTokenSource | "none";
+  tokenSource: TokenSourceWithNone;
 }> => {
   const normalizedOwner = owner.trim();
   const normalizedRepo = repo.trim();
@@ -269,7 +306,7 @@ export const authorizeGitHubRepoAction = async ({
   }
 
   let githubToken = "";
-  let tokenSource: GitHubTokenSource | "none" = "none";
+  let tokenSource: TokenSourceWithNone = "none";
 
   if (requireGitHubToken) {
     const resolved = await resolveGitHubTokenForUser({
@@ -279,6 +316,32 @@ export const authorizeGitHubRepoAction = async ({
     githubToken = resolved?.token?.trim() ?? "";
     tokenSource = resolved?.source ?? "none";
     if (!githubToken) {
+      let authMessage =
+        "GitHub authorization missing. Reconnect GitHub from Profile settings and retry.";
+      try {
+        const connectionStatus = await getGitHubAppConnectionStatusForUser({
+          supabase,
+          userId: user.id
+        });
+        if (connectionStatus.state === "installation_missing") {
+          authMessage = buildGitHubAppRepoAccessMessage({
+            owner: normalizedOwner,
+            repo: normalizedRepo
+          });
+        } else if (connectionStatus.state === "token_invalid") {
+          authMessage = connectionStatus.message?.trim() || buildGitHubAppTokenInvalidMessage();
+        } else if (connectionStatus.state === "unknown") {
+          authMessage =
+            connectionStatus.message?.trim() ||
+            "Could not verify GitHub App authorization. Reconnect the app and retry.";
+        } else if (connectionStatus.state === "not_connected") {
+          authMessage =
+            "GitHub authorization missing. Reconnect GitHub from Profile settings and retry.";
+        }
+      } catch {
+        // Use fallback auth message from above.
+      }
+
       await auditGitHubRepoAction({
         supabase,
         userId: user.id,
@@ -289,12 +352,9 @@ export const authorizeGitHubRepoAction = async ({
         decision: "denied",
         tokenSource,
         httpStatus: 412,
-        message: "GitHub authorization missing."
+        message: authMessage
       });
-      throw new HttpError(
-        412,
-        "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
-      );
+      throw new HttpError(412, authMessage);
     }
   }
 

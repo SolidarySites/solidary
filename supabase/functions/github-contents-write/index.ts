@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -37,7 +38,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing parameters." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-contents-write",
       action: "write_contents",
       owner,
@@ -86,9 +87,18 @@ export const handler: Handler = async (event) => {
           message: readPayload?.message,
           branch
         });
+        const rawMessage = readPayload?.message ?? "Failed to read file for sha.";
         return {
           statusCode: readResponse.status,
-          body: JSON.stringify({ error: readPayload?.message ?? "Failed to read file for sha." })
+          body: JSON.stringify({
+            error: mapGitHubApiFailureToActionableAuthMessage({
+              tokenSource,
+              owner,
+              repo,
+              statusCode: readResponse.status,
+              message: rawMessage
+            })
+          })
         };
       } else {
         console.log(`${logPrefix} read missing`, { branch });
@@ -190,9 +200,18 @@ export const handler: Handler = async (event) => {
         sha: resolvedSha,
         branch
       });
+      const rawMessage = payload?.message ?? "Failed to write file.";
       return {
         statusCode: response.status,
-        body: JSON.stringify({ error: payload?.message ?? "Failed to write file." })
+        body: JSON.stringify({
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: response.status,
+            message: rawMessage
+          })
+        })
       };
     }
 

@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -34,7 +35,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or branch." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-enable-pages",
       action: "enable_pages",
       owner,
@@ -139,7 +140,13 @@ export const handler: Handler = async (event) => {
     }
 
     return safeJson(lastStatus || 500, {
-      error: (lastPayload as { message?: string })?.message ?? "Failed to enable Pages."
+      error: mapGitHubApiFailureToActionableAuthMessage({
+        tokenSource,
+        owner,
+        repo,
+        statusCode: lastStatus || 500,
+        message: (lastPayload as { message?: string })?.message ?? "Failed to enable Pages."
+      })
     });
   } catch (error) {
     if (error instanceof HttpError) {

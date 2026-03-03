@@ -2,6 +2,7 @@ import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
 import {
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -165,8 +166,9 @@ export const handler: Handler = async (event) => {
     return safeJson(400, { error: "Missing upserts or deletes." });
   }
 
+  let tokenSource: "solidary" | "github" | "none" = "none";
   try {
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const authorized = await authorizeGitHubRepoAction({
       functionName: "github-contents-batch-commit",
       action: "batch_commit_contents",
       owner,
@@ -175,6 +177,8 @@ export const handler: Handler = async (event) => {
       supabaseAccessToken,
       authorizationHeader: event.headers.authorization ?? event.headers.Authorization
     });
+    const githubToken = authorized.githubToken;
+    tokenSource = authorized.tokenSource;
 
     const dedupedUpserts = new Map<
       string,
@@ -363,7 +367,15 @@ export const handler: Handler = async (event) => {
     });
   } catch (error) {
     if (error instanceof HttpError) {
-      return safeJson(error.statusCode, { error: error.message });
+      return safeJson(error.statusCode, {
+        error: mapGitHubApiFailureToActionableAuthMessage({
+          tokenSource,
+          owner,
+          repo,
+          statusCode: error.statusCode,
+          message: error.message
+        })
+      });
     }
     return safeJson(500, {
       error: error instanceof Error ? error.message : "Unknown error"

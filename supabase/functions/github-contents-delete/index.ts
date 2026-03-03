@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import {
   HttpError,
   authorizeGitHubRepoAction,
+  mapGitHubApiFailureToActionableAuthMessage,
   safeJson
 } from "../_shared/github-repo-guardrails.ts";
 
@@ -27,7 +28,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or path." });
     }
 
-    const { githubToken } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
       functionName: "github-contents-delete",
       action: "delete_contents",
       owner,
@@ -70,9 +71,18 @@ export const handler: Handler = async (event) => {
         message: readPayload?.message,
         branch
       });
+      const rawMessage = readPayload?.message ?? "Failed to read file for delete.";
       return {
         statusCode: readResponse.status,
-        body: JSON.stringify({ error: readPayload?.message ?? "Failed to read file for delete." })
+        body: JSON.stringify({
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: readResponse.status,
+            message: rawMessage
+          })
+        })
       };
     }
 
@@ -106,9 +116,18 @@ export const handler: Handler = async (event) => {
     });
 
     if (!deleteResponse.ok) {
+      const rawMessage = deletePayload?.message ?? "Failed to delete file.";
       return {
         statusCode: deleteResponse.status,
-        body: JSON.stringify({ error: deletePayload?.message ?? "Failed to delete file." })
+        body: JSON.stringify({
+          error: mapGitHubApiFailureToActionableAuthMessage({
+            tokenSource,
+            owner,
+            repo,
+            statusCode: deleteResponse.status,
+            message: rawMessage
+          })
+        })
       };
     }
 
