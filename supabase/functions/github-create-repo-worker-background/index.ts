@@ -4,7 +4,8 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { existsSync } from "node:fs";
 import { promises as fsp } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import { auditGitHubRepoAction } from "../_shared/github-repo-guardrails.ts";
 
@@ -505,27 +506,38 @@ function normalizeGitPath(pathValue: string) {
 
 function findTemplateRoot(): string {
   const candidates: string[] = [];
+  const seen = new Set<string>();
+  const pushCandidate = (value: string) => {
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
 
-  candidates.push(join(Deno.cwd(), TEMPLATE_DIR));
-  candidates.push(join(Deno.cwd(), "..", TEMPLATE_DIR));
+  pushCandidate(join(Deno.cwd(), TEMPLATE_DIR));
+  pushCandidate(join(Deno.cwd(), "..", TEMPLATE_DIR));
+  pushCandidate(join(Deno.cwd(), "_shared", TEMPLATE_DIR));
 
-  const moduleDir = new URL(".", import.meta.url).pathname;
-  candidates.push(join(moduleDir, TEMPLATE_DIR));
-  candidates.push(join(moduleDir, "..", TEMPLATE_DIR));
-  candidates.push(join(moduleDir, "..", "_shared", TEMPLATE_DIR));
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  pushCandidate(join(moduleDir, TEMPLATE_DIR));
+  pushCandidate(join(moduleDir, "_shared", TEMPLATE_DIR));
+  pushCandidate(join(moduleDir, "..", TEMPLATE_DIR));
+  pushCandidate(join(moduleDir, "..", "_shared", TEMPLATE_DIR));
+  pushCandidate(join(moduleDir, "..", "..", "_shared", TEMPLATE_DIR));
+  pushCandidate(join(moduleDir, "..", "..", "functions", "_shared", TEMPLATE_DIR));
 
   if (typeof __dirname === "string" && __dirname.length > 0) {
-    candidates.push(join(__dirname, TEMPLATE_DIR));
-    candidates.push(join(__dirname, "..", TEMPLATE_DIR));
-    candidates.push(join(__dirname, "..", "..", TEMPLATE_DIR));
-    candidates.push(join(__dirname, "..", "..", "..", TEMPLATE_DIR));
+    pushCandidate(join(__dirname, TEMPLATE_DIR));
+    pushCandidate(join(__dirname, "..", TEMPLATE_DIR));
+    pushCandidate(join(__dirname, "..", "..", TEMPLATE_DIR));
+    pushCandidate(join(__dirname, "..", "..", "..", TEMPLATE_DIR));
   }
 
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
 
-  throw new Error("Template directory not found in function bundle.");
+  throw new Error(`Template directory not found in function bundle. Checked: ${candidates.join(" | ")}`);
 }
 
 async function walkFiles(rootAbs: string): Promise<FileRecord[]> {
