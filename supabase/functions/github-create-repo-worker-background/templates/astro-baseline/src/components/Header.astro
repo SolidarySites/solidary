@@ -1,0 +1,84 @@
+---
+import headerContent from "../content/header.md";
+import { parseHeaderFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
+import { getCollection } from "astro:content";
+
+type MarkdownModule = { frontmatter?: Record<string, unknown> };
+
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const header = parseHeaderFrontmatter((headerContent as MarkdownModule).frontmatter);
+
+const { brand = solidary.title } = Astro.props as { brand?: string };
+const headerDisabled = header.disabled;
+const headerFixed = header.fixed;
+const headerBrandDisabled = header.disableBrand;
+const headerBrandText = header.brandText || brand;
+
+const basePath = (() => {
+  const siteUrl = solidary.url || "";
+  try {
+    return new URL(siteUrl).pathname.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+})();
+const withBase = (href: string) => `${basePath}${href}`;
+
+const path = Astro.url.pathname;
+const isActive = (href: string) => (href === "/" ? path === withBase("/") : path.startsWith(href));
+
+const pages = await getCollection("pages", ({ data }) => data.showInNav !== false);
+const combinedNav = pages
+  .sort((a, b) => {
+    const aOrder = a.data.navOrder;
+    const bOrder = b.data.navOrder;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.slug.localeCompare(b.slug);
+  })
+  .map((entry) => ({
+    label: entry.data.navLabel || entry.data.title,
+    href: withBase(entry.slug === "home" ? "/" : `/${entry.slug}`)
+  }));
+const seen = new Set<string>();
+const finalNav = combinedNav.filter((item) => {
+  if (seen.has(item.href)) return false;
+  seen.add(item.href);
+  return true;
+});
+
+const headerStyle =
+  headerDisabled || headerFixed
+    ? [
+        headerDisabled ? "display:none;" : "",
+        headerFixed ? "position:fixed;top:0;left:0;right:0;z-index:40;" : ""
+      ].join("")
+    : undefined;
+
+const brandStyle = headerBrandDisabled ? "display:none;" : undefined;
+---
+
+<header class="header" style={headerStyle}>
+  
+  <div class="header__inner">
+    <div class="header__a">
+      <a class="header__brand" href={withBase("/")} style={brandStyle}>
+        {headerBrandText}
+      </a>
+    </div>
+
+    <div class="header__b">
+      <nav class="header__nav" aria-label="Primary">
+        <ul class="nav">
+          {finalNav.map((item) => (
+            <li class="nav__item">
+              <a class={`nav__link ${isActive(item.href) ? "is-active" : ""}`} href={item.href}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  </div>
+</header>
