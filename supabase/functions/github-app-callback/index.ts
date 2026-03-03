@@ -5,12 +5,13 @@ import {
   exchangeCodeForGitHubAppUserToken,
   upsertGitHubAppUserCredentials
 } from "../_shared/github-auth-broker.ts";
-import { parseGitHubAppState } from "../_shared/github-app-state.ts";
+import { createGitHubAppState, parseGitHubAppState } from "../_shared/github-app-state.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const GITHUB_APP_STATE_SECRET = Deno.env.get("GITHUB_APP_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
+const GITHUB_APP_CLIENT_ID = Deno.env.get("GITHUB_APP_CLIENT_ID") ?? "";
 const GITHUB_API = "https://api.github.com";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
 
@@ -85,6 +86,18 @@ const buildRedirectPath = ({
     redirectUrl.searchParams.set("github_app_message", message);
   }
   return redirectUrl.toString();
+};
+
+const buildGitHubAuthorizeUrl = (state: string) => {
+  const clientId = GITHUB_APP_CLIENT_ID.trim();
+  if (!clientId) {
+    throw new Error("GitHub App connect is missing GITHUB_APP_CLIENT_ID.");
+  }
+  const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
+  authorizeUrl.searchParams.set("client_id", clientId);
+  authorizeUrl.searchParams.set("state", state);
+  authorizeUrl.searchParams.set("allow_signup", "false");
+  return authorizeUrl.toString();
 };
 
 const githubHeaders = (token: string) => ({
@@ -175,6 +188,15 @@ export const handler: Handler = async (event) => {
   const code = params.get("code")?.trim() ?? "";
   const oauthError = params.get("error")?.trim() ?? "";
   const oauthErrorDescription = params.get("error_description")?.trim() ?? "";
+  const setupAction = params.get("setup_action")?.trim() ?? "";
+  const installationIdFromQuery = parsePositiveInt(params.get("installation_id"));
+
+  debugLog("received callback", {
+    hasState: Boolean(stateParam),
+    hasCode: Boolean(code),
+    setupAction: setupAction || null,
+    installationId: installationIdFromQuery
+  });
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeRedirect(
@@ -198,7 +220,7 @@ export const handler: Handler = async (event) => {
     );
   }
 
-  let parsedState: { userId: string; returnTo: string };
+  let parsedState: { userId: string; returnTo: string; installationId: number | null };
   try {
     parsedState = parseGitHubAppState({
       encodedState: stateParam,
@@ -228,6 +250,35 @@ export const handler: Handler = async (event) => {
   }
 
   if (!code) {
+    if (setupAction || installationIdFromQuery) {
+      try {
+        const nextState = createGitHubAppState({
+          userId: parsedState.userId,
+          returnTo: parsedState.returnTo,
+          installationId: installationIdFromQuery ?? parsedState.installationId,
+          secret: GITHUB_APP_STATE_SECRET
+        });
+        debugLog("redirecting installation callback to OAuth authorize", {
+          setupAction: setupAction || null,
+          installationIdFromQuery,
+          installationIdFromState: parsedState.installationId
+        });
+        return safeRedirect(buildGitHubAuthorizeUrl(nextState));
+      } catch (error) {
+        return safeRedirect(
+          buildRedirectPath({
+            origin,
+            returnTo: parsedState.returnTo,
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Could not continue GitHub App authorization."
+          })
+        );
+      }
+    }
+
     return safeRedirect(
       buildRedirectPath({
         origin,
@@ -254,7 +305,7 @@ export const handler: Handler = async (event) => {
       scope: exchanged.scope
     });
     const githubUser = await fetchGitHubUser(exchanged.accessToken);
-    const installationId = parsePositiveInt(params.get("installation_id"));
+    const installationId = installationIdFromQuery ?? parsedState.installationId;
     const installation = await fetchInstallationMetadata({
       accessToken: exchanged.accessToken,
       installationId

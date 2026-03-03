@@ -7,8 +7,22 @@ const DEFAULT_RETURN_TO = "/studio";
 type GitHubAppStatePayload = {
   userId: string;
   returnTo: string;
+  installationId?: number | null;
   issuedAtMs: number;
   nonce: string;
+};
+
+const normalizeInstallationId = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.floor(parsed);
+    }
+  }
+  return null;
 };
 
 const normalizeReturnTo = (value: string | undefined): string => {
@@ -25,10 +39,12 @@ const signStateData = (data: string, secret: string): string => {
 export const createGitHubAppState = ({
   userId,
   returnTo,
+  installationId,
   secret
 }: {
   userId: string;
   returnTo?: string;
+  installationId?: number | null;
   secret: string;
 }): string => {
   const normalizedUserId = userId.trim();
@@ -43,6 +59,7 @@ export const createGitHubAppState = ({
   const payload: GitHubAppStatePayload = {
     userId: normalizedUserId,
     returnTo: normalizeReturnTo(returnTo),
+    installationId: normalizeInstallationId(installationId),
     issuedAtMs: Date.now(),
     nonce: randomBytes(12).toString("base64url")
   };
@@ -58,7 +75,7 @@ export const parseGitHubAppState = ({
 }: {
   encodedState: string;
   secret: string;
-}): { userId: string; returnTo: string } => {
+}): { userId: string; returnTo: string; installationId: number | null } => {
   const normalizedSecret = secret.trim();
   if (!normalizedSecret) {
     throw new Error("State secret is not configured.");
@@ -107,6 +124,7 @@ export const parseGitHubAppState = ({
 
   return {
     userId,
-    returnTo: normalizeReturnTo(payload.returnTo)
+    returnTo: normalizeReturnTo(payload.returnTo),
+    installationId: normalizeInstallationId(payload.installationId)
   };
 };

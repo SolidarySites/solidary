@@ -296,10 +296,64 @@ export const upsertGitHubAppUserCredentials = async ({
   if (!accessToken) {
     throw new Error("Cannot store empty GitHub App access token.");
   }
+  const normalizedRefreshToken = input.refreshToken?.trim() ?? "";
+
+  const encryptedAccessToken = encryptTokenValue(accessToken);
+  let localAccessTokenRoundtrip = "";
+  try {
+    localAccessTokenRoundtrip = decryptTokenValue(encryptedAccessToken);
+  } catch (error) {
+    debugLog("access token encryption roundtrip failed", {
+      userId,
+      source: input.source ?? "unknown",
+      accessTokenShape: summarizeTokenShape(accessToken),
+      message: error instanceof Error ? error.message : "unknown error"
+    });
+    throw new Error("Failed to validate encrypted GitHub access token.");
+  }
+  if (localAccessTokenRoundtrip !== accessToken) {
+    debugLog("access token encryption roundtrip mismatch", {
+      userId,
+      source: input.source ?? "unknown",
+      expectedShape: summarizeTokenShape(accessToken),
+      actualShape: summarizeTokenShape(localAccessTokenRoundtrip)
+    });
+    throw new Error("Failed to validate encrypted GitHub access token.");
+  }
+
+  let encryptedRefreshToken: string | null | undefined;
+  if (typeof input.refreshToken !== "undefined") {
+    if (normalizedRefreshToken) {
+      encryptedRefreshToken = encryptTokenValue(normalizedRefreshToken);
+      let localRefreshTokenRoundtrip = "";
+      try {
+        localRefreshTokenRoundtrip = decryptTokenValue(encryptedRefreshToken);
+      } catch (error) {
+        debugLog("refresh token encryption roundtrip failed", {
+          userId,
+          source: input.source ?? "unknown",
+          refreshTokenShape: summarizeTokenShape(normalizedRefreshToken),
+          message: error instanceof Error ? error.message : "unknown error"
+        });
+        throw new Error("Failed to validate encrypted GitHub refresh token.");
+      }
+      if (localRefreshTokenRoundtrip !== normalizedRefreshToken) {
+        debugLog("refresh token encryption roundtrip mismatch", {
+          userId,
+          source: input.source ?? "unknown",
+          expectedShape: summarizeTokenShape(normalizedRefreshToken),
+          actualShape: summarizeTokenShape(localRefreshTokenRoundtrip)
+        });
+        throw new Error("Failed to validate encrypted GitHub refresh token.");
+      }
+    } else {
+      encryptedRefreshToken = null;
+    }
+  }
 
   const payload: Record<string, unknown> = {
     user_id: userId,
-    access_token_encrypted: encryptTokenValue(accessToken),
+    access_token_encrypted: encryptedAccessToken,
     token_encryption_key_version: getTokenEncryptionVersion(),
     connected_at: new Date().toISOString()
   };
@@ -333,9 +387,7 @@ export const upsertGitHubAppUserCredentials = async ({
   }
 
   if (typeof input.refreshToken !== "undefined") {
-    payload.refresh_token_encrypted = input.refreshToken?.trim()
-      ? encryptTokenValue(input.refreshToken)
-      : null;
+    payload.refresh_token_encrypted = encryptedRefreshToken;
   }
 
   if (typeof input.refreshTokenExpiresAt !== "undefined") {
@@ -374,6 +426,34 @@ export const upsertGitHubAppUserCredentials = async ({
   });
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (GITHUB_TOKEN_DEBUG) {
+    const storedCredential = await getStoredCredential({
+      supabase,
+      userId
+    });
+    const persistedAccessToken = storedCredential?.access_token_encrypted?.trim()
+      ? decryptTokenValue(storedCredential.access_token_encrypted)
+      : "";
+    const persistedRefreshToken = storedCredential?.refresh_token_encrypted?.trim()
+      ? decryptTokenValue(storedCredential.refresh_token_encrypted)
+      : "";
+    debugLog("post-upsert credential verification", {
+      userId,
+      source: input.source ?? "unknown",
+      persistedAccessTokenMatchesInput: persistedAccessToken === accessToken,
+      persistedRefreshTokenMatchesInput:
+        typeof input.refreshToken === "undefined"
+          ? null
+          : persistedRefreshToken === normalizedRefreshToken,
+      persistedAccessTokenShape: persistedAccessToken
+        ? summarizeTokenShape(persistedAccessToken)
+        : null,
+      persistedRefreshTokenShape: persistedRefreshToken
+        ? summarizeTokenShape(persistedRefreshToken)
+        : null
+    });
   }
 };
 
