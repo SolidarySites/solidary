@@ -525,13 +525,19 @@ export const getGitHubAppConnectionStatusForUser = async ({
     userId: normalizedUserId
   });
   const token = resolved?.token?.trim() ?? "";
-  if (!token || resolved?.source !== "github") {
+  if (!token) {
     return {
       connected: false,
       state: "token_invalid",
       message:
         "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
     };
+  }
+  if (resolved?.source !== "github") {
+    debugLog("GitHub App connection check resolved non-github source", {
+      userId: normalizedUserId,
+      source: resolved?.source ?? null
+    });
   }
 
   const installationId = normalizeInstallationId(credential.installation_id);
