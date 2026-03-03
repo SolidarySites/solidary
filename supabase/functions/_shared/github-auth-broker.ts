@@ -389,7 +389,14 @@ export const resolveGitHubTokenForUser = async ({
       refreshTokenExpiresAt: credential.refresh_token_expires_at
     });
 
-    if (storedAccessToken && isTokenStillUsable(credential.access_token_expires_at)) {
+    // If we do not have a refresh token, allow best-effort use of the stored access token
+    // even when local expiry metadata looks stale. Downstream GitHub API calls remain the
+    // source of truth and will return 401/403 when the token is actually unusable.
+    const canUseStoredAccessToken =
+      Boolean(storedAccessToken) &&
+      (isTokenStillUsable(credential.access_token_expires_at) || !storedRefreshToken);
+
+    if (canUseStoredAccessToken) {
       return { token: storedAccessToken, source: authMode };
     }
 
