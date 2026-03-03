@@ -46,6 +46,8 @@ const githubHeaders = (token: string) => ({
   "X-GitHub-Api-Version": "2022-11-28"
 });
 
+const isHeaderSafeToken = (value: string) => /^[\x21-\x7E]+$/.test(value);
+
 const normalizeRepoName = (value: string) => value.trim();
 
 const isValidRepoName = (value: string) =>
@@ -101,11 +103,27 @@ export const handler: Handler = async (event) => {
       error: "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
     });
   }
+  if (!isHeaderSafeToken(githubToken)) {
+    return safeJson(412, {
+      error: "Stored GitHub token is invalid. Reconnect GitHub from Profile settings and retry."
+    });
+  }
 
-  const githubUserResponse = await fetch(`${GITHUB_API}/user`, {
-    method: "GET",
-    headers: githubHeaders(githubToken)
-  });
+  let githubUserResponse: Response;
+  try {
+    githubUserResponse = await fetch(`${GITHUB_API}/user`, {
+      method: "GET",
+      headers: githubHeaders(githubToken)
+    });
+  } catch (error) {
+    return safeJson(412, {
+      error:
+        error instanceof Error &&
+          /headers.+ByteString/i.test(error.message)
+          ? "Stored GitHub token is invalid. Reconnect GitHub from Profile settings and retry."
+          : "Could not verify your GitHub account."
+    });
+  }
   const githubUserPayload = (await githubUserResponse
     .json()
     .catch(() => ({}))) as GitHubUserPayload & { message?: string };
@@ -123,13 +141,24 @@ export const handler: Handler = async (event) => {
     return safeJson(502, { error: "GitHub user profile is missing login." });
   }
 
-  const repoResponse = await fetch(
-    `${GITHUB_API}/repos/${encodeURIComponent(ownerLogin)}/${encodeURIComponent(repoName)}`,
-    {
-      method: "GET",
-      headers: githubHeaders(githubToken)
-    }
-  );
+  let repoResponse: Response;
+  try {
+    repoResponse = await fetch(
+      `${GITHUB_API}/repos/${encodeURIComponent(ownerLogin)}/${encodeURIComponent(repoName)}`,
+      {
+        method: "GET",
+        headers: githubHeaders(githubToken)
+      }
+    );
+  } catch (error) {
+    return safeJson(412, {
+      error:
+        error instanceof Error &&
+          /headers.+ByteString/i.test(error.message)
+          ? "Stored GitHub token is invalid. Reconnect GitHub from Profile settings and retry."
+          : "Could not check repository availability."
+    });
+  }
 
   if (repoResponse.status === 404) {
     return safeJson(200, {

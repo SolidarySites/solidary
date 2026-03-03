@@ -13,6 +13,13 @@ const GITHUB_TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
 
+const normalizeGitHubToken = (value: string | null | undefined): string => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  // Prevent invalid header values (control chars, spaces, non-ASCII) from reaching fetch().
+  return /^[\x21-\x7E]+$/.test(trimmed) ? trimmed : "";
+};
+
 const debugLog = (message: string, details: Record<string, unknown>) => {
   if (!GITHUB_TOKEN_DEBUG) return;
   console.log("[github-auth-broker]", message, details);
@@ -359,17 +366,21 @@ export const resolveGitHubTokenForUser = async ({
 
   if (credential) {
     const authMode = normalizeGitHubAuthMode(credential.auth_mode);
-    const storedAccessToken = credential.access_token_encrypted?.trim()
+    const rawStoredAccessToken = credential.access_token_encrypted?.trim()
       ? decryptTokenValue(credential.access_token_encrypted)
       : "";
-    const storedRefreshToken = credential.refresh_token_encrypted?.trim()
+    const rawStoredRefreshToken = credential.refresh_token_encrypted?.trim()
       ? decryptTokenValue(credential.refresh_token_encrypted)
       : "";
+    const storedAccessToken = normalizeGitHubToken(rawStoredAccessToken);
+    const storedRefreshToken = normalizeGitHubToken(rawStoredRefreshToken);
 
     debugLog("resolved stored credential", {
       userId: normalizedUserId,
-      hasAccessToken: Boolean(storedAccessToken),
-      hasRefreshToken: Boolean(storedRefreshToken),
+      hasAccessToken: Boolean(rawStoredAccessToken),
+      hasRefreshToken: Boolean(rawStoredRefreshToken),
+      hasHeaderSafeAccessToken: Boolean(storedAccessToken),
+      hasHeaderSafeRefreshToken: Boolean(storedRefreshToken),
       authMode,
       accessTokenExpiresAt: credential.access_token_expires_at,
       refreshTokenExpiresAt: credential.refresh_token_expires_at
@@ -404,8 +415,17 @@ export const resolveGitHubTokenForUser = async ({
             source: `refresh_flow:${refreshSource}`
           }
         });
+        const refreshedAccessToken = normalizeGitHubToken(refreshed.accessToken);
+        if (!refreshedAccessToken) {
+          debugLog("discarding refreshed token with invalid header characters", {
+            userId: normalizedUserId,
+            authMode,
+            refreshSource
+          });
+          return null;
+        }
         return {
-          token: refreshed.accessToken,
+          token: refreshedAccessToken,
           source: authMode
         };
       } catch (error) {
