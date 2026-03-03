@@ -79,23 +79,12 @@ const decodeImageBase64 = (value: string, label: string) => {
   return imageBuffer;
 };
 
-const resolveOrigin = (event: Parameters<Handler>[0]) => {
-  const rawUrl = event.rawUrl?.trim();
-  if (rawUrl) {
-    try {
-      return new URL(rawUrl).origin;
-    } catch {
-      // Fall through to forwarded headers.
-    }
+const resolveWorkerUrl = () => {
+  try {
+    return new URL(WORKER_PATH, SUPABASE_URL).toString();
+  } catch {
+    throw new Error("Invalid SUPABASE_URL while constructing worker URL.");
   }
-
-  const forwardedHost = event.headers["x-forwarded-host"] ?? event.headers.host;
-  const forwardedProto = event.headers["x-forwarded-proto"] ?? "https";
-  const host = forwardedHost?.trim() ?? "";
-  if (!host) {
-    throw new Error("Missing request host header.");
-  }
-  return `${forwardedProto}://${host}`;
 };
 
 export const handler: Handler = async (event) => {
@@ -327,8 +316,7 @@ export const handler: Handler = async (event) => {
       });
     }
 
-    const origin = resolveOrigin(event);
-    const workerUrl = new URL(WORKER_PATH, origin).toString();
+    const workerUrl = resolveWorkerUrl();
 
     let dispatchResponse: Response;
     try {
@@ -336,6 +324,8 @@ export const handler: Handler = async (event) => {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          apikey: CREATE_SITE_SUPABASE_API_KEY,
+          Authorization: `Bearer ${CREATE_SITE_SUPABASE_API_KEY}`,
           "x-provision-internal-key": CREATE_SITE_SUPABASE_API_KEY
         },
         body: JSON.stringify({

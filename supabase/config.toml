@@ -1,5 +1,8 @@
 # Supabase Functions source of truth for deployment.
 
+[edge_runtime]
+policy = "per_worker"
+
 [functions]
 
 [functions."cleanup-draft-images"]

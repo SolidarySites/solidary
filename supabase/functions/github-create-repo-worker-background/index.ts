@@ -113,6 +113,28 @@ function safeJson(statusCode: number, body: unknown) {
   };
 }
 
+const waitUntil = (promise: Promise<unknown>) => {
+  const maybeEdgeRuntime = (
+    globalThis as unknown as {
+      EdgeRuntime?: {
+        waitUntil?: (task: Promise<unknown>) => void;
+      };
+    }
+  ).EdgeRuntime;
+
+  if (typeof maybeEdgeRuntime?.waitUntil === "function") {
+    maybeEdgeRuntime.waitUntil(promise);
+    return;
+  }
+
+  // Local fallback when EdgeRuntime is unavailable.
+  void promise.catch((error) => {
+    console.error("[github-create-repo-worker] background task failed", {
+      message: error instanceof Error ? error.message : String(error)
+    });
+  });
+};
+
 const parseBody = (rawBody: string | null): ProvisionWorkerBody => {
   try {
     return (JSON.parse(rawBody ?? "{}") ?? {}) as ProvisionWorkerBody;
@@ -973,214 +995,239 @@ export const handler: Handler = async (event) => {
     }
   };
 
-  let createdOwner = "";
-  let createdRepo = "";
-  let userToken = "";
-
-  await updateJob({
-    status: "running",
-    step: "Preparing repository provisioning...",
-    error: null,
-    started_at: new Date().toISOString()
-  });
-
-  try {
-    const resolvedGitHubAuth = await resolveGitHubTokenForUser({
-      supabase,
-      userId: ownerUserId
-    });
-    if (!resolvedGitHubAuth?.token) {
-      throw new HttpError(
-        412,
-        "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
-      );
-    }
-    userToken = resolvedGitHubAuth.token;
-
-    const name = parsedName;
-    const description = typeof payload.description === "string" ? payload.description : "";
-    const isPrivate = payload.private === undefined ? false : Boolean(payload.private);
-    const siteId = payload.siteId?.trim() ?? "";
-    const siteTitle = payload.siteTitle?.trim() ?? "";
-    const siteDescription = payload.siteDescription?.trim() ?? "";
-    const siteImagePath = payload.siteImagePath?.trim() ?? "";
-    const siteImageThumbPath = payload.siteImageThumbPath?.trim() ?? "";
-    const ogImagePath = payload.ogImagePath?.trim() ?? "";
-    const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
-    const siteImageThumbContentB64Raw = payload.siteImageThumbContentB64?.trim() ?? "";
-    const ogImageContentB64Raw = payload.ogImageContentB64?.trim() ?? "";
-    const siteImageContentB64 =
-      siteImageContentB64Raw ||
-      (siteImageStoragePath
-        ? await loadStagedSiteImageContentB64({
-            supabase,
-            storagePath: siteImageStoragePath
-          })
-        : "");
-    const siteImageThumbContentB64 =
-      siteImageThumbContentB64Raw ||
-      (siteImageThumbStoragePath
-        ? await loadStagedSiteImageContentB64({
-            supabase,
-            storagePath: siteImageThumbStoragePath
-          })
-        : "");
-    const ogImageContentB64 =
-      ogImageContentB64Raw ||
-      (ogImageStoragePath
-        ? await loadStagedSiteImageContentB64({
-            supabase,
-            storagePath: ogImageStoragePath
-          })
-        : "");
+  waitUntil((async () => {
+    let createdOwner = "";
+    let createdRepo = "";
+    let userToken = "";
 
     await updateJob({
-      step: "Loading template files..."
+      status: "running",
+      step: "Preparing repository provisioning...",
+      error: null,
+      started_at: new Date().toISOString()
     });
 
-    const templateFiles = await loadTemplateFiles();
-
-    await updateJob({
-      step: "Creating GitHub repository..."
-    });
-
-    const { res: newRepoRes, data: newRepoData } = await ghUser<GhRepoPayload>(
-      userToken,
-      `${GITHUB_API}/user/repos`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          private: isPrivate === undefined ? false : Boolean(isPrivate),
-          auto_init: true
-        })
-      }
-    );
-    assertOk(newRepoRes, newRepoData, "Failed to create repository.");
-
-    const owner = newRepoData?.owner?.login;
-    const repo = newRepoData?.name;
-    if (!owner || !repo) {
-      throw new HttpError(500, "Repository created but response missing owner/name.");
-    }
-    createdOwner = owner;
-    createdRepo = repo;
-
-    await updateJob({
-      step: "Checking default branch..."
-    });
-
-    const repoAfterCreate = await getRepo({ userToken, owner, repo });
-    const initialDefaultBranch =
-      repoAfterCreate.default_branch || newRepoData.default_branch || TARGET_DEFAULT_BRANCH;
-    const initialHeadSha = await getBranchHeadSha({
-      userToken,
-      owner,
-      repo,
-      branch: initialDefaultBranch
-    });
-
-    if (initialDefaultBranch !== TARGET_DEFAULT_BRANCH) {
-      await updateJob({
-        step: "Creating main branch..."
+    try {
+      const resolvedGitHubAuth = await resolveGitHubTokenForUser({
+        supabase,
+        userId: ownerUserId
       });
-      await createBranchIfMissing({
+      if (!resolvedGitHubAuth?.token) {
+        throw new HttpError(
+          412,
+          "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
+        );
+      }
+      userToken = resolvedGitHubAuth.token;
+
+      const name = parsedName;
+      const description = typeof payload.description === "string" ? payload.description : "";
+      const isPrivate = payload.private === undefined ? false : Boolean(payload.private);
+      const siteId = payload.siteId?.trim() ?? "";
+      const siteTitle = payload.siteTitle?.trim() ?? "";
+      const siteDescription = payload.siteDescription?.trim() ?? "";
+      const siteImagePath = payload.siteImagePath?.trim() ?? "";
+      const siteImageThumbPath = payload.siteImageThumbPath?.trim() ?? "";
+      const ogImagePath = payload.ogImagePath?.trim() ?? "";
+      const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
+      const siteImageThumbContentB64Raw = payload.siteImageThumbContentB64?.trim() ?? "";
+      const ogImageContentB64Raw = payload.ogImageContentB64?.trim() ?? "";
+      const siteImageContentB64 =
+        siteImageContentB64Raw ||
+        (siteImageStoragePath
+          ? await loadStagedSiteImageContentB64({
+              supabase,
+              storagePath: siteImageStoragePath
+            })
+          : "");
+      const siteImageThumbContentB64 =
+        siteImageThumbContentB64Raw ||
+        (siteImageThumbStoragePath
+          ? await loadStagedSiteImageContentB64({
+              supabase,
+              storagePath: siteImageThumbStoragePath
+            })
+          : "");
+      const ogImageContentB64 =
+        ogImageContentB64Raw ||
+        (ogImageStoragePath
+          ? await loadStagedSiteImageContentB64({
+              supabase,
+              storagePath: ogImageStoragePath
+            })
+          : "");
+
+      await updateJob({
+        step: "Loading template files..."
+      });
+
+      const templateFiles = await loadTemplateFiles();
+
+      await updateJob({
+        step: "Creating GitHub repository..."
+      });
+
+      const { res: newRepoRes, data: newRepoData } = await ghUser<GhRepoPayload>(
+        userToken,
+        `${GITHUB_API}/user/repos`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            description,
+            private: isPrivate === undefined ? false : Boolean(isPrivate),
+            auto_init: true
+          })
+        }
+      );
+      assertOk(newRepoRes, newRepoData, "Failed to create repository.");
+
+      const owner = newRepoData?.owner?.login;
+      const repo = newRepoData?.name;
+      if (!owner || !repo) {
+        throw new HttpError(500, "Repository created but response missing owner/name.");
+      }
+      createdOwner = owner;
+      createdRepo = repo;
+
+      await updateJob({
+        step: "Checking default branch..."
+      });
+
+      const repoAfterCreate = await getRepo({ userToken, owner, repo });
+      const initialDefaultBranch =
+        repoAfterCreate.default_branch || newRepoData.default_branch || TARGET_DEFAULT_BRANCH;
+      const initialHeadSha = await getBranchHeadSha({
+        userToken,
+        owner,
+        repo,
+        branch: initialDefaultBranch
+      });
+
+      if (initialDefaultBranch !== TARGET_DEFAULT_BRANCH) {
+        await updateJob({
+          step: "Creating main branch..."
+        });
+        await createBranchIfMissing({
+          userToken,
+          owner,
+          repo,
+          branch: TARGET_DEFAULT_BRANCH,
+          fromSha: initialHeadSha
+        });
+      }
+
+      const templateFilesForCreateFlow = applyCreateFlowOverridesToTemplateFiles({
+        files: templateFiles,
+        owner,
+        repo,
+        siteId,
+        siteTitle,
+        siteDescription,
+        siteImagePath,
+        siteImageContentB64,
+        siteImageThumbPath,
+        siteImageThumbContentB64,
+        ogImagePath,
+        ogImageContentB64
+      });
+
+      await updateJob({
+        step: "Creating template commit (0%)..."
+      });
+      await createTemplateSeedCommit({
         userToken,
         owner,
         repo,
         branch: TARGET_DEFAULT_BRANCH,
-        fromSha: initialHeadSha
+        files: templateFilesForCreateFlow,
+        onProgress: async (completed, total) => {
+          const percent = Math.max(1, Math.round((completed / Math.max(1, total)) * 100));
+          await updateJob({
+            step: `Creating template commit (${percent}%)...`
+          });
+        }
       });
-    }
 
-    const templateFilesForCreateFlow = applyCreateFlowOverridesToTemplateFiles({
-      files: templateFiles,
-      owner,
-      repo,
-      siteId,
-      siteTitle,
-      siteDescription,
-      siteImagePath,
-      siteImageContentB64,
-      siteImageThumbPath,
-      siteImageThumbContentB64,
-      ogImagePath,
-      ogImageContentB64
-    });
+      await updateJob({
+        step: "Finalizing default branch..."
+      });
+      await setDefaultBranch({
+        userToken,
+        owner,
+        repo,
+        branch: TARGET_DEFAULT_BRANCH
+      });
 
-    await updateJob({
-      step: "Creating template commit (0%)..."
-    });
-    await createTemplateSeedCommit({
-      userToken,
-      owner,
-      repo,
-      branch: TARGET_DEFAULT_BRANCH,
-      files: templateFilesForCreateFlow,
-      onProgress: async (completed, total) => {
-        const percent = Math.max(1, Math.round((completed / Math.max(1, total)) * 100));
+      const repoPayload = await getRepo({ userToken, owner, repo });
+      await updateJob({
+        status: "succeeded",
+        step: "Repository provisioning completed.",
+        error: null,
+        repo_full_name: repoPayload.full_name ?? `${owner}/${repo}`,
+        repo_payload: repoPayload,
+        completed_at: new Date().toISOString()
+      });
+
+      await auditGitHubRepoAction({
+        supabase,
+        userId: ownerUserId,
+        functionName: "github-create-repo-worker-background",
+        action: "create_repo",
+        owner,
+        repo,
+        decision: "allowed",
+        tokenSource: resolvedGitHubAuth.source,
+        httpStatus: 200
+      });
+    } catch (error) {
+      if (createdOwner && createdRepo && userToken) {
         await updateJob({
-          step: `Creating template commit (${percent}%)...`
+          step: "Cleanup: deleting partial repository..."
+        });
+        await cleanupRepo({
+          userToken,
+          owner: createdOwner,
+          repo: createdRepo
         });
       }
-    });
 
-    await updateJob({
-      step: "Finalizing default branch..."
-    });
-    await setDefaultBranch({
-      userToken,
-      owner,
-      repo,
-      branch: TARGET_DEFAULT_BRANCH
-    });
+      if (error instanceof HttpError) {
+        const message = error.message;
+        console.log("[github-create-repo-worker] failed", {
+          owner: createdOwner || null,
+          repo: createdRepo || null,
+          statusCode: error.statusCode,
+          message
+        });
+        await updateJob({
+          status: "failed",
+          step: "Repository provisioning failed.",
+          error: message,
+          completed_at: new Date().toISOString()
+        });
+        if (createdOwner && createdRepo) {
+          await auditGitHubRepoAction({
+            supabase,
+            userId: ownerUserId,
+            functionName: "github-create-repo-worker-background",
+            action: "create_repo",
+            owner: createdOwner,
+            repo: createdRepo,
+            decision: "error",
+            tokenSource: "none",
+            httpStatus: error.statusCode,
+            message
+          });
+        }
+        return;
+      }
 
-    const repoPayload = await getRepo({ userToken, owner, repo });
-    await updateJob({
-      status: "succeeded",
-      step: "Repository provisioning completed.",
-      error: null,
-      repo_full_name: repoPayload.full_name ?? `${owner}/${repo}`,
-      repo_payload: repoPayload,
-      completed_at: new Date().toISOString()
-    });
-
-    await auditGitHubRepoAction({
-      supabase,
-      userId: ownerUserId,
-      functionName: "github-create-repo-worker-background",
-      action: "create_repo",
-      owner,
-      repo,
-      decision: "allowed",
-      tokenSource: resolvedGitHubAuth.source,
-      httpStatus: 200
-    });
-
-    return safeJson(202, {
-      status: "accepted",
-      jobId
-    });
-  } catch (error) {
-    if (createdOwner && createdRepo && userToken) {
-      await updateJob({
-        step: "Cleanup: deleting partial repository..."
-      });
-      await cleanupRepo({
-        userToken,
-        owner: createdOwner,
-        repo: createdRepo
-      });
-    }
-
-    if (error instanceof HttpError) {
-      const message = error.message;
+      const message = error instanceof Error ? error.message : "Unknown error";
       console.log("[github-create-repo-worker] failed", {
         owner: createdOwner || null,
         repo: createdRepo || null,
-        statusCode: error.statusCode,
         message
       });
       await updateJob({
@@ -1199,57 +1246,27 @@ export const handler: Handler = async (event) => {
           repo: createdRepo,
           decision: "error",
           tokenSource: "none",
-          httpStatus: error.statusCode,
+          httpStatus: 500,
           message
         });
       }
-      return safeJson(202, {
-        status: "accepted",
-        jobId
-      });
-    }
-
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.log("[github-create-repo-worker] failed", {
-      owner: createdOwner || null,
-      repo: createdRepo || null,
-      message
-    });
-    await updateJob({
-      status: "failed",
-      step: "Repository provisioning failed.",
-      error: message,
-      completed_at: new Date().toISOString()
-    });
-    if (createdOwner && createdRepo) {
-      await auditGitHubRepoAction({
-        supabase,
-        userId: ownerUserId,
-        functionName: "github-create-repo-worker-background",
-        action: "create_repo",
-        owner: createdOwner,
-        repo: createdRepo,
-        decision: "error",
-        tokenSource: "none",
-        httpStatus: 500,
-        message
-      });
-    }
-    return safeJson(202, {
-      status: "accepted",
-      jobId
-    });
-  } finally {
-    for (const storagePath of [siteImageStoragePath, siteImageThumbStoragePath, ogImageStoragePath]) {
-      if (!storagePath) {
-        continue;
+    } finally {
+      for (const storagePath of [siteImageStoragePath, siteImageThumbStoragePath, ogImageStoragePath]) {
+        if (!storagePath) {
+          continue;
+        }
+        await cleanupStagedSiteImage({
+          supabase,
+          storagePath
+        });
       }
-      await cleanupStagedSiteImage({
-        supabase,
-        storagePath
-      });
     }
-  }
+  })());
+
+  return safeJson(202, {
+    status: "accepted",
+    jobId
+  });
 };
 
 
