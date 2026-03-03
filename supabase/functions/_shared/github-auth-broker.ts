@@ -20,14 +20,39 @@ const normalizeGitHubToken = (value: string | null | undefined): string => {
   const withoutBearerPrefix = trimmed.replace(/^Bearer\s+/i, "");
   const normalizedWhitespace = withoutBearerPrefix.replace(/[\s\r\n\t]+/g, "");
   if (!normalizedWhitespace) return "";
-  // Prevent invalid header values (control chars, spaces, non-ASCII) from reaching fetch().
-  return /^[\x21-\x7E]+$/.test(normalizedWhitespace) ? normalizedWhitespace : "";
+  // Prevent invalid header values (control chars) from reaching fetch().
+  // Non-ASCII is tolerated here because GitHub token formats may evolve.
+  return /[\u0000-\u001F\u007F]/.test(normalizedWhitespace) ? "" : normalizedWhitespace;
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {
   if (!GITHUB_TOKEN_DEBUG) return;
   console.log("[github-auth-broker]", message, details);
 };
+
+const summarizeTokenShape = (value: string) => ({
+  length: value.length,
+  hasWhitespace: /[\s\r\n\t]/.test(value),
+  hasControlChars: /[\u0000-\u001F\u007F]/.test(value),
+  hasNonAscii: /[^\x00-\x7F]/.test(value),
+  hasNonLatin1: /[^\u0000-\u00FF]/.test(value),
+  firstCodePoints: Array.from(value)
+    .slice(0, 8)
+    .map((char) => char.codePointAt(0) ?? 0)
+});
+
+const summarizeTokenPayload = (payload: GitHubTokenPayload) => ({
+  hasAccessToken: Boolean(payload.access_token?.trim()),
+  accessTokenLength: payload.access_token?.trim().length ?? 0,
+  hasRefreshToken: Boolean(payload.refresh_token?.trim()),
+  refreshTokenLength: payload.refresh_token?.trim().length ?? 0,
+  tokenType: payload.token_type?.trim() ?? null,
+  scope: payload.scope?.trim() ?? null,
+  expiresIn: payload.expires_in ?? null,
+  refreshTokenExpiresIn: payload.refresh_token_expires_in ?? null,
+  error: payload.error?.trim() ?? null,
+  errorDescription: payload.error_description?.trim() ?? null
+});
 
 type GitHubTokenPayload = {
   access_token?: string;
@@ -218,7 +243,7 @@ const postGitHubTokenExchange = async ({
   const payload = (await response.json().catch(() => ({}))) as GitHubTokenPayload;
   debugLog("GitHub token exchange response", {
     status: response.status,
-    payload
+    payload: summarizeTokenPayload(payload)
   });
   if (!response.ok) {
     const description = payload.error_description?.trim() || payload.error?.trim();
@@ -329,9 +354,11 @@ export const upsertGitHubAppUserCredentials = async ({
     userId,
     source: input.source ?? "unknown",
     authMode: input.authMode ?? null,
-    accessToken: input.accessToken,
+    hasAccessToken: Boolean(input.accessToken?.trim()),
+    accessTokenShape: summarizeTokenShape(input.accessToken),
     accessTokenExpiresAt: input.accessTokenExpiresAt,
-    refreshToken: input.refreshToken,
+    hasRefreshToken: Boolean(input.refreshToken?.trim()),
+    refreshTokenShape: input.refreshToken ? summarizeTokenShape(input.refreshToken) : null,
     refreshTokenExpiresAt: input.refreshTokenExpiresAt,
     tokenType: input.tokenType,
     scope: input.scope,
@@ -421,8 +448,10 @@ export const resolveGitHubTokenForUser = async ({
       userId: normalizedUserId,
       hasAccessToken: Boolean(rawStoredAccessToken),
       hasRefreshToken: Boolean(rawStoredRefreshToken),
-      hasHeaderSafeAccessToken: Boolean(storedAccessToken),
-      hasHeaderSafeRefreshToken: Boolean(storedRefreshToken),
+      hasNormalizedAccessToken: Boolean(storedAccessToken),
+      hasNormalizedRefreshToken: Boolean(storedRefreshToken),
+      accessTokenShape: rawStoredAccessToken ? summarizeTokenShape(rawStoredAccessToken) : null,
+      refreshTokenShape: rawStoredRefreshToken ? summarizeTokenShape(rawStoredRefreshToken) : null,
       authMode,
       accessTokenExpiresAt: credential.access_token_expires_at,
       refreshTokenExpiresAt: credential.refresh_token_expires_at
@@ -526,6 +555,10 @@ export const getGitHubAppConnectionStatusForUser = async ({
   });
   const token = resolved?.token?.trim() ?? "";
   if (!token) {
+    debugLog("GitHub App connection check resolved empty token", {
+      userId: normalizedUserId,
+      resolvedSource: resolved?.source ?? null
+    });
     return {
       connected: false,
       state: "token_invalid",
@@ -543,72 +576,76 @@ export const getGitHubAppConnectionStatusForUser = async ({
   const installationId = normalizeInstallationId(credential.installation_id);
 
   try {
-    if (installationId) {
-      const installationResponse = await fetch(
-        `${GITHUB_API}/user/installations/${encodeURIComponent(String(installationId))}`,
+    const perPage = 100;
+    const fetchInstallationsPage = async (page: number) => {
+      const response = await fetch(
+        `${GITHUB_API}/user/installations?per_page=${encodeURIComponent(String(perPage))}&page=${encodeURIComponent(String(page))}`,
         {
           headers: githubHeaders(token)
         }
       );
-      const installationPayload = await installationResponse.json().catch(() => ({}));
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as {
+        total_count?: unknown;
+        installations?: unknown[];
+        message?: unknown;
+      };
+      const installationIds = Array.isArray(payload.installations)
+        ? payload.installations
+            .map((item) => {
+              if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+              return normalizeInstallationId((item as { id?: unknown }).id);
+            })
+            .filter((value): value is number => Boolean(value))
+        : [];
+      const totalCount =
+        typeof payload.total_count === "number" && Number.isFinite(payload.total_count)
+          ? Math.max(0, Math.floor(payload.total_count))
+          : null;
 
-      if (installationResponse.ok) {
-        return {
-          connected: true,
-          state: "connected",
-          message: null
-        };
-      }
+      debugLog("GitHub App installation list check", {
+        userId: normalizedUserId,
+        page,
+        status: response.status,
+        totalCount,
+        listedInstallations: installationIds.length,
+        firstInstallationIds: installationIds.slice(0, 5),
+        message: getGitHubApiMessage(payload) || null
+      });
 
-      if (installationResponse.status === 404) {
-        return {
-          connected: false,
-          state: "installation_missing",
-          message:
-            getGitHubApiMessage(installationPayload) ||
-            "GitHub App is no longer installed or no longer granted to your repositories. Grant access in GitHub App settings, or uninstall it and switch to Solidary OAuth from Profile."
-        };
-      }
+      return {
+        response,
+        payload,
+        installationIds,
+        totalCount
+      };
+    };
 
-      if (installationResponse.status === 401 || installationResponse.status === 403) {
-        return {
-          connected: false,
-          state: "token_invalid",
-          message:
-            getGitHubApiMessage(installationPayload) ||
-            "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
-        };
-      }
+    const firstPage = await fetchInstallationsPage(1);
+    if (firstPage.response.status === 401 || firstPage.response.status === 403) {
+      return {
+        connected: false,
+        state: "token_invalid",
+        message:
+          getGitHubApiMessage(firstPage.payload) ||
+          "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+      };
+    }
 
+    if (!firstPage.response.ok) {
       return {
         connected: false,
         state: "unknown",
         message:
-          getGitHubApiMessage(installationPayload) ||
-          `Could not verify GitHub App installation (${installationResponse.status}).`
+          getGitHubApiMessage(firstPage.payload) ||
+          `Could not verify GitHub App installation (${firstPage.response.status}).`
       };
     }
 
-    const installationsResponse = await fetch(`${GITHUB_API}/user/installations?per_page=1`, {
-      headers: githubHeaders(token)
-    });
-    const installationsPayload = (await installationsResponse
-      .json()
-      .catch(() => ({}))) as {
-      total_count?: unknown;
-      installations?: unknown[];
-      message?: unknown;
-    };
-
-    if (installationsResponse.ok) {
-      const totalCountRaw = installationsPayload.total_count;
+    if (!installationId) {
       const installationCount =
-        typeof totalCountRaw === "number" && Number.isFinite(totalCountRaw)
-          ? totalCountRaw
-          : Array.isArray(installationsPayload.installations)
-            ? installationsPayload.installations.length
-            : 0;
-
+        typeof firstPage.totalCount === "number" ? firstPage.totalCount : firstPage.installationIds.length;
       if (installationCount > 0) {
         return {
           connected: true,
@@ -625,22 +662,62 @@ export const getGitHubAppConnectionStatusForUser = async ({
       };
     }
 
-    if (installationsResponse.status === 401 || installationsResponse.status === 403) {
+    if (firstPage.installationIds.includes(installationId)) {
+      return {
+        connected: true,
+        state: "connected",
+        message: null
+      };
+    }
+
+    const totalPages =
+      typeof firstPage.totalCount === "number" && firstPage.totalCount > 0
+        ? Math.ceil(firstPage.totalCount / perPage)
+        : 1;
+    const maxPagesToScan = Math.min(totalPages, 10);
+    for (let page = 2; page <= maxPagesToScan; page += 1) {
+      const currentPage = await fetchInstallationsPage(page);
+      if (!currentPage.response.ok) {
+        if (currentPage.response.status === 401 || currentPage.response.status === 403) {
+          return {
+            connected: false,
+            state: "token_invalid",
+            message:
+              getGitHubApiMessage(currentPage.payload) ||
+              "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+          };
+        }
+        return {
+          connected: false,
+          state: "unknown",
+          message:
+            getGitHubApiMessage(currentPage.payload) ||
+            `Could not verify GitHub App installation (${currentPage.response.status}).`
+        };
+      }
+      if (currentPage.installationIds.includes(installationId)) {
+        return {
+          connected: true,
+          state: "connected",
+          message: null
+        };
+      }
+    }
+
+    if (totalPages > maxPagesToScan) {
       return {
         connected: false,
-        state: "token_invalid",
+        state: "unknown",
         message:
-          getGitHubApiMessage(installationsPayload) ||
-          "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile."
+          "Could not fully verify GitHub App installation because the account has many app installations. Reconnect and retry."
       };
     }
 
     return {
       connected: false,
-      state: "unknown",
+      state: "installation_missing",
       message:
-        getGitHubApiMessage(installationsPayload) ||
-        `Could not verify GitHub App installation (${installationsResponse.status}).`
+        "GitHub App is no longer installed for this account. Grant access in GitHub App settings, or uninstall it and switch to Solidary OAuth from Profile."
     };
   } catch (error) {
     debugLog("GitHub App connection check failed", {

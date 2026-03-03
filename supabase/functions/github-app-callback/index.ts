@@ -12,10 +12,12 @@ const SUPABASE_SERVICE_KEY =
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const GITHUB_APP_STATE_SECRET = Deno.env.get("GITHUB_APP_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
 const GITHUB_API = "https://api.github.com";
+const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
 
 type GitHubUserPayload = {
   id?: number;
   login?: string;
+  message?: string;
 };
 
 type GitHubInstallationPayload = {
@@ -24,6 +26,12 @@ type GitHubInstallationPayload = {
     login?: string;
     type?: string;
   };
+};
+
+type GitHubInstallationsListPayload = {
+  total_count?: number;
+  installations?: GitHubInstallationPayload[];
+  message?: string;
 };
 
 const safeRedirect = (location: string) => ({
@@ -85,13 +93,32 @@ const githubHeaders = (token: string) => ({
   "X-GitHub-Api-Version": "2022-11-28"
 });
 
+const debugLog = (message: string, details: Record<string, unknown>) => {
+  if (!GITHUB_TOKEN_DEBUG) return;
+  console.log("[github-app-callback]", message, details);
+};
+
+const summarizeTokenShape = (value: string) => ({
+  length: value.length,
+  hasWhitespace: /[\s\r\n\t]/.test(value),
+  hasControlChars: /[\u0000-\u001F\u007F]/.test(value),
+  hasNonAscii: /[^\x00-\x7F]/.test(value),
+  firstCodePoints: Array.from(value)
+    .slice(0, 8)
+    .map((char) => char.codePointAt(0) ?? 0)
+});
+
 const fetchGitHubUser = async (accessToken: string) => {
   const response = await fetch(`${GITHUB_API}/user`, {
     headers: githubHeaders(accessToken)
   });
-  const payload = (await response.json().catch(() => ({}))) as GitHubUserPayload & {
-    message?: string;
-  };
+  const payload = (await response.json().catch(() => ({}))) as GitHubUserPayload;
+  debugLog("fetched GitHub user", {
+    status: response.status,
+    hasId: Boolean(payload.id),
+    login: payload.login ?? null,
+    message: payload.message ?? null
+  });
   if (!response.ok || !payload.id || !payload.login) {
     const message =
       payload.message?.trim() || `Failed to read GitHub user profile (${response.status}).`;
@@ -109,13 +136,32 @@ const fetchInstallationMetadata = async ({
 }): Promise<GitHubInstallationPayload | null> => {
   if (!installationId) return null;
 
-  const response = await fetch(`${GITHUB_API}/user/installations/${installationId}`, {
+  const response = await fetch(`${GITHUB_API}/user/installations?per_page=100`, {
     headers: githubHeaders(accessToken)
+  });
+  const payload = (await response
+    .json()
+    .catch(() => ({}))) as GitHubInstallationsListPayload;
+  const installationList = Array.isArray(payload.installations) ? payload.installations : [];
+  debugLog("fetched installations for callback", {
+    status: response.status,
+    installationId,
+    totalCount:
+      typeof payload.total_count === "number" && Number.isFinite(payload.total_count)
+        ? payload.total_count
+        : null,
+    listedInstallations: installationList.length,
+    message: payload.message ?? null
   });
   if (!response.ok) {
     return null;
   }
-  return (await response.json().catch(() => null)) as GitHubInstallationPayload | null;
+
+  const matched = installationList.find((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    return parsePositiveInt(String(item.id ?? "")) === installationId;
+  });
+  return matched ?? null;
 };
 
 export const handler: Handler = async (event) => {
@@ -198,11 +244,26 @@ export const handler: Handler = async (event) => {
 
   try {
     const exchanged = await exchangeCodeForGitHubAppUserToken(code);
+    debugLog("exchanged code for token", {
+      accessTokenShape: summarizeTokenShape(exchanged.accessToken),
+      hasRefreshToken: Boolean(exchanged.refreshToken),
+      refreshTokenShape: exchanged.refreshToken ? summarizeTokenShape(exchanged.refreshToken) : null,
+      accessTokenExpiresAt: exchanged.accessTokenExpiresAt,
+      refreshTokenExpiresAt: exchanged.refreshTokenExpiresAt,
+      tokenType: exchanged.tokenType,
+      scope: exchanged.scope
+    });
     const githubUser = await fetchGitHubUser(exchanged.accessToken);
     const installationId = parsePositiveInt(params.get("installation_id"));
     const installation = await fetchInstallationMetadata({
       accessToken: exchanged.accessToken,
       installationId
+    });
+    debugLog("resolved installation metadata", {
+      installationIdFromQuery: installationId,
+      matchedInstallationId: installation?.id ?? null,
+      installationAccountLogin: installation?.account?.login ?? null,
+      installationAccountType: installation?.account?.type ?? null
     });
 
     await upsertGitHubAppUserCredentials({
