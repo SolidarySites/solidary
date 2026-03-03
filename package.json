@@ -12,6 +12,7 @@
     "lint": "npm -w apps/site run lint",
     "functions:dev": "./scripts/serve-functions.sh",
     "functions:build": "netlify functions:build --filter studio --src apps/_shared_functions/src --functions .netlify/functions",
+    "functions:supabase:deploy:prod": "node ./scripts/deploy-supabase-functions.mjs",
     "netlify:dev": "npm run dev",
     "netlify:clean": "rm -rf .netlify apps/site/.netlify apps/_shared_functions/.netlify apps/studio/.netlify apps/site/apps apps/_shared_functions/apps"
   }

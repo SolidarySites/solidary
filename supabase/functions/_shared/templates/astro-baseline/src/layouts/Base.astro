@@ -1,0 +1,71 @@
+---
+import SEO from "../components/SEO.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import SkipLink from "../components/SkipLink.astro";
+import { parseSolidaryFrontmatter } from "../solidary-config/site";
+
+import "../styles/global.css";
+
+const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const siteName = solidary.title;
+const siteDescription = solidary.description;
+const siteUrl = solidary.url;
+
+const {
+  title = siteName,
+  description = siteDescription,
+  canonicalPath = Astro.url.pathname,
+  ogImage = solidary.ogImage,
+  robots = solidary.robots,
+  jsonLd,
+  mainCentered = false
+} = Astro.props;
+const normalizeCanonicalPath = (value: unknown) => {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return "/";
+  return text.startsWith("/") ? text : `/${text}`;
+};
+const canonical = (() => {
+  const normalizedCanonicalPath = normalizeCanonicalPath(canonicalPath);
+  try {
+    const base = new URL(siteUrl);
+    const basePath = base.pathname.replace(/\/$/, "");
+    const combinedPath =
+      normalizedCanonicalPath === "/" ? (basePath || "/") : `${basePath}${normalizedCanonicalPath}`;
+    base.pathname = combinedPath.replace(/\/{2,}/g, "/");
+    base.search = "";
+    base.hash = "";
+    return base.toString();
+  } catch {
+    return normalizedCanonicalPath;
+  }
+})();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+    <SEO
+      title={title}
+      description={description}
+      canonical={canonical}
+      ogImage={ogImage}
+      robots={robots}
+      jsonLd={jsonLd}
+    />
+  </head>
+
+  <body class="page">
+    <SkipLink />
+    <Header />
+    <main id="main" class={`page__main ${mainCentered ? "page__main--centered" : ""}`}>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

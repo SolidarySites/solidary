@@ -1,0 +1,33 @@
+{
+  "functions": [
+    "cleanup-draft-images",
+    "github-app-callback",
+    "github-app-connect-start",
+    "github-auth-status",
+    "github-branch",
+    "github-check-repo-name",
+    "github-contents-batch-commit",
+    "github-contents-delete",
+    "github-contents-list",
+    "github-contents-read",
+    "github-contents-write",
+    "github-create-repo",
+    "github-create-repo-status",
+    "github-create-repo-worker-background",
+    "github-delete-repo",
+    "github-enable-pages",
+    "github-ensure-branch",
+    "github-invite-collaborator",
+    "github-list-collaborators",
+    "github-manage-collaborator",
+    "github-merge-collaboration-pr",
+    "github-pages-set-domain",
+    "github-publish-status",
+    "github-refresh-provider-token",
+    "github-store-provider-token",
+    "github-upsert-collaboration-pr",
+    "hello",
+    "ingest-site",
+    "sync-admin-role-from-github"
+  ]
+}

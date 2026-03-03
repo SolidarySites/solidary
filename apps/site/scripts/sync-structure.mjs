@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_DESCRIPTION = "?";
 const EXCLUDED_DIRECTORIES = new Set([".git", "dist", "node_modules"]);
-const EXCLUDED_FILES = new Set([".DS_Store"]);
+const EXCLUDED_FILES = new Set([".DS_Store", ".gitkeep"]);
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, "..");

@@ -1,0 +1,165 @@
+---
+import footerContent from "../content/footer.md";
+import { parseFooterFrontmatter } from "../solidary-config/site";
+
+type MarkdownModule = { frontmatter?: Record<string, unknown> };
+
+type FooterSegment = {
+  type: "text" | "link";
+  text: string;
+  href?: string;
+};
+
+type FooterModule = {
+  content: string;
+  alignment: "left" | "center" | "right";
+};
+
+const year = new Date().getFullYear();
+const footerCopyright = `© ${year}`;
+const footerFrontmatter = parseFooterFrontmatter((footerContent as MarkdownModule).frontmatter);
+const footerDisabled = footerFrontmatter.disabled;
+const footerFixed = footerFrontmatter.fixed;
+
+const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/;
+const bareUrlPattern = /https?:\/\/[^\s)]+/;
+const pipeLinkPattern = /^\s*([^|\n]+?)\s*\|\s*(https?:\/\/[^\s)]+)\s*$/;
+
+const parseFooterLineSegments = (line: string): FooterSegment[] => {
+  const pipeLinkMatch = line.match(pipeLinkPattern);
+  if (pipeLinkMatch) {
+    return [
+      {
+        type: "link",
+        text: pipeLinkMatch[1].trim() || pipeLinkMatch[2],
+        href: pipeLinkMatch[2]
+      }
+    ];
+  }
+
+  const segments: FooterSegment[] = [];
+  let remaining = line;
+
+  while (remaining.length) {
+    const markdownMatch = remaining.match(markdownLinkPattern);
+    const bareUrlMatch = remaining.match(bareUrlPattern);
+
+    const markdownIndex = markdownMatch?.index ?? -1;
+    const bareUrlIndex = bareUrlMatch?.index ?? -1;
+
+    const useMarkdown =
+      markdownIndex !== -1 && (bareUrlIndex === -1 || markdownIndex <= bareUrlIndex);
+    const useBareUrl = !useMarkdown && bareUrlIndex !== -1;
+
+    if (!useMarkdown && !useBareUrl) {
+      segments.push({ type: "text", text: remaining });
+      remaining = "";
+      break;
+    }
+
+    const matchIndex = useMarkdown ? markdownIndex : bareUrlIndex;
+    if (matchIndex > 0) {
+      segments.push({
+        type: "text",
+        text: remaining.slice(0, matchIndex)
+      });
+    }
+
+    if (useMarkdown && markdownMatch) {
+      segments.push({
+        type: "link",
+        text: markdownMatch[1],
+        href: markdownMatch[2]
+      });
+      remaining = remaining.slice(matchIndex + markdownMatch[0].length);
+      continue;
+    }
+
+    if (useBareUrl && bareUrlMatch) {
+      segments.push({
+        type: "link",
+        text: bareUrlMatch[0],
+        href: bareUrlMatch[0]
+      });
+      remaining = remaining.slice(matchIndex + bareUrlMatch[0].length);
+      continue;
+    }
+  }
+
+  if (!segments.length) {
+    segments.push({ type: "text", text: "" });
+  }
+
+  return segments;
+};
+
+const footerAlignmentFallback = ["left", "center", "right"] as const;
+const footerModules: FooterModule[] = footerFrontmatter.modules
+  .slice(0, 3)
+  .map((module, index) => {
+    const fallbackAlignment = footerAlignmentFallback[index] ?? "left";
+    const alignment =
+      module.alignment === "left" || module.alignment === "center" || module.alignment === "right"
+        ? module.alignment
+        : fallbackAlignment;
+
+    return {
+      content: typeof module.content === "string" ? module.content : "",
+      alignment
+    };
+  });
+
+while (footerModules.length < 3) {
+  const fallbackAlignment = footerAlignmentFallback[footerModules.length] ?? "left";
+  footerModules.push({
+    content: "",
+    alignment: fallbackAlignment
+  });
+}
+if (!footerModules.some((module) => module.content.trim())) {
+  footerModules[0].content = "%copyright%";
+}
+
+const visibleFooterModuleCount = footerModules.filter((module) => module.content.trim().length > 0).length;
+const footerInnerStyle =
+  visibleFooterModuleCount > 0
+    ? `grid-template-columns:repeat(${Math.min(3, visibleFooterModuleCount)},minmax(0,1fr));`
+    : undefined;
+
+const footerStyle =
+  footerDisabled || footerFixed
+    ? [
+        footerDisabled ? "display:none;" : "",
+        footerFixed ? "position:fixed;left:0;right:0;bottom:0;z-index:40;" : ""
+      ].join("")
+    : undefined;
+---
+
+<footer class="footer" style={footerStyle}>
+  <div class="footer__inner" style={footerInnerStyle}>
+    {footerModules.map((module) => {
+      const resolvedModule = module.content.replaceAll("%copyright%", footerCopyright).replace(/\r/g, "");
+      const lines = resolvedModule.split("\n");
+      const alignmentClass = `footer__module--${module.alignment}`;
+      const moduleStyle = module.content.trim().length === 0 ? "display:none;" : undefined;
+      return (
+        <p class={`footer__module ${alignmentClass}`} style={moduleStyle}>
+          {lines.map((line, lineIndex) => (
+            <span>
+              {parseFooterLineSegments(line).map((segment) =>
+                segment.type === "link" ? (
+                  <a class="footer__link" href={segment.href} target="_blank" rel="noopener noreferrer">
+                    {segment.text}
+                  </a>
+                ) : (
+                  <span>{segment.text}</span>
+                )
+              )}
+              {lineIndex < lines.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      );
+    })}
+  </div>
+</footer>

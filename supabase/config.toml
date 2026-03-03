@@ -1,0 +1,90 @@
+# Supabase Functions source of truth for deployment.
+
+[functions]
+
+[functions."cleanup-draft-images"]
+verify_jwt = false
+
+[functions."github-app-callback"]
+verify_jwt = false
+
+[functions."github-app-connect-start"]
+verify_jwt = false
+
+[functions."github-auth-status"]
+verify_jwt = false
+
+[functions."github-branch"]
+verify_jwt = false
+
+[functions."github-check-repo-name"]
+verify_jwt = false
+
+[functions."github-contents-batch-commit"]
+verify_jwt = false
+
+[functions."github-contents-delete"]
+verify_jwt = false
+
+[functions."github-contents-list"]
+verify_jwt = false
+
+[functions."github-contents-read"]
+verify_jwt = false
+
+[functions."github-contents-write"]
+verify_jwt = false
+
+[functions."github-create-repo"]
+verify_jwt = false
+
+[functions."github-create-repo-status"]
+verify_jwt = false
+
+[functions."github-create-repo-worker-background"]
+verify_jwt = false
+
+[functions."github-delete-repo"]
+verify_jwt = false
+
+[functions."github-enable-pages"]
+verify_jwt = false
+
+[functions."github-ensure-branch"]
+verify_jwt = false
+
+[functions."github-invite-collaborator"]
+verify_jwt = false
+
+[functions."github-list-collaborators"]
+verify_jwt = false
+
+[functions."github-manage-collaborator"]
+verify_jwt = false
+
+[functions."github-merge-collaboration-pr"]
+verify_jwt = false
+
+[functions."github-pages-set-domain"]
+verify_jwt = false
+
+[functions."github-publish-status"]
+verify_jwt = false
+
+[functions."github-refresh-provider-token"]
+verify_jwt = false
+
+[functions."github-store-provider-token"]
+verify_jwt = false
+
+[functions."github-upsert-collaboration-pr"]
+verify_jwt = false
+
+[functions."hello"]
+verify_jwt = false
+
+[functions."ingest-site"]
+verify_jwt = false
+
+[functions."sync-admin-role-from-github"]
+verify_jwt = false

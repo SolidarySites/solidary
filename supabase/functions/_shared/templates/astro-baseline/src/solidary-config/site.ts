@@ -1,0 +1,103 @@
+import { z } from "astro:content";
+
+export const pageSchema = z.object({
+  title: z.string(),
+  navLabel: z.string(),
+  description: z.string().optional(),
+  javascript: z.string().optional(),
+  showInNav: z.boolean(),
+  navOrder: z.number().int()
+});
+
+export type PageFrontmatter = z.infer<typeof pageSchema>;
+
+export type SolidaryFrontmatter = {
+  title: string;
+  description: string;
+  url: string;
+  ogImage?: string;
+  robots: string;
+};
+
+export type HeaderFrontmatter = {
+  disabled: boolean;
+  fixed: boolean;
+  brandText: string;
+  disableBrand: boolean;
+};
+
+export type FooterModuleAlignment = "left" | "center" | "right";
+
+export type FooterModule = {
+  content: string;
+  alignment: FooterModuleAlignment;
+};
+
+export type FooterFrontmatter = {
+  disabled: boolean;
+  fixed: boolean;
+  modules: FooterModule[];
+};
+
+export type SiteContentGraph = {
+  solidary: SolidaryFrontmatter;
+  header: HeaderFrontmatter;
+  footer: FooterFrontmatter;
+  pages: PageFrontmatter[];
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const readString = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
+const readBoolean = (value: unknown, fallback = false) =>
+  typeof value === "boolean" ? value : fallback;
+
+const isFooterModuleAlignment = (value: unknown): value is FooterModuleAlignment =>
+  value === "left" || value === "center" || value === "right";
+
+export const parseSolidaryFrontmatter = (value: unknown): SolidaryFrontmatter => {
+  const record = asRecord(value);
+  const robots = readString(record.robots, "index,follow");
+  return {
+    title: readString(record.title),
+    description: readString(record.description),
+    url: readString(record.url),
+    ogImage: readString(record.ogImage) || undefined,
+    robots
+  };
+};
+
+export const parseHeaderFrontmatter = (value: unknown): HeaderFrontmatter => {
+  const record = asRecord(value);
+  return {
+    disabled: readBoolean(record.disabled),
+    fixed: readBoolean(record.fixed),
+    brandText: readString(record.brandText),
+    disableBrand: readBoolean(record.disableBrand)
+  };
+};
+
+export const parseFooterFrontmatter = (value: unknown): FooterFrontmatter => {
+  const record = asRecord(value);
+  const modules = Array.isArray(record.modules)
+    ? record.modules
+        .map((entry) => {
+          const moduleRecord = asRecord(entry);
+          const alignment = isFooterModuleAlignment(moduleRecord.alignment)
+            ? moduleRecord.alignment
+            : "left";
+          return {
+            content: readString(moduleRecord.content),
+            alignment
+          };
+        })
+        .slice(0, 3)
+    : [];
+
+  return {
+    disabled: readBoolean(record.disabled),
+    fixed: readBoolean(record.fixed),
+    modules
+  };
+};
