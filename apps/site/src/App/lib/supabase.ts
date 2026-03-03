@@ -18,3 +18,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export function isSupabaseConfigured() {
   return Boolean(supabaseUrl && supabaseAnonKey);
 }
+
+const normalizeFunctionName = (value: string) =>
+  value
+    .trim()
+    .replace(/^\/+/, "")
+    .replace(/^functions\/v1\//, "")
+    .replace(/^\.netlify\/functions\//, "")
+    .replace(/^netlify\/functions\//, "")
+    .replace(/^\/\.netlify\/functions\//, "");
+
+export function supabaseFunctionUrl(functionName: string) {
+  const normalizedName = normalizeFunctionName(functionName);
+  if (!normalizedName) {
+    throw new Error("Supabase function name is required.");
+  }
+  if (!supabaseUrl) {
+    throw new Error("Supabase URL is not configured.");
+  }
+  return `${supabaseUrl}/functions/v1/${normalizedName}`;
+}

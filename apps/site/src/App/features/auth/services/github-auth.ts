@@ -1,5 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "../../../lib/supabase";
+import { supabase, supabaseFunctionUrl } from "../../../lib/supabase";
 
 type SessionWithProviderCredentials = Session & {
   provider_token?: string | null;
@@ -191,7 +191,7 @@ export const connectGitHubAppForCurrentUser = async ({
       ? "/studio"
       : `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
-  const response = await fetch("/.netlify/functions/github-app-connect-start", {
+  const response = await fetch(supabaseFunctionUrl("github-app-connect-start"), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -242,7 +242,7 @@ const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
 export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthStatus> => {
   const { supabaseAccessToken } = await requireFreshSupabaseAuth();
 
-  const response = await fetch("/.netlify/functions/github-auth-status", {
+  const response = await fetch(supabaseFunctionUrl("github-auth-status"), {
     method: "GET",
     headers: {
       Authorization: `Bearer ${supabaseAccessToken}`
@@ -321,7 +321,7 @@ export const syncGithubProviderTokenToServer = async (
 
   providerTokenSyncFingerprintByUserId.set(userId, fingerprint);
   try {
-    const response = await fetch("/.netlify/functions/github-store-provider-token", {
+    const response = await fetch(supabaseFunctionUrl("github-store-provider-token"), {
       method: "POST",
       headers: {
         "content-type": "application/json",

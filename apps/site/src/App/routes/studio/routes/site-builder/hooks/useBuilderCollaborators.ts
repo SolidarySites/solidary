@@ -16,7 +16,7 @@ import type {
   CollaboratorSearchResult,
   ManagedCollaborator
 } from "../services/types";
-import { supabase } from "../../../../../lib/supabase";
+import { supabase, supabaseFunctionUrl } from "../../../../../lib/supabase";
 import type { NoticeKind } from "../../../../../types/notice";
 
 type UseBuilderCollaboratorsParams = {
@@ -85,7 +85,7 @@ export const useBuilderCollaborators = ({
 
     setManagedCollaboratorsLoading(true);
     try {
-      const response = await fetch("/.netlify/functions/github-list-collaborators", {
+      const response = await fetch(supabaseFunctionUrl("github-list-collaborators"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -266,7 +266,7 @@ export const useBuilderCollaborators = ({
         }
       }
 
-      const response = await fetch("/.netlify/functions/github-invite-collaborator", {
+      const response = await fetch(supabaseFunctionUrl("github-invite-collaborator"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -344,7 +344,7 @@ export const useBuilderCollaborators = ({
 
     setUpdatingCollaboratorUserId(collaboratorUserId);
     try {
-      const response = await fetch("/.netlify/functions/github-manage-collaborator", {
+      const response = await fetch(supabaseFunctionUrl("github-manage-collaborator"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -414,7 +414,7 @@ export const useBuilderCollaborators = ({
 
     setUpdatingCollaboratorUserId(collaboratorUserId);
     try {
-      const response = await fetch("/.netlify/functions/github-manage-collaborator", {
+      const response = await fetch(supabaseFunctionUrl("github-manage-collaborator"), {
         method: "POST",
         headers: {
           "content-type": "application/json",

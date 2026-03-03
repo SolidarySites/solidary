@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
-  Deno.env.get("SUPABASE_DELETE_REPO_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
 
 type StoredCredentialRow = {

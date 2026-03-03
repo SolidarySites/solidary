@@ -85,7 +85,7 @@ export const publishOwnerDraft = async ({
   if (siteImage) {
     setProvisionStep("Uploading site image...");
     const imageBase64 = toBase64(await siteImage.arrayBuffer());
-    await githubRequest("/.netlify/functions/github-contents-write", {
+    await githubRequest("github-contents-write", {
       owner: ownerLogin,
       repo: repoName,
       path: imagePath,
@@ -149,7 +149,7 @@ export const publishOwnerDraft = async ({
   }
 
   setProvisionStep("Publishing content files...");
-  await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
+  await githubRequest<BatchCommitResponse>("github-contents-batch-commit", {
     owner: ownerLogin,
     repo: repoName,
     branch: draftState.branch,
@@ -180,7 +180,7 @@ export const publishOwnerDraft = async ({
 
   setDraftImageUrl(imageUrl);
   setProvisionStep("Starting deployment status checks...");
-  const branchResult = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+  const branchResult = await githubRequest<{ sha?: string }>("github-branch", {
     owner: ownerLogin,
     repo: repoName,
     branch: draftState.branch

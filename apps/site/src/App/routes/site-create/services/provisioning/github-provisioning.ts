@@ -48,7 +48,7 @@ const waitForRepoProvisioningJob = async ({
     let statusPayload: CreateRepoStatusResponse | null = null;
     try {
       statusPayload = await githubRequest<CreateRepoStatusResponse>(
-        "/.netlify/functions/github-create-repo-status",
+        "github-create-repo-status",
         {
           job_id: jobId,
           supabase_access_token: supabaseAccessToken
@@ -114,7 +114,7 @@ const waitForBranchAvailability = async ({
 
     onStep("Checking repository branch...");
     try {
-      const branchPayload = await githubRequest<{ sha?: string }>("/.netlify/functions/github-branch", {
+      const branchPayload = await githubRequest<{ sha?: string }>("github-branch", {
         supabase_access_token: supabaseAccessToken,
         owner,
         repo,
@@ -154,7 +154,7 @@ const waitForInitialDeployment = async ({
     let requestError: unknown = null;
 
     try {
-      status = await githubRequest<GitHubPublishStatusResponse>("/.netlify/functions/github-publish-status", {
+      status = await githubRequest<GitHubPublishStatusResponse>("github-publish-status", {
         supabase_access_token: supabaseAccessToken,
         owner,
         repo,
@@ -233,7 +233,7 @@ export const provisionGitHubRepository = async ({
   onStep: (value: string) => void;
 }): Promise<ProvisionedRepository> => {
   onStep("Queueing repository provisioning...");
-  const startResponse = await githubRequest<CreateRepoStartResponse>("/.netlify/functions/github-create-repo", {
+  const startResponse = await githubRequest<CreateRepoStartResponse>("github-create-repo", {
     name: slug,
     description: siteDescription.trim(),
     private: false,
@@ -280,7 +280,7 @@ export const provisionGitHubRepository = async ({
   });
 
   onStep("Enabling GitHub Pages...");
-  await githubRequest("/.netlify/functions/github-enable-pages", {
+  await githubRequest("github-enable-pages", {
     supabase_access_token: supabaseAccessToken,
     owner: ownerLogin,
     repo: repoName,

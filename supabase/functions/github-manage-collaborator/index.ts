@@ -8,7 +8,7 @@ import {
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_DELETE_REPO_SECRET_KEY = Deno.env.get("SUPABASE_DELETE_REPO_SECRET_KEY") ?? "";
+const DELETE_REPO_SUPABASE_SECRET_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? "";
 
 type CollaboratorRole = "admin" | "editor" | "contributor";
 type ParsedCollaboratorRole = CollaboratorRole | "viewer";
@@ -29,8 +29,8 @@ const roleToGithubPermission: Record<Exclude<CollaboratorRole, "contributor">, "
 };
 
 const requireEnv = () => {
-  if (!SUPABASE_URL || !SUPABASE_DELETE_REPO_SECRET_KEY) {
-    return "Missing SUPABASE_URL or SUPABASE_DELETE_REPO_SECRET_KEY.";
+  if (!SUPABASE_URL || !DELETE_REPO_SUPABASE_SECRET_KEY) {
+    return "Missing SUPABASE_URL or DELETE_REPO_SUPABASE_SECRET_KEY.";
   }
   return null;
 };
@@ -202,7 +202,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_DELETE_REPO_SECRET_KEY, {
+  const supabase = createClient(SUPABASE_URL, DELETE_REPO_SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 

@@ -1,4 +1,4 @@
-import { supabase } from "../../../../../../lib/supabase";
+import { supabase, supabaseFunctionUrl } from "../../../../../../lib/supabase";
 import {
   FILE_KEYS,
   PAGE_PATH_PREFIX,
@@ -91,7 +91,7 @@ export const createCollaborationPullRequest = async ({
   sessionDisplayName: string;
   touchedSections: Set<BuilderEditableSectionKey>;
 }) => {
-  const prResponse = await fetch("/.netlify/functions/github-upsert-collaboration-pr", {
+  const prResponse = await fetch(supabaseFunctionUrl("github-upsert-collaboration-pr"), {
     method: "POST",
     headers: {
       "content-type": "application/json",

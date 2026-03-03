@@ -72,7 +72,7 @@ export const publishEditorDraft = async ({
   }
 
   setProvisionStep("Ensuring collaboration branch...");
-  await githubRequest("/.netlify/functions/github-ensure-branch", {
+  await githubRequest("github-ensure-branch", {
     owner: ownerLogin,
     repo: repoName,
     branch: headBranch,
@@ -125,7 +125,7 @@ export const publishEditorDraft = async ({
   if (siteImage && touchedSections.has("metadata")) {
     setProvisionStep("Uploading site image...");
     const imageBase64 = toBase64(await siteImage.arrayBuffer());
-    await githubRequest("/.netlify/functions/github-contents-write", {
+    await githubRequest("github-contents-write", {
       owner: ownerLogin,
       repo: repoName,
       path: imagePath,
@@ -151,7 +151,7 @@ export const publishEditorDraft = async ({
   }
 
   setProvisionStep("Committing editor changes...");
-  await githubRequest<BatchCommitResponse>("/.netlify/functions/github-contents-batch-commit", {
+  await githubRequest<BatchCommitResponse>("github-contents-batch-commit", {
     owner: ownerLogin,
     repo: repoName,
     branch: headBranch,

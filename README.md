@@ -289,7 +289,7 @@ If function endpoints look stale or return unexpected 404s after function change
 
 Notes:
 - `npm run dev` uses `netlify functions:serve` (not `netlify dev`) because `netlify dev` can fail to spawn the app command on some local environments.
-- Frontend requests still use `/.netlify/functions/*` via Vite proxy to `:8888`.
+- Frontend requests call Supabase Edge Functions at `https://<project-ref>.supabase.co/functions/v1/*`.
 - Root `.env` is the default env location for both frontend and functions in local development.
 - Dev scripts use strict Vite port behavior; if `5173` is already occupied, stop the existing process instead of silently moving to `5174`.
 

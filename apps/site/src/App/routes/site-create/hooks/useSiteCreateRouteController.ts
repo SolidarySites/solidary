@@ -6,6 +6,7 @@ import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { requireFreshSupabaseAuth } from "../../../features/auth/services/github-auth";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
+import { supabaseFunctionUrl } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
 import { provisionSiteDraft } from "../services/site-create-provisioning";
 
@@ -78,7 +79,7 @@ export const useSiteCreateRouteController = () => {
     repoName: string;
     supabaseAccessToken: string;
   }): Promise<SiteTitleRepoConflict | null> => {
-    const response = await fetch("/.netlify/functions/github-check-repo-name", {
+    const response = await fetch(supabaseFunctionUrl("github-check-repo-name"), {
       method: "POST",
       headers: {
         "content-type": "application/json",

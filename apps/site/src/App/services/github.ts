@@ -1,8 +1,9 @@
 import { toBase64 } from "../lib/base64";
 import { getFreshSupabaseAuthSnapshot } from "../features/auth/services/github-auth";
+import { supabaseFunctionUrl } from "../lib/supabase";
 
 export async function githubRequest<T>(
-  path: string,
+  functionName: string,
   body: Record<string, unknown>
 ): Promise<T> {
   const payloadBody: Record<string, unknown> = { ...body };
@@ -22,7 +23,7 @@ export async function githubRequest<T>(
     }
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(supabaseFunctionUrl(functionName), {
     method: "POST",
     headers: {
       "content-type": "application/json"
@@ -48,7 +49,7 @@ export async function readTextFile(
 ) {
   try {
     const result = await githubRequest<{ content: string; encoding: string }>(
-      "/.netlify/functions/github-contents-read",
+      "github-contents-read",
       { owner, repo, path, branch }
     );
     if (result?.encoding === "base64") {
@@ -69,7 +70,7 @@ export async function listDirectory(
   branch: string
 ) {
   const result = await githubRequest<{ entries: { name: string; path: string; type: string }[] }>(
-    "/.netlify/functions/github-contents-list",
+    "github-contents-list",
     { owner, repo, path, branch }
   );
   return result.entries ?? [];
@@ -83,7 +84,7 @@ export async function writeTextFile(
   content: string,
   branch: string
 ) {
-  await githubRequest("/.netlify/functions/github-contents-write", {
+  await githubRequest("github-contents-write", {
     owner,
     repo,
     path,
@@ -100,7 +101,7 @@ export async function deleteTextFile(
   path: string,
   branch: string
 ) {
-  await githubRequest("/.netlify/functions/github-contents-delete", {
+  await githubRequest("github-contents-delete", {
     owner,
     repo,
     path,

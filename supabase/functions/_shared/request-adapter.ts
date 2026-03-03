@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Handler, HandlerEvent, HandlerResult } from "./types.ts";
 
+const DEFAULT_CORS_ALLOW_HEADERS =
+  "authorization, x-client-info, apikey, content-type, x-provision-internal-key";
+const DEFAULT_CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+
 const titleCaseHeaderName = (value: string) =>
   value
     .split("-")
@@ -35,6 +39,35 @@ const decodeBase64Body = (value: string): Uint8Array => {
   return output;
 };
 
+const buildCorsHeaders = (request: Request): Record<string, string> => {
+  const origin = request.headers.get("origin")?.trim() || "*";
+  const requestedHeaders = request.headers.get("access-control-request-headers")?.trim() || "";
+
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": DEFAULT_CORS_ALLOW_METHODS,
+    "access-control-allow-headers": requestedHeaders || DEFAULT_CORS_ALLOW_HEADERS,
+    "access-control-max-age": "86400",
+    vary: "origin, access-control-request-headers"
+  };
+};
+
+const withCors = (response: Response, request: Request): Response => {
+  const corsHeaders = buildCorsHeaders(request);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeaders)) {
+    if (!headers.has(key)) {
+      headers.set(key, value);
+    }
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+};
+
 const toResponse = (result: HandlerResult): Response => {
   const statusCode = Number.isFinite(result?.statusCode) ? Number(result.statusCode) : 200;
   const responseHeaders = new Headers();
@@ -57,6 +90,10 @@ const toResponse = (result: HandlerResult): Response => {
 };
 
 export const runHandler = async (request: Request, handler: Handler): Promise<Response> => {
+  if (request.method === "OPTIONS") {
+    return withCors(new Response(null, { status: 204 }), request);
+  }
+
   const url = new URL(request.url);
   const bodyText = request.method === "GET" || request.method === "HEAD" ? "" : await request.text();
 
@@ -70,14 +107,14 @@ export const runHandler = async (request: Request, handler: Handler): Promise<Re
 
   try {
     const result = await handler(event, {} as any);
-    return toResponse(result ?? { statusCode: 204, body: "" });
+    return withCors(toResponse(result ?? { statusCode: 204, body: "" }), request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unhandled function error.";
-    return new Response(JSON.stringify({ error: message }), {
+    return withCors(new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: {
         "content-type": "application/json"
       }
-    });
+    }), request);
   }
 };

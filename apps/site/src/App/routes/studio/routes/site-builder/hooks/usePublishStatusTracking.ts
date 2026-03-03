@@ -59,7 +59,7 @@ export const usePublishStatusTracking = ({
         let status: GitHubPublishStatusResponse;
         try {
           status = await githubRequest<GitHubPublishStatusResponse>(
-            "/.netlify/functions/github-publish-status",
+            "github-publish-status",
             {
               owner,
               repo,

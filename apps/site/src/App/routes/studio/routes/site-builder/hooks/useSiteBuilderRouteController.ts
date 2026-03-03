@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../../../features/auth/hooks/useAuth";
 import { requireFreshGithubAuth } from "../../../../../features/auth/services/github-auth";
-import { supabase } from "../../../../../lib/supabase";
+import { supabase, supabaseFunctionUrl } from "../../../../../lib/supabase";
 import { toBase64 } from "../../../../../lib/base64";
 import { githubRequest } from "../../../../../services/github";
 import { sanitizeFilename } from "../../../../../services/filename-sanitizer";
@@ -559,7 +559,7 @@ export const useSiteBuilderRouteController = ({
       }
 
       const accessToken = session?.access_token?.trim() ?? "";
-      const response = await fetch("/.netlify/functions/cleanup-draft-images", {
+      const response = await fetch(supabaseFunctionUrl("cleanup-draft-images"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -961,7 +961,7 @@ export const useSiteBuilderRouteController = ({
         });
         const fileName = `${safeBaseName}.${extension}`;
         const repoPath = `${REPO_SOLIDARY_MEDIA_BASE_PATH}/${MEDIA_IMAGE_UPLOAD_FOLDER}/${fileName}`;
-        await githubRequest("/.netlify/functions/github-contents-write", {
+        await githubRequest("github-contents-write", {
           owner: repoContext.owner,
           repo: repoContext.repo,
           path: repoPath,
@@ -1020,7 +1020,7 @@ export const useSiteBuilderRouteController = ({
       await requireFreshGithubAuth();
 
       for (const path of imageObject.deletePaths) {
-        await githubRequest("/.netlify/functions/github-contents-delete", {
+        await githubRequest("github-contents-delete", {
           owner: repoContext.owner,
           repo: repoContext.repo,
           path,
@@ -1109,7 +1109,7 @@ export const useSiteBuilderRouteController = ({
 
       for (const [fromPath, toPath] of changedEntries) {
         const readResult = await githubRequest<{ content?: string; encoding?: string }>(
-          "/.netlify/functions/github-contents-read",
+          "github-contents-read",
           {
             owner: repoContext.owner,
             repo: repoContext.repo,
@@ -1124,7 +1124,7 @@ export const useSiteBuilderRouteController = ({
             ? rawContent.replace(/\n/g, "")
             : toBase64(new TextEncoder().encode(rawContent).buffer);
 
-        await githubRequest("/.netlify/functions/github-contents-write", {
+        await githubRequest("github-contents-write", {
           owner: repoContext.owner,
           repo: repoContext.repo,
           path: toPath,
@@ -1133,7 +1133,7 @@ export const useSiteBuilderRouteController = ({
           branch: repoContext.branch
         });
 
-        await githubRequest("/.netlify/functions/github-contents-delete", {
+        await githubRequest("github-contents-delete", {
           owner: repoContext.owner,
           repo: repoContext.repo,
           path: fromPath,
@@ -1207,7 +1207,7 @@ export const useSiteBuilderRouteController = ({
 
       await requireFreshGithubAuth();
 
-      await githubRequest("/.netlify/functions/github-contents-write", {
+      await githubRequest("github-contents-write", {
         owner: repoContext.owner,
         repo: repoContext.repo,
         path: fontRepoPath,
@@ -1229,7 +1229,7 @@ export const useSiteBuilderRouteController = ({
       });
       const fontsCssToWrite = nextFontsCss.trim() ? nextFontsCss : "/* no custom font faces */\n";
 
-      await githubRequest("/.netlify/functions/github-contents-write", {
+      await githubRequest("github-contents-write", {
         owner: repoContext.owner,
         repo: repoContext.repo,
         path: REPO_FONTS_CSS_PATH,
@@ -1294,7 +1294,7 @@ export const useSiteBuilderRouteController = ({
     try {
       await requireFreshGithubAuth();
 
-      await githubRequest("/.netlify/functions/github-contents-delete", {
+      await githubRequest("github-contents-delete", {
         owner: repoContext.owner,
         repo: repoContext.repo,
         path: entry.path,
@@ -1316,7 +1316,7 @@ export const useSiteBuilderRouteController = ({
         ? withoutPrefixedPath
         : "/* no custom font faces */\n";
 
-      await githubRequest("/.netlify/functions/github-contents-write", {
+      await githubRequest("github-contents-write", {
         owner: repoContext.owner,
         repo: repoContext.repo,
         path: REPO_FONTS_CSS_PATH,
@@ -1773,7 +1773,7 @@ export const useSiteBuilderRouteController = ({
       throw new Error("Invalid repository name. Please reload and try again.");
     }
 
-    await githubRequest("/.netlify/functions/github-contents-batch-commit", {
+    await githubRequest("github-contents-batch-commit", {
       owner: ownerLogin,
       repo: repoName,
       branch: draftState.branch,
@@ -1826,7 +1826,7 @@ export const useSiteBuilderRouteController = ({
           throw new Error("Invalid repository name. Please reload and try again.");
         }
 
-        await githubRequest("/.netlify/functions/github-contents-write", {
+        await githubRequest("github-contents-write", {
           owner: ownerLogin,
           repo: repoName,
           path: imagePath,
@@ -1854,7 +1854,7 @@ export const useSiteBuilderRouteController = ({
         throw new Error("Invalid repository name. Please reload and try again.");
       }
 
-      await githubRequest("/.netlify/functions/github-contents-batch-commit", {
+      await githubRequest("github-contents-batch-commit", {
         owner: ownerLogin,
         repo: repoName,
         branch: draftState.branch,
@@ -2081,7 +2081,7 @@ export const useSiteBuilderRouteController = ({
     try {
       const freshAuth = await requireFreshGithubAuth();
       const result = await githubRequest<GitHubPagesDomainResponse>(
-        "/.netlify/functions/github-pages-set-domain",
+        "github-pages-set-domain",
         {
           owner,
           repo,
@@ -2130,7 +2130,7 @@ export const useSiteBuilderRouteController = ({
     try {
       const freshAuth = await requireFreshGithubAuth();
       const result = await githubRequest<GitHubPagesDomainResponse>(
-        "/.netlify/functions/github-pages-set-domain",
+        "github-pages-set-domain",
         {
           owner,
           repo,
@@ -2179,7 +2179,7 @@ export const useSiteBuilderRouteController = ({
     try {
       const freshAuth = await requireFreshGithubAuth();
       await githubRequest<GitHubPagesDomainResponse>(
-        "/.netlify/functions/github-pages-set-domain",
+        "github-pages-set-domain",
         {
           owner,
           repo,
@@ -2237,7 +2237,7 @@ export const useSiteBuilderRouteController = ({
         }
 
         try {
-          await fetch("/.netlify/functions/github-delete-repo", {
+          await fetch(supabaseFunctionUrl("github-delete-repo"), {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({

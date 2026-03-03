@@ -111,7 +111,7 @@ export const uploadDraftImagesToGitHub = async ({
     }
 
     const content = toBase64(await downloadData.arrayBuffer());
-    await githubRequest("/.netlify/functions/github-contents-write", {
+    await githubRequest("github-contents-write", {
       owner: ownerLogin,
       repo: repoName,
       path: repoPath,
