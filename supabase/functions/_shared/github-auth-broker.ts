@@ -16,8 +16,11 @@ const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_
 const normalizeGitHubToken = (value: string | null | undefined): string => {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) return "";
+  const withoutBearerPrefix = trimmed.replace(/^Bearer\s+/i, "");
+  const normalizedWhitespace = withoutBearerPrefix.replace(/[\s\r\n\t]+/g, "");
+  if (!normalizedWhitespace) return "";
   // Prevent invalid header values (control chars, spaces, non-ASCII) from reaching fetch().
-  return /^[\x21-\x7E]+$/.test(trimmed) ? trimmed : "";
+  return /^[\x21-\x7E]+$/.test(normalizedWhitespace) ? normalizedWhitespace : "";
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {

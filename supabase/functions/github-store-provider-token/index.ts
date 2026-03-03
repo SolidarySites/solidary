@@ -14,6 +14,7 @@ const GITHUB_API = "https://api.github.com";
 const GITHUB_OAUTH_CLIENT_ID = Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "";
 const GITHUB_OAUTH_CLIENT_SECRET = Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
+const TOKEN_EXPIRY_SKEW_MS = 90 * 1000;
 
 type StoreProviderTokenBody = {
   provider_token?: string;
@@ -40,6 +41,9 @@ type GitHubOAuthTokenCheckPayload = {
 
 type StoredAuthModeRow = {
   auth_mode?: GitHubAuthMode | null;
+  access_token_encrypted?: string | null;
+  access_token_expires_at?: string | null;
+  refresh_token_encrypted?: string | null;
 };
 
 const debugLog = (message: string, details: Record<string, unknown>) => {
@@ -70,6 +74,28 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
 const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   return normalized === "github" ? "github" : "solidary";
+};
+
+const normalizeStoredProviderToken = (value: string) =>
+  value
+    .trim()
+    .replace(/^Bearer\s+/i, "")
+    .replace(/[\s\r\n\t]+/g, "");
+
+const hasUsableStoredCredential = (row: StoredAuthModeRow | null): boolean => {
+  if (!row) return false;
+
+  const accessTokenEncrypted = row.access_token_encrypted?.trim() ?? "";
+  const refreshTokenEncrypted = row.refresh_token_encrypted?.trim() ?? "";
+  if (refreshTokenEncrypted) return true;
+  if (!accessTokenEncrypted) return false;
+
+  const expiresAt = row.access_token_expires_at?.trim() ?? "";
+  if (!expiresAt) return true;
+
+  const expiresAtMs = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresAtMs)) return false;
+  return expiresAtMs - Date.now() > TOKEN_EXPIRY_SKEW_MS;
 };
 
 const fetchGitHubUser = async (providerToken: string): Promise<GitHubUserPayload | null> => {
@@ -162,7 +188,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const providerToken = body.provider_token?.trim() ?? "";
+  const providerToken = normalizeStoredProviderToken(body.provider_token ?? "");
   const providerRefreshToken = body.provider_refresh_token?.trim() ?? "";
   if (!providerToken) {
     return safeJson(400, { error: "Missing provider_token." });
@@ -189,7 +215,7 @@ export const handler: Handler = async (event) => {
 
   const { data: existingAuthModeRow, error: existingAuthModeError } = await supabase
     .from("github_app_user_tokens")
-    .select("auth_mode")
+    .select("auth_mode, access_token_encrypted, access_token_expires_at, refresh_token_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -197,10 +223,9 @@ export const handler: Handler = async (event) => {
     return safeJson(500, { error: existingAuthModeError.message });
   }
 
-  const existingAuthMode = normalizeGitHubAuthMode(
-    (existingAuthModeRow as StoredAuthModeRow | null)?.auth_mode ?? null
-  );
-  if (existingAuthMode === "github") {
+  const existingCredential = existingAuthModeRow as StoredAuthModeRow | null;
+  const existingAuthMode = normalizeGitHubAuthMode(existingCredential?.auth_mode ?? null);
+  if (existingAuthMode === "github" && hasUsableStoredCredential(existingCredential)) {
     return safeJson(200, {
       ok: true,
       skipped: true,

@@ -59,9 +59,15 @@ const debugLog = (message: string, details: Record<string, unknown>) => {
   console.log("[github-auth]", message, details);
 };
 
+const normalizeGitHubProviderToken = (value: string | null | undefined) =>
+  (value ?? "")
+    .trim()
+    .replace(/^Bearer\s+/i, "")
+    .replace(/[\s\r\n\t]+/g, "");
+
 const getSessionProviderToken = (session: Session | null): string => {
   if (!session) return "";
-  return ((session as SessionWithProviderCredentials).provider_token ?? "").trim();
+  return normalizeGitHubProviderToken((session as SessionWithProviderCredentials).provider_token ?? "");
 };
 
 const getSessionProviderRefreshToken = (session: Session | null): string => {
