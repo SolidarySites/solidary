@@ -174,11 +174,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const signInWithGitHub = useCallback(async () => {
+  const signInWithGitHub = useCallback(async (returnToPath?: string) => {
+    const normalizedReturnToPath =
+      typeof returnToPath === "string" && returnToPath.trim().startsWith("/")
+        ? returnToPath.trim()
+        : typeof window === "undefined"
+          ? "/"
+          : window.location.pathname;
     const redirectTo =
       typeof window === "undefined"
         ? undefined
-        : `${window.location.origin}${window.location.pathname}`;
+        : `${window.location.origin}${normalizedReturnToPath}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {

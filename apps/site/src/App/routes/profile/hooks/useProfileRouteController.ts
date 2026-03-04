@@ -20,6 +20,7 @@ import {
 } from "./useProfileAvatarController";
 
 const GITHUB_APP_CONNECT_RESULT_MESSAGE_TYPE = "solidary:github-app-connect-result";
+const SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM = "switch_to_solidary";
 
 type GitHubAppConnectResultStatus = "connected" | "error";
 
@@ -33,6 +34,9 @@ const getSaveErrorMessage = (error: unknown): string => {
 
 const parseGitHubAppConnectResultStatus = (value: string): GitHubAppConnectResultStatus =>
   value === "connected" ? "connected" : "error";
+
+const isMissingProviderTokenMessage = (message: string) =>
+  message.toLowerCase().includes("github oauth session token is missing");
 
 const parseGitHubAppConnectResultMessagePayload = (
   value: unknown
@@ -59,7 +63,7 @@ const parseGitHubAppConnectResultMessagePayload = (
 };
 
 export const useProfileRouteController = () => {
-  const { session, connectGitHubApp } = useAuth();
+  const { session, connectGitHubApp, signInWithGitHub } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -356,6 +360,80 @@ export const useProfileRouteController = () => {
     void saveSettings();
   };
 
+  const runSwitchToSolidaryOAuth = useCallback(
+    async ({ allowReauth }: { allowReauth: boolean }) => {
+      setSwitchAuthModeBusy(true);
+      setNotice(null);
+      setNoticeKind(null);
+
+      try {
+        await switchToSolidaryOAuthForCurrentUser();
+        await refreshGitHubAuthStatus();
+        setNotice("Switched to Solidary OAuth.");
+        setNoticeKind("notice");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Could not switch to Solidary OAuth.";
+
+        if (allowReauth && isMissingProviderTokenMessage(message)) {
+          const params = new URLSearchParams(location.search);
+          params.set(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM, "1");
+          const nextSearch = params.toString();
+          const returnTo = `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`;
+
+          try {
+            await signInWithGitHub(returnTo);
+            return;
+          } catch (signInError) {
+            const signInMessage =
+              signInError instanceof Error
+                ? signInError.message
+                : "Could not start GitHub sign-in.";
+            setNotice(signInMessage);
+            setNoticeKind("error");
+            return;
+          }
+        }
+
+        setNotice(message);
+        setNoticeKind("error");
+      } finally {
+        setSwitchAuthModeBusy(false);
+      }
+    },
+    [
+      location.hash,
+      location.pathname,
+      location.search,
+      refreshGitHubAuthStatus,
+      signInWithGitHub
+    ]
+  );
+
+  useEffect(() => {
+    if (!session) return;
+
+    const params = new URLSearchParams(location.search);
+    if (params.get(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM) !== "1") {
+      return;
+    }
+
+    params.delete(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM);
+    const nextSearch = params.toString();
+    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`, {
+      replace: true
+    });
+
+    void runSwitchToSolidaryOAuth({ allowReauth: false });
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    navigate,
+    runSwitchToSolidaryOAuth,
+    session
+  ]);
+
   const onSwitchToSolidaryOAuth = () => {
     if (!session) {
       setNotice("Sign in with GitHub to switch auth mode.");
@@ -372,25 +450,7 @@ export const useProfileRouteController = () => {
       return;
     }
 
-    setSwitchAuthModeBusy(true);
-    setNotice(null);
-    setNoticeKind(null);
-
-    void switchToSolidaryOAuthForCurrentUser()
-      .then(async () => {
-        await refreshGitHubAuthStatus();
-        setNotice("Switched to Solidary OAuth.");
-        setNoticeKind("notice");
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error ? error.message : "Could not switch to Solidary OAuth.";
-        setNotice(message);
-        setNoticeKind("error");
-      })
-      .finally(() => {
-        setSwitchAuthModeBusy(false);
-      });
+    void runSwitchToSolidaryOAuth({ allowReauth: true });
   };
 
   return {

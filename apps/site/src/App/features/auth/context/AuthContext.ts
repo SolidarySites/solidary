@@ -8,7 +8,7 @@ import type {
 export type AuthContextValue = {
   session: Session | null;
   sessionResolved: boolean;
-  signInWithGitHub: () => Promise<void>;
+  signInWithGitHub: (returnToPath?: string) => Promise<void>;
   connectGitHubApp: (request?: ConnectGitHubAppRequest) => Promise<ConnectGitHubAppResult>;
   signOut: () => Promise<void>;
 };
