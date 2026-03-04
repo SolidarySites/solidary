@@ -2126,7 +2126,10 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     if (!state || !previewRoot || !editorElement) return;
 
     if (inlineCssStyle) {
-      inlineCssStyle.textContent = typeof state.previewInlineCss === "string" ? state.previewInlineCss : "";
+      var nextInlineCss = typeof state.previewInlineCss === "string" ? state.previewInlineCss : "";
+      if (inlineCssStyle.textContent !== nextInlineCss) {
+        inlineCssStyle.textContent = nextInlineCss;
+      }
     }
 
     applyStyleVariables(state.previewStyleVars || {});
