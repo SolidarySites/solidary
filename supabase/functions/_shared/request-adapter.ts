@@ -52,6 +52,9 @@ const buildCorsHeaders = (request: Request): Record<string, string> => {
   };
 };
 
+const statusDisallowsResponseBody = (statusCode: number) =>
+  statusCode === 204 || statusCode === 205 || statusCode === 304;
+
 const withCors = (response: Response, request: Request): Response => {
   const corsHeaders = buildCorsHeaders(request);
   const headers = new Headers(response.headers);
@@ -81,7 +84,11 @@ const toResponse = (result: HandlerResult): Response => {
   }
 
   const rawBody = typeof result?.body === "string" ? result.body : "";
-  const body: BodyInit | null = result?.isBase64Encoded ? decodeBase64Body(rawBody) : rawBody;
+  const body: BodyInit | null = statusDisallowsResponseBody(statusCode)
+    ? null
+    : result?.isBase64Encoded
+      ? decodeBase64Body(rawBody)
+      : rawBody;
 
   return new Response(body, {
     status: statusCode,
