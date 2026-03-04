@@ -13,7 +13,9 @@ import {
   connectGitHubAppForCurrentUser,
   GITHUB_OAUTH_SCOPES,
   syncGithubProviderTokenToServer,
-  syncGithubAuthSnapshotFromSession
+  syncGithubAuthSnapshotFromSession,
+  type ConnectGitHubAppRequest,
+  type ConnectGitHubAppResult
 } from "../services/github-auth";
 import { AuthContext } from "../context/AuthContext";
 
@@ -199,9 +201,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await supabase.auth.signOut();
   }, []);
 
-  const connectGitHubApp = useCallback(async (returnTo?: string) => {
-    await connectGitHubAppForCurrentUser({ returnTo, force: true });
-  }, []);
+  const connectGitHubApp = useCallback(
+    async (request: ConnectGitHubAppRequest = {}): Promise<ConnectGitHubAppResult> => {
+      return connectGitHubAppForCurrentUser({
+        returnTo: request.returnTo,
+        force: true,
+        openMode: request.openMode,
+        navigationWindow: request.navigationWindow
+      });
+    },
+    []
+  );
 
   const value = useMemo(
     () => ({

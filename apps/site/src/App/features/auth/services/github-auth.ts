@@ -56,6 +56,15 @@ export type ConnectGitHubAppResult = {
   redirected: boolean;
 };
 
+export type ConnectGitHubAppOpenMode = "same_tab" | "new_tab" | "popup";
+
+export type ConnectGitHubAppRequest = {
+  returnTo?: string;
+  force?: boolean;
+  openMode?: ConnectGitHubAppOpenMode;
+  navigationWindow?: Window | null;
+};
+
 type InternalGithubAuthSnapshot = FreshGithubAuthSnapshot & {
   providerRefreshToken: string;
 };
@@ -197,13 +206,48 @@ export const requireFreshSupabaseAuth = async (): Promise<FreshSupabaseAuth> => 
   };
 };
 
+const navigateToGitHubAppConnectUrl = ({
+  url,
+  openMode,
+  navigationWindow
+}: {
+  url: string;
+  openMode: ConnectGitHubAppOpenMode;
+  navigationWindow?: Window | null;
+}) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (openMode === "popup") {
+    const popupWindow = navigationWindow;
+    if (popupWindow && !popupWindow.closed) {
+      try {
+        popupWindow.location.assign(url);
+        popupWindow.focus();
+        return;
+      } catch {
+        // Fall through to current-tab navigation when popup cannot be controlled.
+      }
+    }
+  }
+
+  if (openMode === "new_tab") {
+    const openedWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (openedWindow) {
+      return;
+    }
+  }
+
+  window.location.assign(url);
+};
+
 export const connectGitHubAppForCurrentUser = async ({
   returnTo,
-  force = false
-}: {
-  returnTo?: string;
-  force?: boolean;
-} = {}) => {
+  force = false,
+  openMode = "same_tab",
+  navigationWindow
+}: ConnectGitHubAppRequest = {}) => {
   const { supabaseAccessToken } = await requireFreshSupabaseAuth();
   const defaultReturnTo =
     typeof window === "undefined"
@@ -243,9 +287,11 @@ export const connectGitHubAppForCurrentUser = async ({
     throw new Error("GitHub App connect URL is missing.");
   }
 
-  if (typeof window !== "undefined") {
-    window.location.assign(url);
-  }
+  navigateToGitHubAppConnectUrl({
+    url,
+    openMode,
+    navigationWindow
+  });
 
   return {
     connected: false,
