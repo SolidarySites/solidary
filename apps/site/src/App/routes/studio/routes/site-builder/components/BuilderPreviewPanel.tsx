@@ -157,6 +157,48 @@ const BuilderPreviewPanel = ({
   );
 
   useEffect(() => {
+    const shell = previewShellRef.current;
+    if (!shell) return;
+
+    let animationFrame = 0;
+    const updateShellHeight = () => {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const shellRect = shell.getBoundingClientRect();
+      const topInset = Math.max(shellRect.top, 0);
+      const bottomInset = 16;
+      const availableHeight = Math.max(0, Math.floor(viewportHeight - topInset - bottomInset));
+      shell.style.setProperty("--builder-preview-shell-height", `${availableHeight}px`);
+    };
+    const scheduleShellHeightUpdate = () => {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        updateShellHeight();
+      });
+    };
+
+    updateShellHeight();
+    window.addEventListener("scroll", scheduleShellHeightUpdate, { passive: true });
+    window.addEventListener("resize", scheduleShellHeightUpdate);
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            scheduleShellHeightUpdate();
+          });
+    resizeObserver?.observe(shell);
+
+    return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", scheduleShellHeightUpdate);
+      window.removeEventListener("resize", scheduleShellHeightUpdate);
+      resizeObserver?.disconnect();
+      shell.style.removeProperty("--builder-preview-shell-height");
+    };
+  }, []);
+
+  useEffect(() => {
     if (!showStylesHoverInspector || isDraftLoading || Boolean(draftLoadError)) {
       const frameId = window.requestAnimationFrame(() => {
         clearHoverInspector();

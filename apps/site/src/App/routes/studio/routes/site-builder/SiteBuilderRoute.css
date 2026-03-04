@@ -405,15 +405,12 @@
 }
 
 .builder-body.is-settings-full .builder-sidebar-shell {
-  position: static;
-  top: auto;
   width: 100%;
-  height: auto;
 }
 
 .builder-body.is-settings-full .builder-sidebar {
-  height: auto;
-  min-height: 640px;
+  height: 100%;
+  min-height: 0;
 }
 
 .builder-body.is-settings-full .builder-sidebar-toggle-tab {
@@ -423,15 +420,29 @@
 .builder-preview-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
   min-width: 0;
   width: 100%;
-  position: relative;
+  position: sticky;
+  top: calc(
+    var(--builder-topbar-sticky-top) + var(--builder-topbar-sticky-height) +
+      var(--builder-sidebar-sticky-gap)
+  );
+  align-self: start;
+  height: var(
+    --builder-preview-shell-height,
+    calc(
+    100dvh - var(--site-header-visible-height, 0px) - var(--builder-topbar-sticky-top) -
+      var(--builder-topbar-sticky-height) - var(--builder-sidebar-sticky-gap) - 1rem
+    )
+  );
 }
 
 .builder-preview-shell > .builder-panel {
   min-width: 0;
   width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .builder-hover-inspector {
@@ -721,7 +732,7 @@
   padding: 0;
   background: rgba(255, 255, 255, 0.9);
   display: grid;
-  min-height: 640px;
+  min-height: 0;
 }
 
 .builder-panel > .provisioning {
@@ -1259,6 +1270,12 @@
 .builder-page-javascript-editor .cm-scroller {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.8rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.builder-page-javascript-editor .cm-content {
+  overflow-wrap: anywhere;
 }
 
 .builder-page-properties-panel {
@@ -1317,7 +1334,7 @@
 
 .astro-preview-iframe {
   width: 100%;
-  min-height: 640px;
+  min-height: 100%;
   height: 100%;
   border: none;
   display: block;
@@ -1787,6 +1804,21 @@
     top: auto;
     width: auto;
     height: auto;
+  }
+
+  .builder-preview-shell {
+    position: static;
+    top: auto;
+    height: auto;
+  }
+
+  .builder-preview-shell > .builder-panel {
+    height: auto;
+    min-height: 640px;
+  }
+
+  .astro-preview-iframe {
+    min-height: 640px;
   }
 
   .builder-sidebar-shell.is-collapsed {

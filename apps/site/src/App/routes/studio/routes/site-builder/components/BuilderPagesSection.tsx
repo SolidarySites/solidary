@@ -1,4 +1,5 @@
 import { javascript as javascriptLanguage } from "@codemirror/lang-javascript";
+import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useState, type RefObject } from "react";
 import type { PreviewSelectedElement } from "./AstroTemplatePreview";
@@ -45,7 +46,7 @@ type BuilderPagesSectionProps = {
 };
 
 const getPageItemKey = (page: BuilderPage, index: number) => page.id ?? `page-${index}`;
-const pageJavaScriptEditorExtensions = [javascriptLanguage()];
+const pageJavaScriptEditorExtensions = [javascriptLanguage(), EditorView.lineWrapping];
 
 type SelectedElementPropertiesFieldsProps = {
   selectedElement: PreviewSelectedElement;
