@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-02T15:33:24.829Z",
-  "latest_commit_sha": "b2f15731157fe9da8d91772cb075496ded82b1da",
+  "generated_at": "2026-03-04T12:33:55.212Z",
+  "latest_commit_sha": "00eb468e2a27c9c2d087a00198bcc902566fad2f",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -104,7 +104,7 @@
                           {
                             "path": "src/App/features/auth/context/AuthContext.ts",
                             "description": "Defines the global auth context shape (`session`, `sessionResolved`, `signInWithGitHub`, `signOut`) and exports the nullable React context instance.",
-                            "LOC": 12
+                            "LOC": 16
                           }
                         ]
                       },
@@ -128,7 +128,7 @@
                           {
                             "path": "src/App/features/auth/providers/AuthProvider.tsx",
                             "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
-                            "LOC": 218
+                            "LOC": 234
                           }
                         ]
                       },
@@ -140,12 +140,12 @@
                           {
                             "path": "src/App/features/auth/services/github-auth.test.ts",
                             "description": "Unit tests for GitHub auth token/session helpers, including required-token validation and error-path behavior.",
-                            "LOC": 158
+                            "LOC": 254
                           },
                           {
                             "path": "src/App/features/auth/services/github-auth.ts",
                             "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-                            "LOC": 358
+                            "LOC": 513
                           },
                           {
                             "path": "src/App/features/auth/services/user-profile.ts",
@@ -240,7 +240,7 @@
                   {
                     "path": "src/App/lib/supabase.ts",
                     "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
-                    "LOC": 20
+                    "LOC": 40
                   }
                 ]
               },
@@ -325,37 +325,19 @@
                         "path": "src/App/routes/landing/components",
                         "description": "Reserved folder for future landing-specific presentational components (currently placeholder only).",
                         "directories": [],
-                        "files": [
-                          {
-                            "path": "src/App/routes/landing/components/.gitkeep",
-                            "description": "Placeholder file keeping the landing components directory tracked until concrete components are added.",
-                            "LOC": 0
-                          }
-                        ]
+                        "files": []
                       },
                       {
                         "path": "src/App/routes/landing/hooks",
                         "description": "Reserved folder for future landing route hooks/controller logic (currently placeholder only).",
                         "directories": [],
-                        "files": [
-                          {
-                            "path": "src/App/routes/landing/hooks/.gitkeep",
-                            "description": "Placeholder file keeping the landing hooks directory tracked until route hooks are introduced.",
-                            "LOC": 0
-                          }
-                        ]
+                        "files": []
                       },
                       {
                         "path": "src/App/routes/landing/services",
                         "description": "Reserved folder for future landing route services/data helpers (currently placeholder only).",
                         "directories": [],
-                        "files": [
-                          {
-                            "path": "src/App/routes/landing/services/.gitkeep",
-                            "description": "Placeholder file keeping the landing services directory tracked until landing data/services are added.",
-                            "LOC": 0
-                          }
-                        ]
+                        "files": []
                       }
                     ],
                     "files": [
@@ -388,7 +370,7 @@
                           {
                             "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
                             "description": "Profile card showing connected GitHub identity details with action to connect/refresh GitHub App access.",
-                            "LOC": 95
+                            "LOC": 163
                           },
                           {
                             "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
@@ -410,7 +392,7 @@
                           {
                             "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
                             "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-                            "LOC": 245
+                            "LOC": 491
                           }
                         ]
                       },
@@ -441,12 +423,12 @@
                       {
                         "path": "src/App/routes/profile/ProfileRoute.css",
                         "description": "Profile settings route styles for account cards, avatars, and form layout.",
-                        "LOC": 277
+                        "LOC": 312
                       },
                       {
                         "path": "src/App/routes/profile/ProfileRoute.tsx",
                         "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-                        "LOC": 61
+                        "LOC": 70
                       }
                     ]
                   },
@@ -496,7 +478,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 248
+                            "LOC": 249
                           }
                         ]
                       },
@@ -661,7 +643,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
                                     "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 3054
+                                    "LOC": 3057
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
@@ -696,7 +678,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPagesSection.tsx",
                                     "description": "Sidebar pages manager for creating/selecting pages and editing page title/slug metadata.",
-                                    "LOC": 343
+                                    "LOC": 368
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
@@ -706,12 +688,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
                                     "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
-                                    "LOC": 600
+                                    "LOC": 613
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
                                     "description": "Section editor for custom design-token CSS used by the preview and publish output.",
-                                    "LOC": 310
+                                    "LOC": 372
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderToolbarIcons.tsx",
@@ -788,7 +770,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 2566
+                                    "LOC": 2667
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -992,7 +974,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1678
+                                "LOC": 1810
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -1173,7 +1155,7 @@
                   {
                     "path": "src/App/services/github.ts",
                     "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
-                    "LOC": 110
+                    "LOC": 111
                   }
                 ]
               },
@@ -1339,11 +1321,6 @@
     ],
     "files": [
       {
-        "path": ".env.example",
-        "description": "Example local environment variables for Supabase credentials and optional app configuration used by Vite.",
-        "LOC": 19
-      },
-      {
         "path": ".gitignore",
         "description": "App-level git ignore rules for logs, local files, editor metadata, and build output.",
         "LOC": 25
@@ -1369,14 +1346,9 @@
         "LOC": 46
       },
       {
-        "path": "README.md",
-        "description": "Default Vite React+TypeScript README retained from initial scaffold.",
-        "LOC": 73
-      },
-      {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1403
+        "LOC": 1375
       },
       {
         "path": "tsconfig.app.json",

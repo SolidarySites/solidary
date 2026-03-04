@@ -1,4 +1,5 @@
 import { css as cssLanguage } from "@codemirror/lang-css";
+import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useState } from "react";
 import {
@@ -48,7 +49,13 @@ const spacingFields: TokenField[] = [
   { variable: "--space-5", label: "Spacing XL", description: "Extra-large spacing token." }
 ];
 
-const customCssEditorExtensions = [cssLanguage()];
+const customCssEditorExtensions = [cssLanguage(), EditorView.lineWrapping];
+const styleEditorBasicSetup = {
+  lineNumbers: true,
+  foldGutter: true,
+  highlightActiveLine: true,
+  autocompletion: true
+};
 type BuilderStylesPanel = "colors" | "typography" | "layout" | "customCss";
 
 const RgbaColorControls = ({
@@ -136,51 +143,78 @@ const BuilderStylesSection = ({
 
   return (
     <div className="builder-section builder-styles-section">
-      <div className="builder-styles-section-row" role="radiogroup" aria-label="Styles section">
-        <button
-          type="button"
-          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
-            visiblePanel === "colors" ? "is-active" : ""
-          }`.trim()}
-          onClick={() => setActivePanel("colors")}
-          aria-pressed={visiblePanel === "colors"}
-          disabled={isAdvancedMode}
-        >
-          Color
-        </button>
-        <button
-          type="button"
-          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
-            visiblePanel === "typography" ? "is-active" : ""
-          }`.trim()}
-          onClick={() => setActivePanel("typography")}
-          aria-pressed={visiblePanel === "typography"}
-          disabled={isAdvancedMode}
-        >
-          Type
-        </button>
-        <button
-          type="button"
-          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
-            visiblePanel === "layout" ? "is-active" : ""
-          }`.trim()}
-          onClick={() => setActivePanel("layout")}
-          aria-pressed={visiblePanel === "layout"}
-          disabled={isAdvancedMode}
-        >
-          Layout
-        </button>
-        <button
-          type="button"
-          className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
-            visiblePanel === "customCss" ? "is-active" : ""
-          }`.trim()}
-          onClick={() => setActivePanel("customCss")}
-          aria-pressed={visiblePanel === "customCss"}
-        >
-          CSS
-        </button>
-      </div>
+      {!isAdvancedMode && (
+        <div className="builder-styles-section-row" role="radiogroup" aria-label="Styles section">
+          <button
+            type="button"
+            className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+              visiblePanel === "colors" ? "is-active" : ""
+            }`.trim()}
+            onClick={() => setActivePanel("colors")}
+            aria-pressed={visiblePanel === "colors"}
+          >
+            Color
+          </button>
+          <button
+            type="button"
+            className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+              visiblePanel === "typography" ? "is-active" : ""
+            }`.trim()}
+            onClick={() => setActivePanel("typography")}
+            aria-pressed={visiblePanel === "typography"}
+          >
+            Type
+          </button>
+          <button
+            type="button"
+            className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+              visiblePanel === "layout" ? "is-active" : ""
+            }`.trim()}
+            onClick={() => setActivePanel("layout")}
+            aria-pressed={visiblePanel === "layout"}
+          >
+            Layout
+          </button>
+          <button
+            type="button"
+            className={`ghost builder-page-editor-mode-button builder-styles-section-button ${
+              visiblePanel === "customCss" ? "is-active" : ""
+            }`.trim()}
+            onClick={() => setActivePanel("customCss")}
+            aria-pressed={visiblePanel === "customCss"}
+          >
+            CSS
+          </button>
+        </div>
+      )}
+
+      {isAdvancedMode && (
+        <div className="builder-styles-card">
+          <CodeMirror
+            className="builder-styles-custom-css-editor builder-advanced-css-block"
+            value={advancedStructureCss}
+            extensions={customCssEditorExtensions}
+            basicSetup={styleEditorBasicSetup}
+            onChange={onAdvancedStructureCssChange}
+            height="340px"
+            aria-label="Advanced structure.css"
+          />
+          <div className="builder-styles-advanced-toggle-shell is-enabled">
+            <label className="builder-styles-advanced-toggle">
+              <input
+                type="checkbox"
+                checked
+                onChange={(event) => onStyleModeChange(event.target.checked ? "advanced" : "simple")}
+              />
+              <span>Enable advanced mode</span>
+            </label>
+            <p className="builder-styles-advanced-warning">
+              Advanced mode is enabled. Disable this to restore color, typography, layout, and custom CSS
+              controls.
+            </p>
+          </div>
+        </div>
+      )}
 
       {visiblePanel === "colors" && (
         <div className="builder-styles-card">
@@ -292,7 +326,7 @@ const BuilderStylesSection = ({
         </div>
       )}
 
-      {visiblePanel === "customCss" && (
+      {!isAdvancedMode && visiblePanel === "customCss" && (
         <div className="builder-styles-card">
           <div className="section-header">
             <h3>Custom CSS</h3>
@@ -302,12 +336,7 @@ const BuilderStylesSection = ({
             className="builder-styles-custom-css-editor"
             value={customCss}
             extensions={customCssEditorExtensions}
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: true,
-              highlightActiveLine: true,
-              autocompletion: true
-            }}
+            basicSetup={styleEditorBasicSetup}
             onChange={(value) => onTokensCssChange(setCustomCssInTokens(tokensCss, value))}
             height="220px"
             aria-label="Custom CSS"
@@ -328,24 +357,6 @@ const BuilderStylesSection = ({
               advanced users.
             </p>
           </div>
-          {isAdvancedMode && (
-            <>
-              <div className="section-header">
-                <h3>Advanced structure.css</h3>
-                <p>
-                  Edit <code>src/styles/partials/structure.css</code> directly. This combined editor includes
-                  tokens at the top, and <code>tokens.css</code> import is disabled in global styles while
-                  this mode is active.
-                </p>
-              </div>
-              <textarea
-                className="code-block builder-advanced-css-block"
-                value={advancedStructureCss}
-                onChange={(event) => onAdvancedStructureCssChange(event.target.value)}
-                rows={24}
-              />
-            </>
-          )}
         </div>
       )}
     </div>

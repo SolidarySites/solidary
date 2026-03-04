@@ -392,6 +392,14 @@
   gap: 0;
 }
 
+.builder-body.is-advanced-styles {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.builder-body.is-advanced-styles .builder-sidebar-shell {
+  width: 100%;
+}
+
 .builder-body.is-settings-full {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -827,6 +835,25 @@
 
 .builder-advanced-css-block {
   min-height: 220px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.builder-advanced-css-block .cm-editor {
+  min-height: 340px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.builder-advanced-css-block .cm-scroller {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.builder-advanced-css-block .cm-content {
+  overflow-wrap: anywhere;
 }
 
 .builder-styles-custom-css-editor {
@@ -841,6 +868,12 @@
 .builder-styles-custom-css-editor .cm-scroller {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.8rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.builder-styles-custom-css-editor .cm-content {
+  overflow-wrap: anywhere;
 }
 
 .builder-styles-advanced-toggle-shell {

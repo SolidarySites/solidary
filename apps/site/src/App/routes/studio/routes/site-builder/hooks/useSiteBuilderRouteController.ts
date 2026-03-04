@@ -1688,6 +1688,11 @@ export const useSiteBuilderRouteController = ({
     canFormatText;
   const showPreviewPanel = !isMediaManagerView;
   const showFullFrameSidebar = showMetadataFullView || isMediaManagerView;
+  const isAdvancedStylesView =
+    activeSection === "settings" &&
+    activeSettingsSection === "styles" &&
+    styleMode === "advanced" &&
+    !showFullFrameSidebar;
   const isSidebarCollapsed = !isMediaManagerView && isPreviewFullscreen;
   const canAccessSettingsPage = siteAccessRole === "owner" || siteAccessRole === "admin";
   const canSaveGeneralSettingsToLive =
@@ -2413,7 +2418,7 @@ export const useSiteBuilderRouteController = ({
     setIsPreviewFullscreen,
     bodyClassName: `builder-body ${isSidebarCollapsed ? "is-preview-fullscreen" : ""} ${
       showFullFrameSidebar ? "is-settings-full" : ""
-    }`.trim(),
+    } ${isAdvancedStylesView ? "is-advanced-styles" : ""}`.trim(),
     topbarProps: {
       onRunFormatCommand: runPreviewCommand,
       onRunFormatLink: runPreviewLink,
