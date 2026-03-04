@@ -24,6 +24,8 @@ type BuilderPagesSectionProps = {
   onEnterPageEditingMode: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
+  pageDeleteBusy: boolean;
+  onDeletePage: (safeSlug: string) => void;
   onPageJavaScriptChange: (safeSlug: string, value: string) => void;
   canEditPageJavaScript: boolean;
   isEditingDisabled: boolean;
@@ -108,6 +110,8 @@ const BuilderPagesSection = ({
   onEnterPageEditingMode,
   onPageTitleChange,
   onPageSlugChange,
+  pageDeleteBusy,
+  onDeletePage,
   onPageJavaScriptChange,
   canEditPageJavaScript,
   isEditingDisabled,
@@ -219,6 +223,22 @@ const BuilderPagesSection = ({
                       disabled={activePage.isHome || activePageLockedByOther}
                     />
                   </label>
+                  {!activePage.isHome && (
+                    <div className="builder-page-delete-section">
+                      <p className="builder-page-delete-message">
+                        Are you sure you want to delete this page and all of its content? This
+                        action is irreversible.
+                      </p>
+                      <button
+                        type="button"
+                        className="ghost builder-page-delete-button"
+                        onClick={() => onDeletePage(activePageSafeSlug)}
+                        disabled={pageDeleteBusy || activePageLockedByOther || isEditingDisabled}
+                      >
+                        {pageDeleteBusy ? "Deleting..." : "Delete page"}
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
 

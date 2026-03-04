@@ -45,8 +45,11 @@ import {
   setDraftPublishPending
 } from "../services/publish-pending";
 import {
+  getPageSafeSlug,
+  normalizePageSlug,
   stripFrontmatter
 } from "../services/utils";
+import { markEditorDraftTouched as markEditorDraftTouchedForPageDelete } from "../services/save-editor-touch";
 import type { NoticeKind } from "../../../../../types/notice";
 import templateSolidary from "../../../../../../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../../../../../../templates/astro-baseline/src/content/pages/home.md?raw";
@@ -298,6 +301,7 @@ export const useSiteBuilderRouteController = ({
   const [deleteMode, setDeleteMode] = useState<SiteDeleteMode | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deletePageBusy, setDeletePageBusy] = useState(false);
   const [domainActionBusy, setDomainActionBusy] = useState<DomainActionMode | "none">("none");
   const [domainDnsFeedback, setDomainDnsFeedback] = useState<DomainDnsFeedbackState | null>(null);
   const [savingGeneralSettingsToLive, setSavingGeneralSettingsToLive] = useState(false);
@@ -2201,6 +2205,99 @@ export const useSiteBuilderRouteController = ({
     }
   };
 
+  const handleDeletePage = async (safeSlug: string) => {
+    if (!draftState?.id || !canEditDraft) return;
+
+    const normalizedSlug = normalizePageSlug(safeSlug) || "home";
+    const pageIndex = pages.findIndex(
+      (page, index) => getPageSafeSlug(page, index) === normalizedSlug
+    );
+    if (pageIndex < 0) {
+      setNotice("Selected page is no longer available.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const page = pages[pageIndex];
+    if (page.isHome) {
+      setNotice("The home page cannot be deleted.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Are you sure you want to delete this page and all of its content? This action is irreversible."
+      )
+    ) {
+      return;
+    }
+
+    setDeletePageBusy(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    try {
+      let deleteQuery = supabase.from("site_draft_pages").delete().eq("draft_id", draftState.id);
+      const pageId = typeof page.id === "string" ? page.id.trim() : "";
+      if (pageId) {
+        deleteQuery = deleteQuery.eq("id", pageId);
+      } else {
+        deleteQuery = deleteQuery.eq("slug", normalizedSlug);
+      }
+
+      const { error: deleteError } = await deleteQuery;
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      touchedPageSlugsRef.current.delete(normalizedSlug);
+      deletedPageSlugsRef.current.add(normalizedSlug);
+
+      if (draftState.draftType === "editor") {
+        await markEditorDraftTouchedForPageDelete({
+          draftState,
+          section: "pages",
+          setDraftState,
+          deletedPageSlugs: [normalizedSlug]
+        });
+      }
+
+      const nextPages = pages
+        .filter((_, index) => index !== pageIndex)
+        .map((entry, index) => ({
+          ...entry,
+          position: index
+        }));
+      const homeIndex = nextPages.findIndex((entry) => entry.isHome);
+      const fallbackPageIndex = homeIndex >= 0 ? homeIndex : 0;
+      const fallbackSlug =
+        nextPages.length > 0
+          ? getPageSafeSlug(nextPages[fallbackPageIndex], fallbackPageIndex)
+          : "home";
+
+      setPages(nextPages);
+      setDraftPageSlugs(nextPages.map((entry, index) => getPageSafeSlug(entry, index)));
+      setActivePreviewSlug(fallbackSlug);
+      setIsPageEditingMode(false);
+      setSelectedEditorElement(null);
+      clearSelectedEditorImage();
+      await releaseSectionLock(`page:${normalizedSlug}`).catch(() => undefined);
+
+      setNotice(
+        `Deleted page "${page.title.trim() || normalizedSlug}". Save your pages before publishing.`
+      );
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Failed to delete page.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDeletePageBusy(false);
+    }
+  };
+
   const handleDeleteSite = async () => {
     if (!session || !canDeleteSite || !draftState?.siteId || !deleteMode) return;
 
@@ -2474,6 +2571,10 @@ export const useSiteBuilderRouteController = ({
       },
       onPageTitleChange: handlePageTitleChange,
       onPageSlugChange: handlePageSlugChange,
+      pageDeleteBusy: deletePageBusy,
+      onDeletePage: (safeSlug: string) => {
+        void handleDeletePage(safeSlug);
+      },
       onPageJavaScriptChange: (safeSlug: string, value: string) => {
         if (!canEditPageJavaScript) return;
         updatePageJavaScript(safeSlug, value);

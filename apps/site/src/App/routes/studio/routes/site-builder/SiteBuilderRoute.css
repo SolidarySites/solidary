@@ -1146,6 +1146,29 @@
   background: rgba(248, 245, 239, 0.6);
 }
 
+.builder-page-delete-section {
+  border-top: 1px dashed rgba(122, 31, 23, 0.35);
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.builder-page-delete-message {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #7a1f17;
+}
+
+.builder-page-delete-button {
+  justify-self: start;
+  border-color: rgba(122, 31, 23, 0.55);
+  color: #7a1f17;
+}
+
+.builder-page-delete-button:hover:not(:disabled) {
+  background: rgba(122, 31, 23, 0.08);
+}
+
 .builder-page-editor-mode-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

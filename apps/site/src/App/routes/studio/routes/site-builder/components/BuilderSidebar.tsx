@@ -98,6 +98,8 @@ type BuilderSidebarProps = {
   onEnterPageEditingMode: (slug: string) => void;
   onPageTitleChange: (index: number, value: string) => void;
   onPageSlugChange: (index: number, value: string) => void;
+  pageDeleteBusy: boolean;
+  onDeletePage: (safeSlug: string) => void;
   onPageJavaScriptChange: (safeSlug: string, value: string) => void;
   onTokensCssChange: (value: string) => void;
   onStyleModeChange: (value: BuilderStylesMode) => void;
@@ -193,6 +195,8 @@ const BuilderSidebar = ({
   onEnterPageEditingMode,
   onPageTitleChange,
   onPageSlugChange,
+  pageDeleteBusy,
+  onDeletePage,
   onPageJavaScriptChange,
   onTokensCssChange,
   onStyleModeChange,
@@ -423,6 +427,8 @@ const BuilderSidebar = ({
                       onEnterPageEditingMode={onEnterPageEditingMode}
                       onPageTitleChange={onPageTitleChange}
                       onPageSlugChange={onPageSlugChange}
+                      pageDeleteBusy={pageDeleteBusy}
+                      onDeletePage={onDeletePage}
                       onPageJavaScriptChange={onPageJavaScriptChange}
                       canEditPageJavaScript={canEditPageJavaScript}
                       isEditingDisabled={activeSettingsLockedByOther}
