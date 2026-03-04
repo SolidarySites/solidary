@@ -20,12 +20,17 @@ export type GitHubAppConnectionState =
   | "unknown"
   | "not_connected";
 
+export type GitHubAppRepositorySelection = "all" | "selected" | "unknown";
+
 export type GitHubAuthStatus = {
   authMode: GitHubAuthMode;
   githubAppConnected: boolean;
   hasStoredCredentials: boolean;
   githubAppConnectionState: GitHubAppConnectionState;
   githubAppConnectionMessage: string | null;
+  githubAppRepositorySelection: GitHubAppRepositorySelection;
+  githubAppSelectedRepositories: string[];
+  githubAppSelectedRepositoriesTruncated: boolean;
 };
 
 export type FreshGithubAuthSnapshot = {
@@ -267,6 +272,21 @@ const normalizeGitHubAppConnectionState = (value: unknown): GitHubAppConnectionS
   return "unknown";
 };
 
+const normalizeGitHubAppRepositorySelection = (value: unknown): GitHubAppRepositorySelection => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "all" || normalized === "selected") {
+    return normalized;
+  }
+  return "unknown";
+};
+
+const normalizeRepositoryNameList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter((entry): entry is string => Boolean(entry));
+};
+
 export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthStatus> => {
   const { supabaseAccessToken } = await requireFreshSupabaseAuth();
 
@@ -283,6 +303,9 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
     has_stored_credentials?: boolean;
     github_app_connection_state?: string;
     github_app_connection_message?: string | null;
+    github_app_repository_selection?: string;
+    github_app_selected_repositories?: unknown[];
+    github_app_selected_repositories_truncated?: boolean;
     error?: string;
   };
 
@@ -298,7 +321,16 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
     githubAppConnectionMessage:
       typeof payload.github_app_connection_message === "string"
         ? payload.github_app_connection_message
-        : null
+        : null,
+    githubAppRepositorySelection: normalizeGitHubAppRepositorySelection(
+      payload.github_app_repository_selection
+    ),
+    githubAppSelectedRepositories: normalizeRepositoryNameList(
+      payload.github_app_selected_repositories
+    ),
+    githubAppSelectedRepositoriesTruncated: Boolean(
+      payload.github_app_selected_repositories_truncated
+    )
   };
 };
 

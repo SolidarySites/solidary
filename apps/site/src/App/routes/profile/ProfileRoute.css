@@ -158,6 +158,24 @@
   font-weight: 500;
 }
 
+.profile-github-repo-list {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-github-repo-list li {
+  font-size: 0.9rem;
+  color: rgba(31, 34, 28, 0.84);
+}
+
+.profile-github-repo-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(31, 34, 28, 0.62);
+}
+
 .profile-connect-github-app {
   justify-self: auto;
   white-space: nowrap;

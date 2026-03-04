@@ -3,7 +3,8 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import {
   getGitHubAppConnectionStatusForUser,
-  type GitHubAppConnectionState
+  type GitHubAppConnectionState,
+  type GitHubAppRepositorySelection
 } from "../_shared/github-auth-broker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -79,7 +80,10 @@ export const handler: Handler = async (event) => {
       github_app_connected: false,
       has_stored_credentials: false,
       github_app_connection_state: "not_connected",
-      github_app_connection_message: null
+      github_app_connection_message: null,
+      github_app_repository_selection: "unknown",
+      github_app_selected_repositories: [],
+      github_app_selected_repositories_truncated: false
     });
   }
 
@@ -92,20 +96,30 @@ export const handler: Handler = async (event) => {
   let githubAppConnected = false;
   let githubAppConnectionState: GitHubAppConnectionState = "not_connected";
   let githubAppConnectionMessage: string | null = null;
+  let githubAppRepositorySelection: GitHubAppRepositorySelection = "unknown";
+  let githubAppSelectedRepositories: string[] = [];
+  let githubAppSelectedRepositoriesTruncated = false;
 
   if (authMode === "github") {
     try {
       const connectionStatus = await getGitHubAppConnectionStatusForUser({
         supabase,
-        userId: user.id
+        userId: user.id,
+        includeRepositoryDetails: true
       });
       githubAppConnected = connectionStatus.connected;
       githubAppConnectionState = connectionStatus.state;
       githubAppConnectionMessage = connectionStatus.message;
+      githubAppRepositorySelection = connectionStatus.repositorySelection;
+      githubAppSelectedRepositories = connectionStatus.selectedRepositories;
+      githubAppSelectedRepositoriesTruncated = connectionStatus.selectedRepositoriesTruncated;
     } catch {
       githubAppConnected = false;
       githubAppConnectionState = "unknown";
       githubAppConnectionMessage = "Could not verify GitHub App installation right now.";
+      githubAppRepositorySelection = "unknown";
+      githubAppSelectedRepositories = [];
+      githubAppSelectedRepositoriesTruncated = false;
     }
   }
 
@@ -114,7 +128,10 @@ export const handler: Handler = async (event) => {
     github_app_connected: githubAppConnected,
     has_stored_credentials: hasStoredCredentials,
     github_app_connection_state: githubAppConnectionState,
-    github_app_connection_message: githubAppConnectionMessage
+    github_app_connection_message: githubAppConnectionMessage,
+    github_app_repository_selection: githubAppRepositorySelection,
+    github_app_selected_repositories: githubAppSelectedRepositories,
+    github_app_selected_repositories_truncated: githubAppSelectedRepositoriesTruncated
   });
 };
 

@@ -1,5 +1,6 @@
 import type {
   GitHubAppConnectionState,
+  GitHubAppRepositorySelection,
   GitHubAuthMode
 } from "../../../features/auth/services/github-auth";
 
@@ -14,6 +15,9 @@ type ProfileConnectedGithubCardProps = {
   githubAppConnected: boolean;
   githubAppConnectionState: GitHubAppConnectionState;
   githubAppConnectionMessage: string | null;
+  githubAppRepositorySelection: GitHubAppRepositorySelection;
+  githubAppSelectedRepositories: string[];
+  githubAppSelectedRepositoriesTruncated: boolean;
   githubAuthStatusLoading: boolean;
   onConnectGitHubApp: () => void;
   onSwitchToSolidaryOAuth: () => void;
@@ -30,18 +34,34 @@ export default function ProfileConnectedGithubCard({
   githubAppConnected,
   githubAppConnectionState,
   githubAppConnectionMessage,
+  githubAppRepositorySelection,
+  githubAppSelectedRepositories,
+  githubAppSelectedRepositoriesTruncated,
   githubAuthStatusLoading,
   onConnectGitHubApp,
   onSwitchToSolidaryOAuth
 }: ProfileConnectedGithubCardProps) {
   const authModeLabel =
-    githubAuthMode === "github" ? "GitHub App (repo scoped)" : "Solidary OAuth";
-  const connectLabel = githubAuthMode === "github" ? "Reconnect GitHub App" : "Connect GitHub App";
+    githubAuthMode === "github"
+      ? githubAppRepositorySelection === "all"
+        ? "GitHub App (full access)"
+        : githubAppRepositorySelection === "selected"
+          ? "GitHub App (repo scoped)"
+          : "GitHub App"
+      : "Solidary OAuth";
+  const connectLabel =
+    githubAuthMode === "github"
+      ? githubAppConnected
+        ? "Configure GitHub App permissions"
+        : "Reconnect GitHub App"
+      : "Connect GitHub App";
   const showSwitchToSolidary = githubAuthMode === "github" && !githubAppConnected;
   const showConnectionWarning =
     showSwitchToSolidary &&
     githubAppConnectionState !== "connected" &&
     Boolean(githubAppConnectionMessage?.trim());
+  const showScopedRepositoryList =
+    githubAuthMode === "github" && githubAppConnected && githubAppRepositorySelection === "selected";
 
   return (
     <section className="profile-github-card">
@@ -70,7 +90,7 @@ export default function ProfileConnectedGithubCard({
             >
               ?
               <span className="profile-github-help-tooltip" role="tooltip">
-                Connect to the GitHub App to enable repo-scoped access for your solidary repositories.
+                Connect to the GitHub App to enable full or repo-scoped access for your solidary repositories.
               </span>
             </button>
             <button
@@ -104,6 +124,25 @@ export default function ProfileConnectedGithubCard({
           <span>GitHub App</span>
           <strong>{githubAppConnected ? "Connected" : "Not connected"}</strong>
         </p>
+        {showScopedRepositoryList ? (
+          <div className="profile-github-field">
+            <span>Accessible repos</span>
+            {githubAppSelectedRepositories.length ? (
+              <ul className="profile-github-repo-list">
+                {githubAppSelectedRepositories.map((repositoryName) => (
+                  <li key={repositoryName}>{repositoryName}</li>
+                ))}
+              </ul>
+            ) : (
+              <strong>No repositories granted yet.</strong>
+            )}
+            {githubAppSelectedRepositoriesTruncated ? (
+              <p className="profile-github-repo-note">
+                Showing the first {githubAppSelectedRepositories.length} repositories.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <p className="profile-github-field">
           <span>Username</span>
           {profileUrl ? (

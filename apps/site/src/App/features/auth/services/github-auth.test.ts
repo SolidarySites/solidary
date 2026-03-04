@@ -177,7 +177,10 @@ describe("getGitHubAuthStatusForCurrentUser", () => {
         github_app_connected: false,
         has_stored_credentials: true,
         github_app_connection_state: "installation_missing",
-        github_app_connection_message: "GitHub App access is missing."
+        github_app_connection_message: "GitHub App access is missing.",
+        github_app_repository_selection: "selected",
+        github_app_selected_repositories: ["owner/repo-one", "owner/repo-two"],
+        github_app_selected_repositories_truncated: true
       })
     }));
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
@@ -189,6 +192,9 @@ describe("getGitHubAuthStatusForCurrentUser", () => {
     expect(status.hasStoredCredentials).toBe(true);
     expect(status.githubAppConnectionState).toBe("installation_missing");
     expect(status.githubAppConnectionMessage).toBe("GitHub App access is missing.");
+    expect(status.githubAppRepositorySelection).toBe("selected");
+    expect(status.githubAppSelectedRepositories).toEqual(["owner/repo-one", "owner/repo-two"]);
+    expect(status.githubAppSelectedRepositoriesTruncated).toBe(true);
   });
 });
 

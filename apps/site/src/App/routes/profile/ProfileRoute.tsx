@@ -32,6 +32,11 @@ export default function ProfileRoute() {
             githubAppConnected={controller.githubAppConnected}
             githubAppConnectionState={controller.githubAppConnectionState}
             githubAppConnectionMessage={controller.githubAppConnectionMessage}
+            githubAppRepositorySelection={controller.githubAppRepositorySelection}
+            githubAppSelectedRepositories={controller.githubAppSelectedRepositories}
+            githubAppSelectedRepositoriesTruncated={
+              controller.githubAppSelectedRepositoriesTruncated
+            }
             githubAuthStatusLoading={controller.githubAuthStatusLoading}
             onConnectGitHubApp={controller.onConnectGitHubApp}
             onSwitchToSolidaryOAuth={controller.onSwitchToSolidaryOAuth}

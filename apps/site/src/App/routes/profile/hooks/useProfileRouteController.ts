@@ -5,6 +5,7 @@ import {
   getGitHubAuthStatusForCurrentUser,
   switchToSolidaryOAuthForCurrentUser,
   type GitHubAppConnectionState,
+  type GitHubAppRepositorySelection,
   type GitHubAuthMode
 } from "../../../features/auth/services/github-auth";
 import type { NoticeKind } from "../../../types/notice";
@@ -45,6 +46,11 @@ export const useProfileRouteController = () => {
   const [githubAppConnectionState, setGithubAppConnectionState] =
     useState<GitHubAppConnectionState>("not_connected");
   const [githubAppConnectionMessage, setGithubAppConnectionMessage] = useState<string | null>(null);
+  const [githubAppRepositorySelection, setGithubAppRepositorySelection] =
+    useState<GitHubAppRepositorySelection>("unknown");
+  const [githubAppSelectedRepositories, setGithubAppSelectedRepositories] = useState<string[]>([]);
+  const [githubAppSelectedRepositoriesTruncated, setGithubAppSelectedRepositoriesTruncated] =
+    useState(false);
   const [githubAuthStatusLoading, setGithubAuthStatusLoading] = useState(false);
 
   const avatarController = useProfileAvatarController({
@@ -69,6 +75,9 @@ export const useProfileRouteController = () => {
       setGithubAppConnected(false);
       setGithubAppConnectionState("not_connected");
       setGithubAppConnectionMessage(null);
+      setGithubAppRepositorySelection("unknown");
+      setGithubAppSelectedRepositories([]);
+      setGithubAppSelectedRepositoriesTruncated(false);
       setGithubAuthStatusLoading(false);
       return;
     }
@@ -80,6 +89,9 @@ export const useProfileRouteController = () => {
       setGithubAppConnected(status.githubAppConnected);
       setGithubAppConnectionState(status.githubAppConnectionState);
       setGithubAppConnectionMessage(status.githubAppConnectionMessage);
+      setGithubAppRepositorySelection(status.githubAppRepositorySelection);
+      setGithubAppSelectedRepositories(status.githubAppSelectedRepositories);
+      setGithubAppSelectedRepositoriesTruncated(status.githubAppSelectedRepositoriesTruncated);
     } catch {
       // Keep previous status when the request fails.
     } finally {
@@ -281,6 +293,9 @@ export const useProfileRouteController = () => {
     githubAppConnected,
     githubAppConnectionState,
     githubAppConnectionMessage,
+    githubAppRepositorySelection,
+    githubAppSelectedRepositories,
+    githubAppSelectedRepositoriesTruncated,
     githubAuthStatusLoading,
     notice,
     noticeKind,
