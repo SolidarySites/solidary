@@ -205,29 +205,34 @@ const BuilderPagesSection = ({
             )}
             <fieldset className="builder-locked-fieldset" disabled={activePageLockedByOther}>
               {activeEditView === "settings" && (
-                <>
-                  <label>
-                    Title
-                    <input
-                      ref={pageTitleRef}
-                      value={activePage.title}
-                      onChange={(event) => onPageTitleChange(activePageIndex, event.target.value)}
-                      disabled={activePage.isHome || activePageLockedByOther}
-                    />
-                  </label>
-                  <label>
-                    Slug
-                    <input
-                      value={activePage.slug}
-                      onChange={(event) => onPageSlugChange(activePageIndex, event.target.value)}
-                      disabled={activePage.isHome || activePageLockedByOther}
-                    />
-                  </label>
+                <div className="builder-page-settings-panel">
+                  <div className="builder-page-settings-section">
+                    <p className="builder-page-settings-section-title">Page details</p>
+                    <label>
+                      Title
+                      <input
+                        ref={pageTitleRef}
+                        value={activePage.title}
+                        onChange={(event) => onPageTitleChange(activePageIndex, event.target.value)}
+                        disabled={activePage.isHome || activePageLockedByOther}
+                      />
+                    </label>
+                    <label>
+                      Slug
+                      <input
+                        value={activePage.slug}
+                        onChange={(event) => onPageSlugChange(activePageIndex, event.target.value)}
+                        disabled={activePage.isHome || activePageLockedByOther}
+                      />
+                    </label>
+                  </div>
                   {!activePage.isHome && (
-                    <div className="builder-page-delete-section">
+                    <div className="builder-page-settings-section builder-page-delete-section">
+                      <p className="builder-page-settings-section-title builder-page-delete-section-title">
+                        Danger zone
+                      </p>
                       <p className="builder-page-delete-message">
-                        Are you sure you want to delete this page and all of its content? This
-                        action is irreversible.
+                        This deletes the page and all its content.
                       </p>
                       <button
                         type="button"
@@ -239,7 +244,7 @@ const BuilderPagesSection = ({
                       </button>
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {activeEditView === "properties" && (
