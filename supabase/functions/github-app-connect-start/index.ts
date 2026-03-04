@@ -35,6 +35,29 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   return match?.[1]?.trim() ?? "";
 };
 
+const parseOriginFromHeaderValue = (value: string | undefined): string | null => {
+  const candidate = value?.trim() ?? "";
+  if (!candidate) return null;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
+const resolveRequestOrigin = (event: Parameters<Handler>[0]): string | null => {
+  return (
+    parseOriginFromHeaderValue(event.headers.origin) ||
+    parseOriginFromHeaderValue(event.headers.Origin) ||
+    parseOriginFromHeaderValue(event.headers.referer) ||
+    parseOriginFromHeaderValue(event.headers.Referer)
+  );
+};
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -82,6 +105,7 @@ export const handler: Handler = async (event) => {
   const state = createGitHubAppState({
     userId: user.id,
     returnTo: body.return_to,
+    returnOrigin: resolveRequestOrigin(event),
     secret: GITHUB_APP_STATE_SECRET
   });
 

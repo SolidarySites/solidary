@@ -70,17 +70,17 @@ const resolveOrigin = (event: Parameters<Handler>[0]) => {
 };
 
 const buildRedirectPath = ({
-  origin,
+  baseOrigin,
   returnTo,
   status,
   message
 }: {
-  origin: string;
+  baseOrigin: string;
   returnTo: string;
   status: "connected" | "error";
   message?: string;
 }) => {
-  const redirectUrl = new URL(returnTo, origin);
+  const redirectUrl = new URL(returnTo, baseOrigin);
   redirectUrl.searchParams.set("github_app", status);
   if (message) {
     redirectUrl.searchParams.set("github_app_message", message);
@@ -201,7 +201,7 @@ export const handler: Handler = async (event) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: origin,
         returnTo: "/studio",
         status: "error",
         message: "Supabase service configuration missing."
@@ -212,7 +212,7 @@ export const handler: Handler = async (event) => {
   if (!stateParam || !GITHUB_APP_STATE_SECRET) {
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: origin,
         returnTo: "/studio",
         status: "error",
         message: "GitHub connect state is missing."
@@ -220,7 +220,12 @@ export const handler: Handler = async (event) => {
     );
   }
 
-  let parsedState: { userId: string; returnTo: string; installationId: number | null };
+  let parsedState: {
+    userId: string;
+    returnTo: string;
+    returnOrigin: string | null;
+    installationId: number | null;
+  };
   try {
     parsedState = parseGitHubAppState({
       encodedState: stateParam,
@@ -229,19 +234,20 @@ export const handler: Handler = async (event) => {
   } catch (error) {
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: origin,
         returnTo: "/studio",
         status: "error",
         message: error instanceof Error ? error.message : "Invalid GitHub connect state."
       })
     );
   }
+  const redirectBaseOrigin = parsedState.returnOrigin ?? origin;
 
   const redirectError = oauthErrorDescription || oauthError;
   if (redirectError) {
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
         message: redirectError
@@ -255,6 +261,7 @@ export const handler: Handler = async (event) => {
         const nextState = createGitHubAppState({
           userId: parsedState.userId,
           returnTo: parsedState.returnTo,
+          returnOrigin: parsedState.returnOrigin,
           installationId: installationIdFromQuery ?? parsedState.installationId,
           secret: GITHUB_APP_STATE_SECRET
         });
@@ -267,7 +274,7 @@ export const handler: Handler = async (event) => {
       } catch (error) {
         return safeRedirect(
           buildRedirectPath({
-            origin,
+            baseOrigin: redirectBaseOrigin,
             returnTo: parsedState.returnTo,
             status: "error",
             message:
@@ -281,7 +288,7 @@ export const handler: Handler = async (event) => {
 
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
         message: "GitHub did not return an authorization code."
@@ -341,7 +348,7 @@ export const handler: Handler = async (event) => {
 
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "connected"
       })
@@ -349,7 +356,7 @@ export const handler: Handler = async (event) => {
   } catch (error) {
     return safeRedirect(
       buildRedirectPath({
-        origin,
+        baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
         message: error instanceof Error ? error.message : "GitHub connect failed."

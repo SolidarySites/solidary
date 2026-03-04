@@ -7,6 +7,7 @@ const DEFAULT_RETURN_TO = "/studio";
 type GitHubAppStatePayload = {
   userId: string;
   returnTo: string;
+  returnOrigin?: string | null;
   installationId?: number | null;
   issuedAtMs: number;
   nonce: string;
@@ -32,6 +33,20 @@ const normalizeReturnTo = (value: string | undefined): string => {
   return candidate;
 };
 
+const normalizeReturnOrigin = (value: string | null | undefined): string | null => {
+  const candidate = value?.trim() ?? "";
+  if (!candidate) return null;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+};
+
 const signStateData = (data: string, secret: string): string => {
   return createHmac("sha256", secret).update(data).digest("base64url");
 };
@@ -39,11 +54,13 @@ const signStateData = (data: string, secret: string): string => {
 export const createGitHubAppState = ({
   userId,
   returnTo,
+  returnOrigin,
   installationId,
   secret
 }: {
   userId: string;
   returnTo?: string;
+  returnOrigin?: string | null;
   installationId?: number | null;
   secret: string;
 }): string => {
@@ -59,6 +76,7 @@ export const createGitHubAppState = ({
   const payload: GitHubAppStatePayload = {
     userId: normalizedUserId,
     returnTo: normalizeReturnTo(returnTo),
+    returnOrigin: normalizeReturnOrigin(returnOrigin),
     installationId: normalizeInstallationId(installationId),
     issuedAtMs: Date.now(),
     nonce: randomBytes(12).toString("base64url")
@@ -75,7 +93,12 @@ export const parseGitHubAppState = ({
 }: {
   encodedState: string;
   secret: string;
-}): { userId: string; returnTo: string; installationId: number | null } => {
+}): {
+  userId: string;
+  returnTo: string;
+  returnOrigin: string | null;
+  installationId: number | null;
+} => {
   const normalizedSecret = secret.trim();
   if (!normalizedSecret) {
     throw new Error("State secret is not configured.");
@@ -125,6 +148,7 @@ export const parseGitHubAppState = ({
   return {
     userId,
     returnTo: normalizeReturnTo(payload.returnTo),
+    returnOrigin: normalizeReturnOrigin(payload.returnOrigin),
     installationId: normalizeInstallationId(payload.installationId)
   };
 };
