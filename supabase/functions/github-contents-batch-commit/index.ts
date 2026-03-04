@@ -167,6 +167,7 @@ export const handler: Handler = async (event) => {
   }
 
   let tokenSource: "solidary" | "github" | "none" = "none";
+  let repoScope: "owner" | "collaborator" | "none" | undefined;
   try {
     const authorized = await authorizeGitHubRepoAction({
       functionName: "github-contents-batch-commit",
@@ -179,6 +180,7 @@ export const handler: Handler = async (event) => {
     });
     const githubToken = authorized.githubToken;
     tokenSource = authorized.tokenSource;
+    repoScope = authorized.repoScope;
 
     const dedupedUpserts = new Map<
       string,
@@ -370,6 +372,7 @@ export const handler: Handler = async (event) => {
       return safeJson(error.statusCode, {
         error: mapGitHubApiFailureToActionableAuthMessage({
           tokenSource,
+          repoScope,
           owner,
           repo,
           statusCode: error.statusCode,

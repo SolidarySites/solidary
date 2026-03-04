@@ -32,7 +32,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or branch." });
     }
 
-    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource, repoScope } = await authorizeGitHubRepoAction({
       functionName: "github-branch",
       action: "read_branch_head",
       owner,
@@ -62,6 +62,7 @@ export const handler: Handler = async (event) => {
       return safeJson(response.status, {
         error: mapGitHubApiFailureToActionableAuthMessage({
           tokenSource,
+          repoScope,
           owner,
           repo,
           statusCode: response.status,

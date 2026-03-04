@@ -1,7 +1,10 @@
 import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
-import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
+import {
+  HttpError,
+  authorizeGitHubRepoAction
+} from "../_shared/github-repo-guardrails.ts";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -195,17 +198,30 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const resolvedGitHubAuth = await resolveGitHubTokenForUser({
-    supabase,
-    userId: user.id
-  });
-  const resolvedGitHubToken = resolvedGitHubAuth?.token?.trim() ?? "";
-  if (!resolvedGitHubToken) {
+  let resolvedGitHubToken = "";
+  try {
+    const authorized = await authorizeGitHubRepoAction({
+      functionName: "sync-admin-role-from-github",
+      action: "sync_admin_role_from_github",
+      owner,
+      repo,
+      supabaseAccessToken: accessToken,
+      authorizationHeader: event.headers.authorization ?? event.headers.Authorization
+    });
+    resolvedGitHubToken = authorized.githubToken;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return {
+        statusCode: error.statusCode,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ error: error.message })
+      };
+    }
     return {
-      statusCode: 412,
+      statusCode: 500,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        error: "GitHub authorization missing. Reconnect GitHub from Profile settings and retry."
+        error: error instanceof Error ? error.message : "Could not authorize GitHub access."
       })
     };
   }

@@ -1,7 +1,8 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.93.3";
 import {
   getGitHubAppConnectionStatusForUser,
-  resolveGitHubTokenForUser,
+  getGitHubCredentialPresenceForUser,
+  resolveGitHubTokenForUserByMode,
   type GitHubTokenSource
 } from "./github-auth-broker.ts";
 
@@ -11,6 +12,7 @@ const SUPABASE_SERVICE_KEY =
 
 type AuditDecision = "allowed" | "denied" | "error";
 type TokenSourceWithNone = GitHubTokenSource | "none";
+type RepoAccessScope = "owner" | "collaborator" | "none";
 
 export class HttpError extends Error {
   statusCode: number;
@@ -47,42 +49,67 @@ const buildSupabaseAdmin = () => {
   });
 };
 
-const buildGitHubAppRepoAccessMessage = ({ owner, repo }: { owner: string; repo: string }) =>
-  `GitHub App is connected but cannot access ${owner}/${repo}. Grant this repository in GitHub App settings, or uninstall the app and switch to Solidary OAuth from Profile.`;
+const buildOwnerGitHubAppRequiredMessage = ({
+  owner,
+  repo
+}: {
+  owner: string;
+  repo: string;
+}) =>
+  `GitHub App authorization is required for owner repository ${owner}/${repo}. Solidary OAuth fallback is disabled for owner repositories. Reconnect GitHub App from Profile and retry.`;
 
 const buildGitHubAppTokenInvalidMessage = () =>
-  "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile.";
+  "GitHub App authorization is invalid or expired. Solidary OAuth fallback is disabled for owner repositories. Reconnect GitHub App from Profile and retry.";
+
+const buildCollaboratorSolidaryRequiredMessage = ({ owner, repo }: { owner: string; repo: string }) =>
+  `Solidary OAuth authorization is required for collaboration repository ${owner}/${repo}. Sign in with GitHub again from Profile to refresh your Solidary OAuth token.`;
 
 export const mapGitHubApiFailureToActionableAuthMessage = ({
   tokenSource,
   owner,
   repo,
+  repoScope,
   statusCode,
   message
 }: {
   tokenSource: TokenSourceWithNone;
   owner: string;
   repo: string;
+  repoScope?: RepoAccessScope;
   statusCode: number;
   message: string;
 }) => {
-  if (tokenSource !== "github") {
-    return message;
-  }
-
   const normalizedMessage = message.trim();
+  const isRepoAuth404 =
+    statusCode === 404 && /not found|resource not accessible|repository/i.test(normalizedMessage);
+
+  if (
+    repoScope === "collaborator" &&
+    tokenSource === "solidary" &&
+    (statusCode === 401 || statusCode === 403 || isRepoAuth404)
+  ) {
+    return buildCollaboratorSolidaryRequiredMessage({ owner, repo });
+  }
+
+  if (tokenSource !== "github") {
+    return normalizedMessage || message;
+  }
+
   if (statusCode === 401 || statusCode === 403) {
-    return buildGitHubAppRepoAccessMessage({ owner, repo });
+    return buildOwnerGitHubAppRequiredMessage({ owner, repo });
   }
 
-  if (statusCode === 404 && /not found|resource not accessible|repository/i.test(normalizedMessage)) {
-    return buildGitHubAppRepoAccessMessage({ owner, repo });
+  if (isRepoAuth404) {
+    return buildOwnerGitHubAppRequiredMessage({ owner, repo });
   }
 
+  if (repoScope === "owner") {
+    return normalizedMessage || buildGitHubAppTokenInvalidMessage();
+  }
   return normalizedMessage || buildGitHubAppTokenInvalidMessage();
 };
 
-const isRepoLinkedToUser = async ({
+const getRepoAccessScopeForUser = async ({
   supabase,
   userId,
   owner,
@@ -111,7 +138,7 @@ const isRepoLinkedToUser = async ({
         row.repo_full_name.trim().toLowerCase() === repoFullName
     )
   ) {
-    return true;
+    return "owner" satisfies RepoAccessScope;
   }
 
   const { data: provisionJobs, error: provisionJobsError } = await supabase
@@ -132,13 +159,14 @@ const isRepoLinkedToUser = async ({
         row.repo_full_name.trim().toLowerCase() === repoFullName
     )
   ) {
-    return true;
+    return "owner" satisfies RepoAccessScope;
   }
 
   const { data: memberships, error: membershipError } = await supabase
     .from("site_admins")
     .select("site_id")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .in("role", ["admin", "editor", "contributor", "viewer"]);
 
   if (membershipError) {
     throw new HttpError(500, membershipError.message);
@@ -147,7 +175,7 @@ const isRepoLinkedToUser = async ({
   const siteIds = (memberships ?? [])
     .map((row) => (typeof row.site_id === "string" ? row.site_id : ""))
     .filter(Boolean);
-  if (!siteIds.length) return false;
+  if (!siteIds.length) return "none";
 
   const { data: ownerDrafts, error: ownerDraftsError } = await supabase
     .from("site_drafts")
@@ -159,11 +187,12 @@ const isRepoLinkedToUser = async ({
     throw new HttpError(500, ownerDraftsError.message);
   }
 
-  return (ownerDrafts ?? []).some(
+  const hasCollaboratorRepo = (ownerDrafts ?? []).some(
     (row) =>
       typeof row.repo_full_name === "string" &&
       row.repo_full_name.trim().toLowerCase() === repoFullName
   );
+  return hasCollaboratorRepo ? "collaborator" : "none";
 };
 
 export const auditGitHubRepoAction = async ({
@@ -239,6 +268,7 @@ export const authorizeGitHubRepoAction = async ({
   userId: string;
   githubToken: string;
   tokenSource: TokenSourceWithNone;
+  repoScope: RepoAccessScope;
 }> => {
   const normalizedOwner = owner.trim();
   const normalizedRepo = repo.trim();
@@ -283,13 +313,13 @@ export const authorizeGitHubRepoAction = async ({
     throw new HttpError(401, "Invalid Supabase session.");
   }
 
-  const linked = await isRepoLinkedToUser({
+  const repoScope = await getRepoAccessScopeForUser({
     supabase,
     userId: user.id,
     owner: normalizedOwner,
     repo: normalizedRepo
   });
-  if (!linked) {
+  if (repoScope === "none") {
     await auditGitHubRepoAction({
       supabase,
       userId: user.id,
@@ -300,46 +330,110 @@ export const authorizeGitHubRepoAction = async ({
       decision: "denied",
       tokenSource: "none",
       httpStatus: 403,
-      message: "Repo is not allowlisted for this user."
+      message: "Repo is not allowlisted for this user.",
+      metadata: {
+        repo_scope: "none"
+      }
     });
     throw new HttpError(403, "Repo is not linked to your Solidary account.");
   }
 
   let githubToken = "";
   let tokenSource: TokenSourceWithNone = "none";
+  const credentialPresence = await getGitHubCredentialPresenceForUser({
+    supabase,
+    userId: user.id
+  });
 
   if (requireGitHubToken) {
-    const resolved = await resolveGitHubTokenForUser({
-      supabase,
-      userId: user.id
-    });
-    githubToken = resolved?.token?.trim() ?? "";
-    tokenSource = resolved?.source ?? "none";
+    if (repoScope === "owner") {
+      if (credentialPresence.hasGitHubRow) {
+        const resolvedGithub = await resolveGitHubTokenForUserByMode({
+          supabase,
+          userId: user.id,
+          authMode: "github"
+        });
+        githubToken = resolvedGithub?.token?.trim() ?? "";
+        tokenSource = "github";
+      } else {
+        const resolvedSolidary = await resolveGitHubTokenForUserByMode({
+          supabase,
+          userId: user.id,
+          authMode: "solidary"
+        });
+        githubToken = resolvedSolidary?.token?.trim() ?? "";
+        tokenSource = resolvedSolidary?.source ?? "none";
+      }
+    } else {
+      const resolvedSolidary = await resolveGitHubTokenForUserByMode({
+        supabase,
+        userId: user.id,
+        authMode: "solidary"
+      });
+      githubToken = resolvedSolidary?.token?.trim() ?? "";
+      tokenSource = resolvedSolidary?.source ?? "none";
+    }
+
     if (!githubToken) {
       let authMessage =
         "GitHub authorization missing. Reconnect GitHub from Profile settings and retry.";
-      try {
-        const connectionStatus = await getGitHubAppConnectionStatusForUser({
-          supabase,
-          userId: user.id
+      if (repoScope === "owner" && credentialPresence.hasGitHubRow) {
+        authMessage = buildOwnerGitHubAppRequiredMessage({
+          owner: normalizedOwner,
+          repo: normalizedRepo
         });
-        if (connectionStatus.state === "installation_missing") {
-          authMessage = buildGitHubAppRepoAccessMessage({
-            owner: normalizedOwner,
-            repo: normalizedRepo
+        try {
+          const connectionStatus = await getGitHubAppConnectionStatusForUser({
+            supabase,
+            userId: user.id
           });
-        } else if (connectionStatus.state === "token_invalid") {
-          authMessage = connectionStatus.message?.trim() || buildGitHubAppTokenInvalidMessage();
-        } else if (connectionStatus.state === "unknown") {
-          authMessage =
-            connectionStatus.message?.trim() ||
-            "Could not verify GitHub App authorization. Reconnect the app and retry.";
-        } else if (connectionStatus.state === "not_connected") {
-          authMessage =
-            "GitHub authorization missing. Reconnect GitHub from Profile settings and retry.";
+          if (connectionStatus.state === "token_invalid") {
+            authMessage = connectionStatus.message?.trim() || buildGitHubAppTokenInvalidMessage();
+          } else if (connectionStatus.state === "unknown") {
+            authMessage =
+              connectionStatus.message?.trim() ||
+              "Could not verify GitHub App authorization. Reconnect GitHub App from Profile and retry.";
+          } else if (connectionStatus.state === "installation_missing") {
+            authMessage = buildOwnerGitHubAppRequiredMessage({
+              owner: normalizedOwner,
+              repo: normalizedRepo
+            });
+          } else if (connectionStatus.state === "not_connected") {
+            authMessage = buildOwnerGitHubAppRequiredMessage({
+              owner: normalizedOwner,
+              repo: normalizedRepo
+            });
+          }
+        } catch {
+          // Use fallback auth message from above.
         }
-      } catch {
-        // Use fallback auth message from above.
+      } else if (repoScope === "collaborator") {
+        authMessage = buildCollaboratorSolidaryRequiredMessage({
+          owner: normalizedOwner,
+          repo: normalizedRepo
+        });
+      } else if (repoScope === "owner" && !credentialPresence.hasGitHubRow) {
+        authMessage =
+          "Solidary OAuth authorization is missing for owner repository access. Sign in with GitHub again from Profile and retry.";
+      } else {
+        try {
+          const connectionStatus = await getGitHubAppConnectionStatusForUser({
+            supabase,
+            userId: user.id
+          });
+          if (connectionStatus.state === "token_invalid") {
+            authMessage = connectionStatus.message?.trim() || buildGitHubAppTokenInvalidMessage();
+          } else if (connectionStatus.state === "unknown") {
+            authMessage =
+              connectionStatus.message?.trim() ||
+              "Could not verify GitHub App authorization. Reconnect the app and retry.";
+          } else if (connectionStatus.state === "not_connected") {
+            authMessage =
+              "GitHub authorization missing. Reconnect GitHub from Profile settings and retry.";
+          }
+        } catch {
+          // Use fallback auth message from above.
+        }
       }
 
       await auditGitHubRepoAction({
@@ -352,7 +446,18 @@ export const authorizeGitHubRepoAction = async ({
         decision: "denied",
         tokenSource,
         httpStatus: 412,
-        message: authMessage
+        message: authMessage,
+        metadata: {
+          repo_scope: repoScope,
+          selected_auth_mode:
+            repoScope === "owner"
+              ? credentialPresence.hasGitHubRow
+                ? "github"
+                : "solidary"
+              : "solidary",
+          has_github_row: credentialPresence.hasGitHubRow,
+          has_solidary_row: credentialPresence.hasSolidaryRow
+        }
       });
       throw new HttpError(412, authMessage);
     }
@@ -367,13 +472,25 @@ export const authorizeGitHubRepoAction = async ({
     repo: normalizedRepo,
     decision: "allowed",
     tokenSource,
-    httpStatus: 200
+    httpStatus: 200,
+    metadata: {
+      repo_scope: repoScope,
+      selected_auth_mode:
+        repoScope === "owner"
+          ? credentialPresence.hasGitHubRow
+            ? "github"
+            : "solidary"
+          : "solidary",
+      has_github_row: credentialPresence.hasGitHubRow,
+      has_solidary_row: credentialPresence.hasSolidaryRow
+    }
   });
 
   return {
     supabase,
     userId: user.id,
     githubToken,
-    tokenSource
+    tokenSource,
+    repoScope
   };
 };

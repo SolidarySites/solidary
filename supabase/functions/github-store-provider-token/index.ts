@@ -39,10 +39,6 @@ type GitHubOAuthTokenCheckPayload = {
   message?: string;
 };
 
-type StoredAuthModeRow = {
-  auth_mode?: GitHubAuthMode | null;
-};
-
 const debugLog = (message: string, details: Record<string, unknown>) => {
   if (!GITHUB_TOKEN_DEBUG) return;
   console.log("[github-store-provider-token]", message, details);
@@ -175,7 +171,6 @@ export const handler: Handler = async (event) => {
       error: "Invalid force_auth_mode. Only \"solidary\" is supported."
     });
   }
-  const forceSolidaryMode = forceAuthMode === "solidary";
 
   const providerToken = normalizeStoredProviderToken(body.provider_token ?? "");
   const providerRefreshToken = body.provider_refresh_token?.trim() ?? "";
@@ -200,27 +195,6 @@ export const handler: Handler = async (event) => {
 
   if (userError || !user) {
     return safeJson(401, { error: "Invalid Supabase session." });
-  }
-
-  const { data: existingAuthModeRow, error: existingAuthModeError } = await supabase
-    .from("github_app_user_tokens")
-    .select("auth_mode")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (existingAuthModeError) {
-    return safeJson(500, { error: existingAuthModeError.message });
-  }
-
-  const existingCredential = existingAuthModeRow as StoredAuthModeRow | null;
-  const existingAuthMode = normalizeGitHubAuthMode(existingCredential?.auth_mode ?? null);
-  if (existingAuthMode === "github" && !forceSolidaryMode) {
-    return safeJson(200, {
-      ok: true,
-      skipped: true,
-      auth_mode: "github",
-      mode_switched: false
-    });
   }
 
   debugLog("received sync request", {
@@ -280,6 +254,7 @@ export const handler: Handler = async (event) => {
       ].join(", ")
     )
     .eq("user_id", user.id)
+    .eq("auth_mode", "solidary")
     .maybeSingle();
 
   const storedRowObject =
@@ -314,7 +289,7 @@ export const handler: Handler = async (event) => {
   return safeJson(200, {
     ok: true,
     auth_mode: normalizeGitHubAuthMode(storedRowObject?.auth_mode ?? null),
-    mode_switched: forceSolidaryMode && existingAuthMode === "github",
+    mode_switched: false,
     debug: GITHUB_TOKEN_DEBUG
       ? {
           trigger: body.debug_trigger ?? "unknown",

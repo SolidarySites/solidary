@@ -20,7 +20,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner or repo." });
     }
 
-    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource, repoScope } = await authorizeGitHubRepoAction({
       functionName: "github-delete-repo",
       action: "delete_repo",
       owner,
@@ -53,6 +53,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         error: mapGitHubApiFailureToActionableAuthMessage({
           tokenSource,
+          repoScope,
           owner,
           repo,
           statusCode: response.status,

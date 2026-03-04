@@ -19,7 +19,6 @@ import {
   getGitHubAuthStatusForCurrentUser,
   getFreshGithubAuthSnapshot,
   requireFreshGithubAuth,
-  switchToSolidaryOAuthForCurrentUser,
   syncGithubAuthSnapshotFromSession,
   syncGithubProviderTokenToServer
 } from "./github-auth";
@@ -173,9 +172,11 @@ describe("getGitHubAuthStatusForCurrentUser", () => {
       ok: true,
       status: 200,
       json: async () => ({
-        auth_mode: "github",
         github_app_connected: false,
         has_stored_credentials: true,
+        has_github_credentials: true,
+        has_solidary_credentials: false,
+        auth_routing_strategy: "role_based",
         github_app_connection_state: "installation_missing",
         github_app_connection_message: "GitHub App access is missing.",
         github_app_repository_selection: "selected",
@@ -187,68 +188,15 @@ describe("getGitHubAuthStatusForCurrentUser", () => {
 
     const status = await getGitHubAuthStatusForCurrentUser();
 
-    expect(status.authMode).toBe("github");
     expect(status.githubAppConnected).toBe(false);
     expect(status.hasStoredCredentials).toBe(true);
+    expect(status.hasGitHubCredentials).toBe(true);
+    expect(status.hasSolidaryCredentials).toBe(false);
+    expect(status.authRoutingStrategy).toBe("role_based");
     expect(status.githubAppConnectionState).toBe("installation_missing");
     expect(status.githubAppConnectionMessage).toBe("GitHub App access is missing.");
     expect(status.githubAppRepositorySelection).toBe("selected");
     expect(status.githubAppSelectedRepositories).toEqual(["owner/repo-one", "owner/repo-two"]);
     expect(status.githubAppSelectedRepositoriesTruncated).toBe(true);
-  });
-});
-
-describe("switchToSolidaryOAuthForCurrentUser", () => {
-  beforeEach(() => {
-    authMocks.getSession.mockReset();
-    clearCachedGithubProviderCredentialsForUser("user-1");
-    syncGithubAuthSnapshotFromSession(null);
-    vi.unstubAllGlobals();
-  });
-
-  it("sends force_auth_mode=solidary to server", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        auth_mode: "solidary",
-        mode_switched: true
-      })
-    }));
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-
-    syncGithubAuthSnapshotFromSession(
-      buildSession({
-        providerToken: "provider-token",
-        providerRefreshToken: "provider-refresh"
-      })
-    );
-
-    const result = await switchToSolidaryOAuthForCurrentUser();
-
-    expect(result.modeSwitched).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const firstCallArgs = fetchMock.mock.calls[0] as unknown[];
-    expect(firstCallArgs).toBeDefined();
-    const requestInit = ((firstCallArgs?.[1] ?? {}) as unknown) as RequestInit;
-    const parsedBody = JSON.parse(String(requestInit.body ?? "{}")) as Record<string, unknown>;
-    expect(parsedBody.force_auth_mode).toBe("solidary");
-    expect(parsedBody.provider_token).toBe("provider-token");
-  });
-
-  it("fails when provider token is missing", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
-    syncGithubAuthSnapshotFromSession(
-      buildSession({
-        providerToken: null,
-        providerRefreshToken: null
-      })
-    );
-
-    await expect(switchToSolidaryOAuthForCurrentUser()).rejects.toThrow(
-      "GitHub OAuth session token is missing."
-    );
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

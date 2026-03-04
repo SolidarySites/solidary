@@ -1,7 +1,7 @@
 import type {
+  GitHubAuthRoutingStrategy,
   GitHubAppConnectionState,
-  GitHubAppRepositorySelection,
-  GitHubAuthMode
+  GitHubAppRepositorySelection
 } from "../../../features/auth/services/github-auth";
 
 type ProfileConnectedGithubCardProps = {
@@ -10,8 +10,9 @@ type ProfileConnectedGithubCardProps = {
   profileUrl: string | null;
   email: string;
   connectBusy: boolean;
-  switchAuthModeBusy: boolean;
-  githubAuthMode: GitHubAuthMode;
+  hasGitHubCredentials: boolean;
+  hasSolidaryCredentials: boolean;
+  authRoutingStrategy: GitHubAuthRoutingStrategy;
   githubAppConnected: boolean;
   githubAppConnectionState: GitHubAppConnectionState;
   githubAppConnectionMessage: string | null;
@@ -20,7 +21,6 @@ type ProfileConnectedGithubCardProps = {
   githubAppSelectedRepositoriesTruncated: boolean;
   githubAuthStatusLoading: boolean;
   onConnectGitHubApp: () => void;
-  onSwitchToSolidaryOAuth: () => void;
 };
 
 export default function ProfileConnectedGithubCard({
@@ -29,8 +29,9 @@ export default function ProfileConnectedGithubCard({
   profileUrl,
   email,
   connectBusy,
-  switchAuthModeBusy,
-  githubAuthMode,
+  hasGitHubCredentials,
+  hasSolidaryCredentials,
+  authRoutingStrategy,
   githubAppConnected,
   githubAppConnectionState,
   githubAppConnectionMessage,
@@ -38,30 +39,19 @@ export default function ProfileConnectedGithubCard({
   githubAppSelectedRepositories,
   githubAppSelectedRepositoriesTruncated,
   githubAuthStatusLoading,
-  onConnectGitHubApp,
-  onSwitchToSolidaryOAuth
+  onConnectGitHubApp
 }: ProfileConnectedGithubCardProps) {
-  const authModeLabel =
-    githubAuthMode === "github"
-      ? githubAppRepositorySelection === "all"
-        ? "GitHub App (full access)"
-        : githubAppRepositorySelection === "selected"
-          ? "GitHub App (repo scoped)"
-          : "GitHub App"
-      : "Solidary OAuth";
-  const connectLabel =
-    githubAuthMode === "github"
-      ? githubAppConnected
-        ? "Configure GitHub App permissions"
-        : "Reconnect GitHub App"
-      : "Connect GitHub App";
-  const showSwitchToSolidary = githubAuthMode === "github" && !githubAppConnected;
+  const connectLabel = githubAppConnected
+    ? "Configure GitHub App permissions"
+    : "Connect GitHub App";
   const showConnectionWarning =
-    showSwitchToSolidary &&
+    !githubAppConnected &&
     githubAppConnectionState !== "connected" &&
     Boolean(githubAppConnectionMessage?.trim());
   const showScopedRepositoryList =
-    githubAuthMode === "github" && githubAppConnected && githubAppRepositorySelection === "selected";
+    githubAppConnected && githubAppRepositorySelection === "selected";
+  const routingLabel =
+    authRoutingStrategy === "role_based" ? "Role-based (owner/collaborator)" : "Unknown";
 
   return (
     <section className="profile-github-card">
@@ -97,32 +87,46 @@ export default function ProfileConnectedGithubCard({
               type="button"
               className="ghost profile-connect-github-app"
               onClick={onConnectGitHubApp}
-              disabled={connectBusy || switchAuthModeBusy}
+              disabled={connectBusy}
             >
               {connectBusy ? "Connecting..." : connectLabel}
             </button>
-            {showSwitchToSolidary ? (
-              <button
-                type="button"
-                className="ghost profile-switch-auth-mode"
-                onClick={onSwitchToSolidaryOAuth}
-                disabled={switchAuthModeBusy || connectBusy}
-              >
-                {switchAuthModeBusy ? "Switching..." : "Switch to Solidary OAuth"}
-              </button>
-            ) : null}
           </div>
         </div>
         {showConnectionWarning ? (
           <p className="profile-github-warning">{githubAppConnectionMessage}</p>
         ) : null}
         <p className="profile-github-field">
-          <span>Auth mode</span>
-          <strong>{githubAuthStatusLoading ? "Loading..." : authModeLabel}</strong>
+          <span>Auth routing</span>
+          <strong>{githubAuthStatusLoading ? "Loading..." : routingLabel}</strong>
+        </p>
+        <p className="profile-github-field">
+          <span>Owner repos</span>
+          <strong>
+            {githubAuthStatusLoading
+              ? "Loading..."
+              : hasGitHubCredentials
+                ? "GitHub App credentials ready"
+                : "GitHub App credentials missing"}
+          </strong>
+        </p>
+        <p className="profile-github-field">
+          <span>Collaboration repos</span>
+          <strong>
+            {githubAuthStatusLoading
+              ? "Loading..."
+              : hasSolidaryCredentials
+                ? "Solidary OAuth credentials ready"
+                : "Solidary OAuth credentials missing"}
+          </strong>
         </p>
         <p className="profile-github-field">
           <span>GitHub App</span>
           <strong>{githubAppConnected ? "Connected" : "Not connected"}</strong>
+        </p>
+        <p className="profile-github-field">
+          <span>Routing rules</span>
+          <strong>Owner repos use GitHub App. Collaboration repos use Solidary OAuth.</strong>
         </p>
         {showScopedRepositoryList ? (
           <div className="profile-github-field">

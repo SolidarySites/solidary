@@ -95,6 +95,13 @@ export type ResolvedGitHubToken = {
   source: GitHubTokenSource;
 };
 
+export type GitHubCredentialPresence = {
+  hasGitHubRow: boolean;
+  hasSolidaryRow: boolean;
+  hasGitHubCredentials: boolean;
+  hasSolidaryCredentials: boolean;
+};
+
 export type GitHubAppConnectionState =
   | "connected"
   | "installation_missing"
@@ -326,6 +333,7 @@ export const upsertGitHubAppUserCredentials = async ({
   if (!userId) {
     throw new Error("Cannot store GitHub App credentials without a user id.");
   }
+  const upsertAuthMode = normalizeGitHubAuthMode(input.authMode);
   const accessToken = input.accessToken.trim();
   if (!accessToken) {
     throw new Error("Cannot store empty GitHub App access token.");
@@ -387,14 +395,11 @@ export const upsertGitHubAppUserCredentials = async ({
 
   const payload: Record<string, unknown> = {
     user_id: userId,
+    auth_mode: upsertAuthMode,
     access_token_encrypted: encryptedAccessToken,
     token_encryption_key_version: getTokenEncryptionVersion(),
     connected_at: new Date().toISOString()
   };
-
-  if (typeof input.authMode !== "undefined") {
-    payload.auth_mode = normalizeGitHubAuthMode(input.authMode);
-  }
 
   if (typeof input.accessTokenExpiresAt !== "undefined") {
     payload.access_token_expires_at = input.accessTokenExpiresAt;
@@ -439,7 +444,7 @@ export const upsertGitHubAppUserCredentials = async ({
   debugLog("upserting credentials", {
     userId,
     source: input.source ?? "unknown",
-    authMode: input.authMode ?? null,
+    authMode: upsertAuthMode,
     hasAccessToken: Boolean(input.accessToken?.trim()),
     accessTokenShape: summarizeTokenShape(input.accessToken),
     accessTokenExpiresAt: input.accessTokenExpiresAt,
@@ -456,16 +461,17 @@ export const upsertGitHubAppUserCredentials = async ({
   });
 
   const { error } = await supabase.from("github_app_user_tokens").upsert(payload, {
-    onConflict: "user_id"
+    onConflict: "user_id,auth_mode"
   });
   if (error) {
     throw new Error(error.message);
   }
 
   if (GITHUB_TOKEN_DEBUG) {
-    const storedCredential = await getStoredCredential({
+    const storedCredential = await getStoredCredentialByMode({
       supabase,
-      userId
+      userId,
+      authMode: upsertAuthMode
     });
     const persistedAccessToken = storedCredential?.access_token_encrypted?.trim()
       ? decryptTokenValue(storedCredential.access_token_encrypted)
@@ -497,6 +503,50 @@ const getStoredCredential = async ({
 }: {
   supabase: SupabaseClient;
   userId: string;
+}): Promise<StoredCredentialRow[]> => {
+  const { data, error } = await supabase
+    .from("github_app_user_tokens")
+    .select(
+      [
+        "user_id",
+        "auth_mode",
+        "access_token_encrypted",
+        "access_token_expires_at",
+        "refresh_token_encrypted",
+        "refresh_token_expires_at",
+        "token_encryption_key_version",
+        "token_type",
+        "scope",
+        "github_user_id",
+        "github_login",
+        "installation_id",
+        "installation_account_login",
+        "installation_account_type"
+      ].join(", ")
+    )
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data
+    .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    .map((entry) => entry as StoredCredentialRow);
+};
+
+const getStoredCredentialByMode = async ({
+  supabase,
+  userId,
+  authMode
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+  authMode: GitHubAuthMode;
 }): Promise<StoredCredentialRow | null> => {
   const { data, error } = await supabase
     .from("github_app_user_tokens")
@@ -519,6 +569,7 @@ const getStoredCredential = async ({
       ].join(", ")
     )
     .eq("user_id", userId)
+    .eq("auth_mode", authMode)
     .maybeSingle();
 
   if (error) {
@@ -532,6 +583,165 @@ const getStoredCredential = async ({
   return data as StoredCredentialRow;
 };
 
+const resolveGitHubTokenForStoredCredential = async ({
+  supabase,
+  userId,
+  credential
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+  credential: StoredCredentialRow;
+}): Promise<ResolvedGitHubToken | null> => {
+  const authMode = normalizeGitHubAuthMode(credential.auth_mode);
+  const rawStoredAccessToken = credential.access_token_encrypted?.trim()
+    ? decryptTokenValue(credential.access_token_encrypted)
+    : "";
+  const rawStoredRefreshToken = credential.refresh_token_encrypted?.trim()
+    ? decryptTokenValue(credential.refresh_token_encrypted)
+    : "";
+  const storedAccessToken = normalizeGitHubToken(rawStoredAccessToken);
+  const storedRefreshToken = normalizeGitHubToken(rawStoredRefreshToken);
+
+  debugLog("resolved stored credential", {
+    userId,
+    hasAccessToken: Boolean(rawStoredAccessToken),
+    hasRefreshToken: Boolean(rawStoredRefreshToken),
+    hasNormalizedAccessToken: Boolean(storedAccessToken),
+    hasNormalizedRefreshToken: Boolean(storedRefreshToken),
+    accessTokenShape: rawStoredAccessToken ? summarizeTokenShape(rawStoredAccessToken) : null,
+    refreshTokenShape: rawStoredRefreshToken ? summarizeTokenShape(rawStoredRefreshToken) : null,
+    authMode,
+    accessTokenExpiresAt: credential.access_token_expires_at,
+    refreshTokenExpiresAt: credential.refresh_token_expires_at
+  });
+
+  // If we do not have a refresh token, allow best-effort use of the stored access token
+  // even when local expiry metadata looks stale. Downstream GitHub API calls remain the
+  // source of truth and will return 401/403 when the token is actually unusable.
+  const canUseStoredAccessToken =
+    Boolean(storedAccessToken) &&
+    (isTokenStillUsable(credential.access_token_expires_at) || !storedRefreshToken);
+
+  if (canUseStoredAccessToken) {
+    return { token: storedAccessToken, source: authMode };
+  }
+
+  if (storedRefreshToken) {
+    const refreshSource: GitHubOAuthCredentialSource =
+      authMode === "github" ? "github_app" : "legacy_oauth";
+    try {
+      const refreshed = await refreshGitHubAppUserToken(storedRefreshToken, refreshSource);
+      await upsertGitHubAppUserCredentials({
+        supabase,
+        input: {
+          userId,
+          authMode,
+          githubUserId: credential.github_user_id,
+          githubLogin: credential.github_login,
+          installationId: credential.installation_id,
+          installationAccountLogin: credential.installation_account_login,
+          installationAccountType: credential.installation_account_type,
+          accessToken: refreshed.accessToken,
+          accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+          refreshToken: refreshed.refreshToken || storedRefreshToken,
+          refreshTokenExpiresAt:
+            refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
+          tokenType: refreshed.tokenType,
+          scope: refreshed.scope,
+          source: `refresh_flow:${refreshSource}`
+        }
+      });
+      const refreshedAccessToken = normalizeGitHubToken(refreshed.accessToken);
+      if (!refreshedAccessToken) {
+        debugLog("discarding refreshed token with invalid header characters", {
+          userId,
+          authMode,
+          refreshSource
+        });
+        return null;
+      }
+      return {
+        token: refreshedAccessToken,
+        source: authMode
+      };
+    } catch (error) {
+      debugLog("refresh flow failed", {
+        userId,
+        authMode,
+        refreshSource,
+        message: error instanceof Error ? error.message : "unknown error"
+      });
+    }
+  }
+
+  return null;
+};
+
+export const getGitHubCredentialPresenceForUser = async ({
+  supabase,
+  userId
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<GitHubCredentialPresence> => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    return {
+      hasGitHubRow: false,
+      hasSolidaryRow: false,
+      hasGitHubCredentials: false,
+      hasSolidaryCredentials: false
+    };
+  }
+
+  const credentials = await getStoredCredential({
+    supabase,
+    userId: normalizedUserId
+  });
+  const githubCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "github") ?? null;
+  const solidaryCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "solidary") ?? null;
+
+  return {
+    hasGitHubRow: Boolean(githubCredential),
+    hasSolidaryRow: Boolean(solidaryCredential),
+    hasGitHubCredentials: Boolean(
+      githubCredential?.access_token_encrypted?.trim() || githubCredential?.refresh_token_encrypted?.trim()
+    ),
+    hasSolidaryCredentials: Boolean(
+      solidaryCredential?.access_token_encrypted?.trim() ||
+        solidaryCredential?.refresh_token_encrypted?.trim()
+    )
+  };
+};
+
+export const resolveGitHubTokenForUserByMode = async ({
+  supabase,
+  userId,
+  authMode
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+  authMode: GitHubAuthMode;
+}): Promise<ResolvedGitHubToken | null> => {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return null;
+
+  const credential = await getStoredCredentialByMode({
+    supabase,
+    userId: normalizedUserId,
+    authMode
+  });
+
+  if (!credential) return null;
+  return resolveGitHubTokenForStoredCredential({
+    supabase,
+    userId: normalizedUserId,
+    credential
+  });
+};
+
 export const resolveGitHubTokenForUser = async ({
   supabase,
   userId
@@ -542,93 +752,29 @@ export const resolveGitHubTokenForUser = async ({
   const normalizedUserId = userId.trim();
   if (!normalizedUserId) return null;
 
-  const credential = await getStoredCredential({
+  const credentials = await getStoredCredential({
     supabase,
     userId: normalizedUserId
   });
+  const githubCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "github") ?? null;
+  const solidaryCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "solidary") ?? null;
 
-  if (credential) {
-    const authMode = normalizeGitHubAuthMode(credential.auth_mode);
-    const rawStoredAccessToken = credential.access_token_encrypted?.trim()
-      ? decryptTokenValue(credential.access_token_encrypted)
-      : "";
-    const rawStoredRefreshToken = credential.refresh_token_encrypted?.trim()
-      ? decryptTokenValue(credential.refresh_token_encrypted)
-      : "";
-    const storedAccessToken = normalizeGitHubToken(rawStoredAccessToken);
-    const storedRefreshToken = normalizeGitHubToken(rawStoredRefreshToken);
-
-    debugLog("resolved stored credential", {
+  if (githubCredential) {
+    return resolveGitHubTokenForStoredCredential({
+      supabase,
       userId: normalizedUserId,
-      hasAccessToken: Boolean(rawStoredAccessToken),
-      hasRefreshToken: Boolean(rawStoredRefreshToken),
-      hasNormalizedAccessToken: Boolean(storedAccessToken),
-      hasNormalizedRefreshToken: Boolean(storedRefreshToken),
-      accessTokenShape: rawStoredAccessToken ? summarizeTokenShape(rawStoredAccessToken) : null,
-      refreshTokenShape: rawStoredRefreshToken ? summarizeTokenShape(rawStoredRefreshToken) : null,
-      authMode,
-      accessTokenExpiresAt: credential.access_token_expires_at,
-      refreshTokenExpiresAt: credential.refresh_token_expires_at
+      credential: githubCredential
     });
+  }
 
-    // If we do not have a refresh token, allow best-effort use of the stored access token
-    // even when local expiry metadata looks stale. Downstream GitHub API calls remain the
-    // source of truth and will return 401/403 when the token is actually unusable.
-    const canUseStoredAccessToken =
-      Boolean(storedAccessToken) &&
-      (isTokenStillUsable(credential.access_token_expires_at) || !storedRefreshToken);
-
-    if (canUseStoredAccessToken) {
-      return { token: storedAccessToken, source: authMode };
-    }
-
-    if (storedRefreshToken) {
-      const refreshSource: GitHubOAuthCredentialSource =
-        authMode === "github" ? "github_app" : "legacy_oauth";
-      try {
-        const refreshed = await refreshGitHubAppUserToken(storedRefreshToken, refreshSource);
-        await upsertGitHubAppUserCredentials({
-          supabase,
-          input: {
-            userId: normalizedUserId,
-            authMode,
-            githubUserId: credential.github_user_id,
-            githubLogin: credential.github_login,
-            installationId: credential.installation_id,
-            installationAccountLogin: credential.installation_account_login,
-            installationAccountType: credential.installation_account_type,
-            accessToken: refreshed.accessToken,
-            accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-            refreshToken: refreshed.refreshToken || storedRefreshToken,
-            refreshTokenExpiresAt:
-              refreshed.refreshTokenExpiresAt ?? credential.refresh_token_expires_at ?? null,
-            tokenType: refreshed.tokenType,
-            scope: refreshed.scope,
-            source: `refresh_flow:${refreshSource}`
-          }
-        });
-        const refreshedAccessToken = normalizeGitHubToken(refreshed.accessToken);
-        if (!refreshedAccessToken) {
-          debugLog("discarding refreshed token with invalid header characters", {
-            userId: normalizedUserId,
-            authMode,
-            refreshSource
-          });
-          return null;
-        }
-        return {
-          token: refreshedAccessToken,
-          source: authMode
-        };
-      } catch (error) {
-        debugLog("refresh flow failed", {
-          userId: normalizedUserId,
-          authMode,
-          refreshSource,
-          message: error instanceof Error ? error.message : "unknown error"
-        });
-      }
-    }
+  if (solidaryCredential) {
+    return resolveGitHubTokenForStoredCredential({
+      supabase,
+      userId: normalizedUserId,
+      credential: solidaryCredential
+    });
   }
 
   return null;
@@ -747,12 +893,12 @@ export const getGitHubAppConnectionStatusForUser = async ({
     };
   }
 
-  const credential = await getStoredCredential({
+  const credential = await getStoredCredentialByMode({
     supabase,
-    userId: normalizedUserId
+    userId: normalizedUserId,
+    authMode: "github"
   });
-  const authMode = normalizeGitHubAuthMode(credential?.auth_mode ?? null);
-  if (!credential || authMode !== "github") {
+  if (!credential) {
     return {
       connected: false,
       state: "not_connected",
@@ -763,9 +909,10 @@ export const getGitHubAppConnectionStatusForUser = async ({
     };
   }
 
-  const resolved = await resolveGitHubTokenForUser({
+  const resolved = await resolveGitHubTokenForUserByMode({
     supabase,
-    userId: normalizedUserId
+    userId: normalizedUserId,
+    authMode: "github"
   });
   const token = resolved?.token?.trim() ?? "";
   if (!token) {
@@ -777,19 +924,12 @@ export const getGitHubAppConnectionStatusForUser = async ({
       connected: false,
       state: "token_invalid",
       message:
-        "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile.",
+        "GitHub App authorization is invalid or expired. Reconnect GitHub App from Profile.",
       repositorySelection: "unknown",
       selectedRepositories: [],
       selectedRepositoriesTruncated: false
     };
   }
-  if (resolved?.source !== "github") {
-    debugLog("GitHub App connection check resolved non-github source", {
-      userId: normalizedUserId,
-      source: resolved?.source ?? null
-    });
-  }
-
   const installationId = normalizeInstallationId(credential.installation_id);
 
   try {
@@ -840,12 +980,12 @@ export const getGitHubAppConnectionStatusForUser = async ({
 
     const firstPage = await fetchInstallationsPage(1);
     if (firstPage.response.status === 401 || firstPage.response.status === 403) {
-      return {
-        connected: false,
-        state: "token_invalid",
-        message:
-          getGitHubApiMessage(firstPage.payload) ||
-          "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile.",
+          return {
+            connected: false,
+            state: "token_invalid",
+            message:
+              getGitHubApiMessage(firstPage.payload) ||
+              "GitHub App authorization is invalid or expired. Reconnect GitHub App from Profile.",
         repositorySelection: "unknown",
         selectedRepositories: [],
         selectedRepositoriesTruncated: false
@@ -905,7 +1045,7 @@ export const getGitHubAppConnectionStatusForUser = async ({
         connected: false,
         state: "installation_missing",
         message:
-          "GitHub App is not installed for this account. Install or reconnect the GitHub App, or uninstall it and switch to Solidary OAuth from Profile.",
+          "GitHub App is not installed for this account. Install or reconnect the GitHub App.",
         repositorySelection: "unknown",
         selectedRepositories: [],
         selectedRepositoriesTruncated: false
@@ -955,7 +1095,7 @@ export const getGitHubAppConnectionStatusForUser = async ({
             state: "token_invalid",
             message:
               getGitHubApiMessage(currentPage.payload) ||
-              "GitHub App authorization is invalid or expired. Reconnect GitHub App, or uninstall it and switch to Solidary OAuth from Profile.",
+              "GitHub App authorization is invalid or expired. Reconnect GitHub App from Profile.",
             repositorySelection: "unknown",
             selectedRepositories: [],
             selectedRepositoriesTruncated: false
@@ -1018,7 +1158,7 @@ export const getGitHubAppConnectionStatusForUser = async ({
       connected: false,
       state: "installation_missing",
       message:
-        "GitHub App is no longer installed for this account. Grant access in GitHub App settings, or uninstall it and switch to Solidary OAuth from Profile.",
+        "GitHub App is no longer installed for this account. Grant access in GitHub App settings or reconnect the app.",
       repositorySelection: "unknown",
       selectedRepositories: [],
       selectedRepositoriesTruncated: false

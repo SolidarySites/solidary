@@ -35,7 +35,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or branch." });
     }
 
-    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource, repoScope } = await authorizeGitHubRepoAction({
       functionName: "github-enable-pages",
       action: "enable_pages",
       owner,
@@ -142,6 +142,7 @@ export const handler: Handler = async (event) => {
     return safeJson(lastStatus || 500, {
       error: mapGitHubApiFailureToActionableAuthMessage({
         tokenSource,
+        repoScope,
         owner,
         repo,
         statusCode: lastStatus || 500,

@@ -70,7 +70,7 @@ export const handler: Handler = async (event) => {
   };
 
   try {
-    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource, repoScope } = await authorizeGitHubRepoAction({
       functionName: "github-ensure-branch",
       action: "ensure_branch",
       owner,
@@ -100,6 +100,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: mapGitHubApiFailureToActionableAuthMessage({
             tokenSource,
+            repoScope,
             owner,
             repo,
             statusCode: existing.response.status,
@@ -118,6 +119,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: mapGitHubApiFailureToActionableAuthMessage({
             tokenSource,
+            repoScope,
             owner,
             repo,
             statusCode: base.response.status,
@@ -157,6 +159,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: mapGitHubApiFailureToActionableAuthMessage({
             tokenSource,
+            repoScope,
             owner,
             repo,
             statusCode: createResponse.status,
@@ -175,6 +178,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: mapGitHubApiFailureToActionableAuthMessage({
             tokenSource,
+            repoScope,
             owner,
             repo,
             statusCode: finalBranch.response.status,

@@ -27,8 +27,9 @@ export default function ProfileRoute() {
             profileUrl={controller.connectedGithub.profileUrl}
             email={controller.connectedGithub.email}
             connectBusy={controller.connectBusy}
-            switchAuthModeBusy={controller.switchAuthModeBusy}
-            githubAuthMode={controller.githubAuthMode}
+            hasGitHubCredentials={controller.hasGitHubCredentials}
+            hasSolidaryCredentials={controller.hasSolidaryCredentials}
+            authRoutingStrategy={controller.authRoutingStrategy}
             githubAppConnected={controller.githubAppConnected}
             githubAppConnectionState={controller.githubAppConnectionState}
             githubAppConnectionMessage={controller.githubAppConnectionMessage}
@@ -39,7 +40,6 @@ export default function ProfileRoute() {
             }
             githubAuthStatusLoading={controller.githubAuthStatusLoading}
             onConnectGitHubApp={controller.onConnectGitHubApp}
-            onSwitchToSolidaryOAuth={controller.onSwitchToSolidaryOAuth}
           />
 
           <ProfileSettingsFormSection

@@ -3,10 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import {
   getGitHubAuthStatusForCurrentUser,
-  switchToSolidaryOAuthForCurrentUser,
+  type GitHubAuthRoutingStrategy,
   type GitHubAppConnectionState,
-  type GitHubAppRepositorySelection,
-  type GitHubAuthMode
+  type GitHubAppRepositorySelection
 } from "../../../features/auth/services/github-auth";
 import type { NoticeKind } from "../../../types/notice";
 import {
@@ -20,7 +19,6 @@ import {
 } from "./useProfileAvatarController";
 
 const GITHUB_APP_CONNECT_RESULT_MESSAGE_TYPE = "solidary:github-app-connect-result";
-const SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM = "switch_to_solidary";
 
 type GitHubAppConnectResultStatus = "connected" | "error";
 
@@ -34,9 +32,6 @@ const getSaveErrorMessage = (error: unknown): string => {
 
 const parseGitHubAppConnectResultStatus = (value: string): GitHubAppConnectResultStatus =>
   value === "connected" ? "connected" : "error";
-
-const isMissingProviderTokenMessage = (message: string) =>
-  message.toLowerCase().includes("github oauth session token is missing");
 
 const parseGitHubAppConnectResultMessagePayload = (
   value: unknown
@@ -63,7 +58,7 @@ const parseGitHubAppConnectResultMessagePayload = (
 };
 
 export const useProfileRouteController = () => {
-  const { session, connectGitHubApp, signInWithGitHub } = useAuth();
+  const { session, connectGitHubApp } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -75,8 +70,10 @@ export const useProfileRouteController = () => {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
-  const [switchAuthModeBusy, setSwitchAuthModeBusy] = useState(false);
-  const [githubAuthMode, setGithubAuthMode] = useState<GitHubAuthMode>("solidary");
+  const [hasGitHubCredentials, setHasGitHubCredentials] = useState(false);
+  const [hasSolidaryCredentials, setHasSolidaryCredentials] = useState(false);
+  const [authRoutingStrategy, setAuthRoutingStrategy] =
+    useState<GitHubAuthRoutingStrategy>("unknown");
   const [githubAppConnected, setGithubAppConnected] = useState(false);
   const [githubAppConnectionState, setGithubAppConnectionState] =
     useState<GitHubAppConnectionState>("not_connected");
@@ -106,7 +103,9 @@ export const useProfileRouteController = () => {
 
   const refreshGitHubAuthStatus = useCallback(async () => {
     if (!session) {
-      setGithubAuthMode("solidary");
+      setHasGitHubCredentials(false);
+      setHasSolidaryCredentials(false);
+      setAuthRoutingStrategy("unknown");
       setGithubAppConnected(false);
       setGithubAppConnectionState("not_connected");
       setGithubAppConnectionMessage(null);
@@ -120,7 +119,9 @@ export const useProfileRouteController = () => {
     setGithubAuthStatusLoading(true);
     try {
       const status = await getGitHubAuthStatusForCurrentUser();
-      setGithubAuthMode(status.authMode);
+      setHasGitHubCredentials(status.hasGitHubCredentials);
+      setHasSolidaryCredentials(status.hasSolidaryCredentials);
+      setAuthRoutingStrategy(status.authRoutingStrategy);
       setGithubAppConnected(status.githubAppConnected);
       setGithubAppConnectionState(status.githubAppConnectionState);
       setGithubAppConnectionMessage(status.githubAppConnectionMessage);
@@ -360,99 +361,6 @@ export const useProfileRouteController = () => {
     void saveSettings();
   };
 
-  const runSwitchToSolidaryOAuth = useCallback(
-    async ({ allowReauth }: { allowReauth: boolean }) => {
-      setSwitchAuthModeBusy(true);
-      setNotice(null);
-      setNoticeKind(null);
-
-      try {
-        await switchToSolidaryOAuthForCurrentUser();
-        await refreshGitHubAuthStatus();
-        setNotice("Switched to Solidary OAuth.");
-        setNoticeKind("notice");
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Could not switch to Solidary OAuth.";
-
-        if (allowReauth && isMissingProviderTokenMessage(message)) {
-          const params = new URLSearchParams(location.search);
-          params.set(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM, "1");
-          const nextSearch = params.toString();
-          const returnTo = `${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`;
-
-          try {
-            await signInWithGitHub(returnTo);
-            return;
-          } catch (signInError) {
-            const signInMessage =
-              signInError instanceof Error
-                ? signInError.message
-                : "Could not start GitHub sign-in.";
-            setNotice(signInMessage);
-            setNoticeKind("error");
-            return;
-          }
-        }
-
-        setNotice(message);
-        setNoticeKind("error");
-      } finally {
-        setSwitchAuthModeBusy(false);
-      }
-    },
-    [
-      location.hash,
-      location.pathname,
-      location.search,
-      refreshGitHubAuthStatus,
-      signInWithGitHub
-    ]
-  );
-
-  useEffect(() => {
-    if (!session) return;
-
-    const params = new URLSearchParams(location.search);
-    if (params.get(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM) !== "1") {
-      return;
-    }
-
-    params.delete(SWITCH_TO_SOLIDARY_AFTER_AUTH_PARAM);
-    const nextSearch = params.toString();
-    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}${location.hash}`, {
-      replace: true
-    });
-
-    void runSwitchToSolidaryOAuth({ allowReauth: false });
-  }, [
-    location.hash,
-    location.pathname,
-    location.search,
-    navigate,
-    runSwitchToSolidaryOAuth,
-    session
-  ]);
-
-  const onSwitchToSolidaryOAuth = () => {
-    if (!session) {
-      setNotice("Sign in with GitHub to switch auth mode.");
-      setNoticeKind("error");
-      return;
-    }
-
-    if (
-      typeof window !== "undefined" &&
-      !window.confirm(
-        "Switch to Solidary OAuth for GitHub actions? This will stop using GitHub App mode."
-      )
-    ) {
-      return;
-    }
-
-    void runSwitchToSolidaryOAuth({ allowReauth: true });
-  };
-
   return {
     displayName,
     connectedGithub: profileData.connectedGithub,
@@ -468,8 +376,9 @@ export const useProfileRouteController = () => {
     avatarAddBusy: avatarController.avatarAddBusy,
     avatarRemoveBusy: avatarController.avatarRemoveBusy,
     connectBusy,
-    switchAuthModeBusy,
-    githubAuthMode,
+    hasGitHubCredentials,
+    hasSolidaryCredentials,
+    authRoutingStrategy,
     githubAppConnected,
     githubAppConnectionState,
     githubAppConnectionMessage,
@@ -485,7 +394,6 @@ export const useProfileRouteController = () => {
     onAvatarFileChange: avatarController.onAvatarFileChange,
     onSelectAvatar: avatarController.onSelectAvatar,
     onRemoveAvatar: avatarController.onRemoveAvatar,
-    onConnectGitHubApp,
-    onSwitchToSolidaryOAuth
+    onConnectGitHubApp
   };
 };

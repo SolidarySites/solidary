@@ -12,7 +12,6 @@ const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
 
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
 
-export type GitHubAuthMode = "solidary" | "github";
 export type GitHubAppConnectionState =
   | "connected"
   | "installation_missing"
@@ -21,11 +20,14 @@ export type GitHubAppConnectionState =
   | "not_connected";
 
 export type GitHubAppRepositorySelection = "all" | "selected" | "unknown";
+export type GitHubAuthRoutingStrategy = "role_based" | "unknown";
 
 export type GitHubAuthStatus = {
-  authMode: GitHubAuthMode;
   githubAppConnected: boolean;
   hasStoredCredentials: boolean;
+  hasGitHubCredentials: boolean;
+  hasSolidaryCredentials: boolean;
+  authRoutingStrategy: GitHubAuthRoutingStrategy;
   githubAppConnectionState: GitHubAppConnectionState;
   githubAppConnectionMessage: string | null;
   githubAppRepositorySelection: GitHubAppRepositorySelection;
@@ -299,11 +301,6 @@ export const connectGitHubAppForCurrentUser = async ({
   } satisfies ConnectGitHubAppResult;
 };
 
-const normalizeGitHubAuthMode = (value: unknown): GitHubAuthMode => {
-  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
-  return normalized === "github" ? "github" : "solidary";
-};
-
 const normalizeGitHubAppConnectionState = (value: unknown): GitHubAppConnectionState => {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (
@@ -316,6 +313,10 @@ const normalizeGitHubAppConnectionState = (value: unknown): GitHubAppConnectionS
     return normalized;
   }
   return "unknown";
+};
+
+const normalizeAuthRoutingStrategy = (value: unknown): GitHubAuthRoutingStrategy => {
+  return value === "role_based" ? "role_based" : "unknown";
 };
 
 const normalizeGitHubAppRepositorySelection = (value: unknown): GitHubAppRepositorySelection => {
@@ -344,9 +345,11 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
   });
 
   const payload = (await response.json().catch(() => ({}))) as {
-    auth_mode?: string;
     github_app_connected?: boolean;
     has_stored_credentials?: boolean;
+    has_github_credentials?: boolean;
+    has_solidary_credentials?: boolean;
+    auth_routing_strategy?: string;
     github_app_connection_state?: string;
     github_app_connection_message?: string | null;
     github_app_repository_selection?: string;
@@ -360,9 +363,11 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
   }
 
   return {
-    authMode: normalizeGitHubAuthMode(payload.auth_mode),
     githubAppConnected: Boolean(payload.github_app_connected),
     hasStoredCredentials: Boolean(payload.has_stored_credentials),
+    hasGitHubCredentials: Boolean(payload.has_github_credentials),
+    hasSolidaryCredentials: Boolean(payload.has_solidary_credentials),
+    authRoutingStrategy: normalizeAuthRoutingStrategy(payload.auth_routing_strategy),
     githubAppConnectionState: normalizeGitHubAppConnectionState(payload.github_app_connection_state),
     githubAppConnectionMessage:
       typeof payload.github_app_connection_message === "string"
@@ -377,48 +382,6 @@ export const getGitHubAuthStatusForCurrentUser = async (): Promise<GitHubAuthSta
     githubAppSelectedRepositoriesTruncated: Boolean(
       payload.github_app_selected_repositories_truncated
     )
-  };
-};
-
-export const switchToSolidaryOAuthForCurrentUser = async (): Promise<{ modeSwitched: boolean }> => {
-  const { session, providerToken, supabaseAccessToken } = await requireFreshSupabaseAuth();
-  if (!providerToken) {
-    throw new Error("GitHub OAuth session token is missing. Sign in with GitHub again, then retry.");
-  }
-  const providerRefreshToken = getSessionProviderRefreshToken(session);
-
-  const response = await fetch(supabaseFunctionUrl("github-store-provider-token"), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      Authorization: `Bearer ${supabaseAccessToken}`
-    },
-    body: JSON.stringify({
-      provider_token: providerToken,
-      provider_refresh_token: providerRefreshToken || undefined,
-      force_auth_mode: "solidary",
-      debug_trigger: "profile_manual_mode_switch",
-      session_has_provider_token: true,
-      session_has_provider_refresh_token: Boolean(providerRefreshToken)
-    })
-  });
-
-  const payload = (await response.json().catch(() => ({}))) as {
-    auth_mode?: string;
-    mode_switched?: boolean;
-    error?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(payload.error ?? "Could not switch back to Solidary OAuth.");
-  }
-
-  if (normalizeGitHubAuthMode(payload.auth_mode) !== "solidary") {
-    throw new Error("GitHub auth mode is still set to GitHub App. Please retry.");
-  }
-
-  return {
-    modeSwitched: Boolean(payload.mode_switched)
   };
 };
 

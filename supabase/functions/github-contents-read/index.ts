@@ -27,7 +27,7 @@ export const handler: Handler = async (event) => {
       return safeJson(400, { error: "Missing owner, repo, or path." });
     }
 
-    const { githubToken, tokenSource } = await authorizeGitHubRepoAction({
+    const { githubToken, tokenSource, repoScope } = await authorizeGitHubRepoAction({
       functionName: "github-contents-read",
       action: "read_contents",
       owner,
@@ -63,6 +63,7 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: mapGitHubApiFailureToActionableAuthMessage({
             tokenSource,
+            repoScope,
             owner,
             repo,
             statusCode: response.status,

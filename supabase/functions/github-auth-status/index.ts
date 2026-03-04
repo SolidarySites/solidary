@@ -67,31 +67,28 @@ export const handler: Handler = async (event) => {
   const { data, error } = await supabase
     .from("github_app_user_tokens")
     .select("auth_mode, access_token_encrypted, refresh_token_encrypted")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    .eq("user_id", user.id);
 
   if (error) {
     return safeJson(500, { error: error.message });
   }
 
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return safeJson(200, {
-      auth_mode: "solidary",
-      github_app_connected: false,
-      has_stored_credentials: false,
-      github_app_connection_state: "not_connected",
-      github_app_connection_message: null,
-      github_app_repository_selection: "unknown",
-      github_app_selected_repositories: [],
-      github_app_selected_repositories_truncated: false
-    });
-  }
-
-  const credential = data as StoredCredentialRow;
-  const authMode = normalizeGitHubAuthMode(credential.auth_mode);
-  const hasStoredCredentials = Boolean(
-    credential.access_token_encrypted?.trim() || credential.refresh_token_encrypted?.trim()
+  const rows = Array.isArray(data)
+    ? data.filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+    : [];
+  const credentials = rows as StoredCredentialRow[];
+  const githubCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "github") ?? null;
+  const solidaryCredential =
+    credentials.find((entry) => normalizeGitHubAuthMode(entry.auth_mode) === "solidary") ?? null;
+  const hasGitHubCredentials = Boolean(
+    githubCredential?.access_token_encrypted?.trim() || githubCredential?.refresh_token_encrypted?.trim()
   );
+  const hasSolidaryCredentials = Boolean(
+    solidaryCredential?.access_token_encrypted?.trim() || solidaryCredential?.refresh_token_encrypted?.trim()
+  );
+  const hasStoredCredentials = hasGitHubCredentials || hasSolidaryCredentials;
+  const authMode = hasGitHubCredentials ? "github" : "solidary";
 
   let githubAppConnected = false;
   let githubAppConnectionState: GitHubAppConnectionState = "not_connected";
@@ -100,7 +97,7 @@ export const handler: Handler = async (event) => {
   let githubAppSelectedRepositories: string[] = [];
   let githubAppSelectedRepositoriesTruncated = false;
 
-  if (authMode === "github") {
+  if (githubCredential) {
     try {
       const connectionStatus = await getGitHubAppConnectionStatusForUser({
         supabase,
@@ -127,6 +124,9 @@ export const handler: Handler = async (event) => {
     auth_mode: authMode,
     github_app_connected: githubAppConnected,
     has_stored_credentials: hasStoredCredentials,
+    has_github_credentials: hasGitHubCredentials,
+    has_solidary_credentials: hasSolidaryCredentials,
+    auth_routing_strategy: "role_based",
     github_app_connection_state: githubAppConnectionState,
     github_app_connection_message: githubAppConnectionMessage,
     github_app_repository_selection: githubAppRepositorySelection,

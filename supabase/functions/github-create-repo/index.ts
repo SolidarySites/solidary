@@ -2,7 +2,10 @@ import { runHandler } from "../_shared/request-adapter.ts";
 import { Buffer } from "node:buffer";
 import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
-import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
+import {
+  getGitHubCredentialPresenceForUser,
+  resolveGitHubTokenForUser
+} from "../_shared/github-auth-broker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
@@ -155,9 +158,14 @@ export const handler: Handler = async (event) => {
       userId: user.id
     });
     if (!resolvedGitHubAuth?.token) {
+      const credentialPresence = await getGitHubCredentialPresenceForUser({
+        supabase,
+        userId: user.id
+      }).catch(() => null);
       return safeJson(412, {
-        error:
-          "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
+        error: credentialPresence?.hasGitHubRow
+          ? "GitHub App authorization is required for owner repository actions. Solidary OAuth fallback is disabled for owner repositories. Reconnect GitHub App from Profile and retry."
+          : "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
       });
     }
 
