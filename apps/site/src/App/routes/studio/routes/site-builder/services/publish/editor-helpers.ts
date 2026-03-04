@@ -23,31 +23,40 @@ export const buildEditorFileChanges = ({
   files: Record<string, string>;
 }) => {
   const upsertsByPath = new Map<string, string>();
+  const upsertRuntimeTemplates = () => {
+    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+      const runtimeContent = files[path];
+      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
+    });
+  };
+  const upsertSeoContent = () => {
+    const seoFile = files[FILE_KEYS.seoContent];
+    if (seoFile) upsertsByPath.set(FILE_KEYS.seoContent, seoFile);
+  };
+
   if (touchedSections.has("metadata")) {
     const solidaryFile = files[FILE_KEYS.solidary];
     const solidaryContentFile = files[FILE_KEYS.solidaryContent];
     if (solidaryFile) upsertsByPath.set(FILE_KEYS.solidary, solidaryFile);
     if (solidaryContentFile) upsertsByPath.set(FILE_KEYS.solidaryContent, solidaryContentFile);
-    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
-      const runtimeContent = files[path];
-      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
-    });
+    upsertSeoContent();
+    upsertRuntimeTemplates();
   }
   if (touchedSections.has("header")) {
     const headerFile = files[FILE_KEYS.headerContent];
     if (headerFile) upsertsByPath.set(FILE_KEYS.headerContent, headerFile);
-    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
-      const runtimeContent = files[path];
-      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
-    });
+    upsertSeoContent();
+    upsertRuntimeTemplates();
   }
   if (touchedSections.has("footer")) {
     const footerFile = files[FILE_KEYS.footerContent];
     if (footerFile) upsertsByPath.set(FILE_KEYS.footerContent, footerFile);
-    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
-      const runtimeContent = files[path];
-      if (runtimeContent) upsertsByPath.set(path, runtimeContent);
-    });
+    upsertSeoContent();
+    upsertRuntimeTemplates();
+  }
+  if (touchedSections.has("head")) {
+    upsertSeoContent();
+    upsertRuntimeTemplates();
   }
   if (touchedSections.has("styles")) {
     const tokensFile = files[FILE_KEYS.tokens];

@@ -39,10 +39,15 @@ export type FooterFrontmatter = {
   modules: FooterModule[];
 };
 
+export type SeoFrontmatter = {
+  headHtml: string;
+};
+
 export type SiteContentGraph = {
   solidary: SolidaryFrontmatter;
   header: HeaderFrontmatter;
   footer: FooterFrontmatter;
+  seo: SeoFrontmatter;
   pages: PageFrontmatter[];
 };
 
@@ -99,5 +104,12 @@ export const parseFooterFrontmatter = (value: unknown): FooterFrontmatter => {
     disabled: readBoolean(record.disabled),
     fixed: readBoolean(record.fixed),
     modules
+  };
+};
+
+export const parseSeoFrontmatter = (value: unknown): SeoFrontmatter => {
+  const record = asRecord(value);
+  return {
+    headHtml: readString(record.headHtml)
   };
 };

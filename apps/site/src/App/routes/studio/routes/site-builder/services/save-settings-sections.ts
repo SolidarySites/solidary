@@ -59,6 +59,33 @@ export const saveFooterSection = async ({
   return buildDraftSignatureForState();
 };
 
+export const saveHeadSection = async ({
+  draftState,
+  siteSettingsInput,
+  markEditorDraftTouched,
+  buildDraftSignatureForState
+}: {
+  draftState: DraftState | null;
+  siteSettingsInput: DraftSaveSettingsInput;
+  markEditorDraftTouched: (section: "head") => Promise<void>;
+  buildDraftSignatureForState: () => string;
+}): Promise<string> => {
+  if (!draftState) {
+    throw new Error("Missing draft data.");
+  }
+  const { error } = await supabase.rpc("site_draft_upsert_settings_head", {
+    p_draft_id: draftState.id,
+    p_head_html: typeof siteSettingsInput.headHtml === "string" ? siteSettingsInput.headHtml : ""
+  });
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await markEditorDraftTouched("head");
+
+  return buildDraftSignatureForState();
+};
+
 export const saveStylesSection = async ({
   draftState,
   styles,

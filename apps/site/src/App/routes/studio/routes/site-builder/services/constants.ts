@@ -2,6 +2,7 @@ export const FILE_KEYS = {
   solidaryContent: "src/content/solidary.md",
   headerContent: "src/content/header.md",
   footerContent: "src/content/footer.md",
+  seoContent: "src/content/seo.md",
   tokens: "src/styles/partials/tokens.css",
   globalStyles: "src/styles/global.css",
   structureStyles: "src/styles/partials/structure.css",

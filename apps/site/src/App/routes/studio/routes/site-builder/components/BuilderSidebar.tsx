@@ -1,5 +1,6 @@
 import { useEffect, useRef, type MouseEvent, type RefObject } from "react";
 import BuilderFooterSection from "./BuilderFooterSection";
+import BuilderHeadSection from "./BuilderHeadSection";
 import BuilderHeaderSection from "./BuilderHeaderSection";
 import LockAvatarPill from "./LockAvatarPill";
 import BuilderPagesSection from "./BuilderPagesSection";
@@ -87,6 +88,7 @@ type BuilderSidebarProps = {
   footerDisabled: boolean;
   footerFixed: boolean;
   footerModules: FooterModule[];
+  headHtml: string;
   pageLocksBySlug: Record<string, BuilderSectionLock>;
   sectionLocks: Partial<Record<BuilderEditableSectionKey, BuilderSectionLock>>;
   onTogglePreviewFullscreen: () => void;
@@ -126,6 +128,7 @@ type BuilderSidebarProps = {
   onFooterModuleAlignmentChange: (index: number, value: "left" | "center" | "right") => void;
   onMoveFooterModuleUp: (index: number) => void;
   onMoveFooterModuleDown: (index: number) => void;
+  onHeadHtmlChange: (value: string) => void;
   selectedEditorImage: PreviewSelectedImage | null;
   selectedEditorElement: PreviewSelectedElement | null;
   onSelectedEditorImageAltChange: (value: string) => void;
@@ -184,6 +187,7 @@ const BuilderSidebar = ({
   footerDisabled,
   footerFixed,
   footerModules,
+  headHtml,
   pageLocksBySlug,
   sectionLocks,
   onTogglePreviewFullscreen,
@@ -223,6 +227,7 @@ const BuilderSidebar = ({
   onFooterModuleAlignmentChange,
   onMoveFooterModuleUp,
   onMoveFooterModuleDown,
+  onHeadHtmlChange,
   selectedEditorImage,
   selectedEditorElement,
   onSelectedEditorImageAltChange,
@@ -236,6 +241,8 @@ const BuilderSidebar = ({
   const headerLockedByOther = Boolean(headerLock && !headerLock.isSelf);
   const footerLock = sectionLocks.footer;
   const footerLockedByOther = Boolean(footerLock && !footerLock.isSelf);
+  const headLock = sectionLocks.head;
+  const headLockedByOther = Boolean(headLock && !headLock.isSelf);
   const stylesLock = sectionLocks.styles;
   const stylesLockedByOther = Boolean(stylesLock && !stylesLock.isSelf);
   const mediaLock = sectionLocks.styles;
@@ -365,6 +372,21 @@ const BuilderSidebar = ({
               </div>
               <div className="builder-sidebar-nav-item">
                 <button
+                  className={`ghost ${headLockedByOther ? "is-locked" : ""}`.trim()}
+                  onClick={() => onSettingsSectionChange("head")}
+                  disabled={headLockedByOther && activeSettingsSection !== "head"}
+                >
+                  <span className="builder-section-nav-label">Head</span>
+                </button>
+                {headLock && !headLock.isSelf && (
+                  <LockAvatarPill
+                    holderName={headLock.holderName}
+                    holderAvatarUrl={headLock.holderAvatarUrl}
+                  />
+                )}
+              </div>
+              <div className="builder-sidebar-nav-item">
+                <button
                   className={`ghost ${stylesLockedByOther ? "is-locked" : ""}`.trim()}
                   onClick={() => onSettingsSectionChange("styles")}
                   disabled={stylesLockedByOther && activeSettingsSection !== "styles"}
@@ -475,6 +497,10 @@ const BuilderSidebar = ({
                     onMoveModuleUp={onMoveFooterModuleUp}
                     onMoveModuleDown={onMoveFooterModuleDown}
                   />
+                )}
+
+                {activeSettingsSection === "head" && (
+                  <BuilderHeadSection headHtml={headHtml} onHeadHtmlChange={onHeadHtmlChange} />
                 )}
 
                 {activeSettingsSection === "styles" && (

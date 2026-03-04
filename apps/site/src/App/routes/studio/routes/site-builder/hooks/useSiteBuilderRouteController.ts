@@ -262,6 +262,7 @@ export const useSiteBuilderRouteController = ({
   const [footerModules, setFooterModules] = useState<FooterModule[]>(
     normalizeFooterModules(DEFAULT_FOOTER_MODULES)
   );
+  const [headHtml, setHeadHtml] = useState("");
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [styleMode, setStyleMode] = useState<BuilderStylesMode>(defaultStyleMode);
@@ -459,6 +460,7 @@ export const useSiteBuilderRouteController = ({
       siteTitle,
       siteDescription,
       siteUrl,
+      headHtml,
       header: {
         disabled: headerDisabled,
         fixed: headerFixed,
@@ -475,6 +477,7 @@ export const useSiteBuilderRouteController = ({
       siteTitle,
       siteDescription,
       siteUrl,
+      headHtml,
       headerDisabled,
       headerFixed,
       headerBrandText,
@@ -1405,6 +1408,7 @@ export const useSiteBuilderRouteController = ({
     setFooterDisabled,
     setFooterFixed,
     setFooterModules,
+    setHeadHtml,
     setIsDraftLoading,
     setDraftLoadError,
     setIsPageEditingMode,
@@ -2543,6 +2547,7 @@ export const useSiteBuilderRouteController = ({
       footerDisabled,
       footerFixed,
       footerModules,
+      headHtml,
       pageLocksBySlug,
       sectionLocks: sidebarSectionLocks,
       canPublish,
@@ -2623,6 +2628,7 @@ export const useSiteBuilderRouteController = ({
       onFooterModuleAlignmentChange: updateFooterModuleAlignment,
       onMoveFooterModuleUp: (index: number) => moveFooterModule(index, -1),
       onMoveFooterModuleDown: (index: number) => moveFooterModule(index, 1),
+      onHeadHtmlChange: setHeadHtml,
       selectedEditorImage,
       selectedEditorElement,
       onSelectedEditorImageAltChange: handleSelectedEditorImageAltChange,

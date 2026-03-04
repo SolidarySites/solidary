@@ -24,6 +24,7 @@ const buildFilesFixture = () => {
     [FILE_KEYS.solidaryContent]: "---\ntitle: \"Site\"\n---\n",
     [FILE_KEYS.headerContent]: "---\nbrandText: \"Site\"\n---\n",
     [FILE_KEYS.footerContent]: "---\nmodules: []\n---\n",
+    [FILE_KEYS.seoContent]: "---\nheadHtml: \"\"\n---\n",
     [FILE_KEYS.tokens]: ":root { --color: #000; }\n",
     [FILE_KEYS.globalStyles]: "@import \"./partials/tokens.css\";\n",
     [FILE_KEYS.structureStyles]: ".page { color: var(--fg); }\n",
@@ -48,6 +49,23 @@ describe("buildEditorFileChanges", () => {
 
     expect(upsertsByPath.get(FILE_KEYS.solidary)).toBe("{}");
     expect(upsertsByPath.get(FILE_KEYS.solidaryContent)).toContain('title: "Site"');
+    expect(upsertsByPath.get(FILE_KEYS.seoContent)).toContain("headHtml");
+    TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
+      expect(upsertsByPath.get(path)).toBe(`template:${path}`);
+    });
+  });
+
+  it("includes seo.md and runtime templates when head is edited", () => {
+    const touchedSections = new Set<BuilderEditableSectionKey>(["head"]);
+    const { upsertsByPath } = buildEditorFileChanges({
+      touchedSections,
+      touchedPageSlugs: new Set<string>(),
+      deletedPageSlugs: new Set<string>(),
+      normalizedPages: [BASE_PAGE],
+      files: buildFilesFixture()
+    });
+
+    expect(upsertsByPath.get(FILE_KEYS.seoContent)).toContain("headHtml");
     TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
       expect(upsertsByPath.get(path)).toBe(`template:${path}`);
     });

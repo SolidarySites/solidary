@@ -161,7 +161,14 @@ export const useBuilderSectionNavigation = ({
       return;
     }
 
-    const settingsOrder: BuilderSettingsSection[] = ["pages", "header", "footer", "styles", "media"];
+    const settingsOrder: BuilderSettingsSection[] = [
+      "pages",
+      "header",
+      "footer",
+      "head",
+      "styles",
+      "media"
+    ];
     const preferredSettingsSections = [
       activeSettingsSection,
       ...settingsOrder.filter((entry) => entry !== activeSettingsSection)

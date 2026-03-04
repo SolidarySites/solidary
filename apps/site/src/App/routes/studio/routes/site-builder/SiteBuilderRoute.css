@@ -1278,6 +1278,31 @@
   overflow-wrap: anywhere;
 }
 
+.builder-head-html-editor {
+  border: 1px solid rgba(31, 34, 28, 0.35);
+  background: #fff;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.builder-head-html-editor .cm-editor {
+  min-height: 280px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.builder-head-html-editor .cm-scroller {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.builder-head-html-editor .cm-content {
+  overflow-wrap: anywhere;
+}
+
 .builder-page-properties-panel {
   display: grid;
   gap: 0.75rem;

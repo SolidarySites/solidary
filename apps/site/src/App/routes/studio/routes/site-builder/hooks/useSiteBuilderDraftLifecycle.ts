@@ -59,6 +59,7 @@ type UseSiteBuilderDraftLifecycleParams = {
   setFooterDisabled: Dispatch<SetStateAction<boolean>>;
   setFooterFixed: Dispatch<SetStateAction<boolean>>;
   setFooterModules: Dispatch<SetStateAction<FooterModule[]>>;
+  setHeadHtml: Dispatch<SetStateAction<string>>;
   setIsDraftLoading: Dispatch<SetStateAction<boolean>>;
   setDraftLoadError: Dispatch<SetStateAction<string | null>>;
   setIsPageEditingMode: Dispatch<SetStateAction<boolean>>;
@@ -117,6 +118,7 @@ export const useSiteBuilderDraftLifecycle = ({
   setFooterDisabled,
   setFooterFixed,
   setFooterModules,
+  setHeadHtml,
   setIsDraftLoading,
   setDraftLoadError,
   setIsPageEditingMode,
@@ -195,6 +197,7 @@ export const useSiteBuilderDraftLifecycle = ({
       } else {
         setFooterModules([...DEFAULT_FOOTER_MODULES]);
       }
+      setHeadHtml(typeof loaded.headHtml === "string" ? loaded.headHtml : "");
 
       shouldCaptureLoadedDraftSignatureRef.current = true;
     },
@@ -209,6 +212,7 @@ export const useSiteBuilderDraftLifecycle = ({
       setFooterDisabled,
       setFooterFixed,
       setFooterModules,
+      setHeadHtml,
       setHeaderBrandDisabled,
       setHeaderBrandText,
       setHeaderDisabled,
@@ -245,6 +249,7 @@ export const useSiteBuilderDraftLifecycle = ({
       setBaseStructureCss(defaultBaseStructureCss);
       setBaseGlobalCss(defaultBaseGlobalCss);
       setIsPageEditingMode(false);
+      setHeadHtml("");
       setLastSavedDraftSignature("");
       setSectionLocks({});
       resetCollaborators();
@@ -324,6 +329,7 @@ export const useSiteBuilderDraftLifecycle = ({
     setAdvancedStructureCss,
     setBaseStructureCss,
     setBaseGlobalCss,
+    setHeadHtml,
     setIsDraftLoading,
     setIsPageEditingMode,
     setLastSavedDraftSignature,

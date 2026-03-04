@@ -39,6 +39,7 @@ export type LoadedDraftResult = {
   draftImages?: DraftImageAsset[];
   header?: HeaderOptions;
   footer?: FooterOptions;
+  headHtml?: string;
 };
 
 const getSitePathFromStoragePath = (storagePath: string) => {
@@ -185,11 +186,12 @@ export const loadDraftById = async ({
   const solidaryRaw = files[FILE_KEYS.solidary] ?? "";
   const solidary = parseSolidaryJson(solidaryRaw);
   const touchedSections = (resolvedDraft.touched_sections ?? []).filter(
-    (entry): entry is "metadata" | "pages" | "header" | "footer" | "styles" =>
+    (entry): entry is "metadata" | "pages" | "header" | "footer" | "head" | "styles" =>
       entry === "metadata" ||
       entry === "pages" ||
       entry === "header" ||
       entry === "footer" ||
+      entry === "head" ||
       entry === "styles"
   );
   const touchedPageSlugs = (resolvedDraft.touched_page_slugs ?? []).filter(
@@ -350,6 +352,10 @@ export const loadDraftById = async ({
       fixed: Boolean(footer.fixed),
       modules: normalizeFooterModules(footerModules)
     };
+  }
+
+  if (typeof settings.headHtml === "string") {
+    result.headHtml = settings.headHtml;
   }
 
   if (solidary?.image_url) {

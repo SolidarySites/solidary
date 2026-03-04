@@ -2,6 +2,7 @@ import {
   buildFooterMarkdown,
   buildHeaderMarkdown,
   buildPageMarkdown,
+  buildSeoMarkdown,
   buildSolidaryMarkdown
 } from "../../../../../features/site-draft/services/astro-builders";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
@@ -15,6 +16,7 @@ type SiteSettingsInput = {
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
+  headHtml?: string;
   header: HeaderOptions;
   footer: FooterOptions;
 };
@@ -85,6 +87,7 @@ export const buildSettingsPayload = (
   description: input.siteDescription.trim(),
   siteUrl: (urlOverride ?? input.siteUrl).trim(),
   ogImage: imageUrl,
+  headHtml: typeof input.headHtml === "string" ? input.headHtml : "",
   header: {
     disabled: input.header.disabled,
     fixed: input.header.fixed,
@@ -205,6 +208,7 @@ export const buildFiles = ({
     [FILE_KEYS.solidaryContent]: buildSolidaryMarkdown(settings),
     [FILE_KEYS.headerContent]: buildHeaderMarkdown(settings),
     [FILE_KEYS.footerContent]: buildFooterMarkdown(settings),
+    [FILE_KEYS.seoContent]: buildSeoMarkdown(settings),
     [FILE_KEYS.tokens]: tokensCss,
     [FILE_KEYS.globalStyles]: `${globalCss.trimEnd()}\n`,
     [FILE_KEYS.structureStyles]: `${structureCss.trimEnd()}\n`,

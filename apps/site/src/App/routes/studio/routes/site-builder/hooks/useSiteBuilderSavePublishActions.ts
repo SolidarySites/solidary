@@ -25,6 +25,7 @@ import {
 import { buildDraftSignatureForState as buildDraftSignatureFromState } from "../services/save-section-signature";
 import {
   saveFooterSection as runSaveFooterSection,
+  saveHeadSection as runSaveHeadSection,
   saveHeaderSection as runSaveHeaderSection,
   saveStylesSection as runSaveStylesSection
 } from "../services/save-settings-sections";
@@ -322,6 +323,14 @@ export const useSiteBuilderSavePublishActions = ({
       buildDraftSignatureForState: () => buildDraftSignatureForState()
     });
 
+  const saveHeadSection = async () =>
+    runSaveHeadSection({
+      draftState: draftStateRef.current,
+      siteSettingsInput,
+      markEditorDraftTouched: (section) => markEditorDraftTouched(section),
+      buildDraftSignatureForState: () => buildDraftSignatureForState()
+    });
+
   const saveStylesSection = async () =>
     runSaveStylesSection({
       draftState: draftStateRef.current,
@@ -353,6 +362,8 @@ export const useSiteBuilderSavePublishActions = ({
       savedSignature = await saveHeaderSection();
     } else if (sectionKey === "footer") {
       savedSignature = await saveFooterSection();
+    } else if (sectionKey === "head") {
+      savedSignature = await saveHeadSection();
     } else if (sectionKey === "styles") {
       savedSignature = await saveStylesSection();
     }

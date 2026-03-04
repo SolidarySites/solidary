@@ -27,6 +27,7 @@ export const syncEditorTouchedState = ({
       entry === "pages" ||
       entry === "header" ||
       entry === "footer" ||
+      entry === "head" ||
       entry === "styles"
   );
   const normalizedTouchedPageSlugs = (touchedPageSlugs ?? [])

@@ -2,6 +2,7 @@ import pageTemplate from "../../../../templates/astro/page.md?raw";
 import solidaryTemplate from "../../../../templates/astro/solidary.md?raw";
 import headerTemplate from "../../../../templates/astro/header.md?raw";
 import footerTemplate from "../../../../templates/astro/footer.md?raw";
+import seoTemplate from "../../../../templates/astro/seo.md?raw";
 import type { AstroPageDraft, AstroSettings } from "../types";
 
 const toYamlValue = (value: string) => JSON.stringify(value);
@@ -25,6 +26,9 @@ export const buildFooterMarkdown = (settings: AstroSettings) =>
     .replaceAll("{{FOOTER_DISABLED}}", settings.footer.disabled ? "true" : "false")
     .replaceAll("{{FOOTER_FIXED}}", settings.footer.fixed ? "true" : "false")
     .replaceAll("{{FOOTER_MODULES}}", JSON.stringify(settings.footer.modules));
+
+export const buildSeoMarkdown = (settings: AstroSettings) =>
+  seoTemplate.replaceAll("{{SEO_HEAD_HTML}}", toYamlValue(settings.headHtml ?? ""));
 
 export const buildPageMarkdown = (page: AstroPageDraft) => {
   const body = page.body.trim();

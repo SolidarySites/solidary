@@ -7,6 +7,7 @@ const settingsInput = {
   siteTitle: "Test Site",
   siteDescription: "Test Description",
   siteUrl: "https://example.com",
+  headHtml: "<meta name=\"theme-color\" content=\"#111111\" />",
   header: {
     disabled: false,
     fixed: false,
@@ -60,6 +61,7 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.globalStyles]).not.toContain("/* @import");
     expect(files[FILE_KEYS.structureStyles]).toContain(".page");
     expect(files[FILE_KEYS.structureStyles]).toBe(".page { color: var(--fg); }\n");
+    expect(files[FILE_KEYS.seoContent]).toContain("theme-color");
   });
 
   it("writes advanced structure and disables tokens import in advanced mode", () => {

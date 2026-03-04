@@ -19,6 +19,7 @@ export const normalizeEditorTouchedSections = (value: string[] | null | undefine
       entry === "pages" ||
       entry === "header" ||
       entry === "footer" ||
+      entry === "head" ||
       entry === "styles"
   );
 

@@ -4,6 +4,7 @@ import {
   buildFooterMarkdown,
   buildHeaderMarkdown,
   buildPageMarkdown,
+  buildSeoMarkdown,
   buildSolidaryMarkdown
 } from "./astro-builders";
 
@@ -12,6 +13,7 @@ const SETTINGS: AstroSettings = {
   description: "Shared resources",
   siteUrl: "https://example.com/community",
   ogImage: "/solidary-media/images/og/custom.jpg",
+  headHtml: "<meta name=\"theme-color\" content=\"#202020\" />",
   header: {
     disabled: false,
     fixed: true,
@@ -46,6 +48,13 @@ describe("astro markdown builders", () => {
     expect(header).toContain("fixed: true");
     expect(header).toContain('brandText: "Community"');
     expect(footer).toContain("modules: [{\"content\":\"%copyright%\",\"alignment\":\"left\"}");
+  });
+
+  it("builds seo.md from head html", () => {
+    const seo = buildSeoMarkdown(SETTINGS);
+
+    expect(seo).toContain("headHtml");
+    expect(seo).toContain("theme-color");
   });
 
   it("builds page markdown with navLabel mirrored from title", () => {

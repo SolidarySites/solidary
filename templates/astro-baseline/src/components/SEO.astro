@@ -1,12 +1,15 @@
 ---
 type JsonLd = Record<string, any>;
 
-import { parseSolidaryFrontmatter } from "../solidary-config/site";
+import { parseSeoFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
 
 const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const [seoEntry] = await Astro.glob("../content/seo.md");
 const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const seo = parseSeoFrontmatter(seoEntry?.frontmatter);
 const siteName = solidary.title;
 const robotsDefault = solidary.robots || "index,follow";
+const customHeadHtml = seo.headHtml.trim();
 
 const {
   title,
@@ -63,6 +66,8 @@ const computedOgType: "website" | "article" = ogType ?? (canonical.includes("/bl
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="alternate icon" href="/favicon.ico" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+{customHeadHtml && <Fragment set:html={customHeadHtml} />}
 
 {jsonLdArray.map((obj) => (
   <script type="application/ld+json" set:html={JSON.stringify(obj)} />

@@ -30,6 +30,7 @@ export const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> 
   pages: "Pages",
   header: "Header",
   footer: "Footer",
+  head: "Head",
   styles: "Styles"
 };
 
@@ -50,6 +51,7 @@ export const isBuilderEditableSectionKey = (value: string): value is BuilderEdit
   value === "pages" ||
   value === "header" ||
   value === "footer" ||
+  value === "head" ||
   value === "styles";
 
 const normalizePageLockValue = (value: string): string =>

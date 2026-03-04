@@ -21,6 +21,7 @@ export type AstroSettings = {
   description: string;
   siteUrl: string;
   ogImage: string;
+  headHtml?: string;
   header: AstroHeader;
   footer: AstroFooter;
 };
