@@ -301,6 +301,24 @@ export const connectGitHubAppForCurrentUser = async ({
   } satisfies ConnectGitHubAppResult;
 };
 
+export const uninstallGitHubAppForCurrentUser = async () => {
+  const { supabaseAccessToken } = await requireFreshSupabaseAuth();
+
+  const response = await fetch(supabaseFunctionUrl("github-app-uninstall"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${supabaseAccessToken}`
+    }
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not uninstall GitHub App.");
+  }
+};
+
 const normalizeGitHubAppConnectionState = (value: unknown): GitHubAppConnectionState => {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   if (

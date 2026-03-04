@@ -29,7 +29,6 @@ export default function ProfileRoute() {
             connectBusy={controller.connectBusy}
             hasGitHubCredentials={controller.hasGitHubCredentials}
             hasSolidaryCredentials={controller.hasSolidaryCredentials}
-            authRoutingStrategy={controller.authRoutingStrategy}
             githubAppConnected={controller.githubAppConnected}
             githubAppConnectionState={controller.githubAppConnectionState}
             githubAppConnectionMessage={controller.githubAppConnectionMessage}
@@ -40,6 +39,7 @@ export default function ProfileRoute() {
             }
             githubAuthStatusLoading={controller.githubAuthStatusLoading}
             onConnectGitHubApp={controller.onConnectGitHubApp}
+            onUninstallGitHubApp={controller.onUninstallGitHubApp}
           />
 
           <ProfileSettingsFormSection

@@ -3,6 +3,7 @@
     "cleanup-draft-images",
     "github-app-callback",
     "github-app-connect-start",
+    "github-app-uninstall",
     "github-auth-status",
     "github-branch",
     "github-check-repo-name",

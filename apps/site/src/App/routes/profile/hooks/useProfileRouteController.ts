@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import {
   getGitHubAuthStatusForCurrentUser,
-  type GitHubAuthRoutingStrategy,
+  uninstallGitHubAppForCurrentUser,
   type GitHubAppConnectionState,
   type GitHubAppRepositorySelection
 } from "../../../features/auth/services/github-auth";
@@ -72,8 +72,6 @@ export const useProfileRouteController = () => {
   const [connectBusy, setConnectBusy] = useState(false);
   const [hasGitHubCredentials, setHasGitHubCredentials] = useState(false);
   const [hasSolidaryCredentials, setHasSolidaryCredentials] = useState(false);
-  const [authRoutingStrategy, setAuthRoutingStrategy] =
-    useState<GitHubAuthRoutingStrategy>("unknown");
   const [githubAppConnected, setGithubAppConnected] = useState(false);
   const [githubAppConnectionState, setGithubAppConnectionState] =
     useState<GitHubAppConnectionState>("not_connected");
@@ -105,7 +103,6 @@ export const useProfileRouteController = () => {
     if (!session) {
       setHasGitHubCredentials(false);
       setHasSolidaryCredentials(false);
-      setAuthRoutingStrategy("unknown");
       setGithubAppConnected(false);
       setGithubAppConnectionState("not_connected");
       setGithubAppConnectionMessage(null);
@@ -121,7 +118,6 @@ export const useProfileRouteController = () => {
       const status = await getGitHubAuthStatusForCurrentUser();
       setHasGitHubCredentials(status.hasGitHubCredentials);
       setHasSolidaryCredentials(status.hasSolidaryCredentials);
-      setAuthRoutingStrategy(status.authRoutingStrategy);
       setGithubAppConnected(status.githubAppConnected);
       setGithubAppConnectionState(status.githubAppConnectionState);
       setGithubAppConnectionMessage(status.githubAppConnectionMessage);
@@ -276,6 +272,32 @@ export const useProfileRouteController = () => {
       });
   };
 
+  const onUninstallGitHubApp = () => {
+    if (!session) {
+      setNotice("Sign in with GitHub to manage GitHub App access.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setConnectBusy(true);
+    setNotice(null);
+    setNoticeKind(null);
+
+    void uninstallGitHubAppForCurrentUser()
+      .then(async () => {
+        await refreshGitHubAuthStatus();
+        setNotice("GitHub App disconnected.");
+        setNoticeKind("notice");
+      })
+      .catch((error) => {
+        setNotice(error instanceof Error ? error.message : "Could not uninstall GitHub App.");
+        setNoticeKind("error");
+      })
+      .finally(() => {
+        setConnectBusy(false);
+      });
+  };
+
   const githubAvatarUrl = profileData.githubAvatarUrl || null;
   const displayNameTooLong = displayName.length > 20;
   const hasChanges =
@@ -378,7 +400,6 @@ export const useProfileRouteController = () => {
     connectBusy,
     hasGitHubCredentials,
     hasSolidaryCredentials,
-    authRoutingStrategy,
     githubAppConnected,
     githubAppConnectionState,
     githubAppConnectionMessage,
@@ -394,6 +415,7 @@ export const useProfileRouteController = () => {
     onAvatarFileChange: avatarController.onAvatarFileChange,
     onSelectAvatar: avatarController.onSelectAvatar,
     onRemoveAvatar: avatarController.onRemoveAvatar,
-    onConnectGitHubApp
+    onConnectGitHubApp,
+    onUninstallGitHubApp
   };
 };
