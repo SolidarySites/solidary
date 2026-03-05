@@ -38,8 +38,12 @@ export default function ProfileRoute() {
               controller.githubAppSelectedRepositoriesTruncated
             }
             githubAuthStatusLoading={controller.githubAuthStatusLoading}
+            showGitHubAppExternalUninstallPrompt={
+              controller.showGitHubAppExternalUninstallPrompt
+            }
             onConnectGitHubApp={controller.onConnectGitHubApp}
             onUninstallGitHubApp={controller.onUninstallGitHubApp}
+            onOpenGitHubAppUninstallPage={controller.onOpenGitHubAppUninstallPage}
           />
 
           <ProfileSettingsFormSection

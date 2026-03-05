@@ -82,6 +82,8 @@ export const useProfileRouteController = () => {
   const [githubAppSelectedRepositoriesTruncated, setGithubAppSelectedRepositoriesTruncated] =
     useState(false);
   const [githubAuthStatusLoading, setGithubAuthStatusLoading] = useState(false);
+  const [showGitHubAppExternalUninstallPrompt, setShowGitHubAppExternalUninstallPrompt] =
+    useState(false);
 
   const avatarController = useProfileAvatarController({
     session,
@@ -110,6 +112,7 @@ export const useProfileRouteController = () => {
       setGithubAppSelectedRepositories([]);
       setGithubAppSelectedRepositoriesTruncated(false);
       setGithubAuthStatusLoading(false);
+      setShowGitHubAppExternalUninstallPrompt(false);
       return;
     }
 
@@ -124,6 +127,9 @@ export const useProfileRouteController = () => {
       setGithubAppRepositorySelection(status.githubAppRepositorySelection);
       setGithubAppSelectedRepositories(status.githubAppSelectedRepositories);
       setGithubAppSelectedRepositoriesTruncated(status.githubAppSelectedRepositoriesTruncated);
+      if (status.hasGitHubCredentials) {
+        setShowGitHubAppExternalUninstallPrompt(false);
+      }
     } catch {
       // Keep previous status when the request fails.
     } finally {
@@ -139,6 +145,7 @@ export const useProfileRouteController = () => {
     (status: GitHubAppConnectResultStatus, message: string) => {
       if (status === "connected") {
         void refreshGitHubAuthStatus();
+        setShowGitHubAppExternalUninstallPrompt(false);
         setNotice("GitHub App connected.");
         setNoticeKind("notice");
         return;
@@ -246,6 +253,7 @@ export const useProfileRouteController = () => {
     }
 
     setConnectBusy(true);
+    setShowGitHubAppExternalUninstallPrompt(false);
     setNotice(null);
     setNoticeKind(null);
 
@@ -286,16 +294,48 @@ export const useProfileRouteController = () => {
     void uninstallGitHubAppForCurrentUser()
       .then(async () => {
         await refreshGitHubAuthStatus();
-        setNotice("GitHub App disconnected.");
+        setShowGitHubAppExternalUninstallPrompt(true);
+        setNotice("GitHub App disconnected in Solidary.");
         setNoticeKind("notice");
       })
       .catch((error) => {
+        setShowGitHubAppExternalUninstallPrompt(false);
         setNotice(error instanceof Error ? error.message : "Could not uninstall GitHub App.");
         setNoticeKind("error");
       })
       .finally(() => {
         setConnectBusy(false);
       });
+  };
+
+  const onOpenGitHubAppUninstallPage = () => {
+    if (typeof window === "undefined") return;
+
+    const width = Math.min(960, Math.max(760, Math.floor(window.outerWidth * 0.84)));
+    const height = Math.min(920, Math.max(740, Math.floor(window.outerHeight * 0.92)));
+    const left = Math.max(0, Math.floor(window.screenX + (window.outerWidth - width) / 2));
+    const top = Math.max(0, Math.floor(window.screenY + (window.outerHeight - height) / 2));
+    const features = [
+      "popup=yes",
+      `width=${width}`,
+      `height=${height}`,
+      `left=${left}`,
+      `top=${top}`,
+      "resizable=yes",
+      "scrollbars=yes"
+    ].join(",");
+
+    const popupWindow = window.open(
+      "https://github.com/settings/installations",
+      "solidary_github_app_uninstall",
+      features
+    );
+    if (!popupWindow) {
+      window.open("https://github.com/settings/installations", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    popupWindow.focus();
   };
 
   const githubAvatarUrl = profileData.githubAvatarUrl || null;
@@ -407,6 +447,7 @@ export const useProfileRouteController = () => {
     githubAppSelectedRepositories,
     githubAppSelectedRepositoriesTruncated,
     githubAuthStatusLoading,
+    showGitHubAppExternalUninstallPrompt,
     notice,
     noticeKind,
     onSubmit,
@@ -416,6 +457,7 @@ export const useProfileRouteController = () => {
     onSelectAvatar: avatarController.onSelectAvatar,
     onRemoveAvatar: avatarController.onRemoveAvatar,
     onConnectGitHubApp,
-    onUninstallGitHubApp
+    onUninstallGitHubApp,
+    onOpenGitHubAppUninstallPage
   };
 };

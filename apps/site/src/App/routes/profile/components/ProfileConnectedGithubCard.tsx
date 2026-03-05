@@ -18,8 +18,10 @@ type ProfileConnectedGithubCardProps = {
   githubAppSelectedRepositories: string[];
   githubAppSelectedRepositoriesTruncated: boolean;
   githubAuthStatusLoading: boolean;
+  showGitHubAppExternalUninstallPrompt: boolean;
   onConnectGitHubApp: () => void;
   onUninstallGitHubApp: () => void;
+  onOpenGitHubAppUninstallPage: () => void;
 };
 
 export default function ProfileConnectedGithubCard({
@@ -37,8 +39,10 @@ export default function ProfileConnectedGithubCard({
   githubAppSelectedRepositories,
   githubAppSelectedRepositoriesTruncated,
   githubAuthStatusLoading,
+  showGitHubAppExternalUninstallPrompt,
   onConnectGitHubApp,
-  onUninstallGitHubApp
+  onUninstallGitHubApp,
+  onOpenGitHubAppUninstallPage
 }: ProfileConnectedGithubCardProps) {
   const hasGitHubAppInstallation =
     hasGitHubCredentials ||
@@ -113,6 +117,19 @@ export default function ProfileConnectedGithubCard({
         </div>
         {showConnectionWarning ? (
           <p className="profile-github-warning">{githubAppConnectionMessage}</p>
+        ) : null}
+        {showGitHubAppExternalUninstallPrompt ? (
+          <p className="profile-github-info">
+            GitHub App was disconnected in Solidary. Now uninstall it on GitHub.
+            {" "}
+            <button
+              type="button"
+              className="profile-github-link-button"
+              onClick={onOpenGitHubAppUninstallPage}
+            >
+              Open uninstall page
+            </button>
+          </p>
         ) : null}
         <p className="profile-github-field">
           <span>Username</span>
