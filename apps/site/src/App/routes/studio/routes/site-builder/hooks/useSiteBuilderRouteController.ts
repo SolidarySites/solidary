@@ -6,6 +6,7 @@ import { supabase, supabaseFunctionUrl } from "../../../../../lib/supabase";
 import { toBase64 } from "../../../../../lib/base64";
 import { githubRequest } from "../../../../../services/github";
 import { sanitizeFilename } from "../../../../../services/filename-sanitizer";
+import { DEFAULT_SEO_SETTINGS } from "../../../../../features/site-draft/seo";
 import { buildSolidaryMarkdown } from "../../../../../features/site-draft/services/astro-builders";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import {
@@ -263,6 +264,13 @@ export const useSiteBuilderRouteController = ({
     normalizeFooterModules(DEFAULT_FOOTER_MODULES)
   );
   const [headHtml, setHeadHtml] = useState("");
+  const [seoLocale, setSeoLocale] = useState<string>(DEFAULT_SEO_SETTINGS.locale);
+  const [seoTwitter, setSeoTwitter] = useState<boolean>(DEFAULT_SEO_SETTINGS.twitter);
+  const [seoOpenGraph, setSeoOpenGraph] = useState<boolean>(DEFAULT_SEO_SETTINGS.openGraph);
+  const [seoStructuredData, setSeoStructuredData] = useState<boolean>(
+    DEFAULT_SEO_SETTINGS.structuredData
+  );
+  const [seoIndexFollow, setSeoIndexFollow] = useState<boolean>(DEFAULT_SEO_SETTINGS.indexFollow);
 
   const [tokensCss, setTokensCss] = useState(tokensTemplate);
   const [styleMode, setStyleMode] = useState<BuilderStylesMode>(defaultStyleMode);
@@ -461,6 +469,11 @@ export const useSiteBuilderRouteController = ({
       siteDescription,
       siteUrl,
       headHtml,
+      locale: seoLocale,
+      twitter: seoTwitter,
+      openGraph: seoOpenGraph,
+      structuredData: seoStructuredData,
+      indexFollow: seoIndexFollow,
       header: {
         disabled: headerDisabled,
         fixed: headerFixed,
@@ -478,6 +491,11 @@ export const useSiteBuilderRouteController = ({
       siteDescription,
       siteUrl,
       headHtml,
+      seoLocale,
+      seoTwitter,
+      seoOpenGraph,
+      seoStructuredData,
+      seoIndexFollow,
       headerDisabled,
       headerFixed,
       headerBrandText,
@@ -1409,6 +1427,11 @@ export const useSiteBuilderRouteController = ({
     setFooterFixed,
     setFooterModules,
     setHeadHtml,
+    setSeoLocale,
+    setSeoTwitter,
+    setSeoOpenGraph,
+    setSeoStructuredData,
+    setSeoIndexFollow,
     setIsDraftLoading,
     setDraftLoadError,
     setIsPageEditingMode,
@@ -2548,6 +2571,11 @@ export const useSiteBuilderRouteController = ({
       footerFixed,
       footerModules,
       headHtml,
+      seoLocale,
+      seoTwitter,
+      seoOpenGraph,
+      seoStructuredData,
+      seoIndexFollow,
       pageLocksBySlug,
       sectionLocks: sidebarSectionLocks,
       canPublish,
@@ -2628,6 +2656,11 @@ export const useSiteBuilderRouteController = ({
       onFooterModuleAlignmentChange: updateFooterModuleAlignment,
       onMoveFooterModuleUp: (index: number) => moveFooterModule(index, -1),
       onMoveFooterModuleDown: (index: number) => moveFooterModule(index, 1),
+      onSeoLocaleChange: setSeoLocale,
+      onSeoTwitterChange: setSeoTwitter,
+      onSeoOpenGraphChange: setSeoOpenGraph,
+      onSeoStructuredDataChange: setSeoStructuredData,
+      onSeoIndexFollowChange: setSeoIndexFollow,
       onHeadHtmlChange: setHeadHtml,
       selectedEditorImage,
       selectedEditorElement,

@@ -39,8 +39,15 @@ export type FooterFrontmatter = {
   modules: FooterModule[];
 };
 
+export const DEFAULT_SEO_LOCALE = "en-US";
+
 export type SeoFrontmatter = {
   headHtml: string;
+  locale: string;
+  twitter: boolean;
+  openGraph: boolean;
+  structuredData: boolean;
+  indexFollow: boolean;
 };
 
 export type SiteContentGraph = {
@@ -60,6 +67,22 @@ const readBoolean = (value: unknown, fallback = false) =>
 
 const isFooterModuleAlignment = (value: unknown): value is FooterModuleAlignment =>
   value === "left" || value === "center" || value === "right";
+
+export const normalizeSeoLocale = (
+  value: unknown,
+  fallback = DEFAULT_SEO_LOCALE
+): string => {
+  const text = readString(value, fallback).trim() || fallback;
+  try {
+    const [canonicalLocale] = Intl.getCanonicalLocales(text.replaceAll("_", "-"));
+    return canonicalLocale || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const toOpenGraphLocale = (value: string): string =>
+  normalizeSeoLocale(value).replaceAll("-", "_");
 
 export const parseSolidaryFrontmatter = (value: unknown): SolidaryFrontmatter => {
   const record = asRecord(value);
@@ -110,6 +133,11 @@ export const parseFooterFrontmatter = (value: unknown): FooterFrontmatter => {
 export const parseSeoFrontmatter = (value: unknown): SeoFrontmatter => {
   const record = asRecord(value);
   return {
-    headHtml: readString(record.headHtml)
+    headHtml: readString(record.headHtml),
+    locale: normalizeSeoLocale(record.locale),
+    twitter: readBoolean(record.twitter, true),
+    openGraph: readBoolean(record.openGraph, true),
+    structuredData: readBoolean(record.structuredData, true),
+    indexFollow: readBoolean(record.indexFollow, true)
   };
 };

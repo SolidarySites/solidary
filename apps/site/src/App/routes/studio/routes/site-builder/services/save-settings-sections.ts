@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../lib/supabase";
+import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import { normalizeFooterModules, type DraftSaveSettingsInput } from "./draft-utils";
 import type { BuilderStyleSettings, DraftState } from "./types";
 
@@ -75,7 +76,24 @@ export const saveHeadSection = async ({
   }
   const { error } = await supabase.rpc("site_draft_upsert_settings_head", {
     p_draft_id: draftState.id,
-    p_head_html: typeof siteSettingsInput.headHtml === "string" ? siteSettingsInput.headHtml : ""
+    p_head_html: typeof siteSettingsInput.headHtml === "string" ? siteSettingsInput.headHtml : "",
+    p_locale: normalizeSeoLocale(siteSettingsInput.locale),
+    p_twitter:
+      typeof siteSettingsInput.twitter === "boolean"
+        ? siteSettingsInput.twitter
+        : DEFAULT_SEO_SETTINGS.twitter,
+    p_open_graph:
+      typeof siteSettingsInput.openGraph === "boolean"
+        ? siteSettingsInput.openGraph
+        : DEFAULT_SEO_SETTINGS.openGraph,
+    p_structured_data:
+      typeof siteSettingsInput.structuredData === "boolean"
+        ? siteSettingsInput.structuredData
+        : DEFAULT_SEO_SETTINGS.structuredData,
+    p_index_follow:
+      typeof siteSettingsInput.indexFollow === "boolean"
+        ? siteSettingsInput.indexFollow
+        : DEFAULT_SEO_SETTINGS.indexFollow
   });
   if (error) {
     throw new Error(error.message);

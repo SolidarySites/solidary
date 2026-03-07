@@ -24,7 +24,8 @@ const buildFilesFixture = () => {
     [FILE_KEYS.solidaryContent]: "---\ntitle: \"Site\"\n---\n",
     [FILE_KEYS.headerContent]: "---\nbrandText: \"Site\"\n---\n",
     [FILE_KEYS.footerContent]: "---\nmodules: []\n---\n",
-    [FILE_KEYS.seoContent]: "---\nheadHtml: \"\"\n---\n",
+    [FILE_KEYS.seoContent]:
+      "---\ntwitter: true\nopenGraph: true\nstructuredData: true\nindexFollow: true\nlocale: \"en-US\"\nheadHtml: \"\"\n---\n",
     [FILE_KEYS.tokens]: ":root { --color: #000; }\n",
     [FILE_KEYS.globalStyles]: "@import \"./partials/tokens.css\";\n",
     [FILE_KEYS.structureStyles]: ".page { color: var(--fg); }\n",

@@ -1,18 +1,24 @@
 ---
 type JsonLd = Record<string, any>;
 
-import { parseSeoFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
+import {
+  parseSeoFrontmatter,
+  parseSolidaryFrontmatter,
+  toOpenGraphLocale
+} from "../solidary-config/site";
 
 const [solidaryEntry] = await Astro.glob("../content/solidary.md");
 const [seoEntry] = await Astro.glob("../content/seo.md");
 const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
 const seo = parseSeoFrontmatter(seoEntry?.frontmatter);
 const siteName = solidary.title;
-const robotsDefault = solidary.robots || "index,follow";
+const robotsDefault = seo.indexFollow ? solidary.robots || "index,follow" : "noindex,nofollow";
 const customHeadHtml = seo.headHtml.trim();
+const ogLocale = toOpenGraphLocale(seo.locale);
 
 const {
   title,
+  pageTitle = "",
   description,
   canonical,
   ogImage,
@@ -23,6 +29,7 @@ const {
   ogType
 } = Astro.props as {
   title: string;
+  pageTitle?: string;
   description: string;
   canonical: string;
   ogImage?: string;
@@ -33,14 +40,20 @@ const {
   ogType?: "website" | "article";
 };
 
-const jsonLdArray = Array.isArray(jsonLd) ? jsonLd : (jsonLd ? [jsonLd] : []);
-const hasOg = Boolean(ogImage);
+const siteTitle = title.trim() || siteName;
+const trimmedPageTitle = pageTitle.trim();
+const documentTitle =
+  trimmedPageTitle && trimmedPageTitle !== siteTitle
+    ? `${siteTitle} | ${trimmedPageTitle}`
+    : siteTitle;
+const jsonLdArray = seo.structuredData ? (Array.isArray(jsonLd) ? jsonLd : (jsonLd ? [jsonLd] : [])) : [];
+const hasOgImage = Boolean(ogImage);
 
 const computedOgType: "website" | "article" = ogType ?? (canonical.includes("/blog/") ? "article" : "website");
 
 ---
 
-<title>{title}</title>
+<title>{documentTitle}</title>
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -48,20 +61,20 @@ const computedOgType: "website" | "article" = ogType ?? (canonical.includes("/bl
 <link rel="canonical" href={canonical} />
 <meta name="robots" content={robots} />
 
-<meta property="og:type" content={computedOgType} />
-<meta property="og:title" content={title} />
-<meta property="og:description" content={description} />
-<meta property="og:url" content={canonical} />
-{hasOg && <meta property="og:image" content={ogImage} />}
-{hasOg && ogImageAlt && <meta property="og:image:alt" content={ogImageAlt} />}
-<meta property="og:site_name" content={siteName} />
-<meta property="og:locale" content="en_US" />
+{seo.openGraph && <meta property="og:type" content={computedOgType} />}
+{seo.openGraph && <meta property="og:title" content={documentTitle} />}
+{seo.openGraph && <meta property="og:description" content={ogDesc} />}
+{seo.openGraph && <meta property="og:url" content={canonical} />}
+{seo.openGraph && hasOgImage && <meta property="og:image" content={ogImage} />}
+{seo.openGraph && hasOgImage && ogImageAlt && <meta property="og:image:alt" content={ogImageAlt} />}
+{seo.openGraph && <meta property="og:site_name" content={siteName} />}
+{seo.openGraph && <meta property="og:locale" content={ogLocale} />}
 
 
-<meta name="twitter:card" content={hasOg ? "summary_large_image" : "summary"} />
-<meta name="twitter:title" content={title} />
-<meta name="twitter:description" content={ogDesc} />
-{hasOg && <meta name="twitter:image" content={ogImage} />}
+{seo.twitter && <meta name="twitter:card" content={hasOgImage ? "summary_large_image" : "summary"} />}
+{seo.twitter && <meta name="twitter:title" content={documentTitle} />}
+{seo.twitter && <meta name="twitter:description" content={ogDesc} />}
+{seo.twitter && hasOgImage && <meta name="twitter:image" content={ogImage} />}
 
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="alternate icon" href="/favicon.ico" />

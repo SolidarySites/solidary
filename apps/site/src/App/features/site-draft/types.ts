@@ -1,5 +1,14 @@
 export type RepoFileSet = Record<string, string>;
 
+export type AstroSeoSettings = {
+  headHtml: string;
+  locale: string;
+  twitter: boolean;
+  openGraph: boolean;
+  structuredData: boolean;
+  indexFollow: boolean;
+};
+
 export type AstroHeader = {
   disabled: boolean;
   fixed: boolean;
@@ -21,7 +30,12 @@ export type AstroSettings = {
   description: string;
   siteUrl: string;
   ogImage: string;
-  headHtml?: string;
+  headHtml: string;
+  locale: string;
+  twitter: boolean;
+  openGraph: boolean;
+  structuredData: boolean;
+  indexFollow: boolean;
   header: AstroHeader;
   footer: AstroFooter;
 };

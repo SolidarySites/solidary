@@ -24,7 +24,7 @@ const pageJavaScript = typeof entry.data.javascript === "string" ? entry.data.ja
 const sanitizedPageJavaScript = pageJavaScript.replaceAll("</script", "<\\/script");
 ---
 
-<Base title={title} description={description} canonicalPath={canonicalPath}>
+<Base pageTitle={title} description={description} canonicalPath={canonicalPath}>
   <article class="prose">
     <Content />
   </article>

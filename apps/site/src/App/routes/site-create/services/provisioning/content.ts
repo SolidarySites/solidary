@@ -1,4 +1,5 @@
 import type { AstroSettings } from "../../../../features/site-draft/types";
+import { DEFAULT_SEO_SETTINGS } from "../../../../features/site-draft/seo";
 
 export const FILE_KEYS = {
   solidary: "public/.well-known/solidary-links.json"
@@ -66,6 +67,12 @@ export const buildSettingsPayload = ({
   description: siteDescription.trim(),
   siteUrl: urlOverride || siteUrl,
   ogImage: imageUrl,
+  headHtml: "",
+  locale: DEFAULT_SEO_SETTINGS.locale,
+  twitter: DEFAULT_SEO_SETTINGS.twitter,
+  openGraph: DEFAULT_SEO_SETTINGS.openGraph,
+  structuredData: DEFAULT_SEO_SETTINGS.structuredData,
+  indexFollow: DEFAULT_SEO_SETTINGS.indexFollow,
   header: {
     disabled: false,
     fixed: false,

@@ -28,7 +28,13 @@ export const buildFooterMarkdown = (settings: AstroSettings) =>
     .replaceAll("{{FOOTER_MODULES}}", JSON.stringify(settings.footer.modules));
 
 export const buildSeoMarkdown = (settings: AstroSettings) =>
-  seoTemplate.replaceAll("{{SEO_HEAD_HTML}}", toYamlValue(settings.headHtml ?? ""));
+  seoTemplate
+    .replaceAll("{{SEO_HEAD_HTML}}", toYamlValue(settings.headHtml))
+    .replaceAll("{{SEO_LOCALE}}", toYamlValue(settings.locale))
+    .replaceAll("{{SEO_TWITTER}}", settings.twitter ? "true" : "false")
+    .replaceAll("{{SEO_OPEN_GRAPH}}", settings.openGraph ? "true" : "false")
+    .replaceAll("{{SEO_STRUCTURED_DATA}}", settings.structuredData ? "true" : "false")
+    .replaceAll("{{SEO_INDEX_FOLLOW}}", settings.indexFollow ? "true" : "false");
 
 export const buildPageMarkdown = (page: AstroPageDraft) => {
   const body = page.body.trim();

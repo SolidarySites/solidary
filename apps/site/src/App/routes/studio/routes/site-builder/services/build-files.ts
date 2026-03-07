@@ -5,6 +5,7 @@ import {
   buildSeoMarkdown,
   buildSolidaryMarkdown
 } from "../../../../../features/site-draft/services/astro-builders";
+import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/astro/runtime-files";
 import { FILE_KEYS, PAGE_PATH_PREFIX, TEMPLATE_RUNTIME_FILE_PATHS } from "./constants";
@@ -17,6 +18,11 @@ type SiteSettingsInput = {
   siteDescription: string;
   siteUrl: string;
   headHtml?: string;
+  locale?: string;
+  twitter?: boolean;
+  openGraph?: boolean;
+  structuredData?: boolean;
+  indexFollow?: boolean;
   header: HeaderOptions;
   footer: FooterOptions;
 };
@@ -88,6 +94,18 @@ export const buildSettingsPayload = (
   siteUrl: (urlOverride ?? input.siteUrl).trim(),
   ogImage: imageUrl,
   headHtml: typeof input.headHtml === "string" ? input.headHtml : "",
+  locale: normalizeSeoLocale(input.locale),
+  twitter: typeof input.twitter === "boolean" ? input.twitter : DEFAULT_SEO_SETTINGS.twitter,
+  openGraph:
+    typeof input.openGraph === "boolean" ? input.openGraph : DEFAULT_SEO_SETTINGS.openGraph,
+  structuredData:
+    typeof input.structuredData === "boolean"
+      ? input.structuredData
+      : DEFAULT_SEO_SETTINGS.structuredData,
+  indexFollow:
+    typeof input.indexFollow === "boolean"
+      ? input.indexFollow
+      : DEFAULT_SEO_SETTINGS.indexFollow,
   header: {
     disabled: input.header.disabled,
     fixed: input.header.fixed,

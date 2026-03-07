@@ -89,6 +89,11 @@ type BuilderSidebarProps = {
   footerFixed: boolean;
   footerModules: FooterModule[];
   headHtml: string;
+  seoLocale: string;
+  seoTwitter: boolean;
+  seoOpenGraph: boolean;
+  seoStructuredData: boolean;
+  seoIndexFollow: boolean;
   pageLocksBySlug: Record<string, BuilderSectionLock>;
   sectionLocks: Partial<Record<BuilderEditableSectionKey, BuilderSectionLock>>;
   onTogglePreviewFullscreen: () => void;
@@ -128,6 +133,11 @@ type BuilderSidebarProps = {
   onFooterModuleAlignmentChange: (index: number, value: "left" | "center" | "right") => void;
   onMoveFooterModuleUp: (index: number) => void;
   onMoveFooterModuleDown: (index: number) => void;
+  onSeoLocaleChange: (value: string) => void;
+  onSeoTwitterChange: (value: boolean) => void;
+  onSeoOpenGraphChange: (value: boolean) => void;
+  onSeoStructuredDataChange: (value: boolean) => void;
+  onSeoIndexFollowChange: (value: boolean) => void;
   onHeadHtmlChange: (value: string) => void;
   selectedEditorImage: PreviewSelectedImage | null;
   selectedEditorElement: PreviewSelectedElement | null;
@@ -188,6 +198,11 @@ const BuilderSidebar = ({
   footerFixed,
   footerModules,
   headHtml,
+  seoLocale,
+  seoTwitter,
+  seoOpenGraph,
+  seoStructuredData,
+  seoIndexFollow,
   pageLocksBySlug,
   sectionLocks,
   onTogglePreviewFullscreen,
@@ -227,6 +242,11 @@ const BuilderSidebar = ({
   onFooterModuleAlignmentChange,
   onMoveFooterModuleUp,
   onMoveFooterModuleDown,
+  onSeoLocaleChange,
+  onSeoTwitterChange,
+  onSeoOpenGraphChange,
+  onSeoStructuredDataChange,
+  onSeoIndexFollowChange,
   onHeadHtmlChange,
   selectedEditorImage,
   selectedEditorElement,
@@ -376,7 +396,7 @@ const BuilderSidebar = ({
                   onClick={() => onSettingsSectionChange("head")}
                   disabled={headLockedByOther && activeSettingsSection !== "head"}
                 >
-                  <span className="builder-section-nav-label">Head</span>
+                  <span className="builder-section-nav-label">SEO</span>
                 </button>
                 {headLock && !headLock.isSelf && (
                   <LockAvatarPill
@@ -500,7 +520,20 @@ const BuilderSidebar = ({
                 )}
 
                 {activeSettingsSection === "head" && (
-                  <BuilderHeadSection headHtml={headHtml} onHeadHtmlChange={onHeadHtmlChange} />
+                  <BuilderHeadSection
+                    headHtml={headHtml}
+                    seoLocale={seoLocale}
+                    seoTwitter={seoTwitter}
+                    seoOpenGraph={seoOpenGraph}
+                    seoStructuredData={seoStructuredData}
+                    seoIndexFollow={seoIndexFollow}
+                    onSeoLocaleChange={onSeoLocaleChange}
+                    onSeoTwitterChange={onSeoTwitterChange}
+                    onSeoOpenGraphChange={onSeoOpenGraphChange}
+                    onSeoStructuredDataChange={onSeoStructuredDataChange}
+                    onSeoIndexFollowChange={onSeoIndexFollowChange}
+                    onHeadHtmlChange={onHeadHtmlChange}
+                  />
                 )}
 
                 {activeSettingsSection === "styles" && (

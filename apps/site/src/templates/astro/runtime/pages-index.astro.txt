@@ -1,10 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
-import { parseSolidaryFrontmatter } from "../solidary-config/site";
+import { parseSeoFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
 import { getEntry } from "astro:content";
 
 const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const [seoEntry] = await Astro.glob("../content/seo.md");
 const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const seo = parseSeoFrontmatter(seoEntry?.frontmatter);
 const siteName = solidary.title;
 const siteDescription = solidary.description;
 const siteUrl = solidary.url;
@@ -14,7 +16,7 @@ const jsonLd = {
   "@type": "WebSite",
   name: siteName,
   url: siteUrl,
-  inLanguage: "en"
+  inLanguage: seo.locale
 };
 
 const homeEntry = await getEntry("pages", "home");
@@ -23,7 +25,7 @@ const homeJavaScript =
   typeof homeEntry?.data.javascript === "string" ? homeEntry.data.javascript.trim() : "";
 const sanitizedHomeJavaScript = homeJavaScript.replaceAll("</script", "<\\/script");
 ---
-<Base title={siteName} description={siteDescription} canonicalPath="/" jsonLd={jsonLd}>
+<Base description={siteDescription} canonicalPath="/" jsonLd={jsonLd}>
   <article class="prose">
     {HomeContent ? <HomeContent /> : null}
   </article>

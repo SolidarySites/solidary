@@ -3,22 +3,26 @@ import SEO from "../components/SEO.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import SkipLink from "../components/SkipLink.astro";
-import { parseSolidaryFrontmatter } from "../solidary-config/site";
+import { parseSeoFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
 
 import "../styles/global.css";
 
 const [solidaryEntry] = await Astro.glob("../content/solidary.md");
+const [seoEntry] = await Astro.glob("../content/seo.md");
 const solidary = parseSolidaryFrontmatter(solidaryEntry?.frontmatter);
+const seo = parseSeoFrontmatter(seoEntry?.frontmatter);
 const siteName = solidary.title;
 const siteDescription = solidary.description;
 const siteUrl = solidary.url;
+const htmlLang = seo.locale;
 
 const {
-  title = siteName,
+  title: legacyTitle,
+  pageTitle = legacyTitle,
   description = siteDescription,
   canonicalPath = Astro.url.pathname,
   ogImage = solidary.ogImage,
-  robots = solidary.robots,
+  robots,
   jsonLd,
   mainCentered = false
 } = Astro.props;
@@ -45,13 +49,14 @@ const canonical = (() => {
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={htmlLang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
 
     <SEO
-      title={title}
+      title={siteName}
+      pageTitle={pageTitle}
       description={description}
       canonical={canonical}
       ogImage={ogImage}

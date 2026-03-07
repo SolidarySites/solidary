@@ -1,5 +1,6 @@
 import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { NavigateFunction } from "react-router-dom";
+import { DEFAULT_SEO_SETTINGS } from "../../../../../features/site-draft/seo";
 import {
   DEFAULT_FOOTER_MODULES,
   normalizeFooterModules,
@@ -60,6 +61,11 @@ type UseSiteBuilderDraftLifecycleParams = {
   setFooterFixed: Dispatch<SetStateAction<boolean>>;
   setFooterModules: Dispatch<SetStateAction<FooterModule[]>>;
   setHeadHtml: Dispatch<SetStateAction<string>>;
+  setSeoLocale: Dispatch<SetStateAction<string>>;
+  setSeoTwitter: Dispatch<SetStateAction<boolean>>;
+  setSeoOpenGraph: Dispatch<SetStateAction<boolean>>;
+  setSeoStructuredData: Dispatch<SetStateAction<boolean>>;
+  setSeoIndexFollow: Dispatch<SetStateAction<boolean>>;
   setIsDraftLoading: Dispatch<SetStateAction<boolean>>;
   setDraftLoadError: Dispatch<SetStateAction<string | null>>;
   setIsPageEditingMode: Dispatch<SetStateAction<boolean>>;
@@ -119,6 +125,11 @@ export const useSiteBuilderDraftLifecycle = ({
   setFooterFixed,
   setFooterModules,
   setHeadHtml,
+  setSeoLocale,
+  setSeoTwitter,
+  setSeoOpenGraph,
+  setSeoStructuredData,
+  setSeoIndexFollow,
   setIsDraftLoading,
   setDraftLoadError,
   setIsPageEditingMode,
@@ -198,6 +209,11 @@ export const useSiteBuilderDraftLifecycle = ({
         setFooterModules([...DEFAULT_FOOTER_MODULES]);
       }
       setHeadHtml(typeof loaded.headHtml === "string" ? loaded.headHtml : "");
+      setSeoLocale(loaded.locale ?? DEFAULT_SEO_SETTINGS.locale);
+      setSeoTwitter(loaded.twitter ?? DEFAULT_SEO_SETTINGS.twitter);
+      setSeoOpenGraph(loaded.openGraph ?? DEFAULT_SEO_SETTINGS.openGraph);
+      setSeoStructuredData(loaded.structuredData ?? DEFAULT_SEO_SETTINGS.structuredData);
+      setSeoIndexFollow(loaded.indexFollow ?? DEFAULT_SEO_SETTINGS.indexFollow);
 
       shouldCaptureLoadedDraftSignatureRef.current = true;
     },
@@ -213,6 +229,11 @@ export const useSiteBuilderDraftLifecycle = ({
       setFooterFixed,
       setFooterModules,
       setHeadHtml,
+      setSeoIndexFollow,
+      setSeoLocale,
+      setSeoOpenGraph,
+      setSeoStructuredData,
+      setSeoTwitter,
       setHeaderBrandDisabled,
       setHeaderBrandText,
       setHeaderDisabled,
@@ -250,6 +271,11 @@ export const useSiteBuilderDraftLifecycle = ({
       setBaseGlobalCss(defaultBaseGlobalCss);
       setIsPageEditingMode(false);
       setHeadHtml("");
+      setSeoLocale(DEFAULT_SEO_SETTINGS.locale);
+      setSeoTwitter(DEFAULT_SEO_SETTINGS.twitter);
+      setSeoOpenGraph(DEFAULT_SEO_SETTINGS.openGraph);
+      setSeoStructuredData(DEFAULT_SEO_SETTINGS.structuredData);
+      setSeoIndexFollow(DEFAULT_SEO_SETTINGS.indexFollow);
       setLastSavedDraftSignature("");
       setSectionLocks({});
       resetCollaborators();
@@ -330,6 +356,11 @@ export const useSiteBuilderDraftLifecycle = ({
     setBaseStructureCss,
     setBaseGlobalCss,
     setHeadHtml,
+    setSeoIndexFollow,
+    setSeoLocale,
+    setSeoOpenGraph,
+    setSeoStructuredData,
+    setSeoTwitter,
     setIsDraftLoading,
     setIsPageEditingMode,
     setLastSavedDraftSignature,

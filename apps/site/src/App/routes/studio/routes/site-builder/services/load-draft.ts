@@ -1,5 +1,6 @@
 import { supabase } from "../../../../../lib/supabase";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
+import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import { parseSolidaryJson } from "../../../../../features/site-draft/services/solidary";
 import {
   normalizeSiteImagePathForStorage,
@@ -40,6 +41,11 @@ export type LoadedDraftResult = {
   header?: HeaderOptions;
   footer?: FooterOptions;
   headHtml?: string;
+  locale?: string;
+  twitter?: boolean;
+  openGraph?: boolean;
+  structuredData?: boolean;
+  indexFollow?: boolean;
 };
 
 const getSitePathFromStoragePath = (storagePath: string) => {
@@ -354,9 +360,22 @@ export const loadDraftById = async ({
     };
   }
 
-  if (typeof settings.headHtml === "string") {
-    result.headHtml = settings.headHtml;
-  }
+  result.headHtml = typeof settings.headHtml === "string" ? settings.headHtml : "";
+  result.locale = normalizeSeoLocale(
+    typeof settings.locale === "string" ? settings.locale : DEFAULT_SEO_SETTINGS.locale
+  );
+  result.twitter =
+    typeof settings.twitter === "boolean" ? settings.twitter : DEFAULT_SEO_SETTINGS.twitter;
+  result.openGraph =
+    typeof settings.openGraph === "boolean" ? settings.openGraph : DEFAULT_SEO_SETTINGS.openGraph;
+  result.structuredData =
+    typeof settings.structuredData === "boolean"
+      ? settings.structuredData
+      : DEFAULT_SEO_SETTINGS.structuredData;
+  result.indexFollow =
+    typeof settings.indexFollow === "boolean"
+      ? settings.indexFollow
+      : DEFAULT_SEO_SETTINGS.indexFollow;
 
   if (solidary?.image_url) {
     const canonicalUrl = solidary.site_url ?? "";

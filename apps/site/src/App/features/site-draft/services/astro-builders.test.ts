@@ -14,6 +14,11 @@ const SETTINGS: AstroSettings = {
   siteUrl: "https://example.com/community",
   ogImage: "/solidary-media/images/og/custom.jpg",
   headHtml: "<meta name=\"theme-color\" content=\"#202020\" />",
+  locale: "en-GB",
+  twitter: true,
+  openGraph: true,
+  structuredData: true,
+  indexFollow: true,
   header: {
     disabled: false,
     fixed: true,
@@ -53,6 +58,11 @@ describe("astro markdown builders", () => {
   it("builds seo.md from head html", () => {
     const seo = buildSeoMarkdown(SETTINGS);
 
+    expect(seo).toContain('locale: "en-GB"');
+    expect(seo).toContain("twitter: true");
+    expect(seo).toContain("openGraph: true");
+    expect(seo).toContain("structuredData: true");
+    expect(seo).toContain("indexFollow: true");
     expect(seo).toContain("headHtml");
     expect(seo).toContain("theme-color");
   });

@@ -1,5 +1,8 @@
-import type { AstroPageDraft } from "../../../../../features/site-draft/types";
-import type { RepoFileSet } from "../../../../../features/site-draft/types";
+import type {
+  AstroPageDraft,
+  AstroSeoSettings,
+  RepoFileSet
+} from "../../../../../features/site-draft/types";
 
 export type BuilderPage = AstroPageDraft & {
   id?: string;
@@ -41,6 +44,8 @@ export type FooterOptions = {
   fixed: boolean;
   modules: FooterModule[];
 };
+
+export type SeoOptions = AstroSeoSettings;
 
 export type SiteAccessRole = "owner" | "admin" | "editor" | "contributor";
 export type CollaboratorRole = "admin" | "editor" | "contributor";

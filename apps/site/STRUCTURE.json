@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-04T12:33:55.212Z",
-  "latest_commit_sha": "00eb468e2a27c9c2d087a00198bcc902566fad2f",
+  "generated_at": "2026-03-06T23:02:48.201Z",
+  "latest_commit_sha": "7127e904247b6f14d0578aefd0dfb747e213be89",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -140,12 +140,12 @@
                           {
                             "path": "src/App/features/auth/services/github-auth.test.ts",
                             "description": "Unit tests for GitHub auth token/session helpers, including required-token validation and error-path behavior.",
-                            "LOC": 254
+                            "LOC": 202
                           },
                           {
                             "path": "src/App/features/auth/services/github-auth.ts",
                             "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-                            "LOC": 513
+                            "LOC": 494
                           },
                           {
                             "path": "src/App/features/auth/services/user-profile.ts",
@@ -169,12 +169,12 @@
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.test.ts",
                             "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
-                            "LOC": 67
+                            "LOC": 76
                           },
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.ts",
                             "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-                            "LOC": 41
+                            "LOC": 45
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.test.ts",
@@ -193,7 +193,7 @@
                       {
                         "path": "src/App/features/site-draft/types.ts",
                         "description": "Shared draft content contracts (`RepoFileSet`, `AstroSettings`, `AstroPageDraft`, header/footer shapes) reused by create, studio, and builder flows.",
-                        "LOC": 35
+                        "LOC": 36
                       }
                     ]
                   }
@@ -370,7 +370,7 @@
                           {
                             "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
                             "description": "Profile card showing connected GitHub identity details with action to connect/refresh GitHub App access.",
-                            "LOC": 163
+                            "LOC": 190
                           },
                           {
                             "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
@@ -392,7 +392,7 @@
                           {
                             "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
                             "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-                            "LOC": 491
+                            "LOC": 463
                           }
                         ]
                       },
@@ -423,12 +423,12 @@
                       {
                         "path": "src/App/routes/profile/ProfileRoute.css",
                         "description": "Profile settings route styles for account cards, avatars, and form layout.",
-                        "LOC": 312
+                        "LOC": 337
                       },
                       {
                         "path": "src/App/routes/profile/ProfileRoute.tsx",
                         "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-                        "LOC": 70
+                        "LOC": 74
                       }
                     ]
                   },
@@ -666,6 +666,11 @@
                                     "LOC": 100
                                   },
                                   {
+                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderHeadSection.tsx",
+                                    "description": "?",
+                                    "LOC": 42
+                                  },
+                                  {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderImageSettingsPanel.tsx",
                                     "description": "Inspector panel for the currently selected preview image (alt text, caption, and size controls).",
                                     "LOC": 78
@@ -678,22 +683,22 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPagesSection.tsx",
                                     "description": "Sidebar pages manager for creating/selecting pages and editing page title/slug metadata.",
-                                    "LOC": 368
+                                    "LOC": 369
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
                                     "description": "Preview panel wrapper that hosts the Astro preview surface and page editor toolbar/read-only notices.",
-                                    "LOC": 332
+                                    "LOC": 374
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
                                     "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
-                                    "LOC": 613
+                                    "LOC": 639
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
                                     "description": "Section editor for custom design-token CSS used by the preview and publish output.",
-                                    "LOC": 372
+                                    "LOC": 366
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderToolbarIcons.tsx",
@@ -735,7 +740,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
                                     "description": "Navigation hook that coordinates section/page switches with lock handling and save-on-transition safeguards.",
-                                    "LOC": 209
+                                    "LOC": 216
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.types.ts",
@@ -765,17 +770,17 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
                                     "description": "Draft lifecycle hook for initial load, normalization, refresh, and conflict recovery/reload behavior.",
-                                    "LOC": 440
+                                    "LOC": 446
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 2667
+                                    "LOC": 2678
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
                                     "description": "Save/publish orchestration hook wiring section persistence, conflict handling, and publish job startup.",
-                                    "LOC": 537
+                                    "LOC": 548
                                   }
                                 ]
                               },
@@ -791,12 +796,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.test.ts",
                                         "description": "Unit tests for editor-publish helper functions and payload derivation behavior.",
-                                        "LOC": 84
+                                        "LOC": 102
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.ts",
                                         "description": "Helper functions specific to editor publish flow (touched section/page resolution and payload shaping).",
-                                        "LOC": 156
+                                        "LOC": 165
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/index.ts",
@@ -816,7 +821,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
                                         "description": "Shared publish utilities used by both owner and editor publish pipelines.",
-                                        "LOC": 123
+                                        "LOC": 124
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
@@ -830,12 +835,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 100
+                                    "LOC": 102
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 234
+                                    "LOC": 238
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -850,7 +855,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
                                     "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
-                                    "LOC": 24
+                                    "LOC": 25
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
@@ -865,7 +870,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 368
+                                    "LOC": 374
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
@@ -875,7 +880,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.ts",
                                     "description": "Lock-key utilities for editable sections/pages/settings plus user-facing lock label helpers.",
-                                    "LOC": 121
+                                    "LOC": 123
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/media-repo.test.ts",
@@ -905,7 +910,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-editor-touch.ts",
                                     "description": "Persists editor-draft touched sections/pages metadata used for PR-oriented publish workflows.",
-                                    "LOC": 85
+                                    "LOC": 86
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
@@ -920,7 +925,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-settings-sections.ts",
                                     "description": "Persists settings subsections (header/footer/styles) to draft content and settings records.",
-                                    "LOC": 92
+                                    "LOC": 119
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/style-editor.test.ts",
@@ -955,7 +960,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/types.ts",
                                     "description": "Builder domain type definitions for sections, pages, collaborators, locks, and publish feedback models.",
-                                    "LOC": 121
+                                    "LOC": 127
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/utils.ts",
@@ -974,7 +979,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 1810
+                                "LOC": 1888
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -1211,7 +1216,7 @@
                       {
                         "path": "src/templates/astro/runtime/components-SEO.astro.txt",
                         "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-                        "LOC": 69
+                        "LOC": 74
                       },
                       {
                         "path": "src/templates/astro/runtime/content-config.ts.txt",
@@ -1236,7 +1241,7 @@
                       {
                         "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
                         "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
-                        "LOC": 103
+                        "LOC": 115
                       },
                       {
                         "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
@@ -1266,6 +1271,11 @@
                     "path": "src/templates/astro/runtime-files.ts",
                     "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
                     "LOC": 21
+                  },
+                  {
+                    "path": "src/templates/astro/seo.md",
+                    "description": "?",
+                    "LOC": 3
                   },
                   {
                     "path": "src/templates/astro/solidary-links.json",
@@ -1343,12 +1353,12 @@
       {
         "path": "package.json",
         "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-        "LOC": 46
+        "LOC": 47
       },
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1375
+        "LOC": 1385
       },
       {
         "path": "tsconfig.app.json",

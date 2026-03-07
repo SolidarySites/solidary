@@ -30,7 +30,7 @@ export const EDITABLE_SECTION_LABELS: Record<BuilderEditableSectionKey, string> 
   pages: "Pages",
   header: "Header",
   footer: "Footer",
-  head: "Head",
+  head: "SEO",
   styles: "Styles"
 };
 

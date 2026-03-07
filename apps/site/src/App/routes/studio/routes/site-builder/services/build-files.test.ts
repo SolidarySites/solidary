@@ -8,6 +8,11 @@ const settingsInput = {
   siteDescription: "Test Description",
   siteUrl: "https://example.com",
   headHtml: "<meta name=\"theme-color\" content=\"#111111\" />",
+  locale: "fr-FR",
+  twitter: false,
+  openGraph: true,
+  structuredData: false,
+  indexFollow: true,
   header: {
     disabled: false,
     fixed: false,
@@ -61,6 +66,8 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.globalStyles]).not.toContain("/* @import");
     expect(files[FILE_KEYS.structureStyles]).toContain(".page");
     expect(files[FILE_KEYS.structureStyles]).toBe(".page { color: var(--fg); }\n");
+    expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
+    expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");
     expect(files[FILE_KEYS.seoContent]).toContain("theme-color");
   });
 
