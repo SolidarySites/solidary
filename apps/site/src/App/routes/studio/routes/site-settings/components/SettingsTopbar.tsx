@@ -1,5 +1,5 @@
 import type { StudioSettingsSection } from "../services/settings-sections";
-import LockAvatarPill from "../../site-builder/components/LockAvatarPill";
+import LockAvatarPill from "../../site-builder/chrome/LockAvatarPill";
 
 type SectionButton = {
   section: StudioSettingsSection;

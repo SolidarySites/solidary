@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-03-07T14:26:20.232Z",
-  "latest_commit_sha": "10537f1b12f361f7fa38d216d7c662fb1fe5424f",
+  "generated_at": "2026-03-07T15:51:35.495Z",
+  "latest_commit_sha": "15100f758f392b5f20877010830fba307656ca2e",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
     "LOC values are line-count snapshots so automations can flag files whose descriptions may need refresh after edits.",
-    "UI structure note: `src/App/hooks` exists but is not listed in the AGENTS.md structure; consider moving it under routes/features or updating AGENTS.md."
+    "UI structure note: `src/App/hooks` is the documented location for shared app-wide hooks that are not route- or feature-scoped."
   ],
   "tree": {
     "path": ".",
@@ -192,7 +192,7 @@
                     "files": [
                       {
                         "path": "src/App/features/site-draft/seo.ts",
-                        "description": "?",
+                        "description": "Shared SEO defaults and locale normalization helpers reused when reading, normalizing, and building draft/site settings.",
                         "LOC": 21
                       },
                       {
@@ -672,7 +672,7 @@
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/components/BuilderHeadSection.tsx",
-                                    "description": "?",
+                                    "description": "Builder sidebar SEO section for locale/toggle controls and CodeMirror editing of custom HTML injected into the document head.",
                                     "LOC": 129
                                   },
                                   {
@@ -934,7 +934,7 @@
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/seo-locales.ts",
-                                    "description": "?",
+                                    "description": "SEO locale option catalog that canonicalizes locale codes and derives human-readable labels for the builder dropdown.",
                                     "LOC": 103
                                   },
                                   {
@@ -989,7 +989,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 2197
+                                "LOC": 2204
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -1215,7 +1215,7 @@
                     "files": [
                       {
                         "path": "src/templates/astro/runtime/astro.config.mjs.txt",
-                        "description": "?",
+                        "description": "Raw Astro config runtime template that derives both `site` and project-page-safe `base` from `SITE_URL` during publish upserts.",
                         "LOC": 22
                       },
                       {
@@ -1289,7 +1289,7 @@
                   },
                   {
                     "path": "src/templates/astro/seo.md",
-                    "description": "?",
+                    "description": "Frontmatter-only SEO content template that stores metadata toggles, locale, and custom head HTML defaults for generated repos.",
                     "LOC": 8
                   },
                   {

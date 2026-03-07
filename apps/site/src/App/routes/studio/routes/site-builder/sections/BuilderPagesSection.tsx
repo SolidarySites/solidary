@@ -2,8 +2,8 @@ import { javascript as javascriptLanguage } from "@codemirror/lang-javascript";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { useState, type RefObject } from "react";
-import type { PreviewSelectedElement } from "./AstroTemplatePreview";
-import BuilderImageSettingsPanel from "./BuilderImageSettingsPanel";
+import type { PreviewSelectedElement } from "../preview/AstroTemplatePreview";
+import BuilderImageSettingsPanel from "../preview/BuilderImageSettingsPanel";
 import type { BuilderPage } from "../services/types";
 import { getPageSafeSlug } from "../services/utils";
 

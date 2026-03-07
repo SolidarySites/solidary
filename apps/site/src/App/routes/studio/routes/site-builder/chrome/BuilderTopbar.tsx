@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import BuilderEditorToolbar from "./BuilderEditorToolbar";
+import BuilderEditorToolbar from "../preview/BuilderEditorToolbar";
 import type { BuilderImageUploadOptions } from "../services/types";
 
 type BuilderTopbarProps = {

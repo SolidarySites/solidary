@@ -4,7 +4,7 @@ import type {
   AstroTemplatePreviewHandle,
   PreviewSelectedElement,
   PreviewSelectedImage
-} from "../components/AstroTemplatePreview";
+} from "../preview/AstroTemplatePreview";
 import {
   BYTES_1_MB,
   processImageVariantsFromOriginal

@@ -1,12 +1,12 @@
 import { useEffect, useRef, type MouseEvent, type RefObject } from "react";
-import BuilderFooterSection from "./BuilderFooterSection";
-import BuilderHeadSection from "./BuilderHeadSection";
-import BuilderHeaderSection from "./BuilderHeaderSection";
+import BuilderFooterSection from "../sections/BuilderFooterSection";
+import BuilderHeadSection from "../sections/BuilderHeadSection";
+import BuilderHeaderSection from "../sections/BuilderHeaderSection";
 import LockAvatarPill from "./LockAvatarPill";
-import BuilderPagesSection from "./BuilderPagesSection";
-import BuilderMediaSection from "./BuilderMediaSection";
-import BuilderStylesSection from "./BuilderStylesSection";
-import type { PreviewSelectedElement, PreviewSelectedImage } from "./AstroTemplatePreview";
+import BuilderMediaSection from "../sections/BuilderMediaSection";
+import BuilderPagesSection from "../sections/BuilderPagesSection";
+import BuilderStylesSection from "../sections/BuilderStylesSection";
+import type { PreviewSelectedElement, PreviewSelectedImage } from "../preview/AstroTemplatePreview";
 import type { RepoImageObject, RepoMediaFileEntry } from "../services/media-repo";
 import type { PublishFeedback, SiteAccessRole } from "../services/types";
 import type {

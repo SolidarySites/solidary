@@ -2,7 +2,7 @@ import {
   AlignCenterIcon,
   AlignLeftIcon,
   AlignRightIcon
-} from "./BuilderToolbarIcons";
+} from "../chrome/BuilderToolbarIcons";
 import type { FooterModule, FooterModuleAlignment } from "../services/types";
 import type { ReactNode } from "react";
 

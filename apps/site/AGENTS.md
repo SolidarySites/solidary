@@ -30,6 +30,7 @@ src/
         providers/
         services/
         context/
+    hooks/                  # shared app-wide hooks outside route/feature ownership
     lib/                    # pure helpers (slug/base64/supabase bootstrap)
     routes/                 # route modules (thin route entrypoints)
       <route>/
@@ -49,6 +50,7 @@ src/
 - Keep route-only code inside `src/App/routes/<route>/...`.
 - Promote cross-route domain logic to `src/App/features/<domain>/...`.
 - Keep shared presentation/layout components in `src/App/components`.
+- Keep shared app-wide hooks that are not route- or feature-scoped in `src/App/hooks`.
 - Keep pure utilities in `src/App/lib`.
 - Keep network and external I/O in `services/` (route-scoped or `src/App/services`).
 - Keep repository scaffold templates only in `src/templates`; do not mix runtime app logic into template files.

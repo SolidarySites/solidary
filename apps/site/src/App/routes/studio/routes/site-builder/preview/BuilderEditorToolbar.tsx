@@ -11,7 +11,7 @@ import {
   LinkIcon,
   NumberedListIcon,
   QuoteIcon
-} from "./BuilderToolbarIcons";
+} from "../chrome/BuilderToolbarIcons";
 import type {
   BuilderImageFormatConversion,
   BuilderImageUploadOptions

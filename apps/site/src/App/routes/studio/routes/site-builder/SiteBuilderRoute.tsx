@@ -1,8 +1,8 @@
 import SiteFooter from "../../../../components/SiteFooter";
-import BuilderPreviewPanel from "./components/BuilderPreviewPanel";
-import BuilderSidebar from "./components/BuilderSidebar";
-import BuilderTopbar from "./components/BuilderTopbar";
+import BuilderSidebar from "./chrome/BuilderSidebar";
+import BuilderTopbar from "./chrome/BuilderTopbar";
 import { useSiteBuilderRouteController } from "./hooks/useSiteBuilderRouteController";
+import BuilderPreviewPanel from "./preview/BuilderPreviewPanel";
 import "./SiteBuilderRoute.css";
 
 export default function SiteBuilderRoute() {
