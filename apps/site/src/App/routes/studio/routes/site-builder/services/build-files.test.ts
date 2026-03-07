@@ -66,6 +66,7 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.globalStyles]).not.toContain("/* @import");
     expect(files[FILE_KEYS.structureStyles]).toContain(".page");
     expect(files[FILE_KEYS.structureStyles]).toBe(".page { color: var(--fg); }\n");
+    expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
     expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");
     expect(files[FILE_KEYS.seoContent]).toContain("theme-color");

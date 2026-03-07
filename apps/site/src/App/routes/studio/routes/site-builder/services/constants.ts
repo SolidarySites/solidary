@@ -1,4 +1,5 @@
 export const FILE_KEYS = {
+  astroConfig: "astro.config.mjs",
   solidaryContent: "src/content/solidary.md",
   headerContent: "src/content/header.md",
   footerContent: "src/content/footer.md",
@@ -10,6 +11,7 @@ export const FILE_KEYS = {
 } as const;
 
 export const TEMPLATE_RUNTIME_FILE_PATHS = [
+  "astro.config.mjs",
   "src/content.config.ts",
   "src/solidary-config/site.ts",
   "src/solidary-config/solidary.ts",

@@ -83,6 +83,7 @@ describe("buildEditorFileChanges", () => {
     });
 
     expect(upsertsByPath.get(PAGE_PATH)).toContain('title: "Home"');
+    expect(upsertsByPath.get(FILE_KEYS.astroConfig)).toBe("template:astro.config.mjs");
     expect(upsertsByPath.has(FILE_KEYS.solidaryContent)).toBe(false);
   });
 
@@ -96,6 +97,7 @@ describe("buildEditorFileChanges", () => {
       files: buildFilesFixture()
     });
 
+    expect(upsertsByPath.get(FILE_KEYS.astroConfig)).toBe("template:astro.config.mjs");
     expect(upsertsByPath.get(FILE_KEYS.tokens)).toContain("--color");
     expect(upsertsByPath.get(FILE_KEYS.globalStyles)).toContain("tokens.css");
     expect(upsertsByPath.get(FILE_KEYS.structureStyles)).toContain(".page");

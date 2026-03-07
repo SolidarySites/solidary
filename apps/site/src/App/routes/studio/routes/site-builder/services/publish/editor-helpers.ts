@@ -23,6 +23,10 @@ export const buildEditorFileChanges = ({
   files: Record<string, string>;
 }) => {
   const upsertsByPath = new Map<string, string>();
+  const astroConfigFile = files[FILE_KEYS.astroConfig];
+  if (astroConfigFile) {
+    upsertsByPath.set(FILE_KEYS.astroConfig, astroConfigFile);
+  }
   const upsertRuntimeTemplates = () => {
     TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {
       const runtimeContent = files[path];
