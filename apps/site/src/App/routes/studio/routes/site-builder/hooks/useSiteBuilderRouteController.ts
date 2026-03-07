@@ -281,6 +281,7 @@ export const useSiteBuilderRouteController = ({
   const [availableFonts, setAvailableFonts] = useState<string[]>(defaultAvailableFonts);
   const [fontsLoading, setFontsLoading] = useState(false);
   const [fontsError, setFontsError] = useState<string | null>(null);
+  const [mobilePreviewEnabled, setMobilePreviewEnabled] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaWarning, setMediaWarning] = useState<string | null>(null);
@@ -2546,6 +2547,7 @@ export const useSiteBuilderRouteController = ({
       availableFonts: availableFontsForControls,
       fontsLoading,
       fontsError,
+      mobilePreviewEnabled,
       mediaWarning,
       mediaError,
       mediaLoading,
@@ -2620,6 +2622,7 @@ export const useSiteBuilderRouteController = ({
       onTokensCssChange: setTokensCss,
       onStyleModeChange: handleStyleModeChange,
       onAdvancedStructureCssChange: setAdvancedStructureCss,
+      onMobilePreviewEnabledChange: setMobilePreviewEnabled,
       onRefreshMediaAssets: () => {
         void refreshMediaAssets();
       },
@@ -2676,6 +2679,7 @@ export const useSiteBuilderRouteController = ({
       draftLoadError,
       canEditContent: canEditPageContent,
       showStylesHoverInspector: activeSection === "settings" && activeSettingsSection === "styles",
+      mobilePreviewEnabled,
       previewRef,
       headHtml,
       previewBrand: siteTitle,

@@ -10,6 +10,7 @@ import {
   formatRgbaFromHex,
   getCssVariableValue,
   parseCssColor,
+  removeCssVariable,
   setCssVariableValue,
   setCustomCssInTokens
 } from "../services/style-editor";
@@ -22,32 +23,163 @@ type BuilderStylesSectionProps = {
   availableFonts: string[];
   fontsLoading: boolean;
   fontsError: string | null;
+  mobilePreviewEnabled: boolean;
   onTokensCssChange: (value: string) => void;
   onStyleModeChange: (value: BuilderStylesMode) => void;
   onAdvancedStructureCssChange: (value: string) => void;
+  onMobilePreviewEnabledChange: (value: boolean) => void;
 };
 
 type TokenField = {
   variable: string;
   label: string;
   description: string;
+  fallback?: string;
+};
+
+type LayoutTokenField = TokenField & {
+  mobileVariable: string;
 };
 
 const colorFields: TokenField[] = [
-  { variable: "--bg", label: "Background color", description: "Main page background color." },
+  { variable: "--bg", label: "Background color", description: "Main page background color.", fallback: "#fbfbf9" },
+  {
+    variable: "--header-bg",
+    label: "Header color",
+    description: "Background behind the site header and navigation.",
+    fallback: "#fbfbf9"
+  },
+  {
+    variable: "--footer-bg",
+    label: "Footer color",
+    description: "Background behind the site footer content.",
+    fallback: "#fbfbf9"
+  },
   { variable: "--fg", label: "Text color", description: "Primary text color used across content." },
   { variable: "--muted", label: "Muted text color", description: "Secondary text color for helper text." },
   { variable: "--link", label: "Link color", description: "Link and interactive text color." }
 ];
 
-const spacingFields: TokenField[] = [
-  { variable: "--maxw", label: "Content max width", description: "Maximum width of the main content area." },
-  { variable: "--space-1", label: "Spacing XS", description: "Small spacing token." },
-  { variable: "--space-2", label: "Spacing SM", description: "Small-medium spacing token." },
-  { variable: "--space-3", label: "Spacing MD", description: "Medium spacing token." },
-  { variable: "--space-4", label: "Spacing LG", description: "Large spacing token." },
-  { variable: "--space-5", label: "Spacing XL", description: "Extra-large spacing token." }
+type LayoutFieldGroup = {
+  title: string;
+  description: string;
+  fields: LayoutTokenField[];
+};
+
+const layoutFieldGroups: LayoutFieldGroup[] = [
+  {
+    title: "Page",
+    description: "These values affect the main content column and article spacing.",
+    fields: [
+      {
+        variable: "--maxw",
+        mobileVariable: "--mobile-maxw",
+        label: "Content max width",
+        description: "Maximum width of the main content area.",
+        fallback: "900px"
+      },
+      {
+        variable: "--page-padding-y",
+        mobileVariable: "--mobile-page-padding-y",
+        label: "Page top and bottom padding",
+        description: "Space above and below the main content area.",
+        fallback: "32px"
+      },
+      {
+        variable: "--page-padding-x",
+        mobileVariable: "--mobile-page-padding-x",
+        label: "Page side padding",
+        description: "Space between the content and the left or right edge of the viewport.",
+        fallback: "24px"
+      },
+      {
+        variable: "--content-block-gap",
+        mobileVariable: "--mobile-content-block-gap",
+        label: "Paragraph and list spacing",
+        description: "Vertical space between paragraphs, lists, and other stacked content blocks.",
+        fallback: "16px"
+      },
+      {
+        variable: "--compact-gap",
+        mobileVariable: "--mobile-compact-gap",
+        label: "Compact element spacing",
+        description: "Tighter spacing used for code blocks and the smaller spacing below headings.",
+        fallback: "12px"
+      },
+      {
+        variable: "--section-gap",
+        mobileVariable: "--mobile-section-gap",
+        label: "Section heading spacing",
+        description: "Extra space before major section headings inside the page content.",
+        fallback: "32px"
+      }
+    ]
+  },
+  {
+    title: "Header",
+    description: "These values affect the header padding and spacing between the brand and nav.",
+    fields: [
+      {
+        variable: "--header-padding-y",
+        mobileVariable: "--mobile-header-padding-y",
+        label: "Header top and bottom padding",
+        description: "Space above and below the header content.",
+        fallback: "16px"
+      },
+      {
+        variable: "--header-padding-x",
+        mobileVariable: "--mobile-header-padding-x",
+        label: "Header side padding",
+        description: "Space between the header content and the left or right edge of the viewport.",
+        fallback: "24px"
+      },
+      {
+        variable: "--header-gap",
+        mobileVariable: "--mobile-header-gap",
+        label: "Header item gap",
+        description: "Space between the brand area and navigation items.",
+        fallback: "16px"
+      }
+    ]
+  },
+  {
+    title: "Footer",
+    description: "These values affect the footer padding and spacing between footer modules.",
+    fields: [
+      {
+        variable: "--footer-padding-y",
+        mobileVariable: "--mobile-footer-padding-y",
+        label: "Footer top and bottom padding",
+        description: "Space above and below the footer content.",
+        fallback: "24px"
+      },
+      {
+        variable: "--footer-padding-x",
+        mobileVariable: "--mobile-footer-padding-x",
+        label: "Footer side padding",
+        description: "Space between the footer content and the left or right edge of the viewport.",
+        fallback: "24px"
+      },
+      {
+        variable: "--footer-gap",
+        mobileVariable: "--mobile-footer-gap",
+        label: "Footer module gap",
+        description: "Space between the footer columns or stacked footer sections.",
+        fallback: "16px"
+      }
+    ]
+  }
 ];
+
+const MOBILE_MENU_BACKGROUND_VARIABLE = "--mobile-menu-bg";
+const MOBILE_MENU_WIDTH_VARIABLE = "--mobile-menu-width";
+const MOBILE_MENU_TEXT_ALIGN_VARIABLE = "--mobile-menu-text-align";
+
+const MOBILE_MENU_TEXT_ALIGN_OPTIONS = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" }
+] as const;
 
 const customCssEditorExtensions = [cssLanguage(), EditorView.lineWrapping];
 const styleEditorBasicSetup = {
@@ -108,9 +240,11 @@ const BuilderStylesSection = ({
   availableFonts,
   fontsLoading,
   fontsError,
+  mobilePreviewEnabled,
   onTokensCssChange,
   onStyleModeChange,
-  onAdvancedStructureCssChange
+  onAdvancedStructureCssChange,
+  onMobilePreviewEnabledChange
 }: BuilderStylesSectionProps) => {
   const [activePanel, setActivePanel] = useState<BuilderStylesPanel>(
     styleMode === "advanced" ? "customCss" : "colors"
@@ -118,26 +252,38 @@ const BuilderStylesSection = ({
 
   const updateToken = (variable: string, value: string) =>
     onTokensCssChange(setCssVariableValue(tokensCss, variable, value));
+  const removeToken = (variable: string) => onTokensCssChange(removeCssVariable(tokensCss, variable));
+  const readToken = (variable: string, fallback = "") => getCssVariableValue(tokensCss, variable, fallback);
+  const toggleMobileOverride = (field: LayoutTokenField, enabled: boolean) => {
+    if (enabled) {
+      updateToken(field.mobileVariable, readToken(field.variable, field.fallback ?? ""));
+      return;
+    }
+    removeToken(field.mobileVariable);
+  };
 
-  const primaryFontStack = getCssVariableValue(tokensCss, "--font-sans", "");
-  const secondaryFontStack = getCssVariableValue(tokensCss, "--font-mono", "");
+  const primaryFontStack = readToken("--font-sans", "");
+  const secondaryFontStack = readToken("--font-mono", "");
   const primarySelectedFont = extractLeadingFontName(primaryFontStack);
   const secondarySelectedFont = extractLeadingFontName(secondaryFontStack);
   const customCss = extractCustomCssFromTokens(tokensCss);
   const hasAvailableFonts = availableFonts.length > 0;
-  const selectedPrimaryFallback = hasAvailableFonts ? availableFonts[0] : "";
-  const selectedSecondaryFallback = hasAvailableFonts ? availableFonts[0] : "";
-  const selectedPrimaryFont = hasAvailableFonts
-    ? availableFonts.includes(primarySelectedFont)
-      ? primarySelectedFont
-      : selectedPrimaryFallback
+  const selectedPrimaryFont = hasAvailableFonts && availableFonts.includes(primarySelectedFont)
+    ? primarySelectedFont
     : "";
-  const selectedSecondaryFont = hasAvailableFonts
-    ? availableFonts.includes(secondarySelectedFont)
-      ? secondarySelectedFont
-      : selectedSecondaryFallback
+  const selectedSecondaryFont = hasAvailableFonts && availableFonts.includes(secondarySelectedFont)
+    ? secondarySelectedFont
     : "";
-  const borderValue = getCssVariableValue(tokensCss, "--border", "rgba(0, 0, 0, 0.12)");
+  const borderValue = readToken("--border", "rgba(0, 0, 0, 0.12)");
+  const mobileMenuBackgroundValue = readToken(
+    MOBILE_MENU_BACKGROUND_VARIABLE,
+    readToken("--header-bg", readToken("--bg", "#fbfbf9"))
+  );
+  const mobileMenuWidthValue = readToken(MOBILE_MENU_WIDTH_VARIABLE, "fit-content");
+  const mobileMenuTextAlignValue = (() => {
+    const value = readToken(MOBILE_MENU_TEXT_ALIGN_VARIABLE, "right");
+    return value === "left" || value === "center" || value === "right" ? value : "right";
+  })();
   const isAdvancedMode = styleMode === "advanced";
   const visiblePanel: BuilderStylesPanel = isAdvancedMode ? "customCss" : activePanel;
 
@@ -224,7 +370,7 @@ const BuilderStylesSection = ({
           </div>
           <div className="builder-styles-fields">
             {colorFields.map((field) => {
-              const value = getCssVariableValue(tokensCss, field.variable, "");
+              const value = getCssVariableValue(tokensCss, field.variable, field.fallback ?? "");
               return (
                 <div key={field.variable} className="builder-styles-field">
                   <label>
@@ -265,18 +411,34 @@ const BuilderStylesSection = ({
           <div className="builder-styles-card">
             <div className="section-header">
               <h3>Typography</h3>
-              <p>Choose primary and secondary fonts. Fallback stacks are applied automatically.</p>
+              <p>Choose uploaded fonts or type a custom font family name. Fallback stacks are applied automatically.</p>
             </div>
             <div className="builder-styles-fields">
               <label>
-                Primary font
-                <p className="builder-format-toolbar-note">Used for body and content text.</p>
+                Primary font family
+                <p className="builder-format-toolbar-note">
+                  Used for body and content text. Type the exact <code>font-family</code> name if you are
+                  loading it from Google Fonts or custom head HTML.
+                </p>
+                <input
+                  value={primarySelectedFont}
+                  placeholder="e.g. Instrument Serif"
+                  onChange={(event) => updateToken("--font-sans", buildPrimaryFontStack(event.target.value))}
+                />
+              </label>
+              <label>
+                Primary font from uploaded assets
+                <p className="builder-format-toolbar-note">
+                  Quick-pick a font found in <code>src/styles/partials/fonts.css</code>.
+                </p>
                 <select
                   value={selectedPrimaryFont}
                   disabled={!hasAvailableFonts}
                   onChange={(event) => updateToken("--font-sans", buildPrimaryFontStack(event.target.value))}
                 >
-                  {!hasAvailableFonts && <option value="">No fonts available</option>}
+                  <option value="">
+                    {hasAvailableFonts ? "Choose an uploaded font" : "No uploaded fonts available"}
+                  </option>
                   {availableFonts.map((fontName, index) => (
                     <option key={`primary-${fontName}-${index}`} value={fontName}>
                       {fontName}
@@ -285,14 +447,29 @@ const BuilderStylesSection = ({
                 </select>
               </label>
               <label>
-                Secondary font
-                <p className="builder-format-toolbar-note">Used for monospace/code text roles.</p>
+                Secondary font family
+                <p className="builder-format-toolbar-note">
+                  Used for monospace or secondary text roles. Type a custom family name if needed.
+                </p>
+                <input
+                  value={secondarySelectedFont}
+                  placeholder="e.g. IBM Plex Mono"
+                  onChange={(event) => updateToken("--font-mono", buildSecondaryFontStack(event.target.value))}
+                />
+              </label>
+              <label>
+                Secondary font from uploaded assets
+                <p className="builder-format-toolbar-note">
+                  Quick-pick a font found in <code>src/styles/partials/fonts.css</code>.
+                </p>
                 <select
                   value={selectedSecondaryFont}
                   disabled={!hasAvailableFonts}
                   onChange={(event) => updateToken("--font-mono", buildSecondaryFontStack(event.target.value))}
                 >
-                  {!hasAvailableFonts && <option value="">No fonts available</option>}
+                  <option value="">
+                    {hasAvailableFonts ? "Choose an uploaded font" : "No uploaded fonts available"}
+                  </option>
                   {availableFonts.map((fontName, index) => (
                     <option key={`secondary-${fontName}-${index}`} value={fontName}>
                       {fontName}
@@ -309,19 +486,132 @@ const BuilderStylesSection = ({
         <div className="builder-styles-card">
           <div className="section-header">
             <h3>Layout & spacing</h3>
-            <p>Tune container width and shared spacing tokens.</p>
+            <p>
+              Tune the main content spacing, plus separate header and footer spacing.
+              {mobilePreviewEnabled
+                ? " Mobile-only overrides are enabled below because the preview is in mobile mode."
+                : ""}
+            </p>
           </div>
-          <div className="builder-styles-fields">
-            {spacingFields.map((field) => (
-              <label key={field.variable}>
-                {field.label}
-                <p className="builder-format-toolbar-note">{field.description}</p>
-                <input
-                  value={getCssVariableValue(tokensCss, field.variable, "")}
-                  onChange={(event) => updateToken(field.variable, event.target.value)}
-                />
-              </label>
-            ))}
+          {layoutFieldGroups.map((group) => (
+            <div key={group.title} className="builder-styles-group">
+              <div className="builder-styles-group-header">
+                <h4>{group.title}</h4>
+                <p className="builder-format-toolbar-note">{group.description}</p>
+              </div>
+              <div className="builder-styles-fields">
+                {group.fields.map((field) => {
+                  const desktopValue = readToken(field.variable, field.fallback ?? "");
+                  const hasMobileOverride = readToken(field.mobileVariable, "") !== "";
+                  const mobileValue = readToken(field.mobileVariable, desktopValue);
+
+                  return (
+                    <div key={field.variable} className="builder-styles-field">
+                      <label>
+                        {field.label}
+                        <p className="builder-format-toolbar-note">{field.description}</p>
+                        <input
+                          value={desktopValue}
+                          onChange={(event) => updateToken(field.variable, event.target.value)}
+                        />
+                      </label>
+
+                      {mobilePreviewEnabled && (
+                        <div className="builder-styles-mobile-override">
+                          <label className="checkbox">
+                            <input
+                              type="checkbox"
+                              checked={hasMobileOverride}
+                              onChange={(event) => toggleMobileOverride(field, event.target.checked)}
+                            />
+                            <span>Use a different value on mobile</span>
+                          </label>
+
+                          {hasMobileOverride && (
+                            <label>
+                              Mobile value
+                              <p className="builder-format-toolbar-note">
+                                Applied only below the mobile navigation breakpoint.
+                              </p>
+                              <input
+                                value={mobileValue}
+                                onChange={(event) => updateToken(field.mobileVariable, event.target.value)}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {mobilePreviewEnabled && (
+            <div className="builder-styles-group">
+              <div className="builder-styles-group-header">
+                <h4>Mobile Menu</h4>
+                <p className="builder-format-toolbar-note">
+                  These values style the fold-out burger menu on mobile only.
+                </p>
+              </div>
+              <div className="builder-styles-fields">
+                <div className="builder-styles-field">
+                  <label>
+                    Mobile menu background color
+                    <p className="builder-format-toolbar-note">
+                      Background behind the fold-out mobile navigation panel.
+                    </p>
+                    <RgbaColorControls
+                      value={mobileMenuBackgroundValue}
+                      onChange={(value) => updateToken(MOBILE_MENU_BACKGROUND_VARIABLE, value)}
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Mobile menu width
+                  <p className="builder-format-toolbar-note">
+                    Width of the fold-out menu panel. Default is <code>fit-content</code> so it fits the text.
+                  </p>
+                  <input
+                    value={mobileMenuWidthValue}
+                    onChange={(event) => updateToken(MOBILE_MENU_WIDTH_VARIABLE, event.target.value)}
+                  />
+                </label>
+
+                <label>
+                  Mobile menu text alignment
+                  <p className="builder-format-toolbar-note">
+                    Horizontal alignment for items inside the fold-out menu.
+                  </p>
+                  <select
+                    value={mobileMenuTextAlignValue}
+                    onChange={(event) => updateToken(MOBILE_MENU_TEXT_ALIGN_VARIABLE, event.target.value)}
+                  >
+                    {MOBILE_MENU_TEXT_ALIGN_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
+          <div className="builder-styles-preview-toggle-row">
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={mobilePreviewEnabled}
+                onChange={(event) => onMobilePreviewEnabledChange(event.target.checked)}
+              />
+              <span>Preview in mobile frame</span>
+            </label>
+            <p className="builder-format-toolbar-note">
+              Preview-only. Shrinks the iframe into a phone-sized frame without saving anything to the
+              draft. When enabled, mobile-only layout overrides appear above.
+            </p>
           </div>
         </div>
       )}

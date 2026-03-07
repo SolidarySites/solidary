@@ -169,6 +169,20 @@ export const setCssVariableValue = (tokensCss: string, variableName: string, nex
   return `${normalized.slice(0, rootRange.bodyStart)}${bodyWithNewDeclaration}${normalized.slice(rootRange.bodyEnd)}`;
 };
 
+export const removeCssVariable = (tokensCss: string, variableName: string) => {
+  const normalized = ensureRootBlock(tokensCss);
+  const rootRange = getRootBlockRange(normalized);
+  if (!rootRange) return normalized;
+
+  const variableLineRegex = new RegExp(`^\\s*${escapeRegExp(variableName)}\\s*:\\s*[^;]+;\\s*$`);
+  const nextBody = rootRange.body
+    .split("\n")
+    .filter((line) => !variableLineRegex.test(line))
+    .join("\n");
+
+  return `${normalized.slice(0, rootRange.bodyStart)}${nextBody}${normalized.slice(rootRange.bodyEnd)}`;
+};
+
 export const extractCustomCssFromTokens = (tokensCss: string) => {
   const normalized = ensureRootBlock(tokensCss);
   const startIndex = normalized.indexOf(CUSTOM_CSS_START_MARKER);

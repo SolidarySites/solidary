@@ -26,6 +26,7 @@ type BuilderPreviewPanelProps = {
   draftLoadError: string | null;
   canEditContent: boolean;
   showStylesHoverInspector: boolean;
+  mobilePreviewEnabled: boolean;
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
   headHtml: string;
   previewBrand: string;
@@ -108,6 +109,7 @@ const BuilderPreviewPanel = ({
   draftLoadError,
   canEditContent,
   showStylesHoverInspector,
+  mobilePreviewEnabled,
   previewRef,
   headHtml,
   previewBrand,
@@ -330,29 +332,63 @@ const BuilderPreviewPanel = ({
         )}
 
         {!isDraftLoading && !draftLoadError && (
-          <AstroTemplatePreview
-            ref={previewRef}
-            editable={canEditContent}
-            headHtml={headHtml}
-            previewBrand={previewBrand}
-            pages={pages}
-            draftImages={draftImages}
-            repoFontsCss={repoFontsCss}
-            tokensCss={tokensCss}
-            styleMode={styleMode}
-            advancedStructureCss={advancedStructureCss}
-            previewStylesCss={previewStylesCss}
-            homeFallbackBody={homeFallbackBody}
-            activePageSlug={activePreviewSlug}
-            publishedSiteBaseUrl={publishedSiteBaseUrl}
-            previewAssetBaseUrl={previewAssetBaseUrl}
-            header={header}
-            footer={footer}
-            onActivePageChange={onActivePreviewSlugChange}
-            onPageBodyChange={onPageBodyChange}
-            onSelectedImageChange={onSelectedImageChange}
-            onSelectedElementChange={onSelectedElementChange}
-          />
+          <div className={`builder-preview-surface ${mobilePreviewEnabled ? "is-mobile" : ""}`.trim()}>
+            {mobilePreviewEnabled ? (
+              <div className="builder-preview-device" aria-label="Mobile preview frame">
+                <div className="builder-preview-device-screen">
+                  <AstroTemplatePreview
+                    ref={previewRef}
+                    editable={canEditContent}
+                    headHtml={headHtml}
+                    previewBrand={previewBrand}
+                    pages={pages}
+                    draftImages={draftImages}
+                    repoFontsCss={repoFontsCss}
+                    tokensCss={tokensCss}
+                    styleMode={styleMode}
+                    advancedStructureCss={advancedStructureCss}
+                    previewStylesCss={previewStylesCss}
+                    homeFallbackBody={homeFallbackBody}
+                    activePageSlug={activePreviewSlug}
+                    publishedSiteBaseUrl={publishedSiteBaseUrl}
+                    previewAssetBaseUrl={previewAssetBaseUrl}
+                    header={header}
+                    footer={footer}
+                    onActivePageChange={onActivePreviewSlugChange}
+                    onPageBodyChange={onPageBodyChange}
+                    onSelectedImageChange={onSelectedImageChange}
+                    onSelectedElementChange={onSelectedElementChange}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="builder-preview-desktop-viewport">
+                <AstroTemplatePreview
+                  ref={previewRef}
+                  editable={canEditContent}
+                  headHtml={headHtml}
+                  previewBrand={previewBrand}
+                  pages={pages}
+                  draftImages={draftImages}
+                  repoFontsCss={repoFontsCss}
+                  tokensCss={tokensCss}
+                  styleMode={styleMode}
+                  advancedStructureCss={advancedStructureCss}
+                  previewStylesCss={previewStylesCss}
+                  homeFallbackBody={homeFallbackBody}
+                  activePageSlug={activePreviewSlug}
+                  publishedSiteBaseUrl={publishedSiteBaseUrl}
+                  previewAssetBaseUrl={previewAssetBaseUrl}
+                  header={header}
+                  footer={footer}
+                  onActivePageChange={onActivePreviewSlugChange}
+                  onPageBodyChange={onPageBodyChange}
+                  onSelectedImageChange={onSelectedImageChange}
+                  onSelectedElementChange={onSelectedElementChange}
+                />
+              </div>
+            )}
+          </div>
         )}
       </section>
 

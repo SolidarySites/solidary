@@ -1,10 +1,23 @@
 :root{
   --bg: #fbfbf9;
+  --header-bg: #fbfbf9;
+  --footer-bg: #fbfbf9;
   --fg: #1a1a1a;
   --muted: #5b5b5b;
   --link: #0b3d91;
   --border: rgba(0,0,0,.12);
   --maxw: 900px;
+  --page-padding-y: 32px;
+  --page-padding-x: 24px;
+  --content-block-gap: 16px;
+  --compact-gap: 12px;
+  --section-gap: 32px;
+  --header-padding-y: 16px;
+  --header-padding-x: 24px;
+  --header-gap: 16px;
+  --footer-padding-y: 24px;
+  --footer-padding-x: 24px;
+  --footer-gap: 16px;
   --space-1: 8px;
   --space-2: 12px;
   --space-3: 16px;

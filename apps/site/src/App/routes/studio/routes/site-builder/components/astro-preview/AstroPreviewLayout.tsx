@@ -57,7 +57,7 @@ const AstroPreviewLayout = ({
           header.disabled
             ? { display: "none" }
             : header.fixed
-              ? { position: "sticky", top: 0, zIndex: 40, background: "var(--bg)" }
+              ? { position: "sticky", top: 0, zIndex: 40, background: "var(--header-bg, var(--bg))" }
               : undefined
         }
       >
@@ -74,24 +74,62 @@ const AstroPreviewLayout = ({
             {header.brandText.trim() || previewBrand.trim() || "New Astro Site"}
           </a>
 
-          <nav className="header__nav" aria-label="Primary">
-            <ul className="nav">
-              {navItems.map((item) => (
-                <li className="nav__item" key={item.href}>
-                  <a
-                    className={`nav__link ${activeSlug === item.slug ? "is-active" : ""}`}
-                    href={item.href}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onActivePageChange(item.slug);
-                    }}
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          {navItems.length > 0 && (
+            <>
+              <nav className="header__nav header__nav--desktop" aria-label="Primary">
+                <ul className="nav">
+                  {navItems.map((item) => (
+                    <li className="nav__item" key={item.href}>
+                      <a
+                        className={`nav__link${activeSlug === item.slug ? " is-active" : ""}`}
+                        href={item.href}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onActivePageChange(item.slug);
+                        }}
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              <details className="header__menu">
+                <summary className="header__menu-toggle" aria-label="Toggle navigation menu">
+                  <span className="header__menu-toggle-label">Menu</span>
+                  <span className="header__menu-toggle-icon" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </summary>
+
+                <nav className="header__nav header__nav--mobile" aria-label="Primary">
+                  <ul className="nav">
+                    {navItems.map((item) => (
+                      <li className="nav__item" key={`mobile-${item.href}`}>
+                        <a
+                          className={`nav__link${activeSlug === item.slug ? " is-active" : ""}`}
+                          href={item.href}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            const detailsElement = event.currentTarget.closest("details");
+                            if (detailsElement instanceof HTMLDetailsElement) {
+                              detailsElement.open = false;
+                            }
+                            onActivePageChange(item.slug);
+                          }}
+                        >
+                          {item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              </details>
+            </>
+          )}
         </div>
       </header>
 
@@ -105,7 +143,7 @@ const AstroPreviewLayout = ({
           footer.disabled
             ? { display: "none" }
             : footer.fixed
-              ? { position: "sticky", bottom: 0, zIndex: 40, background: "var(--bg)" }
+              ? { position: "sticky", bottom: 0, zIndex: 40, background: "var(--footer-bg, var(--bg))" }
               : undefined
         }
       >

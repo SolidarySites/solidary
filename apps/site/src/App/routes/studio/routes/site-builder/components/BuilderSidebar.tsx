@@ -61,6 +61,7 @@ type BuilderSidebarProps = {
   availableFonts: string[];
   fontsLoading: boolean;
   fontsError: string | null;
+  mobilePreviewEnabled: boolean;
   mediaWarning: string | null;
   mediaError: string | null;
   mediaLoading: boolean;
@@ -111,6 +112,7 @@ type BuilderSidebarProps = {
   onTokensCssChange: (value: string) => void;
   onStyleModeChange: (value: BuilderStylesMode) => void;
   onAdvancedStructureCssChange: (value: string) => void;
+  onMobilePreviewEnabledChange: (value: boolean) => void;
   onRefreshMediaAssets: () => void;
   onEnsureMediaFolderLoaded: (folderPath: string, folderName: string) => void;
   onImageFilesChange: (files: File[]) => void;
@@ -173,6 +175,7 @@ const BuilderSidebar = ({
   availableFonts,
   fontsLoading,
   fontsError,
+  mobilePreviewEnabled,
   mediaWarning,
   mediaError,
   mediaLoading,
@@ -220,6 +223,7 @@ const BuilderSidebar = ({
   onTokensCssChange,
   onStyleModeChange,
   onAdvancedStructureCssChange,
+  onMobilePreviewEnabledChange,
   onRefreshMediaAssets,
   onEnsureMediaFolderLoaded,
   onImageFilesChange,
@@ -544,9 +548,11 @@ const BuilderSidebar = ({
                     availableFonts={availableFonts}
                     fontsLoading={fontsLoading}
                     fontsError={fontsError}
+                    mobilePreviewEnabled={mobilePreviewEnabled}
                     onTokensCssChange={onTokensCssChange}
                     onStyleModeChange={onStyleModeChange}
                     onAdvancedStructureCssChange={onAdvancedStructureCssChange}
+                    onMobilePreviewEnabledChange={onMobilePreviewEnabledChange}
                   />
                 )}
 

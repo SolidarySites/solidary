@@ -198,7 +198,10 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
   var previewRoot = null;
   var brandLinkElement = null;
-  var navListElement = null;
+  var desktopNavElement = null;
+  var headerMenuElement = null;
+  var desktopNavListElement = null;
+  var mobileNavListElement = null;
   var footerElement = null;
   var footerInnerElement = null;
   var editorElement = null;
@@ -1875,13 +1878,23 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   }
 
   function renderNavigation() {
-    if (!navListElement || !state) return;
-    navListElement.innerHTML = "";
+    if (!state) return;
+    if (desktopNavListElement) desktopNavListElement.innerHTML = "";
+    if (mobileNavListElement) mobileNavListElement.innerHTML = "";
 
     var navItems = Array.isArray(state.navItems) ? state.navItems : [];
-    for (var index = 0; index < navItems.length; index += 1) {
-      var item = navItems[index];
-      if (!item || typeof item !== "object") continue;
+    if (desktopNavElement instanceof HTMLElement) {
+      desktopNavElement.style.display = navItems.length ? "" : "none";
+    }
+    if (headerMenuElement instanceof HTMLElement) {
+      headerMenuElement.style.display = navItems.length ? "" : "none";
+      if (!navItems.length && headerMenuElement instanceof HTMLDetailsElement) {
+        headerMenuElement.open = false;
+      }
+    }
+
+    function appendNavItem(targetList, closeMenuOnClick, item) {
+      if (!(targetList instanceof HTMLElement) || !item || typeof item !== "object") return;
 
       var listItem = document.createElement("li");
       listItem.className = "nav__item";
@@ -1894,6 +1907,9 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         event.preventDefault();
         var nextSlug = this.getAttribute("data-preview-slug") || "";
         if (!nextSlug) return;
+        if (closeMenuOnClick && headerMenuElement instanceof HTMLDetailsElement) {
+          headerMenuElement.open = false;
+        }
         post("active-page-change", {
           slug: nextSlug
         });
@@ -1901,7 +1917,14 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       link.setAttribute("data-preview-slug", typeof item.slug === "string" ? item.slug : "");
 
       listItem.appendChild(link);
-      navListElement.appendChild(listItem);
+      targetList.appendChild(listItem);
+    }
+
+    for (var index = 0; index < navItems.length; index += 1) {
+      var item = navItems[index];
+      if (!item || typeof item !== "object") continue;
+      appendNavItem(desktopNavListElement, false, item);
+      appendNavItem(mobileNavListElement, true, item);
     }
   }
 
@@ -1914,7 +1937,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       footerElement.style.position = "sticky";
       footerElement.style.bottom = "0";
       footerElement.style.zIndex = "40";
-      footerElement.style.background = "var(--bg)";
+      footerElement.style.background = "var(--footer-bg, var(--bg))";
     } else {
       footerElement.style.position = "";
       footerElement.style.bottom = "";
@@ -1978,14 +2001,17 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     root.innerHTML =
       '<div class="astro-preview-shell astro-preview-frame"><div class="astro-preview page is-simple">'
       + '<a class="skip-link" href="#astro-preview-main">Skip to content</a>'
-      + '<header class="header"><div class="header__inner"><a class="header__brand" href="/">Preview</a><nav class="header__nav" aria-label="Primary"><ul class="nav"></ul></nav></div></header>'
+      + '<header class="header"><div class="header__inner"><a class="header__brand" href="/">Preview</a><nav class="header__nav header__nav--desktop" aria-label="Primary"><ul class="nav"></ul></nav><details class="header__menu"><summary class="header__menu-toggle" aria-label="Toggle navigation menu"><span class="header__menu-toggle-label">Menu</span><span class="header__menu-toggle-icon" aria-hidden="true"><span></span><span></span><span></span></span></summary><nav class="header__nav header__nav--mobile" aria-label="Primary"><ul class="nav"></ul></nav></details></div></header>'
       + '<main id="astro-preview-main" class="page__main"><article class="prose"><div class="astro-editor"></div></article></main>'
       + '<footer class="footer"><div class="footer__inner"></div></footer>'
       + '</div></div>';
 
     previewRoot = root.querySelector(".astro-preview");
     brandLinkElement = root.querySelector(".header__brand");
-    navListElement = root.querySelector(".nav");
+    desktopNavElement = root.querySelector(".header__nav--desktop");
+    headerMenuElement = root.querySelector(".header__menu");
+    desktopNavListElement = root.querySelector(".header__nav--desktop .nav");
+    mobileNavListElement = root.querySelector(".header__nav--mobile .nav");
     footerElement = root.querySelector(".footer");
     footerInnerElement = root.querySelector(".footer__inner");
     editorElement = root.querySelector(".astro-editor");
@@ -1994,6 +2020,9 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       brandLinkElement.addEventListener("click", function (event) {
         event.preventDefault();
         if (!state) return;
+        if (headerMenuElement instanceof HTMLDetailsElement) {
+          headerMenuElement.open = false;
+        }
         post("active-page-change", {
           slug: state.homePageSlug
         });
@@ -2152,7 +2181,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         headerElement.style.position = "sticky";
         headerElement.style.top = "0";
         headerElement.style.zIndex = "40";
-        headerElement.style.background = "var(--bg)";
+        headerElement.style.background = "var(--header-bg, var(--bg))";
       } else {
         headerElement.style.position = "";
         headerElement.style.top = "";
