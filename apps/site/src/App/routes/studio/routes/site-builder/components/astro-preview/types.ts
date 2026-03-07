@@ -47,6 +47,7 @@ export type AstroTemplatePreviewHandle = {
 
 export type AstroTemplatePreviewProps = {
   editable: boolean;
+  headHtml: string;
   previewBrand: string;
   pages: PreviewPage[];
   draftImages: DraftImageAsset[];

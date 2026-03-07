@@ -2677,6 +2677,7 @@ export const useSiteBuilderRouteController = ({
       canEditContent: canEditPageContent,
       showStylesHoverInspector: activeSection === "settings" && activeSettingsSection === "styles",
       previewRef,
+      headHtml,
       previewBrand: siteTitle,
       pages,
       draftImages,

@@ -27,6 +27,7 @@ type BuilderPreviewPanelProps = {
   canEditContent: boolean;
   showStylesHoverInspector: boolean;
   previewRef: RefObject<AstroTemplatePreviewHandle | null>;
+  headHtml: string;
   previewBrand: string;
   pages: BuilderPage[];
   draftImages: DraftImageAsset[];
@@ -108,6 +109,7 @@ const BuilderPreviewPanel = ({
   canEditContent,
   showStylesHoverInspector,
   previewRef,
+  headHtml,
   previewBrand,
   pages,
   draftImages,
@@ -331,6 +333,7 @@ const BuilderPreviewPanel = ({
           <AstroTemplatePreview
             ref={previewRef}
             editable={canEditContent}
+            headHtml={headHtml}
             previewBrand={previewBrand}
             pages={pages}
             draftImages={draftImages}

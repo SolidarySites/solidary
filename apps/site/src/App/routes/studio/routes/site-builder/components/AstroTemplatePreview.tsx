@@ -2549,17 +2549,19 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 })();
 `;
 
-const buildPreviewFrameSrcDoc = () => {
+const buildPreviewFrameSrcDoc = (headHtml: string) => {
   const runtimeScript = escapeInlineTagContent(
     buildPreviewFrameRuntimeScript(PREVIEW_BRIDGE_CHANNEL, PREVIEW_IMAGE_ASPECT_RATIO_ATTR)
   );
   const baseStyles = escapeInlineTagContent(siteBuilderStylesRaw);
+  const customHeadHtml = headHtml.trim();
 
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ${customHeadHtml}
     <style>${baseStyles}</style>
     <style>
       html,
@@ -2596,6 +2598,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
   function AstroTemplatePreview(
     {
       editable,
+      headHtml,
       previewBrand,
       pages,
       draftImages,
@@ -2622,7 +2625,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       token: createBridgeToken(),
       isReady: false
     });
-    const srcDoc = useMemo(() => buildPreviewFrameSrcDoc(), []);
+    const srcDoc = useMemo(() => buildPreviewFrameSrcDoc(headHtml), [headHtml]);
 
     const parsedPages = useMemo<ParsedPage[]>(
       () =>
