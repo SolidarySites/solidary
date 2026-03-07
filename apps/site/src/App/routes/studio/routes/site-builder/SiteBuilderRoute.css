@@ -1805,9 +1805,8 @@
   position: absolute;
   top: 100%;
   right: 0;
-  max-width: calc(
-    100vw - (var(--mobile-header-padding-x, var(--header-padding-x, var(--space-4))) * 2)
-  );
+  width: var(--mobile-menu-width, fit-content);
+  max-width: 100vw;
   z-index: 20;
 }
 
@@ -1830,14 +1829,23 @@
 .astro-preview.is-simple .header__nav--mobile .nav {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  width: var(--mobile-menu-width, fit-content);
+  width: 100%;
   max-width: 100%;
-  padding: 0.35rem;
+  padding: 0;
   margin-left: auto;
+  border: 1px solid var(--border);
   border-radius: 0;
   background: var(--mobile-menu-bg, var(--header-bg, var(--bg)));
   text-align: var(--mobile-menu-text-align, right);
+}
+
+.astro-preview.is-simple .header__nav--mobile .nav__item {
+  width: 100%;
+  border-top: 1px solid var(--border);
+}
+
+.astro-preview.is-simple .header__nav--mobile .nav__item:first-child {
+  border-top: 0;
 }
 
 .astro-preview.is-simple .nav__link {
@@ -1852,9 +1860,8 @@
 }
 
 .astro-preview.is-simple .header__nav--mobile .nav__link {
+  width: 100%;
   padding: 0.72rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
   text-align: inherit;
   white-space: nowrap;
 }
