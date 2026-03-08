@@ -4,25 +4,29 @@ import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import {
   createSupabaseManagementCodeChallenge,
   createSupabaseManagementCodeVerifier,
-  createSupabaseManagementState
+  createSupabaseManagementState,
 } from "../_shared/supabase-management-auth/state.ts";
 import { getSupabaseManagementConnectionStatusForUser } from "../_shared/supabase-management-auth/index.ts";
+import { resolveSupabaseManagementRedirectUri } from "../_shared/supabase-management-auth/redirect-uri.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY =
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const SUPA_MANAGEMENT_OAUTH_CLIENT_ID =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
 const SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET") ?? "";
 const SUPA_MANAGEMENT_OAUTH_STATE_SECRET =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
+const SUPA_MANAGEMENT_OAUTH_REDIRECT_URI =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_REDIRECT_URI") ?? "";
 const TOKEN_ENCRYPTION_KEY = Deno.env.get("TOKEN_ENCRYPTION_KEY") ?? "";
-const SUPABASE_MANAGEMENT_AUTHORIZE_URL = "https://api.supabase.com/v1/oauth/authorize";
+const SUPABASE_MANAGEMENT_AUTHORIZE_URL =
+  "https://api.supabase.com/v1/oauth/authorize";
 const SUPABASE_MANAGEMENT_OAUTH_SCOPES = [
   "organizations:read",
   "projects:read",
-  "projects:write"
+  "projects:write",
 ].join(" ");
 
 type ConnectStartBody = {
@@ -33,7 +37,7 @@ type ConnectStartBody = {
 const safeJson = (statusCode: number, body: unknown) => ({
   statusCode,
   headers: { "content-type": "application/json" },
-  body: JSON.stringify(body)
+  body: JSON.stringify(body),
 });
 
 const parseBody = (rawBody: string | null): ConnectStartBody => {
@@ -50,7 +54,9 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
   return match?.[1]?.trim() ?? "";
 };
 
-const parseOriginFromHeaderValue = (value: string | undefined): string | null => {
+const parseOriginFromHeaderValue = (
+  value: string | undefined,
+): string | null => {
   const candidate = value?.trim() ?? "";
   if (!candidate) return null;
 
@@ -74,30 +80,6 @@ const resolveRequestOrigin = (event: Parameters<Handler>[0]): string | null => {
   );
 };
 
-const resolveFunctionOrigin = (event: Parameters<Handler>[0]) => {
-  const rawUrl = event.rawUrl?.trim() ?? "";
-  if (rawUrl) {
-    try {
-      return new URL(rawUrl).origin;
-    } catch {
-      // Fall through to forwarded headers.
-    }
-  }
-
-  const forwardedHost = event.headers["x-forwarded-host"] ?? event.headers.host;
-  const forwardedProto = event.headers["x-forwarded-proto"] ?? "https";
-  const host = forwardedHost?.trim() ?? "";
-  if (host) {
-    return `${forwardedProto}://${host}`;
-  }
-
-  if (SUPABASE_URL.trim()) {
-    return new URL(SUPABASE_URL).origin;
-  }
-
-  throw new Error("Missing request host header.");
-};
-
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -105,7 +87,7 @@ export const handler: Handler = async (event) => {
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or Supabase service key."
+      error: "Missing SUPABASE_URL or Supabase service key.",
     });
   }
 
@@ -119,12 +101,14 @@ export const handler: Handler = async (event) => {
     !SUPA_MANAGEMENT_OAUTH_STATE_SECRET.trim()
       ? "SUPA_MANAGEMENT_OAUTH_STATE_SECRET"
       : null,
-    !TOKEN_ENCRYPTION_KEY.trim() ? "TOKEN_ENCRYPTION_KEY" : null
+    !TOKEN_ENCRYPTION_KEY.trim() ? "TOKEN_ENCRYPTION_KEY" : null,
   ].filter((value): value is string => Boolean(value));
 
   if (missingConfig.length) {
     return safeJson(500, {
-      error: `Supabase management OAuth is not configured. Missing: ${missingConfig.join(", ")}.`
+      error: `Supabase management OAuth is not configured. Missing: ${
+        missingConfig.join(", ")
+      }.`,
     });
   }
 
@@ -133,23 +117,23 @@ export const handler: Handler = async (event) => {
     body = parseBody(event.body);
   } catch (error) {
     return safeJson(400, {
-      error: error instanceof Error ? error.message : "Invalid payload."
+      error: error instanceof Error ? error.message : "Invalid payload.",
     });
   }
 
   const supabaseAccessToken = parseBearerToken(
-    event.headers.authorization ?? event.headers.Authorization
+    event.headers.authorization ?? event.headers.Authorization,
   );
   if (!supabaseAccessToken) {
     return safeJson(401, { error: "Missing bearer token." });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
+    auth: { persistSession: false, autoRefreshToken: false },
   });
   const {
     data: { user },
-    error: userError
+    error: userError,
   } = await supabase.auth.getUser(supabaseAccessToken);
 
   if (userError || !user) {
@@ -160,42 +144,45 @@ export const handler: Handler = async (event) => {
   if (!forceConnect) {
     const status = await getSupabaseManagementConnectionStatusForUser({
       supabase,
-      userId: user.id
+      userId: user.id,
     });
     if (status.connected) {
       return safeJson(200, {
-        connected: true
+        connected: true,
       });
     }
   }
 
-  const callbackUrl = new URL(
-    "/functions/v1/supabase-management-callback",
-    resolveFunctionOrigin(event)
-  );
+  const callbackUrl = resolveSupabaseManagementRedirectUri({
+    explicitRedirectUri: SUPA_MANAGEMENT_OAUTH_REDIRECT_URI,
+    supabaseUrl: SUPABASE_URL,
+  });
   const codeVerifier = createSupabaseManagementCodeVerifier();
   const state = createSupabaseManagementState({
     userId: user.id,
     returnTo: body.return_to,
     returnOrigin: resolveRequestOrigin(event),
     codeVerifier,
-    secret: SUPA_MANAGEMENT_OAUTH_STATE_SECRET
+    secret: SUPA_MANAGEMENT_OAUTH_STATE_SECRET,
   });
   const authorizeUrl = new URL(SUPABASE_MANAGEMENT_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("client_id", SUPA_MANAGEMENT_OAUTH_CLIENT_ID.trim());
-  authorizeUrl.searchParams.set("redirect_uri", callbackUrl.toString());
+  authorizeUrl.searchParams.set(
+    "client_id",
+    SUPA_MANAGEMENT_OAUTH_CLIENT_ID.trim(),
+  );
+  authorizeUrl.searchParams.set("redirect_uri", callbackUrl);
   authorizeUrl.searchParams.set("scope", SUPABASE_MANAGEMENT_OAUTH_SCOPES);
   authorizeUrl.searchParams.set("state", state);
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
   authorizeUrl.searchParams.set(
     "code_challenge",
-    createSupabaseManagementCodeChallenge(codeVerifier)
+    createSupabaseManagementCodeChallenge(codeVerifier),
   );
 
   return safeJson(200, {
     connected: false,
-    url: authorizeUrl.toString()
+    url: authorizeUrl.toString(),
   });
 };
 

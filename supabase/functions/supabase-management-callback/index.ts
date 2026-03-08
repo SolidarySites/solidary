@@ -3,22 +3,25 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import {
   exchangeSupabaseManagementAuthorizationCode,
-  upsertSupabaseManagementConnection
+  upsertSupabaseManagementConnection,
 } from "../_shared/supabase-management-auth/index.ts";
+import { resolveSupabaseManagementRedirectUri } from "../_shared/supabase-management-auth/redirect-uri.ts";
 import { parseSupabaseManagementState } from "../_shared/supabase-management-auth/state.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY =
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const SUPA_MANAGEMENT_OAUTH_STATE_SECRET =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
+const SUPA_MANAGEMENT_OAUTH_REDIRECT_URI =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_REDIRECT_URI") ?? "";
 
 const safeRedirect = (location: string) => ({
   statusCode: 302,
   headers: {
-    location
+    location,
   },
-  body: ""
+  body: "",
 });
 
 const resolveOrigin = (event: Parameters<Handler>[0]) => {
@@ -45,7 +48,7 @@ const buildRedirectPath = ({
   baseOrigin,
   returnTo,
   status,
-  message
+  message,
 }: {
   baseOrigin: string;
   returnTo: string;
@@ -78,8 +81,8 @@ export const handler: Handler = async (event) => {
         baseOrigin: origin,
         returnTo: "/profile",
         status: "error",
-        message: "Supabase service configuration missing."
-      })
+        message: "Supabase service configuration missing.",
+      }),
     );
   }
 
@@ -89,8 +92,8 @@ export const handler: Handler = async (event) => {
         baseOrigin: origin,
         returnTo: "/profile",
         status: "error",
-        message: "Supabase connection state is missing."
-      })
+        message: "Supabase connection state is missing.",
+      }),
     );
   }
 
@@ -103,7 +106,7 @@ export const handler: Handler = async (event) => {
   try {
     parsedState = parseSupabaseManagementState({
       encodedState: stateParam,
-      secret: SUPA_MANAGEMENT_OAUTH_STATE_SECRET
+      secret: SUPA_MANAGEMENT_OAUTH_STATE_SECRET,
     });
   } catch (error) {
     return safeRedirect(
@@ -111,8 +114,10 @@ export const handler: Handler = async (event) => {
         baseOrigin: origin,
         returnTo: "/profile",
         status: "error",
-        message: error instanceof Error ? error.message : "Invalid Supabase connection state."
-      })
+        message: error instanceof Error
+          ? error.message
+          : "Invalid Supabase connection state.",
+      }),
     );
   }
 
@@ -124,8 +129,8 @@ export const handler: Handler = async (event) => {
         baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
-        message: redirectError
-      })
+        message: redirectError,
+      }),
     );
   }
 
@@ -135,21 +140,24 @@ export const handler: Handler = async (event) => {
         baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
-        message: "Supabase did not return an authorization code."
-      })
+        message: "Supabase did not return an authorization code.",
+      }),
     );
   }
 
-  const callbackUrl = new URL("/functions/v1/supabase-management-callback", origin).toString();
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
   try {
+    const callbackUrl = resolveSupabaseManagementRedirectUri({
+      explicitRedirectUri: SUPA_MANAGEMENT_OAUTH_REDIRECT_URI,
+      supabaseUrl: SUPABASE_URL,
+    });
     const exchanged = await exchangeSupabaseManagementAuthorizationCode({
       code,
       redirectUri: callbackUrl,
-      codeVerifier: parsedState.codeVerifier
+      codeVerifier: parsedState.codeVerifier,
     });
     await upsertSupabaseManagementConnection({
       supabase,
@@ -160,8 +168,8 @@ export const handler: Handler = async (event) => {
         tokenType: exchanged.tokenType,
         scope: exchanged.scope,
         accessTokenExpiresAt: exchanged.accessTokenExpiresAt,
-        refreshTokenExpiresAt: exchanged.refreshTokenExpiresAt
-      }
+        refreshTokenExpiresAt: exchanged.refreshTokenExpiresAt,
+      },
     });
   } catch (error) {
     return safeRedirect(
@@ -169,11 +177,10 @@ export const handler: Handler = async (event) => {
         baseOrigin: redirectBaseOrigin,
         returnTo: parsedState.returnTo,
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not connect your Supabase account."
-      })
+        message: error instanceof Error
+          ? error.message
+          : "Could not connect your Supabase account.",
+      }),
     );
   }
 
@@ -182,8 +189,8 @@ export const handler: Handler = async (event) => {
       baseOrigin: redirectBaseOrigin,
       returnTo: parsedState.returnTo,
       status: "connected",
-      message: "Supabase account connected."
-    })
+      message: "Supabase account connected.",
+    }),
   );
 };
 
