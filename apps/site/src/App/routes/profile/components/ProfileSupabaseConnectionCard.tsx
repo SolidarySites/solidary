@@ -79,11 +79,6 @@ export default function ProfileSupabaseConnectionCard({
           </div>
         </div>
 
-        <p className="profile-supabase-info">
-          This links Supabase management access only. Solidary sign-in and app data stay on
-          Solidary&apos;s own Supabase project.
-        </p>
-
         {message ? (
           <p
             className={
