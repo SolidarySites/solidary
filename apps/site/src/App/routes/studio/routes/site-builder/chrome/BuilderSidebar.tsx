@@ -36,7 +36,7 @@ type MediaFolderNode = {
   error: string | null;
 };
 
-type BuilderSidebarProps = {
+export type BuilderSidebarProps = {
   activeSection: BuilderSection;
   activeSettingsSection: BuilderSettingsSection;
   isPageEditingMode: boolean;

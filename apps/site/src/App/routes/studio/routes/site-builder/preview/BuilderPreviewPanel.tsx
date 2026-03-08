@@ -20,7 +20,7 @@ import type {
   HeaderOptions
 } from "../services/types";
 
-type BuilderPreviewPanelProps = {
+export type BuilderPreviewPanelProps = {
   shouldLoadDraft: boolean;
   isDraftLoading: boolean;
   draftLoadError: string | null;

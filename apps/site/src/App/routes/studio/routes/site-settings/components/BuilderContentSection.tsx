@@ -9,7 +9,7 @@ import ConnectionsSettingsSection from "./ConnectionsSettingsSection";
 import DangerSettingsSection from "./DangerSettingsSection";
 import GeneralSettingsSection from "./GeneralSettingsSection";
 
-type BuilderContentSectionProps = {
+export type BuilderContentSectionProps = {
   settingsAccessBlocked?: boolean;
   settingsAccessBlockedMessage?: string;
   activeSection: StudioSettingsSection;

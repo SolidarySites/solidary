@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import BuilderEditorToolbar from "../preview/BuilderEditorToolbar";
 import type { BuilderImageUploadOptions } from "../services/types";
 
-type BuilderTopbarProps = {
+export type BuilderTopbarProps = {
   onRunFormatCommand: (command: string, value?: string) => void;
   onRunFormatLink: () => void;
   onUploadFormatImage: (file: File, options: BuilderImageUploadOptions) => Promise<void>;
