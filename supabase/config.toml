@@ -92,3 +92,15 @@ verify_jwt = false
 
 [functions."sync-admin-role-from-github"]
 verify_jwt = false
+
+[functions."supabase-management-callback"]
+verify_jwt = false
+
+[functions."supabase-management-connect-start"]
+verify_jwt = false
+
+[functions."supabase-management-disconnect"]
+verify_jwt = false
+
+[functions."supabase-management-status"]
+verify_jwt = false

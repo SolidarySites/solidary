@@ -17,6 +17,7 @@ import {
   MAX_PROFILE_AVATAR_OPTIONS,
   useProfileAvatarController
 } from "./useProfileAvatarController";
+import { useProfileSupabaseManagementController } from "./useProfileSupabaseManagementController";
 
 const GITHUB_APP_CONNECT_RESULT_MESSAGE_TYPE = "solidary:github-app-connect-result";
 
@@ -92,6 +93,11 @@ export const useProfileRouteController = () => {
     setNotice,
     setNoticeKind,
     getSaveErrorMessage
+  });
+  const supabaseManagementController = useProfileSupabaseManagementController({
+    session,
+    setNotice,
+    setNoticeKind
   });
 
   useEffect(() => {
@@ -448,6 +454,7 @@ export const useProfileRouteController = () => {
     githubAppSelectedRepositoriesTruncated,
     githubAuthStatusLoading,
     showGitHubAppExternalUninstallPrompt,
+    ...supabaseManagementController,
     notice,
     noticeKind,
     onSubmit,

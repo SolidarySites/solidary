@@ -25,6 +25,121 @@
   align-items: center;
 }
 
+.profile-supabase-card {
+  border: 1px solid rgba(31, 34, 28, 0.12);
+  background: rgba(241, 246, 243, 0.82);
+  padding: 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.profile-supabase-avatar {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(25, 84, 54, 0.2);
+  background:
+    radial-gradient(circle at top, rgba(71, 160, 118, 0.28), transparent 58%),
+    linear-gradient(135deg, rgba(31, 34, 28, 0.08), rgba(71, 160, 118, 0.16));
+  display: grid;
+  place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(24, 74, 47, 0.92);
+}
+
+.profile-supabase-details {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.profile-supabase-title {
+  margin: 0;
+  font-weight: 600;
+  color: rgba(31, 34, 28, 0.9);
+}
+
+.profile-supabase-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.profile-supabase-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.profile-supabase-field {
+  margin: 0;
+  display: grid;
+  gap: 0.15rem;
+  color: rgba(31, 34, 28, 0.82);
+}
+
+.profile-supabase-field span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(31, 34, 28, 0.55);
+}
+
+.profile-supabase-field strong {
+  font-weight: 500;
+}
+
+.profile-supabase-list {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-supabase-list li {
+  font-size: 0.9rem;
+  color: rgba(31, 34, 28, 0.84);
+}
+
+.profile-supabase-warning {
+  margin: 0.1rem 0 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(180, 60, 50, 0.4);
+  background: rgba(180, 60, 50, 0.08);
+  color: #7a1f17;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.profile-supabase-info {
+  margin: 0.1rem 0 0.2rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(31, 34, 28, 0.2);
+  background: rgba(255, 255, 255, 0.54);
+  color: rgba(31, 34, 28, 0.86);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.profile-supabase-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+.profile-connect-supabase {
+  justify-self: auto;
+  white-space: nowrap;
+}
+
 .profile-avatar-shell {
   width: 4.2rem;
   height: 4.2rem;

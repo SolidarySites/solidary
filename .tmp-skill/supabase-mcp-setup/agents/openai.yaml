@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supabase MCP"
+  short_description: "Configure Supabase MCP access"
+  default_prompt: "Use $supabase-mcp-setup to configure or verify Supabase MCP access for this machine."

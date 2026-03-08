@@ -1,0 +1,4 @@
+interface:
+  display_name: "Supabase Postgres + OAuth"
+  short_description: "Supabase Postgres and OAuth guidance"
+  default_prompt: "Use $supabase-postgres-oauth to implement or review Supabase Postgres, RLS, and OAuth flows in this codebase."

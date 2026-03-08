@@ -1,6 +1,7 @@
 import SiteFooter from "../../components/SiteFooter";
 import ProfileConnectedGithubCard from "./components/ProfileConnectedGithubCard";
 import ProfileSettingsFormSection from "./components/ProfileSettingsFormSection";
+import ProfileSupabaseConnectionCard from "./components/ProfileSupabaseConnectionCard";
 import { useProfileRouteController } from "./hooks/useProfileRouteController";
 import "./ProfileRoute.css";
 
@@ -44,6 +45,21 @@ export default function ProfileRoute() {
             onConnectGitHubApp={controller.onConnectGitHubApp}
             onUninstallGitHubApp={controller.onUninstallGitHubApp}
             onOpenGitHubAppUninstallPage={controller.onOpenGitHubAppUninstallPage}
+          />
+
+          <ProfileSupabaseConnectionCard
+            connected={controller.supabaseManagementConnected}
+            connectionState={controller.supabaseManagementConnectionState}
+            message={controller.supabaseManagementMessage}
+            grantedScopes={controller.supabaseManagementGrantedScopes}
+            organizations={controller.supabaseManagementOrganizations}
+            projects={controller.supabaseManagementProjects}
+            projectsTruncated={controller.supabaseManagementProjectsTruncated}
+            statusLoading={controller.supabaseManagementStatusLoading}
+            connectBusy={controller.supabaseManagementConnectBusy}
+            disconnectBusy={controller.supabaseManagementDisconnectBusy}
+            onConnect={controller.onConnectSupabaseManagement}
+            onDisconnect={controller.onDisconnectSupabaseManagement}
           />
 
           <ProfileSettingsFormSection

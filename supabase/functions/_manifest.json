@@ -29,6 +29,10 @@
     "github-upsert-collaboration-pr",
     "hello",
     "ingest-site",
+    "supabase-management-callback",
+    "supabase-management-connect-start",
+    "supabase-management-disconnect",
+    "supabase-management-status",
     "sync-admin-role-from-github"
   ]
 }
