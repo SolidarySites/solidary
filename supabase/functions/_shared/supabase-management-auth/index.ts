@@ -10,10 +10,10 @@ const SUPABASE_MANAGEMENT_TOKEN_ENDPOINT = `${SUPABASE_MANAGEMENT_API}/v1/oauth/
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const MAX_PROFILE_ORGANIZATIONS = 8;
 const MAX_PROFILE_PROJECTS = 12;
-const SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID =
-  Deno.env.get("SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
-const SUPABASE_MANAGEMENT_OAUTH_CLIENT_SECRET =
-  Deno.env.get("SUPABASE_MANAGEMENT_OAUTH_CLIENT_SECRET") ?? "";
+const SUPA_MANAGEMENT_OAUTH_CLIENT_ID =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
+const SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET") ?? "";
 
 type SupabaseManagementTokenPayload = {
   access_token?: string;
@@ -189,8 +189,8 @@ const normalizeStoredConnection = (value: unknown): StoredSupabaseManagementConn
 };
 
 const getTokenEndpointBasicAuthHeader = () => {
-  const clientId = SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID.trim();
-  const clientSecret = SUPABASE_MANAGEMENT_OAUTH_CLIENT_SECRET.trim();
+  const clientId = SUPA_MANAGEMENT_OAUTH_CLIENT_ID.trim();
+  const clientSecret = SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET.trim();
   if (!clientId || !clientSecret) {
     throw new Error("Supabase management OAuth is not configured.");
   }

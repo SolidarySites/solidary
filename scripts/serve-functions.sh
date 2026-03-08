@@ -68,7 +68,11 @@ load_env_file "$ROOT_DIR/apps/site/.env"
 load_env_file "$ROOT_DIR/apps/_shared_functions/.env"
 
 if [ -z "${TOKEN_ENCRYPTION_KEY:-}" ]; then
-  echo "Warning: TOKEN_ENCRYPTION_KEY is missing. GitHub token-related functions will return 500." >&2
+  echo "Warning: TOKEN_ENCRYPTION_KEY is missing. GitHub and Supabase management token functions will return 500." >&2
+fi
+
+if [ -z "${SUPA_MANAGEMENT_OAUTH_CLIENT_ID:-}" ] || [ -z "${SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET:-}" ]; then
+  echo "Warning: SUPA_MANAGEMENT_OAUTH_CLIENT_ID / SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET are missing. Supabase account connect will return 500." >&2
 fi
 
 NETLIFY_CLI_DISABLE_AUTO_UPDATE=1 netlify functions:serve \

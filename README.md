@@ -275,6 +275,7 @@ Protocol ingestion must remain GitHub-API-independent.
 1) Env
 - `cp apps/site/.env.example .env`
 - Set frontend keys (`VITE_*`) and backend keys (`SUPABASE_URL`, `CREATE_SITE_SUPABASE_API_KEY`, etc.) in root `.env`
+- For Supabase account connect, also set `SUPA_MANAGEMENT_OAUTH_CLIENT_ID`, `SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET`, optional `SUPA_MANAGEMENT_OAUTH_STATE_SECRET`, and `TOKEN_ENCRYPTION_KEY`
 
 3) Install + run
 - `npm install`

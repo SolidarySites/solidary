@@ -11,10 +11,13 @@ import { getSupabaseManagementConnectionStatusForUser } from "../_shared/supabas
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
-const SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID =
-  Deno.env.get("SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
-const SUPABASE_MANAGEMENT_OAUTH_STATE_SECRET =
-  Deno.env.get("SUPABASE_MANAGEMENT_OAUTH_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
+const SUPA_MANAGEMENT_OAUTH_CLIENT_ID =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
+const SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET") ?? "";
+const SUPA_MANAGEMENT_OAUTH_STATE_SECRET =
+  Deno.env.get("SUPA_MANAGEMENT_OAUTH_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
+const TOKEN_ENCRYPTION_KEY = Deno.env.get("TOKEN_ENCRYPTION_KEY") ?? "";
 const SUPABASE_MANAGEMENT_AUTHORIZE_URL = "https://api.supabase.com/v1/oauth/authorize";
 const SUPABASE_MANAGEMENT_OAUTH_SCOPES = [
   "organizations:read",
@@ -106,9 +109,22 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  if (!SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID || !SUPABASE_MANAGEMENT_OAUTH_STATE_SECRET) {
+  const missingConfig = [
+    !SUPA_MANAGEMENT_OAUTH_CLIENT_ID.trim()
+      ? "SUPA_MANAGEMENT_OAUTH_CLIENT_ID"
+      : null,
+    !SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET.trim()
+      ? "SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET"
+      : null,
+    !SUPA_MANAGEMENT_OAUTH_STATE_SECRET.trim()
+      ? "SUPA_MANAGEMENT_OAUTH_STATE_SECRET"
+      : null,
+    !TOKEN_ENCRYPTION_KEY.trim() ? "TOKEN_ENCRYPTION_KEY" : null
+  ].filter((value): value is string => Boolean(value));
+
+  if (missingConfig.length) {
     return safeJson(500, {
-      error: "Supabase management OAuth is not configured."
+      error: `Supabase management OAuth is not configured. Missing: ${missingConfig.join(", ")}.`
     });
   }
 
@@ -163,10 +179,10 @@ export const handler: Handler = async (event) => {
     returnTo: body.return_to,
     returnOrigin: resolveRequestOrigin(event),
     codeVerifier,
-    secret: SUPABASE_MANAGEMENT_OAUTH_STATE_SECRET
+    secret: SUPA_MANAGEMENT_OAUTH_STATE_SECRET
   });
   const authorizeUrl = new URL(SUPABASE_MANAGEMENT_AUTHORIZE_URL);
-  authorizeUrl.searchParams.set("client_id", SUPABASE_MANAGEMENT_OAUTH_CLIENT_ID.trim());
+  authorizeUrl.searchParams.set("client_id", SUPA_MANAGEMENT_OAUTH_CLIENT_ID.trim());
   authorizeUrl.searchParams.set("redirect_uri", callbackUrl.toString());
   authorizeUrl.searchParams.set("scope", SUPABASE_MANAGEMENT_OAUTH_SCOPES);
   authorizeUrl.searchParams.set("state", state);
