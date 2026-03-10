@@ -377,15 +377,17 @@ export const loadDraftById = async ({
       ? settings.indexFollow
       : DEFAULT_SEO_SETTINGS.indexFollow;
 
-  if (solidary?.image_url) {
+  if (solidary?.site_image) {
     const canonicalUrl = solidary.site_url ?? "";
+    const siteImage = solidary.site_image;
+    const siteImageThumb = solidary.site_image_thumb?.trim() ?? "";
     result.siteImagePreview = resolveSiteThumbnailUrl({
       siteUrl: canonicalUrl,
-      fallbackImageUrl: solidary.image_url
+      fallbackImageUrl: siteImageThumb || siteImage
     });
     result.draftImageUrl = normalizeSiteImagePathForStorage({
       siteUrl: canonicalUrl,
-      imageUrl: solidary.image_url
+      imageUrl: siteImage
     });
   }
 

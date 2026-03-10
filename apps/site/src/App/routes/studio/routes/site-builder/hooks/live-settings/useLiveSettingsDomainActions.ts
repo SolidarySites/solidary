@@ -105,7 +105,6 @@ export const useLiveSettingsDomainActions = ({
               templateSolidary,
               templateSolidaryLinks,
               siteId: draftState.siteId,
-              imageUrl: draftSaveImageUrl,
               settingsInput: siteSettingsInput,
               urlOverride: resolvedSiteUrl,
               previousSolidaryRaw: latestSolidaryRaw,

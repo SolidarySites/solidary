@@ -9,7 +9,8 @@
       "@id": "urn:solidary:term:connections",
       "@container": "@set"
     },
-    "connection_uuid": "urn:solidary:term:connection_uuid"
+    "connection_uuid": "urn:solidary:term:connection_uuid",
+    "connected_site": "urn:solidary:term:connected_site"
   },
   "@id": "",
   "@type": "site",

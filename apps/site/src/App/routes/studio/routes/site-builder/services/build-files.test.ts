@@ -54,7 +54,8 @@ const templateSolidary = JSON.stringify(
     site_id: "",
     site_url: "",
     title: "",
-    image_url: "",
+    site_image: "",
+    site_image_thumb: "",
     description: ""
   },
   null,
@@ -72,7 +73,8 @@ const templateSolidaryLinks = JSON.stringify(
         "@id": "urn:solidary:term:connections",
         "@container": "@set"
       },
-      connection_uuid: "urn:solidary:term:connection_uuid"
+      connection_uuid: "urn:solidary:term:connection_uuid",
+      connected_site: "urn:solidary:term:connected_site"
     },
     "@id": "",
     "@type": "site",
@@ -88,13 +90,14 @@ describe("buildFiles styles output", () => {
   it("writes tokens/global/structure in simple mode with tokens import enabled", () => {
     const files = buildFiles({
       siteId: "site-1",
-      imageUrl: "/og.jpg",
+      ogImageUrl: "/og.jpg",
       settingsInput,
       styles: baseStyles,
       templateSolidary,
       templateSolidaryLinks,
       pages,
-      defaultHomeContent: "Default home"
+      defaultHomeContent: "Default home",
+      hasSiteImage: true
     });
 
     expect(files[FILE_KEYS.tokens]).toContain("--bg");
@@ -103,6 +106,10 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.structureStyles]).toContain(".page");
     expect(files[FILE_KEYS.structureStyles]).toBe(".page { color: var(--fg); }\n");
     expect(files[FILE_KEYS.solidary]).toContain('"site_url": "https://example.com"');
+    expect(files[FILE_KEYS.solidary]).toContain('"site_image": "https://example.com/solidary-media/images/site-image.jpg"');
+    expect(files[FILE_KEYS.solidary]).toContain(
+      '"site_image_thumb": "https://example.com/solidary-media/images/site-image_thumb.jpg"'
+    );
     expect(files[FILE_KEYS.solidaryLinks]).toContain('"@type": "site"');
     expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
@@ -118,7 +125,7 @@ describe("buildFiles styles output", () => {
     };
     const files = buildFiles({
       siteId: "site-1",
-      imageUrl: "/og.jpg",
+      ogImageUrl: "/og.jpg",
       settingsInput,
       styles: advancedStyles,
       templateSolidary,
@@ -136,7 +143,7 @@ describe("buildFiles styles output", () => {
   it("includes page javascript frontmatter in generated markdown", () => {
     const files = buildFiles({
       siteId: "site-1",
-      imageUrl: "/og.jpg",
+      ogImageUrl: "/og.jpg",
       settingsInput,
       styles: baseStyles,
       templateSolidary,

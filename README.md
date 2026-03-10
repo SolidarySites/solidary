@@ -77,14 +77,14 @@ All paths below are **static files** served by the site.
 Contains:
 - protocol version
 - site identity
-- site title, description, and image metadata
+- site title, description, `site_image`, and `site_image_thumb`
 
 ### 2) Site connections (required)
 `/.well-known/solidary-links.json`
 
 Contains:
 - the current site's id and canonical URL
-- typed connected-site entries with connection UUIDs
+- typed connection entries with `connection_uuid` and nested connected-site identity
 - connected-site URLs a crawler can follow to continue traversal
 
 ### 3) Snapshot descriptor (required)

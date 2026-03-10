@@ -9,7 +9,8 @@ describe("parseSolidaryJson", () => {
         description: "A description",
         protocol_version: "1.0",
         site_url: "https://example.com",
-        image_url: "/images/hero.jpg"
+        site_image: "https://example.com/images/site.jpg",
+        site_image_thumb: "https://example.com/images/site-thumb.jpg"
       })
     );
 
@@ -18,18 +19,20 @@ describe("parseSolidaryJson", () => {
       description: "A description",
       protocol_version: "1.0",
       site_url: "https://example.com",
-      image_url: "/images/hero.jpg"
+      site_image: "https://example.com/images/site.jpg",
+      site_image_thumb: "https://example.com/images/site-thumb.jpg"
     });
   });
 
   it("builds solidary metadata JSON", () => {
     const raw = buildSolidaryMetadataFile({
       templateSolidary:
-        '{ "protocol_version": "1.0", "site_id": "", "site_url": "", "title": "", "image_url": "", "description": "" }',
+        '{ "protocol_version": "1.0", "site_id": "", "site_url": "", "title": "", "site_image": "", "site_image_thumb": "", "description": "" }',
       siteId: "site-1",
       siteUrl: "https://example.com",
       title: "Solidary Site",
-      imageUrl: "/images/hero.jpg",
+      siteImageUrl: "https://example.com/images/site.jpg",
+      siteImageThumbUrl: "https://example.com/images/site-thumb.jpg",
       description: "A description"
     });
 
@@ -38,7 +41,8 @@ describe("parseSolidaryJson", () => {
       site_id: "site-1",
       site_url: "https://example.com",
       title: "Solidary Site",
-      image_url: "/images/hero.jpg",
+      site_image: "https://example.com/images/site.jpg",
+      site_image_thumb: "https://example.com/images/site-thumb.jpg",
       description: "A description"
     });
   });

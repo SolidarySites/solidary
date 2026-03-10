@@ -89,7 +89,7 @@ export type RepoImageTreeNode = {
   images: RepoImageObject[];
 };
 
-const PROTECTED_IMAGE_PREFIXES = ["og-home", "site-image-thumb", "site-image"] as const;
+const PROTECTED_IMAGE_PREFIXES = ["og-home", "site-image_thumb", "site-image"] as const;
 
 const splitRepoName = (repoFullName: string): RepoPathParts | null => {
   const [owner, repo] = repoFullName.trim().split("/");

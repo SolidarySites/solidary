@@ -12,6 +12,7 @@ import {
 import {
   getPublishImageInfo,
   loadDraftImagesForDraft,
+  uploadSiteImageAssetsToGitHub,
   uploadDraftImagesToGitHub
 } from "./shared";
 import type { BatchCommitResponse, PublishEditorDraftParams } from "./types";
@@ -88,7 +89,7 @@ export const publishEditorDraft = async ({
     throw new Error("No saved editor changes to submit. Save a section first.");
   }
 
-  const { imagePath, imageUrl } = getPublishImageInfo({
+  const { imageUrl } = getPublishImageInfo({
     siteImage,
     computedSlug,
     draftImageUrl,
@@ -101,7 +102,7 @@ export const publishEditorDraft = async ({
   }));
   const files = buildFiles({
     siteId: draftState.siteId,
-    imageUrl,
+    ogImageUrl: imageUrl,
     settingsInput: siteSettingsInput,
     styles,
     templateSolidary,
@@ -109,6 +110,7 @@ export const publishEditorDraft = async ({
     pages: normalizedPages,
     defaultHomeContent,
     urlOverride: siteUrl,
+    hasSiteImage: siteImage ? true : undefined,
     previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
     previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
@@ -127,14 +129,12 @@ export const publishEditorDraft = async ({
 
   if (siteImage && touchedSections.has("metadata")) {
     setProvisionStep("Uploading site image...");
-    const imageBase64 = toBase64(await siteImage.arrayBuffer());
-    await githubRequest("github-contents-write", {
-      owner: ownerLogin,
-      repo: repoName,
-      path: imagePath,
-      message: "Update site image",
-      content: imageBase64,
-      branch: headBranch
+    await uploadSiteImageAssetsToGitHub({
+      ownerLogin,
+      repoName,
+      branch: headBranch,
+      siteImage,
+      message: "Update site image assets"
     });
     setDraftImageUrl(imageUrl);
   }

@@ -1,13 +1,18 @@
+import { resolveSiteImageUrl } from "../../../lib/site-image-url";
+
 export type SolidaryConfig = {
   protocol_version?: string;
   site_id?: string;
   site_url?: string;
   title?: string;
-  image_url?: string;
+  site_image?: string;
+  site_image_thumb?: string;
   description?: string;
 };
 
 export const SOLIDARY_PROTOCOL_VERSION = "1.0";
+export const SOLIDARY_SITE_IMAGE_PATH = "/solidary-media/images/site-image.jpg";
+export const SOLIDARY_SITE_IMAGE_THUMB_PATH = "/solidary-media/images/site-image_thumb.jpg";
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -27,7 +32,9 @@ export const parseSolidaryJson = (raw: string): SolidaryConfig | null => {
       site_id: typeof record.site_id === "string" ? record.site_id : undefined,
       site_url: typeof record.site_url === "string" ? record.site_url : undefined,
       title: typeof record.title === "string" ? record.title : undefined,
-      image_url: typeof record.image_url === "string" ? record.image_url : undefined,
+      site_image: typeof record.site_image === "string" ? record.site_image : undefined,
+      site_image_thumb:
+        typeof record.site_image_thumb === "string" ? record.site_image_thumb : undefined,
       description: typeof record.description === "string" ? record.description : undefined
     };
   } catch {
@@ -47,19 +54,38 @@ const parseTemplateObject = (raw: string): Record<string, unknown> => {
   }
 };
 
+export const resolveSolidaryMetadataImages = ({
+  siteUrl,
+  hasSiteImage
+}: {
+  siteUrl: string;
+  hasSiteImage: boolean;
+}) =>
+  hasSiteImage
+    ? {
+        siteImageUrl: resolveSiteImageUrl(siteUrl, SOLIDARY_SITE_IMAGE_PATH),
+        siteImageThumbUrl: resolveSiteImageUrl(siteUrl, SOLIDARY_SITE_IMAGE_THUMB_PATH)
+      }
+    : {
+        siteImageUrl: "",
+        siteImageThumbUrl: ""
+      };
+
 export const buildSolidaryMetadataFile = ({
   templateSolidary,
   siteId,
   siteUrl,
   title,
-  imageUrl,
+  siteImageUrl,
+  siteImageThumbUrl,
   description
 }: {
   templateSolidary: string;
   siteId: string;
   siteUrl: string;
   title: string;
-  imageUrl: string;
+  siteImageUrl: string;
+  siteImageThumbUrl: string;
   description: string;
 }) => {
   const templateDocument = parseTemplateObject(templateSolidary);
@@ -69,7 +95,8 @@ export const buildSolidaryMetadataFile = ({
     site_id: siteId.trim(),
     site_url: siteUrl.trim(),
     title: title.trim(),
-    image_url: imageUrl.trim(),
+    site_image: siteImageUrl.trim(),
+    site_image_thumb: siteImageThumbUrl.trim(),
     description: description.trim()
   };
 

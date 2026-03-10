@@ -1,11 +1,18 @@
 export const SOLIDARY_LINKS_SITE_TYPE = "site";
+export const SOLIDARY_LINKS_CONNECTION_TYPE = "connection";
+
+export type SolidaryLinksConnectedSite = {
+  "@id": string;
+  "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
+  site_id: string;
+  site_url: string;
+};
 
 export type SolidaryLinksConnection = {
   "@id": string;
-  "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
+  "@type": typeof SOLIDARY_LINKS_CONNECTION_TYPE;
   connection_uuid: string;
-  site_id: string;
-  site_url: string;
+  connected_site: SolidaryLinksConnectedSite;
 };
 
 export type SolidaryLinksDocument = {
@@ -20,6 +27,7 @@ export type SolidaryLinksDocument = {
       "@container": "@set";
     };
     connection_uuid: string;
+    connected_site: string;
   };
   "@id": string;
   "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
@@ -38,7 +46,8 @@ const DEFAULT_CONTEXT: SolidaryLinksDocument["@context"] = {
     "@id": "urn:solidary:term:connections",
     "@container": "@set"
   },
-  connection_uuid: "urn:solidary:term:connection_uuid"
+  connection_uuid: "urn:solidary:term:connection_uuid",
+  connected_site: "urn:solidary:term:connected_site"
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -63,18 +72,23 @@ const parseJsonObject = (raw: string): Record<string, unknown> | null => {
 const normalizeConnection = (value: unknown): SolidaryLinksConnection | null => {
   const record = asRecord(value);
   const connection_uuid = readString(record.connection_uuid);
-  const site_id = readString(record.site_id);
-  const site_url = readString(record.site_url);
+  const connectedSiteRecord = asRecord(record.connected_site);
+  const site_id = readString(connectedSiteRecord.site_id);
+  const site_url = readString(connectedSiteRecord.site_url);
   if (!connection_uuid || !site_id || !site_url) {
     return null;
   }
 
   return {
-    "@id": site_url,
-    "@type": SOLIDARY_LINKS_SITE_TYPE,
+    "@id": `urn:uuid:${connection_uuid}`,
+    "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
     connection_uuid,
-    site_id,
-    site_url
+    connected_site: {
+      "@id": site_url,
+      "@type": SOLIDARY_LINKS_SITE_TYPE,
+      site_id,
+      site_url
+    }
   };
 };
 

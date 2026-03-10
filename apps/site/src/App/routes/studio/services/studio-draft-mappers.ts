@@ -1,6 +1,6 @@
 import type { RepoFileSet } from "../../../features/site-draft/types";
 import { parseSolidaryJson } from "../../../features/site-draft/services/solidary";
-import { resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
+import { resolveSiteImageUrl, resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
 import type { DraftItem, StudioAccessRole, StudioSiteListItem } from "./studio-types";
 
 export const findSolidaryFile = (files: RepoFileSet) =>
@@ -20,13 +20,16 @@ export const mapDraftItemToSiteListItem = (
 ): StudioSiteListItem => {
   const solidary = parseSolidaryJson(findSolidaryFile(item.files));
   const siteUrl = solidary?.site_url ?? "";
-  const imageUrl = solidary?.image_url ?? "";
+  const siteImageUrl = solidary?.site_image ?? "";
+  const siteImageThumbUrl = solidary?.site_image_thumb ?? "";
   const accessRole = options.accessRole ?? item.access_role;
   return {
     id: item.id,
     title: solidary?.title ?? item.repo_full_name,
     description: solidary?.description ?? "",
-    imageUrl: resolveSiteThumbnailUrl({ siteUrl, fallbackImageUrl: imageUrl }),
+    imageUrl: siteImageThumbUrl
+      ? resolveSiteImageUrl(siteUrl, siteImageThumbUrl)
+      : resolveSiteThumbnailUrl({ siteUrl, fallbackImageUrl: siteImageUrl }),
     repoFullName: item.repo_full_name,
     repoHtmlUrl: `https://github.com/${item.repo_full_name}`,
     siteUrl,

@@ -32,7 +32,8 @@ const SOLIDARY_METADATA_TEMPLATE = {
   site_id: "",
   site_url: "",
   title: "",
-  image_url: "",
+  site_image: "",
+  site_image_thumb: "",
   description: ""
 } as const;
 
@@ -47,7 +48,8 @@ const SOLIDARY_LINKS_TEMPLATE = {
       "@id": "urn:solidary:term:connections",
       "@container": "@set"
     },
-    connection_uuid: "urn:solidary:term:connection_uuid"
+    connection_uuid: "urn:solidary:term:connection_uuid",
+    connected_site: "urn:solidary:term:connected_site"
   },
   "@id": "",
   "@type": SOLIDARY_LINKS_SITE_TYPE,
@@ -262,13 +264,15 @@ function renderSolidaryMetadataFile({
   title,
   description,
   siteUrl,
-  imageUrl
+  siteImageUrl,
+  siteImageThumbUrl
 }: {
   siteId: string;
   title: string;
   description: string;
   siteUrl: string;
-  imageUrl: string;
+  siteImageUrl: string;
+  siteImageThumbUrl: string;
 }) {
   return `${JSON.stringify(
     {
@@ -276,7 +280,8 @@ function renderSolidaryMetadataFile({
       site_id: siteId,
       site_url: siteUrl,
       title,
-      image_url: imageUrl,
+      site_image: siteImageUrl,
+      site_image_thumb: siteImageThumbUrl,
       description
     },
     null,
@@ -346,11 +351,22 @@ function applyCreateFlowOverridesToTemplateFiles({
     ? normalizeRepoImagePath(siteImageThumbPath, "Site image thumbnail")
     : "";
   const ogImageRelPath = ogImagePath ? normalizeRepoImagePath(ogImagePath, "OG image") : "";
-  const imageRelPathForMetadata = ogImageRelPath || siteImageRelPath;
-  const imageUrl = resolveAbsoluteAssetUrl({
+  const ogImageUrl = resolveAbsoluteAssetUrl({
     siteUrl,
-    assetPath: imageRelPathForMetadata || DEFAULT_OG_IMAGE_URL
+    assetPath: ogImageRelPath || DEFAULT_OG_IMAGE_URL
   });
+  const siteImageUrl = siteImageRelPath
+    ? resolveAbsoluteAssetUrl({
+        siteUrl,
+        assetPath: siteImageRelPath
+      })
+    : "";
+  const siteImageThumbUrl = siteImageThumbRelPath
+    ? resolveAbsoluteAssetUrl({
+        siteUrl,
+        assetPath: siteImageThumbRelPath
+      })
+    : "";
 
   const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
 
@@ -361,7 +377,7 @@ function applyCreateFlowOverridesToTemplateFiles({
       title: resolvedTitle,
       description: resolvedDescription,
       url: siteUrl,
-      ogImage: imageUrl
+      ogImage: ogImageUrl
     }
   });
   updateTemplateMarkdownFrontmatter({
@@ -393,7 +409,8 @@ function applyCreateFlowOverridesToTemplateFiles({
         title: resolvedTitle,
         description: resolvedDescription,
         siteUrl,
-        imageUrl
+        siteImageUrl,
+        siteImageThumbUrl
       }),
       "utf8"
     ).toString("base64")

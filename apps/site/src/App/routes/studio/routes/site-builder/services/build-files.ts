@@ -6,7 +6,11 @@ import {
   buildSolidaryMarkdown
 } from "../../../../../features/site-draft/services/astro-builders";
 import { buildSolidaryLinksFile } from "../../../../../features/site-draft/services/solidary-links";
-import { buildSolidaryMetadataFile } from "../../../../../features/site-draft/services/solidary";
+import {
+  buildSolidaryMetadataFile,
+  parseSolidaryJson,
+  resolveSolidaryMetadataImages
+} from "../../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/astro/runtime-files";
@@ -125,9 +129,9 @@ type BuildSolidaryFileInput = {
   templateSolidary: string;
   templateSolidaryLinks: string;
   siteId: string;
-  imageUrl: string;
   settingsInput: SiteSettingsInput;
   urlOverride?: string;
+  hasSiteImage?: boolean;
   previousSolidaryRaw?: string;
   previousSolidaryLinksRaw?: string;
 };
@@ -141,27 +145,32 @@ export const buildWellKnownFiles = ({
   templateSolidary,
   templateSolidaryLinks,
   siteId,
-  imageUrl,
   settingsInput,
   urlOverride,
+  hasSiteImage,
   previousSolidaryRaw,
   previousSolidaryLinksRaw
 }: BuildSolidaryFileInput) => {
-  void previousSolidaryRaw;
-  const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
+  const siteUrl = (urlOverride ?? settingsInput.siteUrl).trim();
+  const previousSolidary = parseSolidaryJson(previousSolidaryRaw ?? "");
+  const { siteImageUrl, siteImageThumbUrl } = resolveSolidaryMetadataImages({
+    siteUrl,
+    hasSiteImage: hasSiteImage ?? Boolean(previousSolidary?.site_image?.trim())
+  });
   return {
     solidaryFile: buildSolidaryMetadataFile({
       templateSolidary,
       siteId,
-      siteUrl: settings.siteUrl,
-      title: settings.title,
-      imageUrl,
-      description: settings.description
+      siteUrl,
+      title: settingsInput.siteTitle,
+      siteImageUrl,
+      siteImageThumbUrl,
+      description: settingsInput.siteDescription
     }),
     solidaryLinksFile: buildSolidaryLinksFile({
       templateSolidaryLinks,
       siteId,
-      siteUrl: settings.siteUrl,
+      siteUrl,
       previousSolidaryLinksRaw
     })
   };
@@ -169,7 +178,7 @@ export const buildWellKnownFiles = ({
 
 type BuildFilesInput = {
   siteId: string;
-  imageUrl: string;
+  ogImageUrl: string;
   settingsInput: SiteSettingsInput;
   styles: BuilderStyleSettings;
   templateSolidary: string;
@@ -177,13 +186,14 @@ type BuildFilesInput = {
   pages: BuilderPage[];
   defaultHomeContent: string;
   urlOverride?: string;
+  hasSiteImage?: boolean;
   previousSolidaryRaw?: string;
   previousSolidaryLinksRaw?: string;
 };
 
 export const buildFiles = ({
   siteId,
-  imageUrl,
+  ogImageUrl,
   settingsInput,
   styles,
   templateSolidary,
@@ -191,10 +201,11 @@ export const buildFiles = ({
   pages,
   defaultHomeContent,
   urlOverride,
+  hasSiteImage,
   previousSolidaryRaw,
   previousSolidaryLinksRaw
 }: BuildFilesInput) => {
-  const settings = buildSettingsPayload(settingsInput, imageUrl, urlOverride);
+  const settings = buildSettingsPayload(settingsInput, ogImageUrl, urlOverride);
   const publishBasePath = getBasePathFromSiteUrl(settings.siteUrl);
   const tokensCss = styles.tokensCss;
   const baseStructureCss = styles.baseStructureCss.trim();
@@ -213,9 +224,9 @@ export const buildFiles = ({
     templateSolidary,
     templateSolidaryLinks,
     siteId,
-    imageUrl,
     settingsInput,
     urlOverride,
+    hasSiteImage,
     previousSolidaryRaw,
     previousSolidaryLinksRaw
   });

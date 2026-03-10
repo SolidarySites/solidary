@@ -9,6 +9,7 @@ import {
   getPublishImageInfo,
   loadDraftImagesForDraft,
   syncConnectedSiteUrls,
+  uploadSiteImageAssetsToGitHub,
   uploadDraftImagesToGitHub
 } from "./shared";
 import type { BatchCommitResponse, PublishOwnerDraftParams } from "./types";
@@ -50,7 +51,7 @@ export const publishOwnerDraft = async ({
     throw new Error("Invalid repository name.");
   }
 
-  const { imagePath, imageUrl } = getPublishImageInfo({
+  const { imageUrl } = getPublishImageInfo({
     siteImage,
     computedSlug,
     draftImageUrl,
@@ -65,9 +66,9 @@ export const publishOwnerDraft = async ({
     templateSolidary,
     templateSolidaryLinks,
     siteId: draftState.siteId,
-    imageUrl,
     settingsInput: siteSettingsInput,
     urlOverride: siteUrl,
+    hasSiteImage: siteImage ? true : undefined,
     previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
     previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
@@ -88,14 +89,12 @@ export const publishOwnerDraft = async ({
 
   if (siteImage) {
     setProvisionStep("Uploading site image...");
-    const imageBase64 = toBase64(await siteImage.arrayBuffer());
-    await githubRequest("github-contents-write", {
-      owner: ownerLogin,
-      repo: repoName,
-      path: imagePath,
-      message: "Update site image",
-      content: imageBase64,
-      branch: draftState.branch
+    await uploadSiteImageAssetsToGitHub({
+      ownerLogin,
+      repoName,
+      branch: draftState.branch,
+      siteImage,
+      message: "Update site image assets"
     });
   }
 
@@ -120,7 +119,7 @@ export const publishOwnerDraft = async ({
 
   const files = buildFiles({
     siteId: draftState.siteId,
-    imageUrl,
+    ogImageUrl: imageUrl,
     settingsInput: siteSettingsInput,
     styles,
     templateSolidary,
@@ -128,6 +127,7 @@ export const publishOwnerDraft = async ({
     pages: publishPages,
     defaultHomeContent,
     urlOverride: siteUrl,
+    hasSiteImage: siteImage ? true : undefined,
     previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
     previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });

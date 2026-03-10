@@ -1,6 +1,9 @@
 import type { AstroSettings } from "../../../../features/site-draft/types";
 import { buildSolidaryLinksFile } from "../../../../features/site-draft/services/solidary-links";
-import { buildSolidaryMetadataFile } from "../../../../features/site-draft/services/solidary";
+import {
+  buildSolidaryMetadataFile,
+  resolveSolidaryMetadataImages
+} from "../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS } from "../../../../features/site-draft/seo";
 
 export const FILE_KEYS = {
@@ -100,7 +103,7 @@ export const buildWellKnownFiles = ({
   siteTitle,
   siteDescription,
   siteUrl,
-  imageUrl,
+  hasSiteImage,
   urlOverride
 }: {
   templateSolidary: string;
@@ -109,15 +112,19 @@ export const buildWellKnownFiles = ({
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
-  imageUrl: string;
+  hasSiteImage: boolean;
   urlOverride?: string;
 }) => {
   const settings = buildSettingsPayload({
     siteTitle,
     siteDescription,
     siteUrl,
-    imageUrl,
+    imageUrl: DEFAULT_OG_IMAGE_URL,
     urlOverride
+  });
+  const { siteImageUrl, siteImageThumbUrl } = resolveSolidaryMetadataImages({
+    siteUrl: settings.siteUrl,
+    hasSiteImage
   });
   return {
     solidaryFile: buildSolidaryMetadataFile({
@@ -125,7 +132,8 @@ export const buildWellKnownFiles = ({
       siteId,
       siteUrl: settings.siteUrl,
       title: settings.title,
-      imageUrl,
+      siteImageUrl,
+      siteImageThumbUrl,
       description: settings.description
     }),
     solidaryLinksFile: buildSolidaryLinksFile({

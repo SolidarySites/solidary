@@ -104,6 +104,7 @@ export const saveProvisionedSiteDraft = async ({
   siteDescription,
   siteUrl,
   siteUrlResolved,
+  siteRecordImageUrl,
   imageUrl,
   repoFullName,
   defaultBranch,
@@ -118,6 +119,7 @@ export const saveProvisionedSiteDraft = async ({
   siteDescription: string;
   siteUrl: string;
   siteUrlResolved: string;
+  siteRecordImageUrl: string;
   imageUrl: string;
   repoFullName: string;
   defaultBranch: string;
@@ -139,7 +141,7 @@ export const saveProvisionedSiteDraft = async ({
     canonical_url: siteUrlResolved,
     title: normalizedTitle,
     description: normalizedDescription,
-    image_url: imageUrl,
+    image_url: siteRecordImageUrl,
     meta: {
       completion: "complete",
       source: "studio"

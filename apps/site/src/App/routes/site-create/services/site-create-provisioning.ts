@@ -107,6 +107,7 @@ export const provisionSiteDraft = async ({
   });
   onSiteUrlResolved(provisionedRepo.siteUrlResolved);
   const imageUrl = DEFAULT_OG_IMAGE_URL;
+  const siteRecordImageUrl = siteImage ? `/${SITE_IMAGE_PATH.replace(/^public\//, "")}` : imageUrl;
 
   const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
@@ -115,7 +116,7 @@ export const provisionSiteDraft = async ({
     siteTitle,
     siteDescription,
     siteUrl,
-    imageUrl,
+    hasSiteImage: Boolean(siteImage),
     urlOverride: provisionedRepo.siteUrlResolved
   });
 
@@ -127,6 +128,7 @@ export const provisionSiteDraft = async ({
     siteDescription,
     siteUrl,
     siteUrlResolved: provisionedRepo.siteUrlResolved,
+    siteRecordImageUrl,
     imageUrl,
     repoFullName: provisionedRepo.repoFullName,
     defaultBranch: provisionedRepo.defaultBranch,

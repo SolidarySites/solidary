@@ -5,7 +5,7 @@ import { toBase64 } from "../../../../../../lib/base64";
 import { githubRequest } from "../../../../../../services/github";
 import { buildSettingsPayload, buildWellKnownFiles } from "../../services/build-files";
 import { FILE_KEYS } from "../../services/constants";
-import { getPublishImageInfo } from "../../services/publish/shared";
+import { getPublishImageInfo, uploadSiteImageAssetsToGitHub } from "../../services/publish/shared";
 import type { DraftState } from "../../services/types";
 import type { UseSiteBuilderLiveSettingsActionsOptions } from "./types";
 import {
@@ -161,7 +161,7 @@ export const useLiveSettingsPublishingActions = ({
           targetDraftId: draftState.id,
           setDraftState
         });
-      const { imagePath, imageUrl } = getPublishImageInfo({
+      const { imageUrl } = getPublishImageInfo({
         siteImage,
         computedSlug,
         draftImageUrl,
@@ -171,13 +171,12 @@ export const useLiveSettingsPublishingActions = ({
 
       if (siteImage) {
         const { owner, repo } = resolveRepoCoordinates(draftState.repoFullName);
-        await githubRequest("github-contents-write", {
-          owner,
-          repo,
-          path: imagePath,
-          message: "Update site image",
-          content: toBase64(await siteImage.arrayBuffer()),
-          branch: draftState.branch
+        await uploadSiteImageAssetsToGitHub({
+          ownerLogin: owner,
+          repoName: repo,
+          branch: draftState.branch,
+          siteImage,
+          message: "Update site image assets"
         });
       }
 
@@ -186,9 +185,9 @@ export const useLiveSettingsPublishingActions = ({
           templateSolidary,
           templateSolidaryLinks,
           siteId: draftState.siteId,
-          imageUrl,
           settingsInput: siteSettingsInput,
           urlOverride: siteUrl,
+          hasSiteImage: siteImage ? true : undefined,
           previousSolidaryRaw: latestSolidaryRaw,
           previousSolidaryLinksRaw: latestSolidaryLinksRaw
         });

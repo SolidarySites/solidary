@@ -66,9 +66,9 @@ export const saveMetadataSection = async ({
     templateSolidary,
     templateSolidaryLinks,
     siteId: draftState.siteId,
-    imageUrl,
     settingsInput: siteSettingsInput,
     urlOverride: siteUrl,
+    hasSiteImage: siteImage ? true : undefined,
     previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
     previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSolidaryLinksFile,
   parseSolidaryLinksJson,
+  SOLIDARY_LINKS_CONNECTION_TYPE,
   SOLIDARY_LINKS_SITE_TYPE
 } from "./solidary-links";
 
@@ -17,7 +18,8 @@ const templateSolidaryLinks = JSON.stringify(
         "@id": "urn:solidary:term:connections",
         "@container": "@set"
       },
-      connection_uuid: "urn:solidary:term:connection_uuid"
+      connection_uuid: "urn:solidary:term:connection_uuid",
+      connected_site: "urn:solidary:term:connected_site"
     },
     "@id": "",
     "@type": SOLIDARY_LINKS_SITE_TYPE,
@@ -42,11 +44,15 @@ describe("solidary-links", () => {
         site_url: "https://old.example.com",
         connections: [
           {
-            "@id": "https://connected.example.com",
-            "@type": "site",
+            "@id": "urn:uuid:conn-1",
+            "@type": "connection",
             connection_uuid: "conn-1",
-            site_id: "site-2",
-            site_url: "https://connected.example.com"
+            connected_site: {
+              "@id": "https://connected.example.com",
+              "@type": "site",
+              site_id: "site-2",
+              site_url: "https://connected.example.com"
+            }
           }
         ]
       })
@@ -63,7 +69,8 @@ describe("solidary-links", () => {
           "@id": "urn:solidary:term:connections",
           "@container": "@set"
         },
-        connection_uuid: "urn:solidary:term:connection_uuid"
+        connection_uuid: "urn:solidary:term:connection_uuid",
+        connected_site: "urn:solidary:term:connected_site"
       },
       "@id": "https://example.com",
       "@type": "site",
@@ -71,11 +78,15 @@ describe("solidary-links", () => {
       site_url: "https://example.com",
       connections: [
         {
-          "@id": "https://connected.example.com",
-          "@type": "site",
+          "@id": "urn:uuid:conn-1",
+          "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
           connection_uuid: "conn-1",
-          site_id: "site-2",
-          site_url: "https://connected.example.com"
+          connected_site: {
+            "@id": "https://connected.example.com",
+            "@type": SOLIDARY_LINKS_SITE_TYPE,
+            site_id: "site-2",
+            site_url: "https://connected.example.com"
+          }
         }
       ]
     });

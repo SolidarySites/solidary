@@ -3,6 +3,12 @@ import { githubRequest } from "../../../../../../services/github";
 import { toBase64 } from "../../../../../../lib/base64";
 import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import {
+  BYTES_100_KB,
+  BYTES_500_KB,
+  BYTES_1_MB,
+  processImageVariantsFromOriginal
+} from "../../../../../../services/image-processing/picsquish";
+import {
   DEFAULT_OG_IMAGE_URL,
   getSitePathFromStoragePath,
   isDraftStoragePublicUrl,
@@ -11,6 +17,11 @@ import {
   SOLIDARY_MEDIA_IMAGES_BASE_PATH
 } from "../draft-utils";
 import type { BuilderEditableSectionKey, DraftImageAsset } from "../types";
+
+const SITE_IMAGE_PUBLIC_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image.jpg`;
+const SITE_IMAGE_REPO_PATH = `public${SITE_IMAGE_PUBLIC_PATH}`;
+const SITE_IMAGE_THUMB_REPO_PATH = `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image_thumb.jpg`;
+const OG_IMAGE_REPO_PATH = `public${DEFAULT_OG_IMAGE_URL}`;
 
 export const normalizeEditorTouchedSections = (value: string[] | null | undefined) =>
   (value ?? []).filter(
@@ -39,18 +50,79 @@ export const getPublishImageInfo = ({
   siteImagePreview: string | null;
   siteUrl: string;
 }) => {
-  const slug = computedSlug || `site-${Date.now()}`;
-  const imagePath = siteImage
-    ? `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image-${slug}.jpg`
-    : `public${DEFAULT_OG_IMAGE_URL}`;
-  const imageUrl = siteImage
-    ? `/${imagePath.replace(/^public\//, "")}`
-    : normalizeSiteImagePathForStorage({
-        siteUrl,
-        imageUrl: draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL,
-        fallbackPath: DEFAULT_OG_IMAGE_URL
-      });
-  return { imagePath, imageUrl };
+  void computedSlug;
+  const existingImagePath = normalizeSiteImagePathForStorage({
+    siteUrl,
+    imageUrl: draftImageUrl || siteImagePreview || "",
+    fallbackPath: ""
+  });
+  const hasSiteImage = Boolean(siteImage) || Boolean(existingImagePath && existingImagePath !== DEFAULT_OG_IMAGE_URL);
+  const imageUrl = hasSiteImage ? SITE_IMAGE_PUBLIC_PATH : DEFAULT_OG_IMAGE_URL;
+  return { imageUrl };
+};
+
+export const uploadSiteImageAssetsToGitHub = async ({
+  ownerLogin,
+  repoName,
+  branch,
+  siteImage,
+  message
+}: {
+  ownerLogin: string;
+  repoName: string;
+  branch: string;
+  siteImage: File;
+  message: string;
+}) => {
+  const processedImages = await processImageVariantsFromOriginal({
+    sourceImage: siteImage,
+    sourceMimeType: siteImage.type,
+    variants: [
+      {
+        key: "siteImage",
+        label: "Site image",
+        maxBytes: BYTES_1_MB
+      },
+      {
+        key: "siteImageThumb",
+        label: "Site image thumbnail",
+        maxBytes: BYTES_100_KB
+      },
+      {
+        key: "ogImage",
+        label: "OG image",
+        maxBytes: BYTES_500_KB,
+        maxDimensionLimit: 1200
+      }
+    ] as const,
+    jpegQuality: 0.9,
+    jpegDpi: 72
+  });
+
+  await githubRequest("github-contents-batch-commit", {
+    owner: ownerLogin,
+    repo: repoName,
+    branch,
+    message,
+    upserts: [
+      {
+        path: SITE_IMAGE_REPO_PATH,
+        mode: "100644",
+        content: toBase64(await processedImages.siteImage.arrayBuffer())
+      },
+      {
+        path: SITE_IMAGE_THUMB_REPO_PATH,
+        mode: "100644",
+        content: toBase64(await processedImages.siteImageThumb.arrayBuffer())
+      },
+      {
+        path: OG_IMAGE_REPO_PATH,
+        mode: "100644",
+        content: toBase64(await processedImages.ogImage.arrayBuffer())
+      }
+    ],
+    deletes: []
+  });
 };
 
 export const loadDraftImagesForDraft = async (targetDraftId: string): Promise<DraftImageAsset[]> => {
