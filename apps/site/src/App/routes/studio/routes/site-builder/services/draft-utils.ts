@@ -1,4 +1,5 @@
 import { buildSettingsPayload } from "./build-files";
+import { SOLIDARY_MEDIA_IMAGES_BASE_PATH } from "./constants";
 import type {
   BuilderPage,
   BuilderStyleSettings,
@@ -10,10 +11,8 @@ import { getPageSafeSlug } from "./utils";
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
-export const SOLIDARY_MEDIA_IMAGES_BASE_PATH = "/solidary-media/images";
 export const SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/pages`;
 export const SOLIDARY_MEDIA_UPLOADS_BASE_PATH = SOLIDARY_MEDIA_PAGE_IMAGES_BASE_PATH;
-export const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-home.jpg`;
 export const DEFAULT_FOOTER_MODULES: FooterModule[] = [
   { content: "%copyright%", alignment: "left" },
   { content: "", alignment: "center" },
@@ -148,6 +147,7 @@ export const buildDraftSaveSignature = ({
 }): string =>
   JSON.stringify({
     settings: buildSettingsPayload(settingsInput, imageUrl),
+    siteImagePath: imageUrl,
     styles,
     pages: buildDraftPageRows(draftId, pagesSnapshot, draftImages).map((row) => ({
       slug: row.slug,

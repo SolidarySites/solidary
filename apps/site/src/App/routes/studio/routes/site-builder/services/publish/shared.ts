@@ -4,24 +4,23 @@ import { toBase64 } from "../../../../../../lib/base64";
 import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import {
   BYTES_100_KB,
-  BYTES_500_KB,
   BYTES_1_MB,
   processImageVariantsFromOriginal
 } from "../../../../../../services/image-processing/picsquish";
 import {
-  DEFAULT_OG_IMAGE_URL,
   getSitePathFromStoragePath,
   isDraftStoragePublicUrl,
   normalizeSitePath,
   SITE_DRAFT_IMAGES_BUCKET,
-  SOLIDARY_MEDIA_IMAGES_BASE_PATH
 } from "../draft-utils";
+import {
+  DEFAULT_OG_IMAGE_URL,
+  SITE_IMAGE_PUBLIC_PATH,
+  SITE_IMAGE_THUMB_PUBLIC_PATH
+} from "../constants";
 import type { BuilderEditableSectionKey, DraftImageAsset } from "../types";
-
-const SITE_IMAGE_PUBLIC_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image.jpg`;
 const SITE_IMAGE_REPO_PATH = `public${SITE_IMAGE_PUBLIC_PATH}`;
-const SITE_IMAGE_THUMB_REPO_PATH = `public${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image_thumb.jpg`;
-const OG_IMAGE_REPO_PATH = `public${DEFAULT_OG_IMAGE_URL}`;
+const SITE_IMAGE_THUMB_REPO_PATH = `public${SITE_IMAGE_THUMB_PUBLIC_PATH}`;
 
 export const normalizeEditorTouchedSections = (value: string[] | null | undefined) =>
   (value ?? []).filter(
@@ -87,12 +86,6 @@ export const uploadSiteImageAssetsToGitHub = async ({
         key: "siteImageThumb",
         label: "Site image thumbnail",
         maxBytes: BYTES_100_KB
-      },
-      {
-        key: "ogImage",
-        label: "OG image",
-        maxBytes: BYTES_500_KB,
-        maxDimensionLimit: 1200
       }
     ] as const,
     jpegQuality: 0.9,
@@ -114,11 +107,6 @@ export const uploadSiteImageAssetsToGitHub = async ({
         path: SITE_IMAGE_THUMB_REPO_PATH,
         mode: "100644",
         content: toBase64(await processedImages.siteImageThumb.arrayBuffer())
-      },
-      {
-        path: OG_IMAGE_REPO_PATH,
-        mode: "100644",
-        content: toBase64(await processedImages.ogImage.arrayBuffer())
       }
     ],
     deletes: []

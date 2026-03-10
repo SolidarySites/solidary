@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { DEFAULT_SEO_SETTINGS } from "../../../../../../features/site-draft/seo";
 import {
-  DEFAULT_FOOTER_MODULES,
   DEFAULT_OG_IMAGE_URL,
+  SITE_IMAGE_PUBLIC_PATH
+} from "../../services/constants";
+import {
+  DEFAULT_FOOTER_MODULES,
   normalizeFooterModules
 } from "../../services/draft-utils";
 import type {
@@ -89,7 +92,7 @@ export const useBuilderDocumentState = () => {
   );
 
   const draftSaveImageUrl = useMemo(() => {
-    if (siteImage) return draftImageUrl || DEFAULT_OG_IMAGE_URL;
+    if (siteImage) return SITE_IMAGE_PUBLIC_PATH;
     return siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
   }, [draftImageUrl, siteImage, siteImagePreview]);
 

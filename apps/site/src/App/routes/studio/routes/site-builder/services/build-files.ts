@@ -14,7 +14,13 @@ import {
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/astro/runtime-files";
-import { FILE_KEYS, PAGE_PATH_PREFIX, TEMPLATE_RUNTIME_FILE_PATHS } from "./constants";
+import {
+  DEFAULT_OG_IMAGE_URL,
+  FILE_KEYS,
+  PAGE_PATH_PREFIX,
+  TEMPLATE_RUNTIME_FILE_PATHS
+} from "./constants";
+import { resolveSettingsOgImagePath } from "./site-settings-images";
 import { combineTokensAndStructureCss, toggleTokensImportInGlobalCss } from "./style-editor";
 import type { BuilderPage, BuilderStyleSettings, FooterOptions, HeaderOptions } from "./types";
 import { getPageSafeSlug } from "./utils";
@@ -94,36 +100,43 @@ export const buildSettingsPayload = (
   input: SiteSettingsInput,
   imageUrl: string,
   urlOverride?: string
-) => ({
-  title: input.siteTitle.trim(),
-  description: input.siteDescription.trim(),
-  siteUrl: (urlOverride ?? input.siteUrl).trim(),
-  ogImage: imageUrl,
-  headHtml: typeof input.headHtml === "string" ? input.headHtml : "",
-  locale: normalizeSeoLocale(input.locale),
-  twitter: typeof input.twitter === "boolean" ? input.twitter : DEFAULT_SEO_SETTINGS.twitter,
-  openGraph:
-    typeof input.openGraph === "boolean" ? input.openGraph : DEFAULT_SEO_SETTINGS.openGraph,
-  structuredData:
-    typeof input.structuredData === "boolean"
-      ? input.structuredData
-      : DEFAULT_SEO_SETTINGS.structuredData,
-  indexFollow:
-    typeof input.indexFollow === "boolean"
-      ? input.indexFollow
-      : DEFAULT_SEO_SETTINGS.indexFollow,
-  header: {
-    disabled: input.header.disabled,
-    fixed: input.header.fixed,
-    brandText: input.header.brandText.trim() || input.siteTitle.trim(),
-    disableBrand: input.header.disableBrand
-  },
-  footer: {
-    disabled: input.footer.disabled,
-    fixed: input.footer.fixed,
-    modules: normalizeFooterModules(input.footer.modules)
-  }
-});
+) => {
+  const resolvedSiteUrl = (urlOverride ?? input.siteUrl).trim();
+
+  return {
+    title: input.siteTitle.trim(),
+    description: input.siteDescription.trim(),
+    siteUrl: resolvedSiteUrl,
+    ogImage: resolveSettingsOgImagePath({
+      siteUrl: resolvedSiteUrl,
+      imageUrl: imageUrl.trim() || DEFAULT_OG_IMAGE_URL
+    }),
+    headHtml: typeof input.headHtml === "string" ? input.headHtml : "",
+    locale: normalizeSeoLocale(input.locale),
+    twitter: typeof input.twitter === "boolean" ? input.twitter : DEFAULT_SEO_SETTINGS.twitter,
+    openGraph:
+      typeof input.openGraph === "boolean" ? input.openGraph : DEFAULT_SEO_SETTINGS.openGraph,
+    structuredData:
+      typeof input.structuredData === "boolean"
+        ? input.structuredData
+        : DEFAULT_SEO_SETTINGS.structuredData,
+    indexFollow:
+      typeof input.indexFollow === "boolean"
+        ? input.indexFollow
+        : DEFAULT_SEO_SETTINGS.indexFollow,
+    header: {
+      disabled: input.header.disabled,
+      fixed: input.header.fixed,
+      brandText: input.header.brandText.trim() || input.siteTitle.trim(),
+      disableBrand: input.header.disableBrand
+    },
+    footer: {
+      disabled: input.footer.disabled,
+      fixed: input.footer.fixed,
+      modules: normalizeFooterModules(input.footer.modules)
+    }
+  };
+};
 
 type BuildSolidaryFileInput = {
   templateSolidary: string;

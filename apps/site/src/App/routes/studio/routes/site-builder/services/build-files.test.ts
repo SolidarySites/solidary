@@ -4,6 +4,7 @@ import {
   TEMPLATE_SOLIDARY_LINKS
 } from "../../../../../../templates/astro/scaffold";
 import { buildFiles } from "./build-files";
+import { DEFAULT_OG_IMAGE_URL } from "./constants";
 import { FILE_KEYS } from "./constants";
 import type { BuilderPage, BuilderStyleSettings } from "./types";
 
@@ -82,6 +83,7 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.solidaryLinks]).toContain('"@type": "site"');
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain('"site_url"');
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain("connection_uuid");
+    expect(files[FILE_KEYS.solidaryContent]).toContain(`ogImage: "${DEFAULT_OG_IMAGE_URL}"`);
     expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
     expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");

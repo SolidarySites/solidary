@@ -1,14 +1,13 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { supabase } from "../../../../../lib/supabase";
-import { normalizeSiteImagePathForStorage } from "../../../../../lib/site-image-url";
 import { buildWellKnownFiles } from "./build-files";
-import { FILE_KEYS } from "./constants";
+import { DEFAULT_OG_IMAGE_URL, FILE_KEYS } from "./constants";
 import {
   buildDraftPageRows,
-  DEFAULT_OG_IMAGE_URL,
   replaceDraftImageUrlsWithSitePaths,
   type DraftSaveSettingsInput
 } from "./draft-utils";
+import { resolveDraftSiteImagePath, resolveSettingsOgImagePath } from "./site-settings-images";
 import type { BuilderPage, DraftImageAsset, DraftState } from "./types";
 import { normalizePageSlug } from "./utils";
 
@@ -55,12 +54,10 @@ export const saveMetadataSection = async ({
     throw new Error("Missing draft data.");
   }
 
-  const imageUrl = normalizeSiteImagePathForStorage({
+  const imageUrl = resolveDraftSiteImagePath({
     siteUrl,
-    imageUrl: siteImage
-      ? draftImageUrl || DEFAULT_OG_IMAGE_URL
-      : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL,
-    fallbackPath: DEFAULT_OG_IMAGE_URL
+    siteImageSelected: Boolean(siteImage),
+    imageUrl: draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL
   });
   const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
@@ -104,7 +101,10 @@ export const saveMetadataSection = async ({
     p_title: siteSettingsInput.siteTitle,
     p_description: siteSettingsInput.siteDescription,
     p_site_url: siteSettingsInput.siteUrl,
-    p_og_image: imageUrl
+    p_og_image: resolveSettingsOgImagePath({
+      siteUrl,
+      imageUrl: draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL
+    })
   });
   if (settingsError) {
     throw new Error(settingsError.message);

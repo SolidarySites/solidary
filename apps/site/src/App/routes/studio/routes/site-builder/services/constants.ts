@@ -11,6 +11,11 @@ export const FILE_KEYS = {
   solidaryLinks: "public/.well-known/solidary-links.json"
 } as const;
 
+export const SOLIDARY_MEDIA_IMAGES_BASE_PATH = "/solidary-media/images";
+export const SITE_IMAGE_PUBLIC_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image.jpg`;
+export const SITE_IMAGE_THUMB_PUBLIC_PATH = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/site-image_thumb.jpg`;
+export const DEFAULT_OG_IMAGE_URL = `${SOLIDARY_MEDIA_IMAGES_BASE_PATH}/og/og-home.jpg`;
+
 export const TEMPLATE_RUNTIME_FILE_PATHS = [
   "astro.config.mjs",
   "src/content.config.ts",
