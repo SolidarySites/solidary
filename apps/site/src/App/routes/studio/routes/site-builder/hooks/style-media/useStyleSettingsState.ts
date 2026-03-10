@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
-import tokensTemplate from "../../../../../../../templates/astro/tokens.css?raw";
-import structureTemplate from "../../../../../../../../../../templates/astro-baseline/src/styles/partials/structure.css?raw";
-import globalStylesTemplate from "../../../../../../../../../../templates/astro-baseline/src/styles/global.css?raw";
+import {
+  GLOBAL_STYLES_TEMPLATE as globalStylesTemplate,
+  STRUCTURE_TEMPLATE as structureTemplate,
+  TOKENS_TEMPLATE as tokensTemplate
+} from "../../../../../../../templates/astro/scaffold";
 import {
   combineTokensAndStructureCss
 } from "../../services/style-editor";

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TEMPLATE_SOLIDARY } from "../../../../templates/astro/scaffold";
 import { buildSolidaryMetadataFile, parseSolidaryJson } from "./solidary";
 
 describe("parseSolidaryJson", () => {
@@ -26,8 +27,7 @@ describe("parseSolidaryJson", () => {
 
   it("builds solidary metadata JSON", () => {
     const raw = buildSolidaryMetadataFile({
-      templateSolidary:
-        '{ "protocol_version": "1.0", "site_id": "", "site_url": "", "title": "", "site_image": "", "site_image_thumb": "", "description": "" }',
+      templateSolidary: TEMPLATE_SOLIDARY,
       siteId: "site-1",
       siteUrl: "https://example.com",
       title: "Solidary Site",

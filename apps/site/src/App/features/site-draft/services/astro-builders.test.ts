@@ -83,4 +83,17 @@ describe("astro markdown builders", () => {
     expect(output).toContain('javascript: "console.log(\'about\')"');
     expect(output).toContain("Hello world");
   });
+
+  it("keeps page frontmatter aligned with the scaffolded home schema", () => {
+    const output = buildPageMarkdown({
+      title: "Home",
+      slug: "home",
+      body: "",
+      javascript: "",
+      showInNav: false,
+      navOrder: 0
+    });
+
+    expect(output).toContain('javascript: ""');
+  });
 });

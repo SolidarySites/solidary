@@ -7,9 +7,6 @@ import {
   useRef,
   useState
 } from "react";
-import fallbackFontsTemplate from "../../../../../../../../../../templates/astro-baseline/src/styles/partials/fonts.css?raw";
-import structureTemplate from "../../../../../../../../../../templates/astro-baseline/src/styles/partials/structure.css?raw";
-import globalStylesTemplate from "../../../../../../../../../../templates/astro-baseline/src/styles/global.css?raw";
 import { loadRepoStyleAssets } from "../../services/style-repo";
 import { extractFontFamiliesFromFontsCss } from "../../services/style-editor";
 import type {
@@ -17,6 +14,11 @@ import type {
   BuilderSettingsSection,
   DraftState
 } from "../../services/types";
+import {
+  FONTS_TEMPLATE as fallbackFontsTemplate,
+  GLOBAL_STYLES_TEMPLATE as globalStylesTemplate,
+  STRUCTURE_TEMPLATE as structureTemplate
+} from "../../../../../../../templates/astro/scaffold";
 
 export type RepoFontsCssUpdate = {
   repoFullName: string;

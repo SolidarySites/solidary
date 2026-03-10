@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  TEMPLATE_SOLIDARY,
+  TEMPLATE_SOLIDARY_LINKS
+} from "../../../../../../templates/astro/scaffold";
 import { buildFiles } from "./build-files";
 import { FILE_KEYS } from "./constants";
 import type { BuilderPage, BuilderStyleSettings } from "./types";
@@ -48,39 +52,8 @@ const baseStyles: BuilderStyleSettings = {
   baseStructureCss: ".page { color: var(--fg); }\n",
   baseGlobalCss: '@import "./partials/tokens.css";\n@import "./partials/structure.css";\n'
 };
-const templateSolidary = JSON.stringify(
-  {
-    protocol_version: "1.0",
-    site_id: "",
-    site_url: "",
-    title: "",
-    site_image: "",
-    site_image_thumb: "",
-    description: ""
-  },
-  null,
-  2
-);
-const templateSolidaryLinks = JSON.stringify(
-  {
-    "@context": {
-      site: "urn:solidary:type:site",
-      connection: "urn:solidary:type:connection",
-      site_id: "urn:solidary:term:site_id",
-      connections: {
-        "@id": "urn:solidary:term:connections",
-        "@container": "@set"
-      },
-      connected_site: "urn:solidary:term:connected_site"
-    },
-    "@id": "",
-    "@type": "site",
-    site_id: "",
-    connections: []
-  },
-  null,
-  2
-);
+const templateSolidary = TEMPLATE_SOLIDARY;
+const templateSolidaryLinks = TEMPLATE_SOLIDARY_LINKS;
 
 describe("buildFiles styles output", () => {
   it("writes tokens/global/structure in simple mode with tokens import enabled", () => {
@@ -107,6 +80,8 @@ describe("buildFiles styles output", () => {
       '"site_image_thumb": "https://example.com/solidary-media/images/site-image_thumb.jpg"'
     );
     expect(files[FILE_KEYS.solidaryLinks]).toContain('"@type": "site"');
+    expect(files[FILE_KEYS.solidaryLinks]).not.toContain('"site_url"');
+    expect(files[FILE_KEYS.solidaryLinks]).not.toContain("connection_uuid");
     expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
     expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");

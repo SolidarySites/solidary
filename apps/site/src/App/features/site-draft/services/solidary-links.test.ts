@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TEMPLATE_SOLIDARY_LINKS } from "../../../../templates/astro/scaffold";
 import {
   buildSolidaryLinksFile,
   parseSolidaryLinksJson,
@@ -6,26 +7,7 @@ import {
   SOLIDARY_LINKS_SITE_TYPE
 } from "./solidary-links";
 
-const templateSolidaryLinks = JSON.stringify(
-  {
-    "@context": {
-      site: "urn:solidary:type:site",
-      connection: "urn:solidary:type:connection",
-      site_id: "urn:solidary:term:site_id",
-      connections: {
-        "@id": "urn:solidary:term:connections",
-        "@container": "@set"
-      },
-      connected_site: "urn:solidary:term:connected_site"
-    },
-    "@id": "",
-    "@type": SOLIDARY_LINKS_SITE_TYPE,
-    site_id: "",
-    connections: []
-  },
-  null,
-  2
-);
+const templateSolidaryLinks = TEMPLATE_SOLIDARY_LINKS;
 
 describe("solidary-links", () => {
   it("builds root site links JSON and preserves existing connections", () => {
@@ -77,5 +59,7 @@ describe("solidary-links", () => {
         }
       ]
     });
+    expect(raw).not.toContain('"site_url"');
+    expect(raw).not.toContain("connection_uuid");
   });
 });

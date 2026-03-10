@@ -19,12 +19,14 @@ import { useDraftSectionLocks } from "./useDraftSectionLocks";
 import { usePublishStatusTracking } from "./usePublishStatusTracking";
 import { stripFrontmatter } from "../services/utils";
 import type { NoticeKind } from "../../../../../types/notice";
-import templateSolidary from "../../../../../../templates/astro/solidary.json?raw";
-import templateSolidaryLinks from "../../../../../../templates/astro/solidary-links.json?raw";
-import homeTemplate from "../../../../../../../../../templates/astro-baseline/src/content/pages/home.md?raw";
-import tokensTemplate from "../../../../../../templates/astro/tokens.css?raw";
-import structureTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/partials/structure.css?raw";
-import globalStylesTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/global.css?raw";
+import {
+  GLOBAL_STYLES_TEMPLATE as globalStylesTemplate,
+  HOME_PAGE_TEMPLATE as homeTemplate,
+  STRUCTURE_TEMPLATE as structureTemplate,
+  TEMPLATE_SOLIDARY as templateSolidary,
+  TEMPLATE_SOLIDARY_LINKS as templateSolidaryLinks,
+  TOKENS_TEMPLATE as tokensTemplate
+} from "../../../../../../templates/astro/scaffold";
 import { slugify } from "../../../../../lib/slugify";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
@@ -40,7 +42,6 @@ import {
   useSiteBuilderLiveSettingsActions
 } from "./useSiteBuilderLiveSettingsActions";
 import { useSiteBuilderSavePublishActions } from "./useSiteBuilderSavePublishActions";
-
 const defaultHomeContent = stripFrontmatter(homeTemplate);
 
 type UseSiteBuilderRouteControllerOptions = {

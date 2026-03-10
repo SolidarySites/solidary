@@ -1,13 +1,13 @@
-import astroConfigTemplate from "./runtime/astro.config.mjs.txt?raw";
+import astroConfigTemplate from "../astro-baseline/astro.config.mjs?raw";
+import footerComponentTemplate from "../astro-baseline/src/components/Footer.astro?raw";
+import headerComponentTemplate from "../astro-baseline/src/components/Header.astro?raw";
+import seoComponentTemplate from "../astro-baseline/src/components/SEO.astro?raw";
+import baseLayoutTemplate from "../astro-baseline/src/layouts/Base.astro?raw";
+import indexPageTemplate from "../astro-baseline/src/pages/index.astro?raw";
+import slugPageTemplate from "../astro-baseline/src/pages/[slug].astro?raw";
 import contentConfigTemplate from "./runtime/content-config.ts.txt?raw";
 import solidaryConfigSiteTemplate from "./runtime/solidary-config-site.ts.txt?raw";
 import solidaryConfigManifestTemplate from "./runtime/solidary-config-solidary.ts.txt?raw";
-import baseLayoutTemplate from "./runtime/layouts-Base.astro.txt?raw";
-import headerComponentTemplate from "./runtime/components-Header.astro.txt?raw";
-import footerComponentTemplate from "./runtime/components-Footer.astro.txt?raw";
-import seoComponentTemplate from "./runtime/components-SEO.astro.txt?raw";
-import indexPageTemplate from "./runtime/pages-index.astro.txt?raw";
-import slugPageTemplate from "./runtime/pages-slug.astro.txt?raw";
 
 export const RUNTIME_TEMPLATE_FILES: Record<string, string> = {
   "astro.config.mjs": astroConfigTemplate,

@@ -1,51 +1,62 @@
-import pageTemplate from "../../../../templates/astro/page.md?raw";
-import solidaryTemplate from "../../../../templates/astro/solidary.md?raw";
-import headerTemplate from "../../../../templates/astro/header.md?raw";
-import footerTemplate from "../../../../templates/astro/footer.md?raw";
-import seoTemplate from "../../../../templates/astro/seo.md?raw";
+import {
+  FOOTER_CONTENT_TEMPLATE,
+  HEADER_CONTENT_TEMPLATE,
+  SEO_CONTENT_TEMPLATE,
+  SOLIDARY_CONTENT_TEMPLATE
+} from "../../../../templates/astro/scaffold";
+import {
+  renderMarkdownWithFrontmatter,
+  replaceFrontmatterFields
+} from "./frontmatter";
 import type { AstroPageDraft, AstroSettings } from "../types";
 
-const toYamlValue = (value: string) => JSON.stringify(value);
-
 export const buildSolidaryMarkdown = (settings: AstroSettings) =>
-  solidaryTemplate
-    .replaceAll("{{TITLE}}", toYamlValue(settings.title))
-    .replaceAll("{{DESCRIPTION}}", toYamlValue(settings.description))
-    .replaceAll("{{SITE_URL}}", toYamlValue(settings.siteUrl))
-    .replaceAll("{{OG_IMAGE}}", toYamlValue(settings.ogImage));
+  replaceFrontmatterFields(SOLIDARY_CONTENT_TEMPLATE, {
+    title: settings.title,
+    description: settings.description,
+    url: settings.siteUrl,
+    ogImage: settings.ogImage,
+    robots: "index,follow"
+  });
 
 export const buildHeaderMarkdown = (settings: AstroSettings) =>
-  headerTemplate
-    .replaceAll("{{HEADER_DISABLED}}", settings.header.disabled ? "true" : "false")
-    .replaceAll("{{HEADER_FIXED}}", settings.header.fixed ? "true" : "false")
-    .replaceAll("{{HEADER_BRAND_TEXT}}", toYamlValue(settings.header.brandText))
-    .replaceAll("{{HEADER_DISABLE_BRAND}}", settings.header.disableBrand ? "true" : "false");
+  replaceFrontmatterFields(HEADER_CONTENT_TEMPLATE, {
+    disabled: settings.header.disabled,
+    fixed: settings.header.fixed,
+    brandText: settings.header.brandText,
+    disableBrand: settings.header.disableBrand
+  });
 
 export const buildFooterMarkdown = (settings: AstroSettings) =>
-  footerTemplate
-    .replaceAll("{{FOOTER_DISABLED}}", settings.footer.disabled ? "true" : "false")
-    .replaceAll("{{FOOTER_FIXED}}", settings.footer.fixed ? "true" : "false")
-    .replaceAll("{{FOOTER_MODULES}}", JSON.stringify(settings.footer.modules));
+  replaceFrontmatterFields(FOOTER_CONTENT_TEMPLATE, {
+    disabled: settings.footer.disabled,
+    fixed: settings.footer.fixed,
+    modules: settings.footer.modules
+  });
 
 export const buildSeoMarkdown = (settings: AstroSettings) =>
-  seoTemplate
-    .replaceAll("{{SEO_HEAD_HTML}}", toYamlValue(settings.headHtml))
-    .replaceAll("{{SEO_LOCALE}}", toYamlValue(settings.locale))
-    .replaceAll("{{SEO_TWITTER}}", settings.twitter ? "true" : "false")
-    .replaceAll("{{SEO_OPEN_GRAPH}}", settings.openGraph ? "true" : "false")
-    .replaceAll("{{SEO_STRUCTURED_DATA}}", settings.structuredData ? "true" : "false")
-    .replaceAll("{{SEO_INDEX_FOLLOW}}", settings.indexFollow ? "true" : "false");
+  replaceFrontmatterFields(SEO_CONTENT_TEMPLATE, {
+    twitter: settings.twitter,
+    openGraph: settings.openGraph,
+    structuredData: settings.structuredData,
+    indexFollow: settings.indexFollow,
+    locale: settings.locale,
+    headHtml: settings.headHtml
+  });
 
 export const buildPageMarkdown = (page: AstroPageDraft) => {
   const body = page.body.trim();
   const navLabel = page.title.trim() || page.slug || "Untitled";
   const javascript = (page.javascript ?? "").trim();
 
-  return pageTemplate
-    .replaceAll("{{TITLE}}", toYamlValue(page.title))
-    .replaceAll("{{NAV_LABEL}}", toYamlValue(navLabel))
-    .replaceAll("{{SHOW_IN_NAV}}", page.showInNav ? "true" : "false")
-    .replaceAll("{{NAV_ORDER}}", String(page.navOrder ?? 0))
-    .replaceAll("{{JAVASCRIPT}}", toYamlValue(javascript))
-    .replaceAll("{{BODY}}", body);
+  return renderMarkdownWithFrontmatter({
+    updates: {
+      title: page.title,
+      navLabel,
+      showInNav: page.showInNav,
+      navOrder: page.navOrder ?? 0,
+      javascript
+    },
+    body
+  });
 };

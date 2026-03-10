@@ -10,6 +10,9 @@ const rootDir = path.resolve(__dirname, "..");
 
 const templateRoot = path.join(
   rootDir,
+  "apps",
+  "site",
+  "src",
   "templates",
   "astro-baseline"
 );

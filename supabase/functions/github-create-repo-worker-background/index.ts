@@ -27,33 +27,6 @@ const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
 const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-home.jpg";
 const SOLIDARY_LINKS_SITE_TYPE = "site";
 
-const SOLIDARY_METADATA_TEMPLATE = {
-  protocol_version: "1.0",
-  site_id: "",
-  site_url: "",
-  title: "",
-  site_image: "",
-  site_image_thumb: "",
-  description: ""
-} as const;
-
-const SOLIDARY_LINKS_TEMPLATE = {
-  "@context": {
-    site: "urn:solidary:type:site",
-    connection: "urn:solidary:type:connection",
-    site_id: "urn:solidary:term:site_id",
-    connections: {
-      "@id": "urn:solidary:term:connections",
-      "@container": "@set"
-    },
-    connected_site: "urn:solidary:term:connected_site"
-  },
-  "@id": "",
-  "@type": SOLIDARY_LINKS_SITE_TYPE,
-  site_id: "",
-  connections: []
-} as const;
-
 const DEFAULT_FOOTER_MODULES = [
   { content: "%copyright%", alignment: "left" },
   { content: "", alignment: "center" },
@@ -255,7 +228,34 @@ const updateTemplateMarkdownFrontmatter = ({
   });
 };
 
+const parseBundledJsonTemplate = ({
+  filesByPath,
+  relPath
+}: {
+  filesByPath: Map<string, FileRecord>;
+  relPath: string;
+}) => {
+  const templateFile = filesByPath.get(relPath);
+  if (!templateFile) {
+    throw new Error(`Template bundle is missing ${relPath}.`);
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(templateFile.contentB64, "base64").toString("utf8")
+    ) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Template JSON must be an object.");
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    throw new Error(`Failed parsing template JSON at ${relPath}: ${message}`);
+  }
+};
+
 function renderSolidaryMetadataFile({
+  template,
   siteId,
   title,
   description,
@@ -263,6 +263,7 @@ function renderSolidaryMetadataFile({
   siteImageUrl,
   siteImageThumbUrl
 }: {
+  template: Record<string, unknown>;
   siteId: string;
   title: string;
   description: string;
@@ -272,7 +273,7 @@ function renderSolidaryMetadataFile({
 }) {
   return `${JSON.stringify(
     {
-      ...SOLIDARY_METADATA_TEMPLATE,
+      ...template,
       site_id: siteId,
       site_url: siteUrl,
       title,
@@ -286,16 +287,19 @@ function renderSolidaryMetadataFile({
 }
 
 function renderSolidaryLinksFile({
+  template,
   siteId,
   siteUrl
 }: {
+  template: Record<string, unknown>;
   siteId: string;
   siteUrl: string;
 }) {
   return `${JSON.stringify(
     {
-      ...SOLIDARY_LINKS_TEMPLATE,
+      ...template,
       "@id": siteUrl,
+      "@type": SOLIDARY_LINKS_SITE_TYPE,
       site_id: siteId,
       connections: []
     },
@@ -364,6 +368,14 @@ function applyCreateFlowOverridesToTemplateFiles({
     : "";
 
   const nextByPath = new Map<string, FileRecord>(files.map((file) => [file.relPath, file]));
+  const solidaryTemplate = parseBundledJsonTemplate({
+    filesByPath: nextByPath,
+    relPath: SOLIDARY_FILE_REL_PATH
+  });
+  const solidaryLinksTemplate = parseBundledJsonTemplate({
+    filesByPath: nextByPath,
+    relPath: SOLIDARY_LINKS_FILE_REL_PATH
+  });
 
   updateTemplateMarkdownFrontmatter({
     filesByPath: nextByPath,
@@ -400,6 +412,7 @@ function applyCreateFlowOverridesToTemplateFiles({
     mode: "100644",
     contentB64: Buffer.from(
       renderSolidaryMetadataFile({
+        template: solidaryTemplate,
         siteId: resolvedSiteId,
         title: resolvedTitle,
         description: resolvedDescription,
@@ -415,6 +428,7 @@ function applyCreateFlowOverridesToTemplateFiles({
     mode: "100644",
     contentB64: Buffer.from(
       renderSolidaryLinksFile({
+        template: solidaryLinksTemplate,
         siteId: resolvedSiteId,
         siteUrl
       }),

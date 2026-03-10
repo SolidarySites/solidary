@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-10T13:54:54.653Z",
-  "latest_commit_sha": "e587d5d397e548e647fe95d744768105b6f75ec7",
+  "generated_at": "2026-03-10T18:13:28.110Z",
+  "latest_commit_sha": "73f7edf3664fe74b7ba53f9135118882c409d960",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -169,17 +169,22 @@
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.test.ts",
                             "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
-                            "LOC": 86
+                            "LOC": 99
                           },
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.ts",
                             "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-                            "LOC": 51
+                            "LOC": 62
+                          },
+                          {
+                            "path": "src/App/features/site-draft/services/frontmatter.ts",
+                            "description": "?",
+                            "LOC": 34
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary-links.test.ts",
                             "description": "?",
-                            "LOC": 83
+                            "LOC": 65
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary-links.ts",
@@ -189,12 +194,12 @@
                           {
                             "path": "src/App/features/site-draft/services/solidary.test.ts",
                             "description": "Unit tests for the Solidary metadata JSON parser, covering valid payload parsing and invalid JSON fallback behavior.",
-                            "LOC": 49
+                            "LOC": 53
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.ts",
                             "description": "Minimal parser for `.well-known/solidary-links.json` content that safely returns typed metadata or `null` on invalid JSON.",
-                            "LOC": 77
+                            "LOC": 104
                           }
                         ]
                       }
@@ -527,7 +532,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 251
+                            "LOC": 253
                           }
                         ]
                       },
@@ -541,9 +546,14 @@
                             "directories": [],
                             "files": [
                               {
+                                "path": "src/App/routes/site-create/services/provisioning/content.test.ts",
+                                "description": "?",
+                                "LOC": 56
+                              },
+                              {
                                 "path": "src/App/routes/site-create/services/provisioning/content.ts",
                                 "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-                                "LOC": 137
+                                "LOC": 145
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
@@ -553,7 +563,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
                                 "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-                                "LOC": 232
+                                "LOC": 234
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/types.ts",
@@ -567,7 +577,7 @@
                           {
                             "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
                             "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-                            "LOC": 140
+                            "LOC": 142
                           }
                         ]
                       }
@@ -792,12 +802,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDomainActions.ts",
                                         "description": "?",
-                                        "LOC": 311
+                                        "LOC": 310
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsPublishingActions.ts",
                                         "description": "?",
-                                        "LOC": 307
+                                        "LOC": 306
                                       }
                                     ]
                                   },
@@ -829,12 +839,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useRepoStyleAssets.ts",
                                         "description": "?",
-                                        "LOC": 218
+                                        "LOC": 220
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useStyleSettingsState.ts",
                                         "description": "?",
-                                        "LOC": 71
+                                        "LOC": 73
                                       }
                                     ]
                                   }
@@ -898,7 +908,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 588
+                                    "LOC": 589
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -1061,7 +1071,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
                                         "description": "Shared publish utilities used by both owner and editor publish pipelines.",
-                                        "LOC": 134
+                                        "LOC": 206
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
@@ -1075,12 +1085,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 150
+                                    "LOC": 128
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 249
+                                    "LOC": 260
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -1110,7 +1120,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 393
+                                    "LOC": 395
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
@@ -1348,7 +1358,7 @@
                           {
                             "path": "src/App/routes/studio/services/studio-draft-mappers.ts",
                             "description": "Mapper utilities that locate and parse Solidary metadata files in draft payloads, derive display title/description/site URL, and normalize thumbnail image URLs.",
-                            "LOC": 38
+                            "LOC": 41
                           },
                           {
                             "path": "src/App/routes/studio/services/studio-types.ts",
@@ -1449,44 +1459,9 @@
                     "directories": [],
                     "files": [
                       {
-                        "path": "src/templates/astro/runtime/astro.config.mjs.txt",
-                        "description": "Raw Astro config runtime template that derives both `site` and project-page-safe `base` from `SITE_URL` during publish upserts.",
-                        "LOC": 22
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/components-Footer.astro.txt",
-                        "description": "Raw snapshot of template `Footer.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-                        "LOC": 165
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/components-Header.astro.txt",
-                        "description": "Raw snapshot of template `Header.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-                        "LOC": 107
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/components-SEO.astro.txt",
-                        "description": "Raw snapshot of template `SEO.astro` runtime component, upserted during publish to keep generated repos aligned with current template behavior.",
-                        "LOC": 87
-                      },
-                      {
                         "path": "src/templates/astro/runtime/content-config.ts.txt",
                         "description": "Raw snapshot of template `src/content.config.ts` collection config entrypoint used by publish runtime upserts.",
                         "LOC": 9
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/layouts-Base.astro.txt",
-                        "description": "Raw snapshot of template `Base.astro` layout, upserted during publish so repositories consume markdown-backed site metadata.",
-                        "LOC": 76
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/pages-index.astro.txt",
-                        "description": "Raw snapshot of template index page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-                        "LOC": 33
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/pages-slug.astro.txt",
-                        "description": "Raw snapshot of template slug page runtime file, upserted during publish for markdown-backed metadata/runtime parity.",
-                        "LOC": 32
                       },
                       {
                         "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
@@ -1496,56 +1471,347 @@
                       {
                         "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
                         "description": "Raw snapshot of template `solidary-config/solidary.ts` protocol mapping contract file, upserted during publish.",
-                        "LOC": 22
+                        "LOC": 25
                       }
                     ]
                   }
                 ],
                 "files": [
                   {
-                    "path": "src/templates/astro/footer.md",
-                    "description": "Parameterized markdown footer template used to generate `src/content/footer.md` with frontmatter-driven footer settings/modules.",
-                    "LOC": 5
-                  },
-                  {
-                    "path": "src/templates/astro/header.md",
-                    "description": "Parameterized markdown header template used to generate `src/content/header.md` with frontmatter-driven header settings.",
-                    "LOC": 6
-                  },
-                  {
-                    "path": "src/templates/astro/page.md",
-                    "description": "Parameterized markdown page template used when creating draft-backed content pages.",
-                    "LOC": 9
-                  },
-                  {
                     "path": "src/templates/astro/runtime-files.ts",
                     "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
                     "LOC": 23
                   },
                   {
-                    "path": "src/templates/astro/seo.md",
-                    "description": "Frontmatter-only SEO content template that stores metadata toggles, locale, and custom head HTML defaults for generated repos.",
-                    "LOC": 8
+                    "path": "src/templates/astro/scaffold.ts",
+                    "description": "?",
+                    "LOC": 23
                   },
                   {
-                    "path": "src/templates/astro/solidary-links.json",
-                    "description": "Parameterized Solidary protocol metadata template written to `.well-known/solidary-links.json`.",
+                    "path": "src/templates/astro/source-of-truth.test.ts",
+                    "description": "?",
+                    "LOC": 57
+                  }
+                ]
+              },
+              {
+                "path": "src/templates/astro-baseline",
+                "description": "?",
+                "directories": [
+                  {
+                    "path": "src/templates/astro-baseline/.github",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/templates/astro-baseline/.github/workflows",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/.github/workflows/deploy.yml",
+                            "description": "?",
+                            "LOC": 82
+                          }
+                        ]
+                      }
+                    ],
+                    "files": []
+                  },
+                  {
+                    "path": "src/templates/astro-baseline/public",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/templates/astro-baseline/public/.well-known",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/public/.well-known/solidary-links.json",
+                            "description": "?",
+                            "LOC": 16
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/public/.well-known/solidary.json",
+                            "description": "?",
+                            "LOC": 9
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/public/fonts",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/public/fonts/InterVariable-Italic.woff2",
+                            "description": "?",
+                            "LOC": 1455
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/public/fonts/InterVariable.woff2",
+                            "description": "?",
+                            "LOC": 1388
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/public/solidary-media",
+                        "description": "?",
+                        "directories": [
+                          {
+                            "path": "src/templates/astro-baseline/public/solidary-media/images",
+                            "description": "?",
+                            "directories": [
+                              {
+                                "path": "src/templates/astro-baseline/public/solidary-media/images/og",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/astro-baseline/public/solidary-media/images/og/og-home.jpg",
+                                    "description": "?",
+                                    "LOC": 4
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": []
+                          }
+                        ],
+                        "files": []
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/templates/astro-baseline/public/favicon.ico",
+                        "description": "?",
+                        "LOC": 0
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/public/favicon.svg",
+                        "description": "?",
+                        "LOC": 0
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/templates/astro-baseline/src",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/templates/astro-baseline/src/components",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/components/Footer.astro",
+                            "description": "?",
+                            "LOC": 165
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/components/Header.astro",
+                            "description": "?",
+                            "LOC": 107
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/components/SEO.astro",
+                            "description": "?",
+                            "LOC": 87
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/components/SkipLink.astro",
+                            "description": "?",
+                            "LOC": 1
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/src/content",
+                        "description": "?",
+                        "directories": [
+                          {
+                            "path": "src/templates/astro-baseline/src/content/pages",
+                            "description": "?",
+                            "directories": [],
+                            "files": [
+                              {
+                                "path": "src/templates/astro-baseline/src/content/pages/home.md",
+                                "description": "?",
+                                "LOC": 9
+                              }
+                            ]
+                          }
+                        ],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/content/footer.md",
+                            "description": "?",
+                            "LOC": 11
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/content/header.md",
+                            "description": "?",
+                            "LOC": 6
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/content/seo.md",
+                            "description": "?",
+                            "LOC": 8
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/content/solidary.md",
+                            "description": "?",
+                            "LOC": 7
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/src/layouts",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/layouts/Base.astro",
+                            "description": "?",
+                            "LOC": 76
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/src/pages",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/pages/[slug].astro",
+                            "description": "?",
+                            "LOC": 32
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/pages/404.astro",
+                            "description": "?",
+                            "LOC": 24
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/pages/index.astro",
+                            "description": "?",
+                            "LOC": 33
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/pages/robots.txt.ts",
+                            "description": "?",
+                            "LOC": 13
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/src/solidary-config",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/solidary-config/site.ts",
+                            "description": "?",
+                            "LOC": 143
+                          },
+                          {
+                            "path": "src/templates/astro-baseline/src/solidary-config/solidary.ts",
+                            "description": "?",
+                            "LOC": 25
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/templates/astro-baseline/src/styles",
+                        "description": "?",
+                        "directories": [
+                          {
+                            "path": "src/templates/astro-baseline/src/styles/partials",
+                            "description": "?",
+                            "directories": [],
+                            "files": [
+                              {
+                                "path": "src/templates/astro-baseline/src/styles/partials/behaviors.css",
+                                "description": "?",
+                                "LOC": 14
+                              },
+                              {
+                                "path": "src/templates/astro-baseline/src/styles/partials/fonts.css",
+                                "description": "?",
+                                "LOC": 15
+                              },
+                              {
+                                "path": "src/templates/astro-baseline/src/styles/partials/reset.css",
+                                "description": "?",
+                                "LOC": 5
+                              },
+                              {
+                                "path": "src/templates/astro-baseline/src/styles/partials/structure.css",
+                                "description": "?",
+                                "LOC": 288
+                              },
+                              {
+                                "path": "src/templates/astro-baseline/src/styles/partials/tokens.css",
+                                "description": "?",
+                                "LOC": 29
+                              }
+                            ]
+                          }
+                        ],
+                        "files": [
+                          {
+                            "path": "src/templates/astro-baseline/src/styles/global.css",
+                            "description": "?",
+                            "LOC": 5
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/templates/astro-baseline/src/content.config.ts",
+                        "description": "?",
+                        "LOC": 9
+                      }
+                    ]
+                  }
+                ],
+                "files": [
+                  {
+                    "path": "src/templates/astro-baseline/.gitignore",
+                    "description": "?",
+                    "LOC": 31
+                  },
+                  {
+                    "path": "src/templates/astro-baseline/astro.config.mjs",
+                    "description": "?",
+                    "LOC": 22
+                  },
+                  {
+                    "path": "src/templates/astro-baseline/LICENSE",
+                    "description": "?",
+                    "LOC": 21
+                  },
+                  {
+                    "path": "src/templates/astro-baseline/package.json",
+                    "description": "?",
                     "LOC": 19
                   },
                   {
-                    "path": "src/templates/astro/solidary.json",
+                    "path": "src/templates/astro-baseline/pnpm-lock.yaml",
                     "description": "?",
-                    "LOC": 8
+                    "LOC": 3192
                   },
                   {
-                    "path": "src/templates/astro/solidary.md",
-                    "description": "Parameterized markdown site metadata template used to generate `src/content/solidary.md` frontmatter.",
-                    "LOC": 7
+                    "path": "src/templates/astro-baseline/README.md",
+                    "description": "?",
+                    "LOC": 2
                   },
                   {
-                    "path": "src/templates/astro/tokens.css",
-                    "description": "Default design token CSS template applied to newly provisioned sites.",
-                    "LOC": 29
+                    "path": "src/templates/astro-baseline/tsconfig.json",
+                    "description": "?",
+                    "LOC": 10
                   }
                 ]
               }
@@ -1613,12 +1879,12 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1640
+        "LOC": 1906
       },
       {
         "path": "tsconfig.app.json",
         "description": "Strict TypeScript config for browser app source (`src`), using bundler module resolution and React JSX with no emitted output.",
-        "LOC": 28
+        "LOC": 29
       },
       {
         "path": "tsconfig.json",
