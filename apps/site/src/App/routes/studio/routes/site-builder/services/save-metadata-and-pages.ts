@@ -7,7 +7,7 @@ import {
   replaceDraftImageUrlsWithSitePaths,
   type DraftSaveSettingsInput
 } from "./draft-utils";
-import { resolveDraftSiteImagePath, resolveSettingsOgImagePath } from "./site-settings-images";
+import { resolveDraftSiteImagePath } from "./site-settings-images";
 import type { BuilderPage, DraftImageAsset, DraftState } from "./types";
 import { normalizePageSlug } from "./utils";
 
@@ -100,11 +100,7 @@ export const saveMetadataSection = async ({
     p_draft_id: draftState.id,
     p_title: siteSettingsInput.siteTitle,
     p_description: siteSettingsInput.siteDescription,
-    p_site_url: siteSettingsInput.siteUrl,
-    p_og_image: resolveSettingsOgImagePath({
-      siteUrl,
-      imageUrl: draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL
-    })
+    p_site_url: siteSettingsInput.siteUrl
   });
   if (settingsError) {
     throw new Error(settingsError.message);
