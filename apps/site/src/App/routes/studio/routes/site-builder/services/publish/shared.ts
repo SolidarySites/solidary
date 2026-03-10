@@ -84,6 +84,16 @@ export const loadDraftImagesForDraft = async (targetDraftId: string): Promise<Dr
     .filter((image) => image.storagePath && image.publicUrl && image.sitePath);
 };
 
+export const syncConnectedSiteUrls = async (siteId: string) => {
+  const { error } = await supabase.rpc("site_connection_sync_site_links", {
+    p_site_id: siteId
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
 export const uploadDraftImagesToGitHub = async ({
   providerToken,
   ownerLogin,

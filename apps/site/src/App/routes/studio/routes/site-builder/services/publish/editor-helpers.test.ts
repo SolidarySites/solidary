@@ -21,6 +21,7 @@ const PAGE_PATH = `${PAGE_PATH_PREFIX}home${PAGE_PATH_SUFFIX}`;
 const buildFilesFixture = () => {
   const files: Record<string, string> = {
     [FILE_KEYS.solidary]: "{}",
+    [FILE_KEYS.solidaryLinks]: '{"connections":[]}',
     [FILE_KEYS.solidaryContent]: "---\ntitle: \"Site\"\n---\n",
     [FILE_KEYS.headerContent]: "---\nbrandText: \"Site\"\n---\n",
     [FILE_KEYS.footerContent]: "---\nmodules: []\n---\n",
@@ -49,6 +50,7 @@ describe("buildEditorFileChanges", () => {
     });
 
     expect(upsertsByPath.get(FILE_KEYS.solidary)).toBe("{}");
+    expect(upsertsByPath.get(FILE_KEYS.solidaryLinks)).toBe('{"connections":[]}');
     expect(upsertsByPath.get(FILE_KEYS.solidaryContent)).toContain('title: "Site"');
     expect(upsertsByPath.get(FILE_KEYS.seoContent)).toContain("headHtml");
     TEMPLATE_RUNTIME_FILE_PATHS.forEach((path) => {

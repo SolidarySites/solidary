@@ -71,18 +71,23 @@ This master DB still stores no content blobs.
 
 All paths below are **static files** served by the site.
 
-### 1) Discovery manifest (required)
-`/.well-known/solidary-links.json`
+### 1) Site metadata (required)
+`/.well-known/solidary.json`
 
 Contains:
 - protocol version
 - site identity
-- feed pointers
-- integrity anchor (hash)
+- site title, description, and image metadata
 
-This is the only URL an archive needs to discover the rest.
+### 2) Site connections (required)
+`/.well-known/solidary-links.json`
 
-### 2) Snapshot descriptor (required)
+Contains:
+- the current site's id and canonical URL
+- typed connected-site entries with connection UUIDs
+- connected-site URLs a crawler can follow to continue traversal
+
+### 3) Snapshot descriptor (required)
 `/solidary-links/snapshot.json` (or any path referenced by the manifest)
 
 Contains:
@@ -94,7 +99,7 @@ Archives use this to:
 - detect changes via `ETag/Last-Modified`
 - verify feed integrity by recomputing hashes
 
-### 3) Feeds (required / optional)
+### 4) Feeds (required / optional)
 - `/solidary-links/docs.ndjson` (required)
 - `/solidary-links/links.ndjson` (required)
 - `/solidary-links/archives.ndjson` (optional; only if the site curates collections)
@@ -231,6 +236,7 @@ Critical constraint:
 - Jekyll does not publish dot-directories by default.
 - The template must include:
   - `_config.yml` with `include: [".well-known", "solidary-links"]`
+  - `/.well-known/solidary.json` in source
   - `/.well-known/solidary-links.json` in source
   - `/solidary-links/*` feeds in source or generated
 

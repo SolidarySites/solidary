@@ -70,6 +70,7 @@ type UseSiteBuilderSavePublishActionsParams = {
   siteSettingsInput: DraftSaveSettingsInput;
   styles: BuilderStyleSettings;
   templateSolidary: string;
+  templateSolidaryLinks: string;
   defaultHomeContent: string;
   hasUnsavedChanges: boolean;
   currentDraftSignature: string;
@@ -120,6 +121,7 @@ export const useSiteBuilderSavePublishActions = ({
   siteSettingsInput,
   styles,
   templateSolidary,
+  templateSolidaryLinks,
   defaultHomeContent,
   hasUnsavedChanges,
   currentDraftSignature,
@@ -167,13 +169,15 @@ export const useSiteBuilderSavePublishActions = ({
     setNoticeKind(null);
   };
 
-  const updateDraftSolidaryFile = (solidaryFile: string) => {
+  const updateDraftWellKnownFiles = (solidaryFile: string, solidaryLinksFile: string) => {
     setDraftStateTracked((current) =>
       current
         ? {
             ...current,
             files: {
-              [FILE_KEYS.solidary]: solidaryFile
+              ...current.files,
+              [FILE_KEYS.solidary]: solidaryFile,
+              [FILE_KEYS.solidaryLinks]: solidaryLinksFile
             }
           }
         : current
@@ -203,6 +207,7 @@ export const useSiteBuilderSavePublishActions = ({
   const saveCurrentDraftState = async (
     repoInfo: DraftState,
     solidaryFile: string,
+    solidaryLinksFile: string,
     imageUrl: string,
     pagesSnapshot: BuilderPage[] = pages
   ) => {
@@ -215,6 +220,7 @@ export const useSiteBuilderSavePublishActions = ({
       sessionUserId: sessionUserId,
       repoInfo: currentRepoInfo,
       solidaryFile,
+      solidaryLinksFile,
       imageUrl,
       pagesSnapshot,
       siteSettingsInput,
@@ -282,11 +288,12 @@ export const useSiteBuilderSavePublishActions = ({
       draftImageUrl,
       siteImagePreview,
       templateSolidary,
+      templateSolidaryLinks,
       siteSettingsInput,
       siteUrl,
       sessionUserId,
       applyDraftRevisionRow,
-      updateDraftSolidaryFile,
+      updateDraftWellKnownFiles,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
       buildDraftSignatureForState: ({ imageUrl }) => buildDraftSignatureForState({ imageUrl })
     });
@@ -446,10 +453,11 @@ export const useSiteBuilderSavePublishActions = ({
           siteSettingsInput,
           styles,
           templateSolidary,
+          templateSolidaryLinks,
           defaultHomeContent,
           setProvisionStep,
           saveDraftState: saveCurrentDraftState,
-          updateDraftSolidaryFile,
+          updateDraftWellKnownFiles,
           setPages,
           setDraftImages,
           setLastSavedDraftSignature,
@@ -472,6 +480,7 @@ export const useSiteBuilderSavePublishActions = ({
           siteSettingsInput,
           styles,
           templateSolidary,
+          templateSolidaryLinks,
           defaultHomeContent,
           setProvisionStep,
           sessionAccessToken: supabaseAccessToken,

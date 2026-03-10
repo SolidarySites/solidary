@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-07T15:51:35.495Z",
-  "latest_commit_sha": "15100f758f392b5f20877010830fba307656ca2e",
+  "generated_at": "2026-03-10T13:54:54.653Z",
+  "latest_commit_sha": "e587d5d397e548e647fe95d744768105b6f75ec7",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -177,14 +177,24 @@
                             "LOC": 51
                           },
                           {
+                            "path": "src/App/features/site-draft/services/solidary-links.test.ts",
+                            "description": "?",
+                            "LOC": 83
+                          },
+                          {
+                            "path": "src/App/features/site-draft/services/solidary-links.ts",
+                            "description": "?",
+                            "LOC": 137
+                          },
+                          {
                             "path": "src/App/features/site-draft/services/solidary.test.ts",
                             "description": "Unit tests for the Solidary metadata JSON parser, covering valid payload parsing and invalid JSON fallback behavior.",
-                            "LOC": 26
+                            "LOC": 49
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.ts",
                             "description": "Minimal parser for `.well-known/solidary-links.json` content that safely returns typed metadata or `null` on invalid JSON.",
-                            "LOC": 15
+                            "LOC": 77
                           }
                         ]
                       }
@@ -201,6 +211,30 @@
                         "LOC": 50
                       }
                     ]
+                  },
+                  {
+                    "path": "src/App/features/supabase-management",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/App/features/supabase-management/services",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/supabase-management/services/supabase-management.test.ts",
+                            "description": "?",
+                            "LOC": 142
+                          },
+                          {
+                            "path": "src/App/features/supabase-management/services/supabase-management.ts",
+                            "description": "?",
+                            "LOC": 348
+                          }
+                        ]
+                      }
+                    ],
+                    "files": []
                   }
                 ],
                 "files": []
@@ -381,6 +415,11 @@
                             "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
                             "description": "Profile settings form section for display-name edits plus avatar upload/select/remove controls.",
                             "LOC": 165
+                          },
+                          {
+                            "path": "src/App/routes/profile/components/ProfileSupabaseConnectionCard.tsx",
+                            "description": "?",
+                            "LOC": 151
                           }
                         ]
                       },
@@ -397,7 +436,12 @@
                           {
                             "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
                             "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-                            "LOC": 463
+                            "LOC": 470
+                          },
+                          {
+                            "path": "src/App/routes/profile/hooks/useProfileSupabaseManagementController.ts",
+                            "description": "?",
+                            "LOC": 270
                           }
                         ]
                       },
@@ -428,12 +472,12 @@
                       {
                         "path": "src/App/routes/profile/ProfileRoute.css",
                         "description": "Profile settings route styles for account cards, avatars, and form layout.",
-                        "LOC": 337
+                        "LOC": 452
                       },
                       {
                         "path": "src/App/routes/profile/ProfileRoute.tsx",
                         "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-                        "LOC": 74
+                        "LOC": 90
                       }
                     ]
                   },
@@ -483,7 +527,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 249
+                            "LOC": 251
                           }
                         ]
                       },
@@ -499,7 +543,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/content.ts",
                                 "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-                                "LOC": 123
+                                "LOC": 137
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
@@ -509,7 +553,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
                                 "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-                                "LOC": 229
+                                "LOC": 232
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/types.ts",
@@ -523,7 +567,7 @@
                           {
                             "path": "src/App/routes/site-create/services/site-create-provisioning.ts",
                             "description": "Top-level create-site workflow that validates uploaded image type, generates site/thumb/OG JPEG variants via shared picsquish service, provisions repository assets, and writes seeded draft data.",
-                            "LOC": 136
+                            "LOC": 140
                           }
                         ]
                       }
@@ -593,131 +637,33 @@
                             "description": "Full site builder route module: shell, preview editor UI, lock-aware hooks, and save/publish services.",
                             "directories": [
                               {
-                                "path": "src/App/routes/studio/routes/site-builder/components",
-                                "description": "Builder UI components for topbar/sidebar/actions, Astro preview editing, and section-specific editors.",
-                                "directories": [
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/astro-preview",
-                                    "description": "Preview-rendering internals for Astro layout composition, content formatting, CSS scoping, image source mapping, and editable-surface type contracts.",
-                                    "directories": [],
-                                    "files": [
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/AstroPreviewEditableSurface.tsx",
-                                        "description": "Contenteditable preview surface that syncs page body HTML, preserves selection, and manages inline image editing state/metadata.",
-                                        "LOC": 964
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/AstroPreviewLayout.tsx",
-                                        "description": "Presentational Astro-like preview shell that renders header/nav/main/footer scaffolding around the editable content surface.",
-                                        "LOC": 195
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/content-utils.ts",
-                                        "description": "Preview content helpers for markdown-to-HTML conversion plus footer link parsing and published URL normalization.",
-                                        "LOC": 188
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/css-scope-utils.ts",
-                                        "description": "CSS scoping helpers that rewrite user-authored selectors so custom preview styles stay isolated to `.astro-preview`.",
-                                        "LOC": 91
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/image-dom-utils.ts",
-                                        "description": "DOM utilities for preview images: caret/selection helpers, figure+caption handling, alignment wrappers, and aspect-ratio metadata helpers.",
-                                        "LOC": 123
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/image-source-utils.ts",
-                                        "description": "Image source mapping/parsing utilities that reconcile draft, published, and external preview image URLs plus synced managed-image attrs.",
-                                        "LOC": 213
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/image-utils.ts",
-                                        "description": "Barrel re-export module exposing preview image DOM utilities and image source mapping helpers.",
-                                        "LOC": 19
-                                      },
-                                      {
-                                        "path": "src/App/routes/studio/routes/site-builder/components/astro-preview/types.ts",
-                                        "description": "Type contracts for preview page data, editor imperative handles, selected image state, and footer/nav render segments.",
-                                        "LOC": 94
-                                      }
-                                    ]
-                                  }
-                                ],
+                                "path": "src/App/routes/studio/routes/site-builder/chrome",
+                                "description": "?",
+                                "directories": [],
                                 "files": [
                                   {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/AstroTemplatePreview.tsx",
-                                    "description": "Live Astro-like preview/editor component that renders draft pages and supports inline rich-text and image editing interactions.",
-                                    "LOC": 3089
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderActions.tsx",
-                                    "description": "Reusable save/publish action group with provisioning state and publish feedback messaging.",
+                                    "path": "src/App/routes/studio/routes/site-builder/chrome/BuilderActions.tsx",
+                                    "description": "?",
                                     "LOC": 21
                                   },
                                   {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderEditorToolbar.tsx",
-                                    "description": "Formatting toolbar for page editing commands (headings, links, lists, images, and style toggles).",
-                                    "LOC": 365
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderFooterSection.tsx",
-                                    "description": "Builder sidebar section for configuring footer visibility/fixed behavior and editable footer module content.",
-                                    "LOC": 118
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderHeaderSection.tsx",
-                                    "description": "Builder sidebar section for configuring header visibility/fixed behavior, brand text, and nav ordering.",
-                                    "LOC": 100
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderHeadSection.tsx",
-                                    "description": "Builder sidebar SEO section for locale/toggle controls and CodeMirror editing of custom HTML injected into the document head.",
-                                    "LOC": 129
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderImageSettingsPanel.tsx",
-                                    "description": "Inspector panel for the currently selected preview image (alt text, caption, and size controls).",
-                                    "LOC": 78
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderMediaSection.tsx",
-                                    "description": "Media manager section UI with lazy-loaded folder tree browsing, grouped image assets (thumbnail + metadata/actions), usage hints, and font upload/remove controls.",
-                                    "LOC": 388
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderPagesSection.tsx",
-                                    "description": "Sidebar pages manager for creating/selecting pages and editing page title/slug metadata.",
-                                    "LOC": 369
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderPreviewPanel.tsx",
-                                    "description": "Preview panel wrapper that hosts the Astro preview surface and page editor toolbar/read-only notices.",
-                                    "LOC": 413
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderSidebar.tsx",
-                                    "description": "Builder sidebar navigation and section form container with lock-aware disable behavior.",
+                                    "path": "src/App/routes/studio/routes/site-builder/chrome/BuilderSidebar.tsx",
+                                    "description": "?",
                                     "LOC": 678
                                   },
                                   {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderStylesSection.tsx",
-                                    "description": "Section editor for custom design-token CSS used by the preview and publish output.",
-                                    "LOC": 656
-                                  },
-                                  {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderToolbarIcons.tsx",
-                                    "description": "Shared SVG icon primitives consumed by builder editor toolbar buttons.",
+                                    "path": "src/App/routes/studio/routes/site-builder/chrome/BuilderToolbarIcons.tsx",
+                                    "description": "?",
                                     "LOC": 110
                                   },
                                   {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/BuilderTopbar.tsx",
-                                    "description": "Builder topbar with external links, collaborator presence indicators, fullscreen toggle, and action controls.",
+                                    "path": "src/App/routes/studio/routes/site-builder/chrome/BuilderTopbar.tsx",
+                                    "description": "?",
                                     "LOC": 107
                                   },
                                   {
-                                    "path": "src/App/routes/studio/routes/site-builder/components/LockAvatarPill.tsx",
-                                    "description": "Compact avatar badge used beside lockable sections to show who currently holds an edit lock.",
+                                    "path": "src/App/routes/studio/routes/site-builder/chrome/LockAvatarPill.tsx",
+                                    "description": "?",
                                     "LOC": 42
                                   }
                                 ]
@@ -725,7 +671,174 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/hooks",
                                 "description": "Builder orchestration hooks for access, locks, lifecycle loading, editing state, and publish/save flow control.",
-                                "directories": [],
+                                "directories": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/controller",
+                                    "description": "?",
+                                    "directories": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects",
+                                        "description": "?",
+                                        "directories": [],
+                                        "files": [
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects/useBeforeUnloadWarningEffect.ts",
+                                            "description": "?",
+                                            "LOC": 23
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects/useBuilderAccessModeEffect.ts",
+                                            "description": "?",
+                                            "LOC": 64
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects/usePageEditingModeResetEffect.ts",
+                                            "description": "?",
+                                            "LOC": 35
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects/usePublishedDraftCleanupEffect.ts",
+                                            "description": "?",
+                                            "LOC": 127
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/effects/useSiteImagePreviewEffect.ts",
+                                            "description": "?",
+                                            "LOC": 23
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models",
+                                        "description": "?",
+                                        "directories": [],
+                                        "files": [
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildContentSectionProps.ts",
+                                            "description": "?",
+                                            "LOC": 93
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildPreviewPanelProps.ts",
+                                            "description": "?",
+                                            "LOC": 73
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildSettingsRouteContext.ts",
+                                            "description": "?",
+                                            "LOC": 51
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildSidebarProps.ts",
+                                            "description": "?",
+                                            "LOC": 216
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildTopbarProps.ts",
+                                            "description": "?",
+                                            "LOC": 19
+                                          },
+                                          {
+                                            "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/types.ts",
+                                            "description": "?",
+                                            "LOC": 291
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "files": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/buildSiteBuilderViewModels.ts",
+                                        "description": "?",
+                                        "LOC": 183
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderDocumentState.ts",
+                                        "description": "?",
+                                        "LOC": 146
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderRouteEffects.ts",
+                                        "description": "?",
+                                        "LOC": 120
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useDeleteDraftPageAction.ts",
+                                        "description": "?",
+                                        "LOC": 159
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings",
+                                    "description": "?",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/shared.ts",
+                                        "description": "?",
+                                        "LOC": 163
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/types.ts",
+                                        "description": "?",
+                                        "LOC": 84
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDeleteActions.ts",
+                                        "description": "?",
+                                        "LOC": 132
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDomainActions.ts",
+                                        "description": "?",
+                                        "LOC": 311
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsPublishingActions.ts",
+                                        "description": "?",
+                                        "LOC": 307
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/style-media",
+                                    "description": "?",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/shared.ts",
+                                        "description": "?",
+                                        "LOC": 122
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useMediaFontActions.ts",
+                                        "description": "?",
+                                        "LOC": 260
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useMediaImageActions.ts",
+                                        "description": "?",
+                                        "LOC": 274
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useMediaLibrary.ts",
+                                        "description": "?",
+                                        "LOC": 271
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useRepoStyleAssets.ts",
+                                        "description": "?",
+                                        "LOC": 218
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/hooks/style-media/useStyleSettingsState.ts",
+                                        "description": "?",
+                                        "LOC": 71
+                                      }
+                                    ]
+                                  }
+                                ],
                                 "files": [
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderCollaborators.ts",
@@ -778,14 +891,136 @@
                                     "LOC": 477
                                   },
                                   {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderLiveSettingsActions.ts",
+                                    "description": "?",
+                                    "LOC": 103
+                                  },
+                                  {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 2716
+                                    "LOC": 588
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
                                     "description": "Save/publish orchestration hook wiring section persistence, conflict handling, and publish job startup.",
-                                    "LOC": 548
+                                    "LOC": 557
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderStyleMediaManager.ts",
+                                    "description": "?",
+                                    "LOC": 126
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/preview",
+                                "description": "?",
+                                "directories": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview",
+                                    "description": "?",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/AstroPreviewEditableSurface.tsx",
+                                        "description": "?",
+                                        "LOC": 964
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/AstroPreviewLayout.tsx",
+                                        "description": "?",
+                                        "LOC": 195
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/content-utils.ts",
+                                        "description": "?",
+                                        "LOC": 188
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/css-scope-utils.ts",
+                                        "description": "?",
+                                        "LOC": 91
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/image-dom-utils.ts",
+                                        "description": "?",
+                                        "LOC": 123
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/image-source-utils.ts",
+                                        "description": "?",
+                                        "LOC": 213
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/image-utils.ts",
+                                        "description": "?",
+                                        "LOC": 19
+                                      },
+                                      {
+                                        "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/types.ts",
+                                        "description": "?",
+                                        "LOC": 94
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/preview/AstroTemplatePreview.tsx",
+                                    "description": "?",
+                                    "LOC": 3089
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/preview/BuilderEditorToolbar.tsx",
+                                    "description": "?",
+                                    "LOC": 365
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/preview/BuilderImageSettingsPanel.tsx",
+                                    "description": "?",
+                                    "LOC": 78
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/preview/BuilderPreviewPanel.tsx",
+                                    "description": "?",
+                                    "LOC": 413
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/App/routes/studio/routes/site-builder/sections",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderFooterSection.tsx",
+                                    "description": "?",
+                                    "LOC": 118
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderHeaderSection.tsx",
+                                    "description": "?",
+                                    "LOC": 100
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderHeadSection.tsx",
+                                    "description": "?",
+                                    "LOC": 129
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderMediaSection.tsx",
+                                    "description": "?",
+                                    "LOC": 388
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderPagesSection.tsx",
+                                    "description": "?",
+                                    "LOC": 369
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/sections/BuilderStylesSection.tsx",
+                                    "description": "?",
+                                    "LOC": 656
                                   }
                                 ]
                               },
@@ -801,12 +1036,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.test.ts",
                                         "description": "Unit tests for editor-publish helper functions and payload derivation behavior.",
-                                        "LOC": 105
+                                        "LOC": 107
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/editor-helpers.ts",
                                         "description": "Helper functions specific to editor publish flow (touched section/page resolution and payload shaping).",
-                                        "LOC": 169
+                                        "LOC": 171
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/index.ts",
@@ -816,22 +1051,22 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishEditorDraft.ts",
                                         "description": "Editor publish workflow that turns touched draft changes into collaboration PR-ready output.",
-                                        "LOC": 203
+                                        "LOC": 206
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishOwnerDraft.ts",
                                         "description": "Owner/admin publish workflow that writes draft changes directly to repository and live site paths.",
-                                        "LOC": 199
+                                        "LOC": 206
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
                                         "description": "Shared publish utilities used by both owner and editor publish pipelines.",
-                                        "LOC": 124
+                                        "LOC": 134
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
                                         "description": "Publish-domain type contracts for payloads, tracking state, and shared publish function params/results.",
-                                        "LOC": 74
+                                        "LOC": 76
                                       }
                                     ]
                                   }
@@ -840,12 +1075,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 110
+                                    "LOC": 150
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 256
+                                    "LOC": 249
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -860,7 +1095,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
                                     "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
-                                    "LOC": 27
+                                    "LOC": 28
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
@@ -910,7 +1145,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-draft-state.ts",
                                     "description": "Persists owner draft settings/pages/content state and associated metadata signatures.",
-                                    "LOC": 115
+                                    "LOC": 119
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-editor-touch.ts",
@@ -920,7 +1155,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
                                     "description": "Service that saves metadata + page content updates as a coordinated draft persistence step.",
-                                    "LOC": 192
+                                    "LOC": 198
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-section-signature.ts",
@@ -1295,6 +1530,11 @@
                   {
                     "path": "src/templates/astro/solidary-links.json",
                     "description": "Parameterized Solidary protocol metadata template written to `.well-known/solidary-links.json`.",
+                    "LOC": 19
+                  },
+                  {
+                    "path": "src/templates/astro/solidary.json",
+                    "description": "?",
                     "LOC": 8
                   },
                   {
@@ -1353,7 +1593,7 @@
       {
         "path": "AGENTS.md",
         "description": "Maintainability and architecture rules for this app.",
-        "LOC": 140
+        "LOC": 142
       },
       {
         "path": "eslint.config.js",
@@ -1373,7 +1613,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1400
+        "LOC": 1640
       },
       {
         "path": "tsconfig.app.json",

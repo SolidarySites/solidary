@@ -71,6 +71,7 @@ export type UseSiteBuilderLiveSettingsActionsOptions = {
   draftSaveImageUrl: string;
   computedSlug: string;
   templateSolidary: string;
+  templateSolidaryLinks: string;
   siteSettingsInput: SiteSettingsInput;
   currentDraftSignature: string;
   saveSectionByKey: (sectionKey: BuilderEditableSectionKey) => Promise<string | undefined>;

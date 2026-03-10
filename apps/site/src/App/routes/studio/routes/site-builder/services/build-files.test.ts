@@ -48,6 +48,41 @@ const baseStyles: BuilderStyleSettings = {
   baseStructureCss: ".page { color: var(--fg); }\n",
   baseGlobalCss: '@import "./partials/tokens.css";\n@import "./partials/structure.css";\n'
 };
+const templateSolidary = JSON.stringify(
+  {
+    protocol_version: "1.0",
+    site_id: "",
+    site_url: "",
+    title: "",
+    image_url: "",
+    description: ""
+  },
+  null,
+  2
+);
+const templateSolidaryLinks = JSON.stringify(
+  {
+    "@context": {
+      site_id: "urn:solidary:term:site_id",
+      site_url: {
+        "@id": "urn:solidary:term:site_url",
+        "@type": "@id"
+      },
+      connections: {
+        "@id": "urn:solidary:term:connections",
+        "@container": "@set"
+      },
+      connection_uuid: "urn:solidary:term:connection_uuid"
+    },
+    "@id": "",
+    "@type": "site",
+    site_id: "",
+    site_url: "",
+    connections: []
+  },
+  null,
+  2
+);
 
 describe("buildFiles styles output", () => {
   it("writes tokens/global/structure in simple mode with tokens import enabled", () => {
@@ -56,7 +91,8 @@ describe("buildFiles styles output", () => {
       imageUrl: "/og.jpg",
       settingsInput,
       styles: baseStyles,
-      templateSolidary: "{}",
+      templateSolidary,
+      templateSolidaryLinks,
       pages,
       defaultHomeContent: "Default home"
     });
@@ -66,6 +102,8 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.globalStyles]).not.toContain("/* @import");
     expect(files[FILE_KEYS.structureStyles]).toContain(".page");
     expect(files[FILE_KEYS.structureStyles]).toBe(".page { color: var(--fg); }\n");
+    expect(files[FILE_KEYS.solidary]).toContain('"site_url": "https://example.com"');
+    expect(files[FILE_KEYS.solidaryLinks]).toContain('"@type": "site"');
     expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
     expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");
@@ -83,7 +121,8 @@ describe("buildFiles styles output", () => {
       imageUrl: "/og.jpg",
       settingsInput,
       styles: advancedStyles,
-      templateSolidary: "{}",
+      templateSolidary,
+      templateSolidaryLinks,
       pages,
       defaultHomeContent: "Default home"
     });
@@ -100,7 +139,8 @@ describe("buildFiles styles output", () => {
       imageUrl: "/og.jpg",
       settingsInput,
       styles: baseStyles,
-      templateSolidary: "{}",
+      templateSolidary,
+      templateSolidaryLinks,
       pages,
       defaultHomeContent: "Default home"
     });

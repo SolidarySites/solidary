@@ -18,6 +18,11 @@ function normalizeUrl(value: string | undefined) {
   }
 }
 
+function resolveDiscoveryUrl(siteUrl: string) {
+  const normalizedBase = siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`;
+  return new URL(".well-known/solidary.json", normalizedBase).toString();
+}
+
 function requireEnv() {
   if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
     return "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY.";
@@ -49,7 +54,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const discoveryUrl = new URL("/.well-known/solidary-links.json", siteUrl).toString();
+  const discoveryUrl = resolveDiscoveryUrl(siteUrl);
 
   const response = await fetch(discoveryUrl, {
     headers: { "accept": "application/json" }

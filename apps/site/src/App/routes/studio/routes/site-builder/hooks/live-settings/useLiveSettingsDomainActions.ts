@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { requireFreshGithubAuth } from "../../../../../../features/auth/services/github-auth";
 import { githubRequest } from "../../../../../../services/github";
-import { buildSolidaryFile } from "../../services/build-files";
-import { FILE_KEYS } from "../../services/constants";
+import { buildWellKnownFiles } from "../../services/build-files";
 import type { DraftState } from "../../services/types";
 import type {
   DomainActionMode,
@@ -11,10 +10,13 @@ import type {
   UseSiteBuilderLiveSettingsActionsOptions
 } from "./types";
 import {
-  loadLatestDraftSolidaryRaw,
+  loadLatestDraftWellKnownFiles,
+  mergeDraftWellKnownFiles,
   normalizeCustomDomainInput,
-  publishSolidaryManifestToRepo,
+  publishWellKnownFilesToRepo,
   resolveRepoCoordinates,
+  syncConnectedSiteUrls,
+  toCanonicalSiteUrl,
   upsertPublishedSiteRecord
 } from "./shared";
 
@@ -28,6 +30,7 @@ type UseLiveSettingsDomainActionsOptions = Pick<
   | "setSiteUrl"
   | "draftSaveImageUrl"
   | "templateSolidary"
+  | "templateSolidaryLinks"
   | "siteSettingsInput"
   | "setNotice"
   | "setNoticeKind"
@@ -43,6 +46,7 @@ export const useLiveSettingsDomainActions = ({
   setSiteUrl,
   draftSaveImageUrl,
   templateSolidary,
+  templateSolidaryLinks,
   siteSettingsInput,
   setNotice,
   setNoticeKind,
@@ -56,16 +60,19 @@ export const useLiveSettingsDomainActions = ({
     setDomainDnsFeedback(null);
   }, [draftState?.siteId]);
 
-  const updateCachedSolidaryFile = (nextSolidaryRaw: string) => {
+  const updateCachedWellKnownFiles = ({
+    solidaryRaw,
+    solidaryLinksRaw
+  }: {
+    solidaryRaw?: string;
+    solidaryLinksRaw?: string;
+  }) => {
     setDraftState((current: DraftState | null) =>
-      current
-        ? {
-            ...current,
-            files: {
-              [FILE_KEYS.solidary]: nextSolidaryRaw
-            }
-          }
-        : current
+      mergeDraftWellKnownFiles({
+        current,
+        solidaryRaw,
+        solidaryLinksRaw
+      })
     );
   };
 
@@ -77,43 +84,53 @@ export const useLiveSettingsDomainActions = ({
     result: GitHubPagesDomainResponse;
   }) => {
     const resolvedDomain = normalizeCustomDomainInput(result.domain ?? requestedDomain);
+    const resolvedSiteUrl = toCanonicalSiteUrl(resolvedDomain);
     const dnsStatus = result.dns?.status ?? "pending";
     const dnsMessage = result.dns?.message?.trim() ?? "";
 
     if (dnsStatus === "valid") {
       setDomainDnsFeedback(null);
-      setSiteUrl(resolvedDomain);
+      setSiteUrl(resolvedSiteUrl);
       const pagesUrl = result.pagesUrl?.trim() || result.pages?.html_url?.trim() || "";
 
       try {
         if (draftState && canDirectPublish) {
-          const latestSolidaryRaw = await loadLatestDraftSolidaryRaw({
-            targetDraftId: draftState.id,
-            setDraftState
-          });
-          const nextSolidaryRaw = buildSolidaryFile({
-            templateSolidary,
-            siteId: draftState.siteId,
-            imageUrl: draftSaveImageUrl,
-            settingsInput: siteSettingsInput,
-            urlOverride: resolvedDomain,
-            previousSolidaryRaw: latestSolidaryRaw
-          });
+          const { solidaryRaw: latestSolidaryRaw, solidaryLinksRaw: latestSolidaryLinksRaw } =
+            await loadLatestDraftWellKnownFiles({
+              targetDraftId: draftState.id,
+              setDraftState
+            });
+          const { solidaryFile: nextSolidaryRaw, solidaryLinksFile: nextSolidaryLinksRaw } =
+            buildWellKnownFiles({
+              templateSolidary,
+              templateSolidaryLinks,
+              siteId: draftState.siteId,
+              imageUrl: draftSaveImageUrl,
+              settingsInput: siteSettingsInput,
+              urlOverride: resolvedSiteUrl,
+              previousSolidaryRaw: latestSolidaryRaw,
+              previousSolidaryLinksRaw: latestSolidaryLinksRaw
+            });
 
-          await publishSolidaryManifestToRepo({
+          await publishWellKnownFilesToRepo({
             draftState,
             message: "Update custom domain",
-            solidaryRaw: nextSolidaryRaw
+            solidaryRaw: nextSolidaryRaw,
+            solidaryLinksRaw: nextSolidaryLinksRaw
           });
-          updateCachedSolidaryFile(nextSolidaryRaw);
+          updateCachedWellKnownFiles({
+            solidaryRaw: nextSolidaryRaw,
+            solidaryLinksRaw: nextSolidaryLinksRaw
+          });
 
           await upsertPublishedSiteRecord({
             siteId: draftState.siteId,
-            canonicalUrl: resolvedDomain,
+            canonicalUrl: resolvedSiteUrl,
             title: siteTitle,
             description: siteDescription,
             imageUrl: draftSaveImageUrl
           });
+          await syncConnectedSiteUrls(draftState.siteId);
         }
 
         setNotice(
@@ -164,7 +181,7 @@ export const useLiveSettingsDomainActions = ({
       return;
     }
 
-    setSiteUrl(normalizedDomain);
+    setSiteUrl(toCanonicalSiteUrl(normalizedDomain));
     setDomainDnsFeedback(null);
     setNotice(
       "Studio domain updated only. Do this only if the site is hosted outside GitHub Pages."

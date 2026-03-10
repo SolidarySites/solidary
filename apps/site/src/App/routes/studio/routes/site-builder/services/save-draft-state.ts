@@ -22,6 +22,7 @@ type SaveDraftStateParams = {
   sessionUserId: string | null;
   repoInfo: DraftState;
   solidaryFile: string;
+  solidaryLinksFile: string;
   imageUrl: string;
   pagesSnapshot: BuilderPage[];
   siteSettingsInput: DraftSaveSettingsInput;
@@ -37,6 +38,7 @@ export const saveDraftState = async ({
   sessionUserId,
   repoInfo,
   solidaryFile,
+  solidaryLinksFile,
   imageUrl,
   pagesSnapshot,
   siteSettingsInput,
@@ -58,7 +60,9 @@ export const saveDraftState = async ({
       branch: repoInfo.branch,
       commit_sha: "",
       files: {
-        [FILE_KEYS.solidary]: solidaryFile
+        ...repoInfo.files,
+        [FILE_KEYS.solidary]: solidaryFile,
+        [FILE_KEYS.solidaryLinks]: solidaryLinksFile
       },
       last_edited_by_user_id: editorUserId,
       last_edited_at: nowIso

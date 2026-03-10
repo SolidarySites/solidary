@@ -3,13 +3,15 @@ import { buildSolidaryMarkdown } from "../../../../../../features/site-draft/ser
 import { requireFreshGithubAuth } from "../../../../../../features/auth/services/github-auth";
 import { toBase64 } from "../../../../../../lib/base64";
 import { githubRequest } from "../../../../../../services/github";
-import { buildSettingsPayload, buildSolidaryFile } from "../../services/build-files";
+import { buildSettingsPayload, buildWellKnownFiles } from "../../services/build-files";
 import { FILE_KEYS } from "../../services/constants";
 import { getPublishImageInfo } from "../../services/publish/shared";
 import type { DraftState } from "../../services/types";
 import type { UseSiteBuilderLiveSettingsActionsOptions } from "./types";
 import {
-  loadLatestDraftSolidaryRaw,
+  loadLatestDraftWellKnownFiles,
+  mergeDraftWellKnownFiles,
+  syncConnectedSiteUrls,
   resolveRepoCoordinates,
   upsertPublishedSiteRecord
 } from "./shared";
@@ -33,6 +35,7 @@ type UseLiveSettingsPublishingActionsOptions = Pick<
   | "setDraftImageUrl"
   | "computedSlug"
   | "templateSolidary"
+  | "templateSolidaryLinks"
   | "siteSettingsInput"
   | "currentDraftSignature"
   | "saveSectionByKey"
@@ -61,6 +64,7 @@ export const useLiveSettingsPublishingActions = ({
   setDraftImageUrl,
   computedSlug,
   templateSolidary,
+  templateSolidaryLinks,
   siteSettingsInput,
   currentDraftSignature,
   saveSectionByKey,
@@ -112,16 +116,19 @@ export const useLiveSettingsPublishingActions = ({
     }
   };
 
-  const updateCachedSolidaryFile = (nextSolidaryRaw: string) => {
+  const updateCachedWellKnownFiles = ({
+    solidaryRaw,
+    solidaryLinksRaw
+  }: {
+    solidaryRaw?: string;
+    solidaryLinksRaw?: string;
+  }) => {
     setDraftState((current: DraftState | null) =>
-      current
-        ? {
-            ...current,
-            files: {
-              [FILE_KEYS.solidary]: nextSolidaryRaw
-            }
-          }
-        : current
+      mergeDraftWellKnownFiles({
+        current,
+        solidaryRaw,
+        solidaryLinksRaw
+      })
     );
   };
 
@@ -138,7 +145,7 @@ export const useLiveSettingsPublishingActions = ({
     setNoticeKind(null);
     try {
       await requireFreshGithubAuth();
-      await loadLatestDraftSolidaryRaw({
+      await loadLatestDraftWellKnownFiles({
         targetDraftId: draftState.id,
         setDraftState
       });
@@ -149,10 +156,11 @@ export const useLiveSettingsPublishingActions = ({
         }
       }
 
-      const latestSolidaryRaw = await loadLatestDraftSolidaryRaw({
-        targetDraftId: draftState.id,
-        setDraftState
-      });
+      const { solidaryRaw: latestSolidaryRaw, solidaryLinksRaw: latestSolidaryLinksRaw } =
+        await loadLatestDraftWellKnownFiles({
+          targetDraftId: draftState.id,
+          setDraftState
+        });
       const { imagePath, imageUrl } = getPublishImageInfo({
         siteImage,
         computedSlug,
@@ -173,14 +181,17 @@ export const useLiveSettingsPublishingActions = ({
         });
       }
 
-      const nextSolidaryRaw = buildSolidaryFile({
-        templateSolidary,
-        siteId: draftState.siteId,
-        imageUrl,
-        settingsInput: siteSettingsInput,
-        urlOverride: siteUrl,
-        previousSolidaryRaw: latestSolidaryRaw
-      });
+      const { solidaryFile: nextSolidaryRaw, solidaryLinksFile: nextSolidaryLinksRaw } =
+        buildWellKnownFiles({
+          templateSolidary,
+          templateSolidaryLinks,
+          siteId: draftState.siteId,
+          imageUrl,
+          settingsInput: siteSettingsInput,
+          urlOverride: siteUrl,
+          previousSolidaryRaw: latestSolidaryRaw,
+          previousSolidaryLinksRaw: latestSolidaryLinksRaw
+        });
 
       const settingsPayload = buildSettingsPayload(siteSettingsInput, imageUrl, siteUrl);
       const solidaryContent = buildSolidaryMarkdown(settingsPayload);
@@ -198,6 +209,11 @@ export const useLiveSettingsPublishingActions = ({
             content: toBase64(new TextEncoder().encode(nextSolidaryRaw).buffer)
           },
           {
+            path: FILE_KEYS.solidaryLinks,
+            mode: "100644",
+            content: toBase64(new TextEncoder().encode(nextSolidaryLinksRaw).buffer)
+          },
+          {
             path: FILE_KEYS.solidaryContent,
             mode: "100644",
             content: toBase64(new TextEncoder().encode(solidaryContent).buffer)
@@ -213,9 +229,13 @@ export const useLiveSettingsPublishingActions = ({
         description: siteDescription,
         imageUrl
       });
+      await syncConnectedSiteUrls(draftState.siteId);
 
       setDraftImageUrl(imageUrl);
-      updateCachedSolidaryFile(nextSolidaryRaw);
+      updateCachedWellKnownFiles({
+        solidaryRaw: nextSolidaryRaw,
+        solidaryLinksRaw: nextSolidaryLinksRaw
+      });
       setNotice("General settings saved and published.");
       setNoticeKind("notice");
     } catch (caught) {
@@ -240,12 +260,12 @@ export const useLiveSettingsPublishingActions = ({
     setNoticeKind(null);
     try {
       await requireFreshGithubAuth();
-      const latestSolidaryRaw = await loadLatestDraftSolidaryRaw({
+      const { solidaryLinksRaw: latestSolidaryLinksRaw } = await loadLatestDraftWellKnownFiles({
         targetDraftId: draftState.id,
         setDraftState
       });
-      if (!latestSolidaryRaw.trim()) {
-        throw new Error("No settings manifest found for this draft.");
+      if (!latestSolidaryLinksRaw.trim()) {
+        throw new Error("No site links file found for this draft.");
       }
 
       const { owner, repo } = resolveRepoCoordinates(draftState.repoFullName);
@@ -256,9 +276,9 @@ export const useLiveSettingsPublishingActions = ({
         message: "Save connection settings",
         upserts: [
           {
-            path: FILE_KEYS.solidary,
+            path: FILE_KEYS.solidaryLinks,
             mode: "100644",
-            content: toBase64(new TextEncoder().encode(latestSolidaryRaw).buffer)
+            content: toBase64(new TextEncoder().encode(latestSolidaryLinksRaw).buffer)
           }
         ],
         deletes: []

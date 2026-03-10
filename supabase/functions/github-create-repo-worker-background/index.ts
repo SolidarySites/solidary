@@ -21,19 +21,40 @@ const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const SOLIDARY_CONTENT_FILE_REL_PATH = "src/content/solidary.md";
 const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";
 const FOOTER_CONTENT_FILE_REL_PATH = "src/content/footer.md";
-const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary-links.json";
+const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary.json";
+const SOLIDARY_LINKS_FILE_REL_PATH = "public/.well-known/solidary-links.json";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
 const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-home.jpg";
+const SOLIDARY_LINKS_SITE_TYPE = "site";
 
-const SOLIDARY_LINKS_TEMPLATE = `{
-  "protocol_version": "1.0",
-  "site_id": "{{SITE_ID}}",
-  "site_url": "{{SITE_URL}}",
-  "title": "{{TITLE}}",
-  "image_url": "{{IMAGE_URL}}",
-  "description": "{{DESCRIPTION}}"
-}
-`;
+const SOLIDARY_METADATA_TEMPLATE = {
+  protocol_version: "1.0",
+  site_id: "",
+  site_url: "",
+  title: "",
+  image_url: "",
+  description: ""
+} as const;
+
+const SOLIDARY_LINKS_TEMPLATE = {
+  "@context": {
+    site_id: "urn:solidary:term:site_id",
+    site_url: {
+      "@id": "urn:solidary:term:site_url",
+      "@type": "@id"
+    },
+    connections: {
+      "@id": "urn:solidary:term:connections",
+      "@container": "@set"
+    },
+    connection_uuid: "urn:solidary:term:connection_uuid"
+  },
+  "@id": "",
+  "@type": SOLIDARY_LINKS_SITE_TYPE,
+  site_id: "",
+  site_url: "",
+  connections: []
+} as const;
 
 const DEFAULT_FOOTER_MODULES = [
   { content: "%copyright%", alignment: "left" },
@@ -140,8 +161,6 @@ const parseBody = (rawBody: string | null): ProvisionWorkerBody => {
   }
 };
 
-const escapeTemplateValue = (value: string) => value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
-
 const resolveSiteUrlForRepo = (owner: string, repo: string) => {
   const pagesRootUrl = `https://${owner}.github.io`;
   const isUserSite = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`;
@@ -238,7 +257,7 @@ const updateTemplateMarkdownFrontmatter = ({
   });
 };
 
-function renderSolidaryLinksFile({
+function renderSolidaryMetadataFile({
   siteId,
   title,
   description,
@@ -251,12 +270,38 @@ function renderSolidaryLinksFile({
   siteUrl: string;
   imageUrl: string;
 }) {
-  return SOLIDARY_LINKS_TEMPLATE
-    .replaceAll("{{SITE_ID}}", escapeTemplateValue(siteId))
-    .replaceAll("{{TITLE}}", escapeTemplateValue(title))
-    .replaceAll("{{DESCRIPTION}}", escapeTemplateValue(description))
-    .replaceAll("{{SITE_URL}}", escapeTemplateValue(siteUrl))
-    .replaceAll("{{IMAGE_URL}}", escapeTemplateValue(imageUrl));
+  return `${JSON.stringify(
+    {
+      ...SOLIDARY_METADATA_TEMPLATE,
+      site_id: siteId,
+      site_url: siteUrl,
+      title,
+      image_url: imageUrl,
+      description
+    },
+    null,
+    2
+  )}\n`;
+}
+
+function renderSolidaryLinksFile({
+  siteId,
+  siteUrl
+}: {
+  siteId: string;
+  siteUrl: string;
+}) {
+  return `${JSON.stringify(
+    {
+      ...SOLIDARY_LINKS_TEMPLATE,
+      "@id": siteUrl,
+      site_id: siteId,
+      site_url: siteUrl,
+      connections: []
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function applyCreateFlowOverridesToTemplateFiles({
@@ -343,12 +388,23 @@ function applyCreateFlowOverridesToTemplateFiles({
     relPath: SOLIDARY_FILE_REL_PATH,
     mode: "100644",
     contentB64: Buffer.from(
-      renderSolidaryLinksFile({
+      renderSolidaryMetadataFile({
         siteId: resolvedSiteId,
         title: resolvedTitle,
         description: resolvedDescription,
         siteUrl,
         imageUrl
+      }),
+      "utf8"
+    ).toString("base64")
+  });
+  nextByPath.set(SOLIDARY_LINKS_FILE_REL_PATH, {
+    relPath: SOLIDARY_LINKS_FILE_REL_PATH,
+    mode: "100644",
+    contentB64: Buffer.from(
+      renderSolidaryLinksFile({
+        siteId: resolvedSiteId,
+        siteUrl
       }),
       "utf8"
     ).toString("base64")

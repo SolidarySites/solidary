@@ -8,7 +8,7 @@ import {
   processImageVariantsFromOriginal
 } from "../../../services/image-processing/picsquish";
 import {
-  buildSolidaryFile,
+  buildWellKnownFiles,
   DEFAULT_OG_IMAGE_PATH,
   DEFAULT_OG_IMAGE_URL,
   SITE_IMAGE_PATH,
@@ -27,6 +27,7 @@ type ProvisionSiteDraftParams = {
   computedSlug: string;
   siteImage: File | null;
   templateSolidary: string;
+  templateSolidaryLinks: string;
   tokensCss: string;
   pages: AstroPageDraft[];
   onStep: (value: string) => void;
@@ -62,6 +63,7 @@ export const provisionSiteDraft = async ({
   computedSlug,
   siteImage,
   templateSolidary,
+  templateSolidaryLinks,
   tokensCss,
   pages,
   onStep,
@@ -106,8 +108,9 @@ export const provisionSiteDraft = async ({
   onSiteUrlResolved(provisionedRepo.siteUrlResolved);
   const imageUrl = DEFAULT_OG_IMAGE_URL;
 
-  const solidaryFile = buildSolidaryFile({
+  const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
+    templateSolidaryLinks,
     siteId,
     siteTitle,
     siteDescription,
@@ -128,6 +131,7 @@ export const provisionSiteDraft = async ({
     repoFullName: provisionedRepo.repoFullName,
     defaultBranch: provisionedRepo.defaultBranch,
     solidaryFile,
+    solidaryLinksFile,
     tokensCss,
     pages
   });

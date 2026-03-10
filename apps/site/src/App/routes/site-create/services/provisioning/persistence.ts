@@ -108,6 +108,7 @@ export const saveProvisionedSiteDraft = async ({
   repoFullName,
   defaultBranch,
   solidaryFile,
+  solidaryLinksFile,
   tokensCss,
   pages
 }: {
@@ -121,6 +122,7 @@ export const saveProvisionedSiteDraft = async ({
   repoFullName: string;
   defaultBranch: string;
   solidaryFile: string;
+  solidaryLinksFile: string;
   tokensCss: string;
   pages: AstroPageDraft[];
 }) => {
@@ -160,7 +162,8 @@ export const saveProvisionedSiteDraft = async ({
     branch: defaultBranch,
     commit_sha: "",
     files: {
-      [FILE_KEYS.solidary]: solidaryFile
+      [FILE_KEYS.solidary]: solidaryFile,
+      [FILE_KEYS.solidaryLinks]: solidaryLinksFile
     },
     draft_type: "owner",
     source_owner_draft_id: null,

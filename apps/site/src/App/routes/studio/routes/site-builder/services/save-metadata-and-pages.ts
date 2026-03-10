@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { supabase } from "../../../../../lib/supabase";
 import { normalizeSiteImagePathForStorage } from "../../../../../lib/site-image-url";
-import { buildSolidaryFile } from "./build-files";
+import { buildWellKnownFiles } from "./build-files";
 import { FILE_KEYS } from "./constants";
 import {
   buildDraftPageRows,
@@ -28,11 +28,12 @@ export const saveMetadataSection = async ({
   draftImageUrl,
   siteImagePreview,
   templateSolidary,
+  templateSolidaryLinks,
   siteSettingsInput,
   siteUrl,
   sessionUserId,
   applyDraftRevisionRow,
-  updateDraftSolidaryFile,
+  updateDraftWellKnownFiles,
   markEditorDraftTouched,
   buildDraftSignatureForState
 }: {
@@ -41,11 +42,12 @@ export const saveMetadataSection = async ({
   draftImageUrl: string | null;
   siteImagePreview: string | null;
   templateSolidary: string;
+  templateSolidaryLinks: string;
   siteSettingsInput: DraftSaveSettingsInput;
   siteUrl: string;
   sessionUserId: string | null;
   applyDraftRevisionRow: (draftRow: DraftRevisionRow | null | undefined) => void;
-  updateDraftSolidaryFile: (solidaryFile: string) => void;
+  updateDraftWellKnownFiles: (solidaryFile: string, solidaryLinksFile: string) => void;
   markEditorDraftTouched: (section: "metadata") => Promise<void>;
   buildDraftSignatureForState: (options: { imageUrl: string }) => string;
 }): Promise<string> => {
@@ -60,13 +62,15 @@ export const saveMetadataSection = async ({
       : draftImageUrl || siteImagePreview || DEFAULT_OG_IMAGE_URL,
     fallbackPath: DEFAULT_OG_IMAGE_URL
   });
-  const solidaryFile = buildSolidaryFile({
+  const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
+    templateSolidaryLinks,
     siteId: draftState.siteId,
     imageUrl,
     settingsInput: siteSettingsInput,
     urlOverride: siteUrl,
-    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
+    previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
   const nowIso = new Date().toISOString();
   const editorUserId = sessionUserId;
@@ -76,7 +80,9 @@ export const saveMetadataSection = async ({
       branch: draftState.branch,
       commit_sha: "",
       files: {
-        [FILE_KEYS.solidary]: solidaryFile
+        ...draftState.files,
+        [FILE_KEYS.solidary]: solidaryFile,
+        [FILE_KEYS.solidaryLinks]: solidaryLinksFile
       },
       last_edited_by_user_id: editorUserId,
       last_edited_at: nowIso
@@ -91,7 +97,7 @@ export const saveMetadataSection = async ({
     throw new Error("Failed to save draft metadata.");
   }
   applyDraftRevisionRow(draftRow);
-  updateDraftSolidaryFile(solidaryFile);
+  updateDraftWellKnownFiles(solidaryFile, solidaryLinksFile);
 
   const { error: settingsError } = await supabase.rpc("site_draft_upsert_settings_metadata", {
     p_draft_id: draftState.id,

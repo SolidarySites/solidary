@@ -5,6 +5,7 @@ import { githubRequest } from "../../../../../../services/github";
 import type { RepoFileSet } from "../../../../../../features/site-draft/types";
 import { FILE_KEYS } from "../../services/constants";
 import type { DraftState } from "../../services/types";
+import { syncConnectedSiteUrls } from "../../services/publish/shared";
 
 export const normalizeCustomDomainInput = (value: string) => {
   const trimmed = value.trim();
@@ -12,6 +13,15 @@ export const normalizeCustomDomainInput = (value: string) => {
   const withoutProtocol = trimmed.replace(/^https?:\/\//i, "");
   const domainOnly = withoutProtocol.split("/")[0] ?? "";
   return domainOnly.replace(/\.+$/, "").trim().toLowerCase();
+};
+
+export const toCanonicalSiteUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/\/+$/, "");
+  }
+  return `https://${trimmed.replace(/^\/+/, "").replace(/\/+$/, "")}`;
 };
 
 export const resolveRepoCoordinates = (repoFullName: string) => {
@@ -22,7 +32,29 @@ export const resolveRepoCoordinates = (repoFullName: string) => {
   return { owner, repo };
 };
 
-export const loadLatestDraftSolidaryRaw = async ({
+export const mergeDraftWellKnownFiles = ({
+  current,
+  solidaryRaw,
+  solidaryLinksRaw
+}: {
+  current: DraftState | null;
+  solidaryRaw?: string;
+  solidaryLinksRaw?: string;
+}) =>
+  current
+    ? {
+        ...current,
+        files: {
+          ...current.files,
+          ...(typeof solidaryRaw === "string" ? { [FILE_KEYS.solidary]: solidaryRaw } : {}),
+          ...(typeof solidaryLinksRaw === "string"
+            ? { [FILE_KEYS.solidaryLinks]: solidaryLinksRaw }
+            : {})
+        }
+      }
+    : current;
+
+export const loadLatestDraftWellKnownFiles = async ({
   targetDraftId,
   setDraftState
 }: {
@@ -40,48 +72,60 @@ export const loadLatestDraftSolidaryRaw = async ({
   }
 
   const files = (data?.files as RepoFileSet | null) ?? null;
-  const solidaryRaw =
-    typeof files?.[FILE_KEYS.solidary] === "string" ? files[FILE_KEYS.solidary] : "";
+  const solidaryRaw = typeof files?.[FILE_KEYS.solidary] === "string" ? files[FILE_KEYS.solidary] : "";
+  const solidaryLinksRaw =
+    typeof files?.[FILE_KEYS.solidaryLinks] === "string" ? files[FILE_KEYS.solidaryLinks] : "";
 
-  if (solidaryRaw.trim()) {
+  if (solidaryRaw.trim() || solidaryLinksRaw.trim()) {
     setDraftState((current) =>
-      current
-        ? {
-            ...current,
-            files: {
-              [FILE_KEYS.solidary]: solidaryRaw
-            }
-          }
-        : current
+      mergeDraftWellKnownFiles({
+        current,
+        solidaryRaw,
+        solidaryLinksRaw
+      })
     );
   }
 
-  return solidaryRaw;
+  return { solidaryRaw, solidaryLinksRaw };
 };
 
-export const publishSolidaryManifestToRepo = async ({
+export const publishWellKnownFilesToRepo = async ({
   draftState,
   message,
-  solidaryRaw
+  solidaryRaw,
+  solidaryLinksRaw
 }: {
   draftState: DraftState;
   message: string;
-  solidaryRaw: string;
+  solidaryRaw?: string;
+  solidaryLinksRaw?: string;
 }) => {
   const { owner, repo } = resolveRepoCoordinates(draftState.repoFullName);
+  const upserts = [];
+
+  if (typeof solidaryRaw === "string") {
+    upserts.push({
+      path: FILE_KEYS.solidary,
+      mode: "100644",
+      content: toBase64(new TextEncoder().encode(solidaryRaw).buffer)
+    });
+  }
+  if (typeof solidaryLinksRaw === "string") {
+    upserts.push({
+      path: FILE_KEYS.solidaryLinks,
+      mode: "100644",
+      content: toBase64(new TextEncoder().encode(solidaryLinksRaw).buffer)
+    });
+  }
+
+  if (!upserts.length) return;
 
   await githubRequest("github-contents-batch-commit", {
     owner,
     repo,
     branch: draftState.branch,
     message,
-    upserts: [
-      {
-        path: FILE_KEYS.solidary,
-        mode: "100644",
-        content: toBase64(new TextEncoder().encode(solidaryRaw).buffer)
-      }
-    ],
+    upserts,
     deletes: []
   });
 };
@@ -115,3 +159,5 @@ export const upsertPublishedSiteRecord = async ({
     throw new Error(error.message);
   }
 };
+
+export { syncConnectedSiteUrls };

@@ -1,13 +1,14 @@
 import { supabase } from "../../../../../../lib/supabase";
 import { githubRequest, listDirectory } from "../../../../../../services/github";
 import { toBase64 } from "../../../../../../lib/base64";
-import { buildFiles, buildSolidaryFile } from "../build-files";
+import { buildFiles, buildWellKnownFiles } from "../build-files";
 import { FILE_KEYS, PAGE_PATH_PREFIX, PAGE_PATH_SUFFIX } from "../constants";
 import { buildDraftSaveSignature, replaceDraftImageUrlsWithSitePaths } from "../draft-utils";
 import { getPageSafeSlug } from "../utils";
 import {
   getPublishImageInfo,
   loadDraftImagesForDraft,
+  syncConnectedSiteUrls,
   uploadDraftImagesToGitHub
 } from "./shared";
 import type { BatchCommitResponse, PublishOwnerDraftParams } from "./types";
@@ -28,10 +29,11 @@ export const publishOwnerDraft = async ({
   siteSettingsInput,
   styles,
   templateSolidary,
+  templateSolidaryLinks,
   defaultHomeContent,
   setProvisionStep,
   saveDraftState,
-  updateDraftSolidaryFile,
+  updateDraftWellKnownFiles,
   setPages,
   setDraftImages,
   setLastSavedDraftSignature,
@@ -59,13 +61,15 @@ export const publishOwnerDraft = async ({
     ...page,
     body: replaceDraftImageUrlsWithSitePaths(page.body ?? "", draftImages)
   }));
-  const solidaryFile = buildSolidaryFile({
+  const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
+    templateSolidaryLinks,
     siteId: draftState.siteId,
     imageUrl,
     settingsInput: siteSettingsInput,
     urlOverride: siteUrl,
-    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
+    previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
   const draftSignatureAfterSave = buildDraftSaveSignature({
     draftId: draftState.id,
@@ -77,8 +81,8 @@ export const publishOwnerDraft = async ({
   });
 
   setProvisionStep("Saving draft...");
-  await saveDraftState(draftState, solidaryFile, imageUrl, normalizedPages);
-  updateDraftSolidaryFile(solidaryFile);
+  await saveDraftState(draftState, solidaryFile, solidaryLinksFile, imageUrl, normalizedPages);
+  updateDraftWellKnownFiles(solidaryFile, solidaryLinksFile);
   setPages(normalizedPages);
   setLastSavedDraftSignature(draftSignatureAfterSave);
 
@@ -120,10 +124,12 @@ export const publishOwnerDraft = async ({
     settingsInput: siteSettingsInput,
     styles,
     templateSolidary,
+    templateSolidaryLinks,
     pages: publishPages,
     defaultHomeContent,
     urlOverride: siteUrl,
-    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
+    previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
 
   setProvisionStep("Preparing content changes...");
@@ -177,6 +183,7 @@ export const publishOwnerDraft = async ({
   if (siteError) {
     throw new Error(siteError.message);
   }
+  await syncConnectedSiteUrls(draftState.siteId);
 
   setDraftImageUrl(imageUrl);
   setProvisionStep("Starting deployment status checks...");

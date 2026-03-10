@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import templateSolidary from "../../../../templates/astro/solidary-links.json?raw";
+import templateSolidary from "../../../../templates/astro/solidary.json?raw";
+import templateSolidaryLinks from "../../../../templates/astro/solidary-links.json?raw";
 import tokensTemplate from "../../../../templates/astro/tokens.css?raw";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { requireFreshSupabaseAuth } from "../../../features/auth/services/github-auth";
@@ -202,6 +203,7 @@ export const useSiteCreateRouteController = () => {
         computedSlug,
         siteImage,
         templateSolidary,
+        templateSolidaryLinks,
         tokensCss: tokensTemplate,
         pages: INITIAL_PAGES,
         onStep: setProvisionStep,

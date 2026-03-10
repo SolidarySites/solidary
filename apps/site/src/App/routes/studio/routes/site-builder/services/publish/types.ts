@@ -35,6 +35,7 @@ export type CommonPublishParams = {
   siteSettingsInput: DraftSaveSettingsInput;
   styles: BuilderStyleSettings;
   templateSolidary: string;
+  templateSolidaryLinks: string;
   defaultHomeContent: string;
   setProvisionStep: (step: string) => void;
 };
@@ -46,10 +47,11 @@ export type PublishOwnerDraftParams = CommonPublishParams & {
   saveDraftState: (
     repoInfo: DraftState,
     solidaryFile: string,
+    solidaryLinksFile: string,
     imageUrl: string,
     pagesSnapshot?: BuilderPage[]
   ) => Promise<void>;
-  updateDraftSolidaryFile: (solidaryFile: string) => void;
+  updateDraftWellKnownFiles: (solidaryFile: string, solidaryLinksFile: string) => void;
   setPages: Dispatch<SetStateAction<BuilderPage[]>>;
   setDraftImages: Dispatch<SetStateAction<DraftImageAsset[]>>;
   setLastSavedDraftSignature: Dispatch<SetStateAction<string>>;

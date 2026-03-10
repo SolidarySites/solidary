@@ -19,7 +19,8 @@ import { useDraftSectionLocks } from "./useDraftSectionLocks";
 import { usePublishStatusTracking } from "./usePublishStatusTracking";
 import { stripFrontmatter } from "../services/utils";
 import type { NoticeKind } from "../../../../../types/notice";
-import templateSolidary from "../../../../../../templates/astro/solidary-links.json?raw";
+import templateSolidary from "../../../../../../templates/astro/solidary.json?raw";
+import templateSolidaryLinks from "../../../../../../templates/astro/solidary-links.json?raw";
 import homeTemplate from "../../../../../../../../../templates/astro-baseline/src/content/pages/home.md?raw";
 import tokensTemplate from "../../../../../../templates/astro/tokens.css?raw";
 import structureTemplate from "../../../../../../../../../templates/astro-baseline/src/styles/partials/structure.css?raw";
@@ -390,6 +391,7 @@ export const useSiteBuilderRouteController = ({
     siteSettingsInput,
     styles: styleSettings,
     templateSolidary,
+    templateSolidaryLinks,
     defaultHomeContent,
     hasUnsavedChanges,
     currentDraftSignature,
@@ -507,6 +509,7 @@ export const useSiteBuilderRouteController = ({
     draftSaveImageUrl,
     computedSlug,
     templateSolidary,
+    templateSolidaryLinks,
     siteSettingsInput,
     currentDraftSignature,
     saveSectionByKey,

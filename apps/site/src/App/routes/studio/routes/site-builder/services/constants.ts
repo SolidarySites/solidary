@@ -7,7 +7,8 @@ export const FILE_KEYS = {
   tokens: "src/styles/partials/tokens.css",
   globalStyles: "src/styles/global.css",
   structureStyles: "src/styles/partials/structure.css",
-  solidary: "public/.well-known/solidary-links.json"
+  solidary: "public/.well-known/solidary.json",
+  solidaryLinks: "public/.well-known/solidary-links.json"
 } as const;
 
 export const TEMPLATE_RUNTIME_FILE_PATHS = [

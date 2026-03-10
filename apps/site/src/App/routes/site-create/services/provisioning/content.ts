@@ -1,8 +1,11 @@
 import type { AstroSettings } from "../../../../features/site-draft/types";
+import { buildSolidaryLinksFile } from "../../../../features/site-draft/services/solidary-links";
+import { buildSolidaryMetadataFile } from "../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS } from "../../../../features/site-draft/seo";
 
 export const FILE_KEYS = {
-  solidary: "public/.well-known/solidary-links.json"
+  solidary: "public/.well-known/solidary.json",
+  solidaryLinks: "public/.well-known/solidary-links.json"
 } as const;
 
 export const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images";
@@ -90,8 +93,9 @@ export const buildSettingsPayload = ({
   }
 });
 
-export const buildSolidaryFile = ({
+export const buildWellKnownFiles = ({
   templateSolidary,
+  templateSolidaryLinks,
   siteId,
   siteTitle,
   siteDescription,
@@ -100,6 +104,7 @@ export const buildSolidaryFile = ({
   urlOverride
 }: {
   templateSolidary: string;
+  templateSolidaryLinks: string;
   siteId: string;
   siteTitle: string;
   siteDescription: string;
@@ -114,10 +119,19 @@ export const buildSolidaryFile = ({
     imageUrl,
     urlOverride
   });
-  return templateSolidary
-    .replaceAll("{{SITE_ID}}", siteId)
-    .replaceAll("{{TITLE}}", settings.title)
-    .replaceAll("{{DESCRIPTION}}", settings.description)
-    .replaceAll("{{SITE_URL}}", settings.siteUrl)
-    .replaceAll("{{IMAGE_URL}}", imageUrl);
+  return {
+    solidaryFile: buildSolidaryMetadataFile({
+      templateSolidary,
+      siteId,
+      siteUrl: settings.siteUrl,
+      title: settings.title,
+      imageUrl,
+      description: settings.description
+    }),
+    solidaryLinksFile: buildSolidaryLinksFile({
+      templateSolidaryLinks,
+      siteId,
+      siteUrl: settings.siteUrl
+    })
+  };
 };

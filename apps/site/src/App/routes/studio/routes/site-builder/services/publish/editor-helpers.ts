@@ -40,8 +40,10 @@ export const buildEditorFileChanges = ({
 
   if (touchedSections.has("metadata")) {
     const solidaryFile = files[FILE_KEYS.solidary];
+    const solidaryLinksFile = files[FILE_KEYS.solidaryLinks];
     const solidaryContentFile = files[FILE_KEYS.solidaryContent];
     if (solidaryFile) upsertsByPath.set(FILE_KEYS.solidary, solidaryFile);
+    if (solidaryLinksFile) upsertsByPath.set(FILE_KEYS.solidaryLinks, solidaryLinksFile);
     if (solidaryContentFile) upsertsByPath.set(FILE_KEYS.solidaryContent, solidaryContentFile);
     upsertSeoContent();
     upsertRuntimeTemplates();

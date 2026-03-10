@@ -29,6 +29,7 @@ export const publishEditorDraft = async ({
   siteSettingsInput,
   styles,
   templateSolidary,
+  templateSolidaryLinks,
   defaultHomeContent,
   setProvisionStep,
   sessionAccessToken,
@@ -104,10 +105,12 @@ export const publishEditorDraft = async ({
     settingsInput: siteSettingsInput,
     styles,
     templateSolidary,
+    templateSolidaryLinks,
     pages: normalizedPages,
     defaultHomeContent,
     urlOverride: siteUrl,
-    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? ""
+    previousSolidaryRaw: draftState.files[FILE_KEYS.solidary] ?? "",
+    previousSolidaryLinksRaw: draftState.files[FILE_KEYS.solidaryLinks] ?? ""
   });
 
   const { upsertsByPath, deletePaths } = buildEditorFileChanges({

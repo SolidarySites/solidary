@@ -4,8 +4,8 @@ import { resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
 import type { DraftItem, StudioAccessRole, StudioSiteListItem } from "./studio-types";
 
 export const findSolidaryFile = (files: RepoFileSet) =>
-  files["public/.well-known/solidary-links.json"] ??
-  files[".well-known/solidary-links.json"] ??
+  files["public/.well-known/solidary.json"] ??
+  files[".well-known/solidary.json"] ??
   files.solidary ??
   "";
 
