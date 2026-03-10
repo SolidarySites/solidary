@@ -22,6 +22,26 @@ export default function ProfileRoute() {
             <h2>Profile settings</h2>
           </div>
 
+            <ProfileSettingsFormSection
+            displayName={controller.displayName}
+            displayNameTooLong={controller.displayNameTooLong}
+            solidaryAvatarUrl={controller.solidaryAvatarUrl}
+            solidaryAvatarFallback={solidaryAvatarFallback}
+            avatarPills={controller.avatarPills}
+            canAddAvatar={controller.canAddAvatar}
+            canRemoveAvatar={controller.canRemoveAvatar}
+            hasChanges={controller.hasChanges}
+            saveBusy={controller.saveBusy}
+            avatarAddBusy={controller.avatarAddBusy}
+            avatarRemoveBusy={controller.avatarRemoveBusy}
+            onSubmit={controller.onSubmit}
+            onReset={controller.onReset}
+            onDisplayNameChange={controller.onDisplayNameChange}
+            onAvatarFileChange={controller.onAvatarFileChange}
+            onSelectAvatar={controller.onSelectAvatar}
+            onRemoveAvatar={controller.onRemoveAvatar}
+          />
+
           <ProfileConnectedGithubCard
             githubAvatarUrl={controller.githubAvatarUrl}
             githubUsername={githubUsername}
@@ -60,26 +80,6 @@ export default function ProfileRoute() {
             disconnectBusy={controller.supabaseManagementDisconnectBusy}
             onConnect={controller.onConnectSupabaseManagement}
             onDisconnect={controller.onDisconnectSupabaseManagement}
-          />
-
-          <ProfileSettingsFormSection
-            displayName={controller.displayName}
-            displayNameTooLong={controller.displayNameTooLong}
-            solidaryAvatarUrl={controller.solidaryAvatarUrl}
-            solidaryAvatarFallback={solidaryAvatarFallback}
-            avatarPills={controller.avatarPills}
-            canAddAvatar={controller.canAddAvatar}
-            canRemoveAvatar={controller.canRemoveAvatar}
-            hasChanges={controller.hasChanges}
-            saveBusy={controller.saveBusy}
-            avatarAddBusy={controller.avatarAddBusy}
-            avatarRemoveBusy={controller.avatarRemoveBusy}
-            onSubmit={controller.onSubmit}
-            onReset={controller.onReset}
-            onDisplayNameChange={controller.onDisplayNameChange}
-            onAvatarFileChange={controller.onAvatarFileChange}
-            onSelectAvatar={controller.onSelectAvatar}
-            onRemoveAvatar={controller.onRemoveAvatar}
           />
         </section>
       </main>
