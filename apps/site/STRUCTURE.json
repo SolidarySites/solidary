@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-10T18:13:28.110Z",
-  "latest_commit_sha": "73f7edf3664fe74b7ba53f9135118882c409d960",
+  "generated_at": "2026-03-10T20:24:24.094Z",
+  "latest_commit_sha": "3d48c0188eb517fd1f5961bbe9271dc41d86c55b",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -174,7 +174,7 @@
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.ts",
                             "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-                            "LOC": 62
+                            "LOC": 59
                           },
                           {
                             "path": "src/App/features/site-draft/services/frontmatter.ts",
@@ -765,7 +765,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderDocumentState.ts",
                                         "description": "?",
-                                        "LOC": 146
+                                        "LOC": 149
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderRouteEffects.ts",
@@ -1071,7 +1071,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
                                         "description": "Shared publish utilities used by both owner and editor publish pipelines.",
-                                        "LOC": 206
+                                        "LOC": 194
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/types.ts",
@@ -1085,12 +1085,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 128
+                                    "LOC": 130
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 260
+                                    "LOC": 273
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -1105,7 +1105,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
                                     "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
-                                    "LOC": 28
+                                    "LOC": 33
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
@@ -1165,7 +1165,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
                                     "description": "Service that saves metadata + page content updates as a coordinated draft persistence step.",
-                                    "LOC": 198
+                                    "LOC": 194
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-section-signature.ts",
@@ -1181,6 +1181,16 @@
                                     "path": "src/App/routes/studio/routes/site-builder/services/seo-locales.ts",
                                     "description": "SEO locale option catalog that canonicalizes locale codes and derives human-readable labels for the builder dropdown.",
                                     "LOC": 103
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/site-settings-images.test.ts",
+                                    "description": "?",
+                                    "LOC": 38
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/site-settings-images.ts",
+                                    "description": "?",
+                                    "LOC": 40
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/style-editor.test.ts",
@@ -1450,193 +1460,312 @@
             "description": "Raw template assets imported and written into newly provisioned Astro repositories.",
             "directories": [
               {
-                "path": "src/templates/astro",
-                "description": "Astro scaffold templates with markdown frontmatter content files, protocol metadata template, design tokens, and runtime template snapshots.",
-                "directories": [
-                  {
-                    "path": "src/templates/astro/runtime",
-                    "description": "Raw copies of Astro runtime files that are upserted during builder publish to migrate repos to the latest template layout/config architecture.",
-                    "directories": [],
-                    "files": [
-                      {
-                        "path": "src/templates/astro/runtime/content-config.ts.txt",
-                        "description": "Raw snapshot of template `src/content.config.ts` collection config entrypoint used by publish runtime upserts.",
-                        "LOC": 9
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/solidary-config-site.ts.txt",
-                        "description": "Raw snapshot of template `solidary-config/site.ts` parser/schema contract file, upserted during publish.",
-                        "LOC": 143
-                      },
-                      {
-                        "path": "src/templates/astro/runtime/solidary-config-solidary.ts.txt",
-                        "description": "Raw snapshot of template `solidary-config/solidary.ts` protocol mapping contract file, upserted during publish.",
-                        "LOC": 25
-                      }
-                    ]
-                  }
-                ],
-                "files": [
-                  {
-                    "path": "src/templates/astro/runtime-files.ts",
-                    "description": "Runtime template map that imports raw snapshot files and exposes publish-time upsert content for layout/components/config migration.",
-                    "LOC": 23
-                  },
-                  {
-                    "path": "src/templates/astro/scaffold.ts",
-                    "description": "?",
-                    "LOC": 23
-                  },
-                  {
-                    "path": "src/templates/astro/source-of-truth.test.ts",
-                    "description": "?",
-                    "LOC": 57
-                  }
-                ]
-              },
-              {
-                "path": "src/templates/astro-baseline",
+                "path": "src/templates/site",
                 "description": "?",
                 "directories": [
                   {
-                    "path": "src/templates/astro-baseline/.github",
+                    "path": "src/templates/site/default_template",
                     "description": "?",
                     "directories": [
                       {
-                        "path": "src/templates/astro-baseline/.github/workflows",
+                        "path": "src/templates/site/default_template/runtime",
                         "description": "?",
                         "directories": [],
                         "files": [
                           {
-                            "path": "src/templates/astro-baseline/.github/workflows/deploy.yml",
-                            "description": "?",
-                            "LOC": 82
-                          }
-                        ]
-                      }
-                    ],
-                    "files": []
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/public",
-                    "description": "?",
-                    "directories": [
-                      {
-                        "path": "src/templates/astro-baseline/public/.well-known",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/public/.well-known/solidary-links.json",
-                            "description": "?",
-                            "LOC": 16
-                          },
-                          {
-                            "path": "src/templates/astro-baseline/public/.well-known/solidary.json",
+                            "path": "src/templates/site/default_template/runtime/content-config.ts.txt",
                             "description": "?",
                             "LOC": 9
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/public/fonts",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/public/fonts/InterVariable-Italic.woff2",
-                            "description": "?",
-                            "LOC": 1455
                           },
                           {
-                            "path": "src/templates/astro-baseline/public/fonts/InterVariable.woff2",
+                            "path": "src/templates/site/default_template/runtime/solidary-config-site.ts.txt",
                             "description": "?",
-                            "LOC": 1388
+                            "LOC": 143
+                          },
+                          {
+                            "path": "src/templates/site/default_template/runtime/solidary-config-solidary.ts.txt",
+                            "description": "?",
+                            "LOC": 25
                           }
                         ]
                       },
                       {
-                        "path": "src/templates/astro-baseline/public/solidary-media",
+                        "path": "src/templates/site/default_template/scaffold",
                         "description": "?",
                         "directories": [
                           {
-                            "path": "src/templates/astro-baseline/public/solidary-media/images",
+                            "path": "src/templates/site/default_template/scaffold/.github",
                             "description": "?",
                             "directories": [
                               {
-                                "path": "src/templates/astro-baseline/public/solidary-media/images/og",
+                                "path": "src/templates/site/default_template/scaffold/.github/workflows",
                                 "description": "?",
                                 "directories": [],
                                 "files": [
                                   {
-                                    "path": "src/templates/astro-baseline/public/solidary-media/images/og/og-home.jpg",
+                                    "path": "src/templates/site/default_template/scaffold/.github/workflows/deploy.yml",
                                     "description": "?",
-                                    "LOC": 4
+                                    "LOC": 82
                                   }
                                 ]
                               }
                             ],
                             "files": []
-                          }
-                        ],
-                        "files": []
-                      }
-                    ],
-                    "files": [
-                      {
-                        "path": "src/templates/astro-baseline/public/favicon.ico",
-                        "description": "?",
-                        "LOC": 0
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/public/favicon.svg",
-                        "description": "?",
-                        "LOC": 0
-                      }
-                    ]
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/src",
-                    "description": "?",
-                    "directories": [
-                      {
-                        "path": "src/templates/astro-baseline/src/components",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/src/components/Footer.astro",
-                            "description": "?",
-                            "LOC": 165
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/components/Header.astro",
+                            "path": "src/templates/site/default_template/scaffold/public",
                             "description": "?",
-                            "LOC": 107
-                          },
-                          {
-                            "path": "src/templates/astro-baseline/src/components/SEO.astro",
-                            "description": "?",
-                            "LOC": 87
-                          },
-                          {
-                            "path": "src/templates/astro-baseline/src/components/SkipLink.astro",
-                            "description": "?",
-                            "LOC": 1
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/src/content",
-                        "description": "?",
-                        "directories": [
-                          {
-                            "path": "src/templates/astro-baseline/src/content/pages",
-                            "description": "?",
-                            "directories": [],
+                            "directories": [
+                              {
+                                "path": "src/templates/site/default_template/scaffold/public/.well-known",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/public/.well-known/solidary-links.json",
+                                    "description": "?",
+                                    "LOC": 16
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/public/.well-known/solidary.json",
+                                    "description": "?",
+                                    "LOC": 9
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/public/fonts",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/public/fonts/InterVariable-Italic.woff2",
+                                    "description": "?",
+                                    "LOC": 1455
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/public/fonts/InterVariable.woff2",
+                                    "description": "?",
+                                    "LOC": 1388
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/public/solidary-media",
+                                "description": "?",
+                                "directories": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/public/solidary-media/images",
+                                    "description": "?",
+                                    "directories": [
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/public/solidary-media/images/og",
+                                        "description": "?",
+                                        "directories": [],
+                                        "files": [
+                                          {
+                                            "path": "src/templates/site/default_template/scaffold/public/solidary-media/images/og/og-home.jpg",
+                                            "description": "?",
+                                            "LOC": 4
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "files": []
+                                  }
+                                ],
+                                "files": []
+                              }
+                            ],
                             "files": [
                               {
-                                "path": "src/templates/astro-baseline/src/content/pages/home.md",
+                                "path": "src/templates/site/default_template/scaffold/public/favicon.ico",
+                                "description": "?",
+                                "LOC": 0
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/public/favicon.svg",
+                                "description": "?",
+                                "LOC": 0
+                              }
+                            ]
+                          },
+                          {
+                            "path": "src/templates/site/default_template/scaffold/src",
+                            "description": "?",
+                            "directories": [
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/components",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/components/Footer.astro",
+                                    "description": "?",
+                                    "LOC": 165
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/components/Header.astro",
+                                    "description": "?",
+                                    "LOC": 107
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/components/SEO.astro",
+                                    "description": "?",
+                                    "LOC": 87
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/components/SkipLink.astro",
+                                    "description": "?",
+                                    "LOC": 1
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/content",
+                                "description": "?",
+                                "directories": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/content/pages",
+                                    "description": "?",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/content/pages/home.md",
+                                        "description": "?",
+                                        "LOC": 9
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/content/footer.md",
+                                    "description": "?",
+                                    "LOC": 11
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/content/header.md",
+                                    "description": "?",
+                                    "LOC": 6
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/content/seo.md",
+                                    "description": "?",
+                                    "LOC": 8
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/content/solidary.md",
+                                    "description": "?",
+                                    "LOC": 7
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/layouts",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/layouts/Base.astro",
+                                    "description": "?",
+                                    "LOC": 76
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/pages",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/pages/[slug].astro",
+                                    "description": "?",
+                                    "LOC": 32
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/pages/404.astro",
+                                    "description": "?",
+                                    "LOC": 24
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/pages/index.astro",
+                                    "description": "?",
+                                    "LOC": 33
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/pages/robots.txt.ts",
+                                    "description": "?",
+                                    "LOC": 13
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/solidary-config",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/solidary-config/site.ts",
+                                    "description": "?",
+                                    "LOC": 143
+                                  },
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/solidary-config/solidary.ts",
+                                    "description": "?",
+                                    "LOC": 25
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/styles",
+                                "description": "?",
+                                "directories": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/styles/partials",
+                                    "description": "?",
+                                    "directories": [],
+                                    "files": [
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/styles/partials/behaviors.css",
+                                        "description": "?",
+                                        "LOC": 14
+                                      },
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/styles/partials/fonts.css",
+                                        "description": "?",
+                                        "LOC": 15
+                                      },
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/styles/partials/reset.css",
+                                        "description": "?",
+                                        "LOC": 5
+                                      },
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/styles/partials/structure.css",
+                                        "description": "?",
+                                        "LOC": 288
+                                      },
+                                      {
+                                        "path": "src/templates/site/default_template/scaffold/src/styles/partials/tokens.css",
+                                        "description": "?",
+                                        "LOC": 29
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "files": [
+                                  {
+                                    "path": "src/templates/site/default_template/scaffold/src/styles/global.css",
+                                    "description": "?",
+                                    "LOC": 5
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": [
+                              {
+                                "path": "src/templates/site/default_template/scaffold/src/content.config.ts",
                                 "description": "?",
                                 "LOC": 9
                               }
@@ -1645,173 +1774,67 @@
                         ],
                         "files": [
                           {
-                            "path": "src/templates/astro-baseline/src/content/footer.md",
+                            "path": "src/templates/site/default_template/scaffold/.gitignore",
                             "description": "?",
-                            "LOC": 11
+                            "LOC": 31
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/content/header.md",
+                            "path": "src/templates/site/default_template/scaffold/astro.config.mjs",
                             "description": "?",
-                            "LOC": 6
+                            "LOC": 22
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/content/seo.md",
+                            "path": "src/templates/site/default_template/scaffold/LICENSE",
                             "description": "?",
-                            "LOC": 8
+                            "LOC": 21
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/content/solidary.md",
+                            "path": "src/templates/site/default_template/scaffold/package.json",
                             "description": "?",
-                            "LOC": 7
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/src/layouts",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/src/layouts/Base.astro",
-                            "description": "?",
-                            "LOC": 76
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/src/pages",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/src/pages/[slug].astro",
-                            "description": "?",
-                            "LOC": 32
+                            "LOC": 19
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/pages/404.astro",
+                            "path": "src/templates/site/default_template/scaffold/pnpm-lock.yaml",
                             "description": "?",
-                            "LOC": 24
+                            "LOC": 3192
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/pages/index.astro",
+                            "path": "src/templates/site/default_template/scaffold/README.md",
                             "description": "?",
-                            "LOC": 33
+                            "LOC": 2
                           },
                           {
-                            "path": "src/templates/astro-baseline/src/pages/robots.txt.ts",
+                            "path": "src/templates/site/default_template/scaffold/tsconfig.json",
                             "description": "?",
-                            "LOC": 13
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/src/solidary-config",
-                        "description": "?",
-                        "directories": [],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/src/solidary-config/site.ts",
-                            "description": "?",
-                            "LOC": 143
-                          },
-                          {
-                            "path": "src/templates/astro-baseline/src/solidary-config/solidary.ts",
-                            "description": "?",
-                            "LOC": 25
-                          }
-                        ]
-                      },
-                      {
-                        "path": "src/templates/astro-baseline/src/styles",
-                        "description": "?",
-                        "directories": [
-                          {
-                            "path": "src/templates/astro-baseline/src/styles/partials",
-                            "description": "?",
-                            "directories": [],
-                            "files": [
-                              {
-                                "path": "src/templates/astro-baseline/src/styles/partials/behaviors.css",
-                                "description": "?",
-                                "LOC": 14
-                              },
-                              {
-                                "path": "src/templates/astro-baseline/src/styles/partials/fonts.css",
-                                "description": "?",
-                                "LOC": 15
-                              },
-                              {
-                                "path": "src/templates/astro-baseline/src/styles/partials/reset.css",
-                                "description": "?",
-                                "LOC": 5
-                              },
-                              {
-                                "path": "src/templates/astro-baseline/src/styles/partials/structure.css",
-                                "description": "?",
-                                "LOC": 288
-                              },
-                              {
-                                "path": "src/templates/astro-baseline/src/styles/partials/tokens.css",
-                                "description": "?",
-                                "LOC": 29
-                              }
-                            ]
-                          }
-                        ],
-                        "files": [
-                          {
-                            "path": "src/templates/astro-baseline/src/styles/global.css",
-                            "description": "?",
-                            "LOC": 5
+                            "LOC": 10
                           }
                         ]
                       }
                     ],
                     "files": [
                       {
-                        "path": "src/templates/astro-baseline/src/content.config.ts",
+                        "path": "src/templates/site/default_template/runtime-files.ts",
                         "description": "?",
-                        "LOC": 9
+                        "LOC": 23
+                      },
+                      {
+                        "path": "src/templates/site/default_template/scaffold.ts",
+                        "description": "?",
+                        "LOC": 23
+                      },
+                      {
+                        "path": "src/templates/site/default_template/template-integrity.test.ts",
+                        "description": "?",
+                        "LOC": 51
                       }
                     ]
                   }
                 ],
                 "files": [
                   {
-                    "path": "src/templates/astro-baseline/.gitignore",
+                    "path": "src/templates/site/index.ts",
                     "description": "?",
-                    "LOC": 31
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/astro.config.mjs",
-                    "description": "?",
-                    "LOC": 22
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/LICENSE",
-                    "description": "?",
-                    "LOC": 21
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/package.json",
-                    "description": "?",
-                    "LOC": 19
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/pnpm-lock.yaml",
-                    "description": "?",
-                    "LOC": 3192
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/README.md",
-                    "description": "?",
-                    "LOC": 2
-                  },
-                  {
-                    "path": "src/templates/astro-baseline/tsconfig.json",
-                    "description": "?",
-                    "LOC": 10
+                    "LOC": 16
                   }
                 ]
               }
@@ -1879,7 +1902,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1906
+        "LOC": 1929
       },
       {
         "path": "tsconfig.app.json",

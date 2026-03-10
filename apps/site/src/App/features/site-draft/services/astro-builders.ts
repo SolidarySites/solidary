@@ -3,11 +3,8 @@ import {
   HEADER_CONTENT_TEMPLATE,
   SEO_CONTENT_TEMPLATE,
   SOLIDARY_CONTENT_TEMPLATE
-} from "../../../../templates/astro/scaffold";
-import {
-  renderMarkdownWithFrontmatter,
-  replaceFrontmatterFields
-} from "./frontmatter";
+} from "../../../../templates/site";
+import { renderMarkdownWithFrontmatter, replaceFrontmatterFields } from "./frontmatter";
 import type { AstroPageDraft, AstroSettings } from "../types";
 
 export const buildSolidaryMarkdown = (settings: AstroSettings) =>

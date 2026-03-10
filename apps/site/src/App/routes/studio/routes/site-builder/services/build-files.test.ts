@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TEMPLATE_SOLIDARY,
   TEMPLATE_SOLIDARY_LINKS
-} from "../../../../../../templates/astro/scaffold";
+} from "../../../../../../templates/site";
 import { buildFiles } from "./build-files";
 import { DEFAULT_OG_IMAGE_URL } from "./constants";
 import { FILE_KEYS } from "./constants";

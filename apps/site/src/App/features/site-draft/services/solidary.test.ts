@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEMPLATE_SOLIDARY } from "../../../../templates/astro/scaffold";
+import { TEMPLATE_SOLIDARY } from "../../../../templates/site";
 import { buildSolidaryMetadataFile, parseSolidaryJson } from "./solidary";
 
 describe("parseSolidaryJson", () => {

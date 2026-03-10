@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEMPLATE_SOLIDARY_LINKS } from "../../../../templates/astro/scaffold";
+import { TEMPLATE_SOLIDARY_LINKS } from "../../../../templates/site";
 import {
   buildSolidaryLinksFile,
   parseSolidaryLinksJson,

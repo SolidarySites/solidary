@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   TEMPLATE_SOLIDARY,
   TEMPLATE_SOLIDARY_LINKS
-} from "../../../../../templates/astro/scaffold";
+} from "../../../../../templates/site";
 import { buildWellKnownFiles as buildCreateWellKnownFiles } from "./content";
 import { buildWellKnownFiles as buildPublishWellKnownFiles } from "../../../studio/routes/site-builder/services/build-files";
 

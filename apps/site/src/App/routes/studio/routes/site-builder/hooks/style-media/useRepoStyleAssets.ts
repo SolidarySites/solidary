@@ -18,7 +18,7 @@ import {
   FONTS_TEMPLATE as fallbackFontsTemplate,
   GLOBAL_STYLES_TEMPLATE as globalStylesTemplate,
   STRUCTURE_TEMPLATE as structureTemplate
-} from "../../../../../../../templates/astro/scaffold";
+} from "../../../../../../../templates/site";
 
 export type RepoFontsCssUpdate = {
   repoFullName: string;

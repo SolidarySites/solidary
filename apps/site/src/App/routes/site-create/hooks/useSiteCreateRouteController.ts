@@ -4,7 +4,7 @@ import {
   TEMPLATE_SOLIDARY as templateSolidary,
   TEMPLATE_SOLIDARY_LINKS as templateSolidaryLinks,
   TOKENS_TEMPLATE as tokensTemplate
-} from "../../../../templates/astro/scaffold";
+} from "../../../../templates/site";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
 import { requireFreshSupabaseAuth } from "../../../features/auth/services/github-auth";
 import type { AstroPageDraft } from "../../../features/site-draft/types";

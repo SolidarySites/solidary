@@ -14,7 +14,9 @@ const templateRoot = path.join(
   "site",
   "src",
   "templates",
-  "astro-baseline"
+  "site",
+  "default_template",
+  "scaffold"
 );
 
 const outputPath = path.join(

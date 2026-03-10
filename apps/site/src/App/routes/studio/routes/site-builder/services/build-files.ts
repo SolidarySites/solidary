@@ -13,7 +13,7 @@ import {
 } from "../../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
-import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/astro/runtime-files";
+import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/site";
 import {
   DEFAULT_OG_IMAGE_URL,
   FILE_KEYS,

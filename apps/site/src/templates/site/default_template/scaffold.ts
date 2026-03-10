@@ -1,0 +1,23 @@
+import footerContentTemplate from "./scaffold/src/content/footer.md?raw";
+import headerContentTemplate from "./scaffold/src/content/header.md?raw";
+import homePageTemplate from "./scaffold/src/content/pages/home.md?raw";
+import seoContentTemplate from "./scaffold/src/content/seo.md?raw";
+import solidaryContentTemplate from "./scaffold/src/content/solidary.md?raw";
+import solidaryLinksTemplate from "./scaffold/public/.well-known/solidary-links.json?raw";
+import solidaryTemplate from "./scaffold/public/.well-known/solidary.json?raw";
+import fontsTemplate from "./scaffold/src/styles/partials/fonts.css?raw";
+import structureTemplate from "./scaffold/src/styles/partials/structure.css?raw";
+import tokensTemplate from "./scaffold/src/styles/partials/tokens.css?raw";
+import globalStylesTemplate from "./scaffold/src/styles/global.css?raw";
+
+export const SOLIDARY_CONTENT_TEMPLATE = solidaryContentTemplate;
+export const HEADER_CONTENT_TEMPLATE = headerContentTemplate;
+export const FOOTER_CONTENT_TEMPLATE = footerContentTemplate;
+export const SEO_CONTENT_TEMPLATE = seoContentTemplate;
+export const HOME_PAGE_TEMPLATE = homePageTemplate;
+export const TEMPLATE_SOLIDARY = solidaryTemplate;
+export const TEMPLATE_SOLIDARY_LINKS = solidaryLinksTemplate;
+export const TOKENS_TEMPLATE = tokensTemplate;
+export const STRUCTURE_TEMPLATE = structureTemplate;
+export const GLOBAL_STYLES_TEMPLATE = globalStylesTemplate;
+export const FONTS_TEMPLATE = fontsTemplate;

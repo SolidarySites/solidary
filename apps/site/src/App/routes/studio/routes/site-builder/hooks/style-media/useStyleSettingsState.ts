@@ -3,7 +3,7 @@ import {
   GLOBAL_STYLES_TEMPLATE as globalStylesTemplate,
   STRUCTURE_TEMPLATE as structureTemplate,
   TOKENS_TEMPLATE as tokensTemplate
-} from "../../../../../../../templates/astro/scaffold";
+} from "../../../../../../../templates/site";
 import {
   combineTokensAndStructureCss
 } from "../../services/style-editor";

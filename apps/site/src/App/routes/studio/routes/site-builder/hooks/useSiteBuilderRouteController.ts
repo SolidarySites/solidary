@@ -26,7 +26,7 @@ import {
   TEMPLATE_SOLIDARY as templateSolidary,
   TEMPLATE_SOLIDARY_LINKS as templateSolidaryLinks,
   TOKENS_TEMPLATE as tokensTemplate
-} from "../../../../../../templates/astro/scaffold";
+} from "../../../../../../templates/site";
 import { slugify } from "../../../../../lib/slugify";
 import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";

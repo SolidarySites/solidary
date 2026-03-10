@@ -25,5 +25,5 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "exclude": ["src/templates/astro-baseline"]
+  "exclude": ["src/templates/site/default_template/scaffold"]
 }
