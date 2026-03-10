@@ -5,48 +5,39 @@ export type SolidaryLinksConnectedSite = {
   "@id": string;
   "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
   site_id: string;
-  site_url: string;
 };
 
 export type SolidaryLinksConnection = {
   "@id": string;
   "@type": typeof SOLIDARY_LINKS_CONNECTION_TYPE;
-  connection_uuid: string;
   connected_site: SolidaryLinksConnectedSite;
 };
 
 export type SolidaryLinksDocument = {
   "@context": {
+    site: string;
+    connection: string;
     site_id: string;
-    site_url: {
-      "@id": string;
-      "@type": "@id";
-    };
     connections: {
       "@id": string;
       "@container": "@set";
     };
-    connection_uuid: string;
     connected_site: string;
   };
   "@id": string;
   "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
   site_id: string;
-  site_url: string;
   connections: SolidaryLinksConnection[];
 };
 
 const DEFAULT_CONTEXT: SolidaryLinksDocument["@context"] = {
+  site: "urn:solidary:type:site",
+  connection: "urn:solidary:type:connection",
   site_id: "urn:solidary:term:site_id",
-  site_url: {
-    "@id": "urn:solidary:term:site_url",
-    "@type": "@id"
-  },
   connections: {
     "@id": "urn:solidary:term:connections",
     "@container": "@set"
   },
-  connection_uuid: "urn:solidary:term:connection_uuid",
   connected_site: "urn:solidary:term:connected_site"
 };
 
@@ -71,23 +62,21 @@ const parseJsonObject = (raw: string): Record<string, unknown> | null => {
 
 const normalizeConnection = (value: unknown): SolidaryLinksConnection | null => {
   const record = asRecord(value);
-  const connection_uuid = readString(record.connection_uuid);
+  const connectionId = readString(record["@id"]);
   const connectedSiteRecord = asRecord(record.connected_site);
   const site_id = readString(connectedSiteRecord.site_id);
-  const site_url = readString(connectedSiteRecord.site_url);
-  if (!connection_uuid || !site_id || !site_url) {
+  const connectedSiteId = readString(connectedSiteRecord["@id"]);
+  if (!connectionId || !site_id || !connectedSiteId) {
     return null;
   }
 
   return {
-    "@id": `urn:uuid:${connection_uuid}`,
+    "@id": connectionId,
     "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
-    connection_uuid,
     connected_site: {
-      "@id": site_url,
+      "@id": connectedSiteId,
       "@type": SOLIDARY_LINKS_SITE_TYPE,
-      site_id,
-      site_url
+      site_id
     }
   };
 };
@@ -104,7 +93,6 @@ const buildDefaultDocument = (): SolidaryLinksDocument => ({
   "@id": "",
   "@type": SOLIDARY_LINKS_SITE_TYPE,
   site_id: "",
-  site_url: "",
   connections: []
 });
 
@@ -117,7 +105,6 @@ export const parseSolidaryLinksJson = (raw: string): SolidaryLinksDocument | nul
     "@id": readString(record["@id"]),
     "@type": SOLIDARY_LINKS_SITE_TYPE,
     site_id: readString(record.site_id),
-    site_url: readString(record.site_url),
     connections: normalizeConnections(record.connections)
   };
 };
@@ -143,7 +130,6 @@ export const buildSolidaryLinksFile = ({
     "@id": siteUrl.trim(),
     "@type": SOLIDARY_LINKS_SITE_TYPE,
     site_id: siteId.trim(),
-    site_url: siteUrl.trim(),
     connections: previousDocument?.connections ?? templateDocument.connections
   };
 

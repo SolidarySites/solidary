@@ -64,22 +64,18 @@ const templateSolidary = JSON.stringify(
 const templateSolidaryLinks = JSON.stringify(
   {
     "@context": {
+      site: "urn:solidary:type:site",
+      connection: "urn:solidary:type:connection",
       site_id: "urn:solidary:term:site_id",
-      site_url: {
-        "@id": "urn:solidary:term:site_url",
-        "@type": "@id"
-      },
       connections: {
         "@id": "urn:solidary:term:connections",
         "@container": "@set"
       },
-      connection_uuid: "urn:solidary:term:connection_uuid",
       connected_site: "urn:solidary:term:connected_site"
     },
     "@id": "",
     "@type": "site",
     site_id: "",
-    site_url: "",
     connections: []
   },
   null,

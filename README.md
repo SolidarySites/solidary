@@ -83,9 +83,9 @@ Contains:
 `/.well-known/solidary-links.json`
 
 Contains:
-- the current site's id and canonical URL
-- typed connection entries with `connection_uuid` and nested connected-site identity
-- connected-site URLs a crawler can follow to continue traversal
+- the current site's id and canonical URL as the root `@id`
+- typed connection entries keyed by their own `@id`
+- nested connected-site identity a crawler can follow via `connected_site.@id`
 
 ### 3) Snapshot descriptor (required)
 `/solidary-links/snapshot.json` (or any path referenced by the manifest)
