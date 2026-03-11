@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../features/auth/hooks/useAuth";
+import { getSessionDisplayName } from "../../../features/auth/services/user-profile";
 import type { NoticeKind } from "../../../types/notice";
 import { useStudioDraftData } from "./useStudioDraftData";
 import { mapDraftItemToSiteListItem } from "../services/studio-draft-mappers";
@@ -11,7 +12,7 @@ export const useStudioRouteController = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
 
-  const { session } = useAuth();
+  const { session, sessionResolved, signInWithGitHub } = useAuth();
 
   const { ownedDraftItems, sharedDraftItems, draftsLoading } = useStudioDraftData({
     session,
@@ -19,6 +20,7 @@ export const useStudioRouteController = () => {
     setNoticeKind
   });
 
+  const accountName = useMemo(() => getSessionDisplayName(session), [session]);
   const ownedListItems = useMemo(
     () => ownedDraftItems.map((item) => mapDraftItemToSiteListItem(item, { accessRole: "owner" })),
     [ownedDraftItems]
@@ -40,20 +42,47 @@ export const useStudioRouteController = () => {
 
   return {
     session,
+    sessionResolved,
     notice,
     noticeKind,
     shouldShowSections: Boolean(session),
+    mastheadProps: {
+      sessionResolved,
+      isAuthenticated: Boolean(session),
+      accountName,
+      totalSiteCount: allSiteListItems.length,
+      ownedSiteCount: ownedListItems.length,
+      sharedSiteCount: sharedListItems.length,
+      onSignIn: () => {
+        void signInWithGitHub("/studio").catch((error) => {
+          const message =
+            error instanceof Error && error.message.trim()
+              ? error.message
+              : "Could not sign in with GitHub.";
+          setNotice(message);
+          setNoticeKind("error");
+        });
+      }
+    },
     ownedSitesProps: {
-      title: "Your sites",
+      title: "Sites",
+      description:
+        "Create a new site and edit exiting ones.",
       emptyMessage: "No sites yet. Create one to see it here.",
       items: allSiteListItems,
       loading: draftsLoading,
       showThumbnails: true,
+      actionLabel: "Create new site",
       onEdit: (id: string) => navigate(`/studio/builder?draftId=${id}`),
       onCreate: () => navigate("/site-create"),
       onSettings: (id: string) => navigate(`/studio/settings?draftId=${id}`)
     },
     indexesProps: {
+      title: "Indexes",
+      description:
+        "Reserved for shared index workflows and network-level discovery surfaces.",
+      emptyMessage: "No saved indexes yet. Create one to see it here.",
+      actionLabel: "Create new index",
       onCreate: () => navigate("/site-create")
     }
   };

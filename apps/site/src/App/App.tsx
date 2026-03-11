@@ -115,14 +115,7 @@ export default function App() {
           <Route path="/contact" element={<ContactRoute />} />
           <Route path="/explorer" element={<ExplorerRoute />} />
           <Route path="/search" element={<SearchRoute />} />
-          <Route
-            path="/studio"
-            element={
-              <RequireAuth>
-                <StudioRoute />
-              </RequireAuth>
-            }
-          />
+          <Route path="/studio" element={<StudioRoute />} />
           <Route
             path="/site-create"
             element={
