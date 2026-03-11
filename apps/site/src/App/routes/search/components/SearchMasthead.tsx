@@ -46,8 +46,7 @@ export function SearchMasthead({
 
       <div className="search-masthead-support">
         <p className="search-masthead-support-copy">
-          This route is a read-only search surface for the sites currently published through
-          Solidary. Open any result to visit the site in a new tab.
+          Solidary network
         </p>
         <dl className="search-masthead-stats">
           <div>
