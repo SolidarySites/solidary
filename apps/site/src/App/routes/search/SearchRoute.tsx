@@ -1,36 +1,30 @@
 import SiteFooter from "../../components/SiteFooter";
-import ExplorerSitesList from "../explorer/components/ExplorerSitesList";
 import { useExplorerRouteController } from "../explorer/hooks/useExplorerRouteController";
-import "../explorer/ExplorerRoute.css";
+import { SearchMasthead } from "./components/SearchMasthead";
+import { SearchResultsSection } from "./components/SearchResultsSection";
+import "./SearchRoute.css";
 
 export default function SearchRoute() {
   const controller = useExplorerRouteController();
 
   return (
-    <div className="app-shell">
-      <main className="main-content">
-        {controller.loading && (
-          <section className="explorer-panel">
-            <p>Loading explorer data...</p>
-          </section>
-        )}
-
-        {!controller.loading && controller.error && (
-          <section className="explorer-panel">
-            <p className="explorer-error">{controller.error}</p>
-          </section>
-        )}
-
-        {!controller.loading && !controller.error && (
-          <ExplorerSitesList
-            sites={controller.listSites}
-            connections={controller.connections}
-            totalSiteCount={controller.totalSiteCount}
-            totalConnectionCount={controller.totalConnectionCount}
-            searchQuery={controller.searchQuery}
-            onSearchQueryChange={controller.onSearchQueryChange}
-          />
-        )}
+    <div className="app-shell search-app-shell">
+      <main className="main-content search-main-content">
+        <SearchMasthead
+          totalSiteCount={controller.totalSiteCount}
+          totalConnectionCount={controller.totalConnectionCount}
+          resultCount={controller.listSites.length}
+          searchQuery={controller.searchQuery}
+          onSearchQueryChange={controller.onSearchQueryChange}
+        />
+        <SearchResultsSection
+          sites={controller.listSites}
+          connections={controller.connections}
+          totalConnectionCount={controller.totalConnectionCount}
+          loading={controller.loading}
+          error={controller.error}
+          searchQuery={controller.searchQuery}
+        />
       </main>
       <SiteFooter notice={null} noticeKind={null} />
     </div>

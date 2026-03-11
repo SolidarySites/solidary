@@ -1,0 +1,345 @@
+.search-app-shell {
+  gap: clamp(3.5rem, 6vw, 6rem);
+}
+
+.search-main-content {
+  gap: clamp(3.5rem, 6vw, 6rem);
+}
+
+.search-masthead,
+.search-section-header,
+.search-results-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.search-masthead {
+  align-items: end;
+  row-gap: clamp(2rem, 4vw, 3rem);
+  padding-bottom: clamp(1.75rem, 3vw, 2.5rem);
+  border-bottom: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-masthead-copy {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.search-masthead-title {
+  max-width: 9ch;
+  margin: 0;
+  font-size: clamp(2.75rem, 7vw, 5.35rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.search-masthead-lead {
+  max-width: 34ch;
+  margin: 0;
+  font-size: clamp(1.05rem, 1.8vw, 1.32rem);
+  line-height: 1.6;
+}
+
+.search-query-field {
+  max-width: 36rem;
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-query-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+.search-query-field input {
+  padding: 0.6rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.35);
+  background: transparent;
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
+}
+
+.search-query-field input:focus {
+  outline: none;
+}
+
+.search-query-field input:focus-visible {
+  border-bottom-color: rgba(31, 34, 28, 0.8);
+}
+
+.search-masthead-support {
+  grid-column: 9 / -1;
+  display: grid;
+  gap: 1rem;
+  align-content: end;
+  min-width: 0;
+}
+
+.search-masthead-support-copy {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.search-masthead-stats {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.search-masthead-stats div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-masthead-stats dt,
+.search-masthead-stats dd,
+.search-section-meta,
+.search-site-card-domain,
+.search-site-card-meta {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.search-masthead-stats dt,
+.search-section-meta,
+.search-site-card-domain,
+.search-site-card-meta {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+.search-masthead-stats dd {
+  margin: 0;
+  text-align: right;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: rgba(31, 34, 28, 0.9);
+}
+
+.search-results-section {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.search-section-header {
+  align-items: end;
+}
+
+.search-section-title-block {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.search-section-title-block h2 {
+  max-width: 18ch;
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.search-section-description {
+  max-width: 38ch;
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: rgba(31, 34, 28, 0.78);
+}
+
+.search-section-meta {
+  grid-column: 10 / -1;
+  margin: 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-status-panel {
+  max-width: 34rem;
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-status-panel p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.search-status-panel-error {
+  color: #5d1812;
+}
+
+.search-results-grid {
+  align-items: start;
+  row-gap: 2rem;
+}
+
+.search-site-card {
+  grid-column: span 4;
+  min-width: 0;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.search-site-card-link {
+  display: grid;
+  gap: 0.95rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.search-site-card-link:focus-visible {
+  outline: 2px solid rgba(31, 34, 28, 0.45);
+  outline-offset: 6px;
+}
+
+.search-site-card-link:hover .search-site-card-title,
+.search-site-card-link:focus-visible .search-site-card-title {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.search-site-card-media {
+  position: relative;
+}
+
+.search-site-card-thumbnail,
+.search-site-card-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgba(31, 34, 28, 0.16);
+  background: rgba(31, 34, 28, 0.04);
+}
+
+.search-site-card-thumbnail {
+  display: block;
+  object-fit: cover;
+}
+
+.search-site-card-thumbnail[data-external-image-state="loading"] {
+  opacity: 0;
+}
+
+.search-site-card-media[data-external-image-state="loading"]::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 50%;
+  top: 50%;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 999px;
+  border: 2px solid rgba(31, 34, 28, 0.2);
+  border-top-color: rgba(31, 34, 28, 0.65);
+  animation: search-thumbnail-spinner 1.8s linear infinite;
+  pointer-events: none;
+}
+
+.search-site-card-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.55);
+}
+
+.search-site-card-body {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.search-site-card-heading {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.search-site-card-title {
+  margin: 0;
+  font-size: 1.14rem;
+  line-height: 1.18;
+}
+
+.search-site-card-domain {
+  margin: 0;
+}
+
+.search-site-card-description {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: rgba(31, 34, 28, 0.78);
+}
+
+.search-site-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+}
+
+@keyframes search-thumbnail-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1080px) {
+  .search-masthead-support {
+    grid-column: 10 / -1;
+  }
+
+  .search-section-title-block {
+    grid-column: 1 / span 8;
+  }
+
+  .search-section-meta {
+    grid-column: 9 / -1;
+  }
+
+  .search-site-card {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 760px) {
+  .search-masthead,
+  .search-section-header,
+  .search-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-masthead-copy,
+  .search-masthead-support,
+  .search-section-title-block,
+  .search-section-meta,
+  .search-site-card {
+    grid-column: auto;
+  }
+
+  .search-masthead-title,
+  .search-section-title-block h2,
+  .search-query-field {
+    max-width: none;
+  }
+}
