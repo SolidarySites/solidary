@@ -1,4 +1,4 @@
-import SiteFooter from "../../components/SiteFooter";
+import { useSyncRouteNotice } from "../../features/site-notice/hooks/useSyncRouteNotice";
 import ProfileConnectedGithubCard from "./components/ProfileConnectedGithubCard";
 import ProfileSettingsFormSection from "./components/ProfileSettingsFormSection";
 import ProfileSupabaseConnectionCard from "./components/ProfileSupabaseConnectionCard";
@@ -7,6 +7,10 @@ import "./ProfileRoute.css";
 
 export default function ProfileRoute() {
   const controller = useProfileRouteController();
+  useSyncRouteNotice({
+    notice: controller.notice,
+    noticeKind: controller.noticeKind
+  });
   const githubUsername = controller.connectedGithub.username || "Unknown";
   const solidaryAvatarFallback =
     controller.displayName.slice(0, 1).toUpperCase() ||
@@ -83,8 +87,6 @@ export default function ProfileRoute() {
           />
         </section>
       </main>
-
-      <SiteFooter notice={controller.notice} noticeKind={controller.noticeKind} />
     </div>
   );
 }

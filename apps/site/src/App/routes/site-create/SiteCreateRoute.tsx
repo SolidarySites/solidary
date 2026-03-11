@@ -1,4 +1,4 @@
-import SiteFooter from "../../components/SiteFooter";
+import { useSyncRouteNotice } from "../../features/site-notice/hooks/useSyncRouteNotice";
 import SiteCreateFormSection from "./components/SiteCreateFormSection";
 import SiteCreateProvisioningSection from "./components/SiteCreateProvisioningSection";
 import { useSiteCreateRouteController } from "./hooks/useSiteCreateRouteController";
@@ -6,6 +6,10 @@ import "./SiteCreateRoute.css";
 
 export default function SiteCreateRoute() {
   const controller = useSiteCreateRouteController();
+  useSyncRouteNotice({
+    notice: controller.notice,
+    noticeKind: controller.noticeKind
+  });
 
   return (
     <div className="app-shell">
@@ -28,8 +32,6 @@ export default function SiteCreateRoute() {
           />
         )}
       </main>
-
-      <SiteFooter notice={controller.notice} noticeKind={controller.noticeKind} />
     </div>
   );
 }

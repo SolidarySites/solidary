@@ -1,4 +1,4 @@
-import SiteFooter from "../../../../components/SiteFooter";
+import { useSyncRouteNotice } from "../../../../features/site-notice/hooks/useSyncRouteNotice";
 import BuilderContentSection from "./components/BuilderContentSection";
 import SettingsTopbar from "./components/SettingsTopbar";
 import { useStudioSettingsRouteController } from "./hooks/useStudioSettingsRouteController";
@@ -6,6 +6,10 @@ import "./StudioSettingsRoute.css";
 
 export default function StudioSettingsRoute() {
   const controller = useStudioSettingsRouteController();
+  useSyncRouteNotice({
+    notice: controller.notice,
+    noticeKind: controller.noticeKind
+  });
 
   return (
     <div className="app-shell builder-shell studio-settings-route">
@@ -27,8 +31,6 @@ export default function StudioSettingsRoute() {
           )}
         </section>
       </div>
-
-      <SiteFooter notice={controller.notice} noticeKind={controller.noticeKind} />
     </div>
   );
 }

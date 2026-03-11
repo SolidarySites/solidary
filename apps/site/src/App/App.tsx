@@ -16,6 +16,7 @@ import ProfileRoute from "./routes/profile/ProfileRoute";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
 import { supabase } from "./lib/supabase";
+import { SiteNoticeProvider } from "./features/site-notice/providers/SiteNoticeProvider";
 
 const isStudioEditingPath = (pathname: string) =>
   pathname === "/studio/builder" || pathname === "/studio/settings";
@@ -104,52 +105,54 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <div className="app-global-header-shell" ref={headerShellRef}>
-          <SiteHeader />
-        </div>
-        <StudioLockExitGuard />
-        <Routes>
-          <Route path="/" element={<LandingRoute />} />
-          <Route path="/support" element={<SupportRoute />} />
-          <Route path="/contact" element={<ContactRoute />} />
-          <Route path="/explorer" element={<ExplorerRoute />} />
-          <Route path="/search" element={<SearchRoute />} />
-          <Route path="/studio" element={<StudioRoute />} />
-          <Route
-            path="/site-create"
-            element={
-              <RequireAuth>
-                <SiteCreateRoute />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/studio/builder"
-            element={
-              <RequireAuth>
-                <StudioBuilderRoute />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/studio/settings"
-            element={
-              <RequireAuth>
-                <StudioSettingsRoute />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <RequireAuth>
-                <ProfileRoute />
-              </RequireAuth>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+      <SiteNoticeProvider>
+        <BrowserRouter>
+          <div className="app-global-header-shell" ref={headerShellRef}>
+            <SiteHeader />
+          </div>
+          <StudioLockExitGuard />
+          <Routes>
+            <Route path="/" element={<LandingRoute />} />
+            <Route path="/support" element={<SupportRoute />} />
+            <Route path="/contact" element={<ContactRoute />} />
+            <Route path="/explorer" element={<ExplorerRoute />} />
+            <Route path="/search" element={<SearchRoute />} />
+            <Route path="/studio" element={<StudioRoute />} />
+            <Route
+              path="/site-create"
+              element={
+                <RequireAuth>
+                  <SiteCreateRoute />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/studio/builder"
+              element={
+                <RequireAuth>
+                  <StudioBuilderRoute />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/studio/settings"
+              element={
+                <RequireAuth>
+                  <StudioSettingsRoute />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <RequireAuth>
+                  <ProfileRoute />
+                </RequireAuth>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </SiteNoticeProvider>
     </AuthProvider>
   );
 }
