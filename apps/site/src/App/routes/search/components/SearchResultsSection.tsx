@@ -9,18 +9,14 @@ type SearchResultsSectionProps = {
   loading: boolean;
   error: string | null;
   searchQuery: string;
-  totalConnectionCount: number;
 };
-
-const formatResultCount = (count: number) => `${count} result${count === 1 ? "" : "s"}`;
 
 export function SearchResultsSection({
   sites,
   connections,
   loading,
   error,
-  searchQuery,
-  totalConnectionCount
+  searchQuery
 }: SearchResultsSectionProps) {
   const connectedBySiteId = useMemo(
     () => buildConnectedSiteLookup(connections),
@@ -39,26 +35,9 @@ export function SearchResultsSection({
   );
 
   const trimmedQuery = searchQuery.trim();
-  const sectionTitle = trimmedQuery ? `Results for "${trimmedQuery}"` : "All published sites";
-  const sectionDescription = trimmedQuery
-    ? "Matches are filtered by title, description, and canonical URL."
-    : "Browse the current public index, ranked by visible site-to-site connections.";
-  const metaLabel = loading
-    ? "Updating public index"
-    : error
-      ? "Search unavailable"
-      : `${formatResultCount(rankedSites.length)} / ${totalConnectionCount} public connections`;
 
   return (
-    <section className="search-results-section" aria-labelledby="search-results-title">
-      <div className="search-section-header">
-        <div className="search-section-title-block">
-          <h2 id="search-results-title">{sectionTitle}</h2>
-          <p className="search-section-description">{sectionDescription}</p>
-        </div>
-        <p className="search-section-meta">{metaLabel}</p>
-      </div>
-
+    <section className="search-results-section" aria-label="Search results">
       {loading && (
         <div className="search-status-panel" aria-live="polite">
           <p>Loading published sites...</p>

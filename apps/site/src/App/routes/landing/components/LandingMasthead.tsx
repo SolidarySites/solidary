@@ -45,15 +45,17 @@ export function LandingMasthead() {
       </div>
       <div className="landing-masthead-support">
         <div className="landing-support-copy">
-          <h3>How It Works</h3>
+          <h3>Mission</h3>
           <p>
-            Log in with your GitHub account and create a new site. Your site will live in your own GitHub 
-            repository, and be published automatically as a GitHub page.  
-            Solidary keeps track of all the sites and helps you make connections to other sites.
-            Think of it as a publishing tool that also helps you find and connect with other publishers. 
-            Non-technical users can create and manage their site with the easy-to-use Solidary site builder,
-            and if you are more advanced you can customize your site as much as you want by working directly 
-            with the GitHub repository.
+            Solidary lets you publish websites that you control, keep them linked to one
+            another, and make them easier to discover without handing everything over to a single
+            platform. Each site lives in your own GitHub repository, published as a static site,
+            and still belongs to a shared public network.
+            <br />
+            <br />
+            The aim is a more personal and connected internet: one where publishing feels open,
+            legible, and owned by the people making it. You should give it a go if you also think
+            the web should work more like a public commons than a set of isolated rented spaces.
           </p>
         </div>
       </div>

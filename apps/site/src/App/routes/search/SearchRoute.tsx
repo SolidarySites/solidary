@@ -20,7 +20,6 @@ export default function SearchRoute() {
         <SearchResultsSection
           sites={controller.listSites}
           connections={controller.connections}
-          totalConnectionCount={controller.totalConnectionCount}
           loading={controller.loading}
           error={controller.error}
           searchQuery={controller.searchQuery}

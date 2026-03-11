@@ -340,8 +340,17 @@
     grid-column: auto;
   }
 
+  .landing-masthead-copy,
+  .landing-masthead-support {
+    width: 100%;
+  }
+
   .landing-masthead-copy h1,
   .landing-section-title-block h2 {
+    max-width: none;
+  }
+
+  .landing-lead {
     max-width: none;
   }
 
