@@ -83,7 +83,7 @@ export const useStudioRouteController = () => {
     indexesProps: {
       title: "Indexes",
       description:
-        "Create a new index and let others publish their sites to it.",
+        "Create your own index and let others publish their sites to it.",
       emptyMessage: "No saved indexes yet. Create one to see it here.",
       actionLabel: "Create new index",
       onCreate: () => navigate("/site-create")
