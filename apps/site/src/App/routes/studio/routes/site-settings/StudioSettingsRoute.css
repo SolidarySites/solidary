@@ -1,20 +1,43 @@
 .studio-settings-route.builder-shell {
-  gap: 1.5rem;
+  gap: clamp(2.5rem, 4vw, 3.5rem);
   --builder-topbar-sticky-top: 1rem;
 }
 
 .studio-settings-route .builder-topbar {
-  border: 1px solid rgba(31, 34, 28, 0.15);
-  background: rgba(255, 255, 255, 0.9);
-  padding: 1rem 1.25rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 1rem;
-  flex-wrap: wrap;
+  align-items: end;
+  padding: 0 0 1rem;
+  border: 0;
   position: sticky;
   top: var(--builder-topbar-sticky-top);
   z-index: 30;
+  box-shadow: none;
+}
+
+.studio-settings-route .builder-topbar.is-sticky {
+  box-shadow: none;
+}
+
+.studio-settings-route .studio-settings-topbar {
+  justify-content: initial;
+  align-items: end;
+}
+
+.studio-settings-route .studio-settings-topbar-sections {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.studio-settings-route .studio-settings-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .studio-settings-route .builder-topbar-link-button {
@@ -22,23 +45,35 @@
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
-  border: 1px solid rgba(31, 34, 28, 0.28);
-  background: rgba(255, 255, 255, 0.9);
+  border: 0;
+  background: transparent;
   color: rgba(31, 34, 28, 0.9);
-  padding: 0.42rem 2rem 0.42rem 0.72rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: none;
+  padding: 0.55rem 1.9rem 0 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   white-space: nowrap;
 }
 
+.builder-section-nav-label {
+  border-top: 1px solid rgba(31, 34, 28, 0.3);
+  padding-top: 0.2rem;
+}
+
+.builder-section-nav-label.is-active {
+  border-top: 1px solid rgba(31, 34, 28, 1);
+  padding-top: 0.2rem;
+}
+
 .studio-settings-route .builder-topbar-link-button:hover:not(:disabled) {
-  background: rgba(31, 34, 28, 0.08);
+  background: transparent;
+  color: #1f221c;
 }
 
 .studio-settings-route .builder-topbar-link-button.is-active {
-  background: #1f221c;
-  color: #f8f5ef;
+  background: transparent;
+  color: #1f221c;
 }
 
 .studio-settings-route .builder-topbar-link-button.is-locked {
@@ -60,8 +95,8 @@
 
 .studio-settings-route .studio-settings-topbar-button-shell > .builder-lock-avatar-pill {
   position: absolute;
-  top: 50%;
-  right: 0.55rem;
+  top: calc(50% + 0.28rem);
+  right: 0.5rem;
   transform: translateY(-50%);
   z-index: 2;
   pointer-events: auto;
@@ -69,14 +104,14 @@
 
 .studio-settings-route .builder-lock-avatar-pill {
   flex: 0 0 auto;
-  inline-size: 1.2rem;
-  block-size: 1.2rem;
+  inline-size: 1rem;
+  block-size: 1rem;
   border-radius: 999px;
-  border: 1px solid rgba(31, 34, 28, 0.24);
+  border: 1px solid rgba(31, 34, 28, 0.2);
   overflow: hidden;
   display: inline-grid;
   place-items: center;
-  background: rgba(31, 34, 28, 0.08);
+  background: rgba(31, 34, 28, 0.06);
   pointer-events: auto;
   position: relative;
 }
@@ -89,110 +124,74 @@
 }
 
 .studio-settings-route .builder-lock-avatar-pill-fallback {
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgba(31, 34, 28, 0.9);
   text-transform: uppercase;
 }
 
-.studio-settings-route .studio-settings-topbar {
-  justify-content: space-between;
-  align-items: center;
-}
-
-.studio-settings-route .studio-settings-topbar-sections {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.studio-settings-route .studio-settings-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.studio-settings-route .builder-body {
+.studio-settings-route .builder-body,
+.studio-settings-route .builder-body.is-preview-fullscreen,
+.studio-settings-route .builder-body.is-settings-full {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 2rem;
   align-items: start;
-}
-
-.studio-settings-route .builder-body.is-preview-fullscreen {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.studio-settings-route .builder-body.is-settings-full {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .studio-settings-route .builder-settings-full {
   grid-column: 1 / -1;
-  border: 1px solid rgba(31, 34, 28, 0.15);
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.9);
+  border: 0;
+  padding: 0;
+  background: transparent;
   display: grid;
-  gap: 1rem;
+  gap: 2rem;
   align-content: start;
-  min-height: 640px;
+  min-height: 0;
 }
 
 .studio-settings-route .studio-settings-loading {
   display: grid;
-  gap: 1rem;
+  gap: 1.25rem;
   align-content: start;
+  max-width: 36rem;
 }
 
 .studio-settings-route .studio-settings-loading-label {
   margin: 0;
-  color: rgba(31, 34, 28, 0.72);
-  font-size: 0.88rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
 }
 
 .studio-settings-route .studio-settings-loading-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.95rem;
 }
 
 .studio-settings-route .studio-settings-loading-block {
-  height: 3rem;
-  border: 1px dashed rgba(31, 34, 28, 0.2);
-  background: linear-gradient(
-    90deg,
-    rgba(248, 245, 239, 0.7) 0%,
-    rgba(255, 255, 255, 0.95) 45%,
-    rgba(248, 245, 239, 0.7) 100%
-  );
-  background-size: 220% 100%;
-  animation: studio-settings-loading-shimmer 1.15s ease-in-out infinite;
+  height: 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  background: transparent;
+  animation: none;
 }
 
-@keyframes studio-settings-loading-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
-}
-
-.studio-settings-route .builder-section {
+.studio-settings-route .builder-section-lock-shell {
   display: grid;
   gap: 1rem;
 }
 
-.studio-settings-route .studio-settings-save-row {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.studio-settings-route .builder-section-lock-note {
+.studio-settings-route .builder-section-lock-note,
+.studio-settings-route .builder-collaborator-hint {
   margin: 0;
-  font-size: 0.76rem;
-  color: rgba(31, 34, 28, 0.68);
+  max-width: 38rem;
+  font-size: 0.94rem;
+  line-height: 1.65;
+  color: rgba(31, 34, 28, 0.72);
 }
 
 .studio-settings-route .builder-section-lock-shell.is-locked {
@@ -210,51 +209,157 @@
   opacity: 0.78;
 }
 
-.studio-settings-route .builder-collaborator-section {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 1rem;
+.studio-settings-route .builder-section {
+  display: grid;
+  gap: 1.25rem;
 }
 
-.studio-settings-route .builder-collaborator-hint {
-  margin: 0;
-  color: rgba(31, 34, 28, 0.72);
-  font-size: 0.8rem;
-}
-
-.studio-settings-route .builder-collaborator-suggestions {
+.studio-settings-route .section-header {
   display: grid;
   gap: 0.45rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.studio-settings-route .section-header h2,
+.studio-settings-route .section-header h3 {
+  margin: 0;
+}
+
+.studio-settings-route .section-header h2 {
+  max-width: 18ch;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  line-height: 1.05;
+}
+
+.studio-settings-route .section-header h3 {
+  font-size: 1.12rem;
+  line-height: 1.18;
+}
+
+.studio-settings-route .section-header p {
+  max-width: 40ch;
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: rgba(31, 34, 28, 0.78);
+}
+
+.studio-settings-route label,
+.studio-settings-route .builder-delete-site-label {
+  max-width: 36rem;
+  display: grid;
+  gap: 0.65rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+.studio-settings-route input,
+.studio-settings-route textarea,
+.studio-settings-route select {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.35);
+  padding: 0.6rem 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(31, 34, 28, 0.92);
+}
+
+.studio-settings-route textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.studio-settings-route input:focus,
+.studio-settings-route textarea:focus,
+.studio-settings-route select:focus {
+  outline: none;
+}
+
+.studio-settings-route input:focus-visible,
+.studio-settings-route textarea:focus-visible,
+.studio-settings-route select:focus-visible {
+  border-bottom-color: rgba(31, 34, 28, 0.8);
+}
+
+.studio-settings-route input[type="file"] {
+  padding: 0;
+  border: 0;
+  font-size: 0.86rem;
+}
+
+.studio-settings-route .preview-image {
+  width: min(100%, 22rem);
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  border: 1px solid rgba(31, 34, 28, 0.16);
+  background: rgba(31, 34, 28, 0.04);
+  padding: 0;
+}
+
+.studio-settings-route .studio-settings-save-row,
+.studio-settings-route .builder-delete-site-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.studio-settings-route .builder-collaborator-section,
+.studio-settings-route .builder-collaborator-list-section,
+.studio-settings-route .builder-advanced-section,
+.studio-settings-route .connection-explorer-panel,
+.studio-settings-route .builder-advanced-dropdown,
+.studio-settings-route .builder-delete-site-divider {
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.studio-settings-route .builder-collaborator-suggestions,
+.studio-settings-route .builder-collaborator-list,
+.studio-settings-route .connection-search-results,
+.studio-settings-route .connection-request-list {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.studio-settings-route .builder-collaborator-suggestion,
+.studio-settings-route .builder-collaborator-list-item,
+.studio-settings-route .builder-advanced-domain-panel,
+.studio-settings-route .builder-delete-site-panel,
+.studio-settings-route .connection-explorer-context,
+.studio-settings-route .connection-result-card,
+.studio-settings-route .connection-request-card {
+  width: 100%;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  background: transparent;
+  display: grid;
+  gap: 0.55rem;
 }
 
 .studio-settings-route .builder-collaborator-suggestion {
-  width: 100%;
-  display: grid;
-  gap: 0.2rem;
   justify-items: start;
   text-align: left;
 }
 
-.studio-settings-route .builder-collaborator-suggestion span {
-  font-size: 0.78rem;
+.studio-settings-route .builder-collaborator-suggestion span,
+.studio-settings-route .builder-collaborator-list-meta span,
+.studio-settings-route .connection-result-owner,
+.studio-settings-route .connection-request-uuid,
+.studio-settings-route .connection-explorer-context-role {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
   color: rgba(31, 34, 28, 0.7);
-}
-
-.studio-settings-route .builder-collaborator-list-section {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 1rem;
-}
-
-.studio-settings-route .builder-collaborator-list {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.studio-settings-route .builder-collaborator-list-item {
-  border: 1px dashed rgba(31, 34, 28, 0.24);
-  background: rgba(248, 245, 239, 0.52);
-  padding: 0.7rem;
-  display: grid;
-  gap: 0.55rem;
 }
 
 .studio-settings-route .builder-collaborator-list-meta {
@@ -262,13 +367,10 @@
   gap: 0.12rem;
 }
 
-.studio-settings-route .builder-collaborator-list-meta strong {
-  font-size: 0.86rem;
-}
-
-.studio-settings-route .builder-collaborator-list-meta span {
-  font-size: 0.75rem;
-  color: rgba(31, 34, 28, 0.72);
+.studio-settings-route .builder-collaborator-list-meta strong,
+.studio-settings-route .connection-explorer-context-title {
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .studio-settings-route .builder-collaborator-status {
@@ -278,25 +380,16 @@
 .studio-settings-route .builder-collaborator-list-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.studio-settings-route .builder-advanced-section {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 1rem;
-}
-
-.studio-settings-route .builder-advanced-domain-panel {
-  border: 1px dashed rgba(31, 34, 28, 0.22);
-  background: rgba(248, 245, 239, 0.62);
-  padding: 1rem;
-  display: grid;
-  gap: 0.65rem;
+  gap: 0.75rem;
+  align-items: end;
 }
 
 .studio-settings-route .builder-advanced-domain-panel h3,
-.studio-settings-route .builder-advanced-domain-panel p {
+.studio-settings-route .builder-advanced-domain-panel p,
+.studio-settings-route .connection-result-card p,
+.studio-settings-route .connection-request-card p,
+.studio-settings-route .builder-delete-site-panel p,
+.studio-settings-route .builder-advanced-dns-feedback p {
   margin: 0;
 }
 
@@ -313,171 +406,84 @@
   list-style: disc;
 }
 
-.studio-settings-route .builder-advanced-warning {
-  margin: 0;
-  color: #7a1f17;
-  font-size: 0.8rem;
-}
-
-.studio-settings-route .builder-advanced-dns-feedback {
-  border: 1px dashed rgba(122, 31, 23, 0.35);
-  background: rgba(255, 245, 244, 0.9);
-  padding: 0.75rem;
-  display: grid;
-  gap: 0.55rem;
-}
-
-.studio-settings-route .builder-advanced-dns-feedback p {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #7a1f17;
-}
-
-.studio-settings-route .builder-advanced-dns-feedback-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.studio-settings-route .builder-advanced-dropdown {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 0.75rem;
-}
-
-.studio-settings-route .builder-advanced-dropdown summary {
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.studio-settings-route .builder-advanced-dropdown-body {
-  margin-top: 0.7rem;
-  display: grid;
-  gap: 0.6rem;
-}
-
-.studio-settings-route .builder-delete-site-divider {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 1rem;
-}
-
-.studio-settings-route .builder-delete-site-options {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.studio-settings-route .builder-delete-site-panel {
-  border: 1px dashed rgba(31, 34, 28, 0.2);
-  padding: 1rem;
-  background: rgba(248, 245, 239, 0.6);
-  display: grid;
-  gap: 0.6rem;
-}
-
-.studio-settings-route .builder-delete-site-panel p {
-  margin: 0;
-}
-
-.studio-settings-route .builder-delete-site-label {
-  display: grid;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-}
-
-.studio-settings-route .builder-delete-site-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.studio-settings-route .connection-explorer-card {
-  border: 1px solid rgba(31, 34, 28, 0.15);
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
-  display: grid;
-  gap: 1.5rem;
-}
-
+.studio-settings-route .builder-advanced-warning,
 .studio-settings-route .connection-explorer-error {
   margin: 0;
   color: #7a1f17;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .studio-settings-route .connection-explorer-notice {
   margin: 0;
   color: #1b4d32;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
-.studio-settings-route .connection-explorer-context {
-  border: 1px dashed rgba(31, 34, 28, 0.22);
-  background: rgba(248, 245, 239, 0.62);
-  padding: 1rem;
+.studio-settings-route .builder-advanced-dns-feedback {
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(122, 31, 23, 0.22);
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
 
-.studio-settings-route .connection-explorer-context-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+.studio-settings-route .builder-advanced-dns-feedback p {
+  color: #7a1f17;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
-.studio-settings-route .connection-explorer-context-role {
-  margin: 0;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(31, 34, 28, 0.7);
-}
-
-.studio-settings-route .connection-explorer-panel {
-  border-top: 1px dashed rgba(31, 34, 28, 0.2);
-  padding-top: 1.25rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.studio-settings-route .connection-search-mode {
+.studio-settings-route .builder-advanced-dns-feedback-actions,
+.studio-settings-route .builder-delete-site-options,
+.studio-settings-route .connection-search-mode,
+.studio-settings-route .connection-result-actions,
+.studio-settings-route .connection-request-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
 
-.studio-settings-route .connection-search-results,
-.studio-settings-route .connection-request-list {
-  display: grid;
-  gap: 0.7rem;
+.studio-settings-route .builder-advanced-dropdown summary {
+  cursor: pointer;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.7);
 }
 
-.studio-settings-route .connection-result-card,
-.studio-settings-route .connection-request-card {
-  border: 1px dashed rgba(31, 34, 28, 0.2);
-  background: rgba(248, 245, 239, 0.62);
-  padding: 0.9rem;
+.studio-settings-route .builder-advanced-dropdown-body {
+  margin-top: 1rem;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.75rem;
 }
 
-.studio-settings-route .connection-result-card p,
-.studio-settings-route .connection-request-card p {
-  margin: 0;
+.studio-settings-route .connection-explorer-card {
+  display: grid;
+  gap: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .studio-settings-route .connection-result-header,
 .studio-settings-route .connection-request-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: start;
   gap: 0.85rem;
 }
 
 .studio-settings-route .connection-result-header h4,
 .studio-settings-route .connection-request-header h4 {
   margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
 }
 
+.studio-settings-route .connection-result-header span,
+.studio-settings-route .connection-request-header span,
 .studio-settings-route .connection-result-state {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.68rem;
@@ -486,56 +492,33 @@
   color: rgba(31, 34, 28, 0.7);
 }
 
-.studio-settings-route .connection-result-owner,
-.studio-settings-route .connection-request-uuid {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.74rem;
-  color: rgba(31, 34, 28, 0.75);
-}
-
-.studio-settings-route .connection-result-actions,
-.studio-settings-route .connection-request-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
 @media (max-width: 980px) {
-  .studio-settings-route .builder-body {
+  .studio-settings-route .builder-topbar {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
   .studio-settings-route .builder-topbar {
-    flex-direction: row;
-    align-items: center;
-    padding: 0.5rem 0.6rem;
-    gap: 0.45rem;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
   }
 
   .studio-settings-route .studio-settings-topbar-sections {
     flex-wrap: nowrap;
-    gap: 0.35rem;
+    gap: 0.55rem;
     overflow-x: auto;
     max-width: 100%;
     padding-bottom: 0.05rem;
   }
 
-  .studio-settings-route .studio-settings-topbar-actions {
-    width: auto;
-    justify-content: flex-end;
-    gap: 0.35rem;
-  }
-
   .studio-settings-route .builder-topbar-link-button {
     flex: 0 0 auto;
-    padding: 0.28rem 0.48rem;
-    font-size: 0.61rem;
-    letter-spacing: 0.01em;
+    padding-right: 1.65rem;
+    font-size: 0.63rem;
   }
 
-  .studio-settings-route .connection-explorer-card {
-    padding: 1.25rem;
+  .studio-settings-route .studio-settings-topbar-button-shell > .builder-lock-avatar-pill {
+    right: 0.42rem;
   }
 }
