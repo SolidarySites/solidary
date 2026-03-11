@@ -1,0 +1,129 @@
+.public-info-main-content {
+  gap: clamp(3.5rem, 6vw, 6rem);
+}
+
+.public-info-hero,
+.public-info-sections {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.public-info-hero {
+  align-items: end;
+  padding-bottom: clamp(1.75rem, 3vw, 2.5rem);
+  border-bottom: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.public-info-copy {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.public-info-copy h1 {
+  margin: 0;
+  max-width: 10ch;
+  font-size: clamp(2.7rem, 7vw, 5.2rem);
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.public-info-lead {
+  margin: 0;
+  max-width: 34ch;
+  font-size: clamp(1.05rem, 1.8vw, 1.28rem);
+  line-height: 1.65;
+}
+
+.public-info-note-block {
+  grid-column: 9 / -1;
+  display: grid;
+  align-self: stretch;
+}
+
+.public-info-note {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.75;
+}
+
+.public-info-section {
+  grid-column: span 6;
+  display: grid;
+  gap: 0.9rem;
+  align-content: start;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  min-width: 0;
+}
+
+.public-info-section h2 {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  line-height: 1.1;
+}
+
+.public-info-section-copy {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.public-info-section-copy p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+
+.public-info-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.28);
+  color: inherit;
+  text-decoration: none;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.public-info-link:hover,
+.public-info-link:focus-visible {
+  border-top-color: rgba(31, 34, 28, 0.5);
+}
+
+.public-info-link:focus-visible {
+  outline: 1px solid rgba(31, 34, 28, 0.4);
+  outline-offset: 4px;
+}
+
+@media (max-width: 1080px) {
+  .public-info-copy {
+    grid-column: 1 / span 8;
+  }
+
+  .public-info-note-block {
+    grid-column: 9 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .public-info-hero,
+  .public-info-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .public-info-copy,
+  .public-info-note-block,
+  .public-info-section {
+    grid-column: auto;
+  }
+
+  .public-info-copy h1 {
+    max-width: none;
+  }
+}

@@ -94,6 +94,7 @@ export default function SiteHeader() {
 
       <div className="profile-menu" ref={menuRef}>
         <button
+          style={{ border: "none", cursor: "pointer" }}
           type="button"
           className="avatar-button"
           aria-label={session ? `${displayName} account menu` : "Open account menu"}

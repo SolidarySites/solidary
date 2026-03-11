@@ -1,29 +1,13 @@
 import { supabase } from "../../../lib/supabase";
-import { resolveSiteThumbnailUrl } from "../../../lib/site-image-url";
+import { loadPublicSites, type PublicSite } from "../../../services/public-sites";
 
-export type ExplorerSite = {
-  id: string;
-  title: string;
-  description: string;
-  canonicalUrl: string;
-  imageUrl: string;
-  updatedAt: string | null;
-};
+export type ExplorerSite = PublicSite;
 
 export type ExplorerConnection = {
   connectionUuid: string;
   sourceSiteId: string;
   targetSiteId: string;
   approvedAt: string | null;
-};
-
-type ExplorerSiteRow = {
-  id: string | null;
-  title: string | null;
-  description: string | null;
-  canonical_url: string | null;
-  image_url: string | null;
-  updated_at: string | null;
 };
 
 type ExplorerConnectionRow = {
@@ -41,27 +25,6 @@ export type ExplorerData = {
   sites: ExplorerSite[];
   connections: ExplorerConnection[];
 };
-
-const mapSiteRows = (rows: ExplorerSiteRow[] | null | undefined): ExplorerSite[] =>
-  (rows ?? [])
-    .map((row) => {
-      const id = typeof row.id === "string" ? row.id.trim() : "";
-      if (!id) return null;
-      const canonicalUrl = typeof row.canonical_url === "string" ? row.canonical_url.trim() : "";
-      const imageUrl = typeof row.image_url === "string" ? row.image_url : "";
-      return {
-        id,
-        title:
-          typeof row.title === "string" && row.title.trim()
-            ? row.title.trim()
-            : "Untitled site",
-        description: typeof row.description === "string" ? row.description : "",
-        canonicalUrl,
-        imageUrl: resolveSiteThumbnailUrl({ siteUrl: canonicalUrl, fallbackImageUrl: imageUrl }),
-        updatedAt: typeof row.updated_at === "string" ? row.updated_at : null
-      } satisfies ExplorerSite;
-    })
-    .filter((entry): entry is ExplorerSite => Boolean(entry));
 
 const mapConnectionRows = (rows: ExplorerConnectionRow[] | null | undefined): ExplorerConnection[] =>
   (rows ?? [])
@@ -83,11 +46,8 @@ const mapConnectionRows = (rows: ExplorerConnectionRow[] | null | undefined): Ex
     .filter((entry): entry is ExplorerConnection => Boolean(entry));
 
 export const loadExplorerData = async (): Promise<ExplorerData> => {
-  const [sitesResult, connectionsResult] = await Promise.all([
-    supabase
-      .from("sites")
-      .select("id, title, description, canonical_url, image_url, updated_at")
-      .order("updated_at", { ascending: false }),
+  const [sites, connectionsResult] = await Promise.all([
+    loadPublicSites(),
     supabase
       .from("site_connection_requests")
       .select("connection_uuid, source_site_id, target_site_id, responded_at")
@@ -95,14 +55,10 @@ export const loadExplorerData = async (): Promise<ExplorerData> => {
       .order("responded_at", { ascending: false })
   ]);
 
-  if (sitesResult.error) {
-    throw new Error(sitesResult.error.message);
-  }
   if (connectionsResult.error) {
     throw new Error(connectionsResult.error.message);
   }
 
-  const sites = mapSiteRows((sitesResult.data ?? []) as ExplorerSiteRow[]);
   const sitesById = new Set(sites.map((site) => site.id));
   const connections = mapConnectionRows(
     (connectionsResult.data ?? []) as ExplorerConnectionRow[]

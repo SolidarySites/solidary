@@ -4,6 +4,8 @@ import "./App.css";
 import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
 import LandingRoute from "./routes/landing/LandingRoute";
+import SupportRoute from "./routes/support/SupportRoute";
+import ContactRoute from "./routes/contact/ContactRoute";
 import ExplorerRoute from "./routes/explorer/ExplorerRoute";
 import SearchRoute from "./routes/search/SearchRoute";
 import StudioRoute from "./routes/studio/StudioRoute";
@@ -109,6 +111,8 @@ export default function App() {
         <StudioLockExitGuard />
         <Routes>
           <Route path="/" element={<LandingRoute />} />
+          <Route path="/support" element={<SupportRoute />} />
+          <Route path="/contact" element={<ContactRoute />} />
           <Route path="/explorer" element={<ExplorerRoute />} />
           <Route path="/search" element={<SearchRoute />} />
           <Route

@@ -1,16 +1,18 @@
 .app-shell {
+  --app-shell-padding: clamp(1.5rem, 3vw, 3.5rem);
   min-height: calc(100vh - var(--site-header-height, 0px));
   display: flex;
   flex-direction: column;
   gap: 2.5rem;
-  padding: clamp(1.5rem, 3vw, 3.5rem);
+  padding: var(--app-shell-padding);
 }
 
 .app-global-header-shell {
   padding: clamp(1.5rem, 3vw, 3.5rem);
-  padding-bottom: 0;
+  padding-bottom: clamp(1rem, 2vw, 1.5rem);
   position: relative;
   z-index: 60;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.16);
 }
 
 .main-content {
