@@ -58,7 +58,13 @@ const parseGitHubAppConnectResultMessagePayload = (
   };
 };
 
-export const useProfileRouteController = () => {
+type UseProfileRouteControllerArgs = {
+  authenticationStatusEnabled: boolean;
+};
+
+export const useProfileRouteController = ({
+  authenticationStatusEnabled
+}: UseProfileRouteControllerArgs) => {
   const { session, connectGitHubApp } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,6 +101,7 @@ export const useProfileRouteController = () => {
     getSaveErrorMessage
   });
   const supabaseManagementController = useProfileSupabaseManagementController({
+    enabled: authenticationStatusEnabled,
     session,
     setNotice,
     setNoticeKind
@@ -144,13 +151,19 @@ export const useProfileRouteController = () => {
   }, [session]);
 
   useEffect(() => {
+    if (!authenticationStatusEnabled) {
+      return;
+    }
+
     void refreshGitHubAuthStatus();
-  }, [refreshGitHubAuthStatus]);
+  }, [authenticationStatusEnabled, refreshGitHubAuthStatus]);
 
   const applyGitHubAppConnectResult = useCallback(
     (status: GitHubAppConnectResultStatus, message: string) => {
       if (status === "connected") {
-        void refreshGitHubAuthStatus();
+        if (authenticationStatusEnabled) {
+          void refreshGitHubAuthStatus();
+        }
         setShowGitHubAppExternalUninstallPrompt(false);
         setNotice("GitHub App connected.");
         setNoticeKind("notice");
@@ -160,7 +173,7 @@ export const useProfileRouteController = () => {
       setNotice(message || "Could not connect GitHub App.");
       setNoticeKind("error");
     },
-    [refreshGitHubAuthStatus]
+    [authenticationStatusEnabled, refreshGitHubAuthStatus]
   );
 
   useEffect(() => {

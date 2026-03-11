@@ -18,7 +18,7 @@ export default function StudioRoute() {
         <StudioMasthead {...controller.mastheadProps} />
         <div className="studio-sections">
           {controller.shouldShowSections && <SitesListSection {...controller.ownedSitesProps} />}
-          {controller.shouldShowSections && <IndexesListSection {...controller.indexesProps} />}
+          {controller.shouldShowIndexesSection && <IndexesListSection {...controller.indexesProps} />}
         </div>
       </main>
     </div>

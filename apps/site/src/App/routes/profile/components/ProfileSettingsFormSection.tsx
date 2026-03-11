@@ -80,13 +80,15 @@ export default function ProfileSettingsFormSection({
       </label>
 
       <div className="profile-solidary-avatar-row">
+        <p className="profile-solidary-avatar-label">Avatar</p>
         <div className="profile-solidary-avatar-current">
           <div className="profile-avatar-shell profile-solidary-avatar-shell">
             {solidaryAvatarUrl ? (
-              <img
+              <div
                 className="profile-avatar-image"
-                src={solidaryAvatarUrl}
-                alt="Solidary avatar preview"
+                style={{ backgroundImage: `url(${solidaryAvatarUrl})` }}
+                role="img"
+                aria-label="Solidary avatar preview"
               />
             ) : (
               <div className="profile-avatar-fallback" aria-hidden="true">
@@ -130,9 +132,14 @@ export default function ProfileSettingsFormSection({
               className="profile-avatar-pill"
               onClick={() => onSelectAvatar(pill.path)}
               disabled={controlsBusy}
+              aria-label="Avatar option"
             >
               {pill.imageUrl ? (
-                <img className="profile-avatar-image" src={pill.imageUrl} alt="Avatar option" />
+                <div
+                  className="profile-avatar-image"
+                  style={{ backgroundImage: `url(${pill.imageUrl})` }}
+                  aria-hidden="true"
+                />
               ) : (
                 <span className="profile-avatar-fallback" aria-hidden="true">
                   {solidaryAvatarFallback}

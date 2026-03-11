@@ -5,6 +5,7 @@ import { getSessionDisplayName } from "../../../features/auth/services/user-prof
 import type { NoticeKind } from "../../../types/notice";
 import { useStudioDraftData } from "./useStudioDraftData";
 import { mapDraftItemToSiteListItem } from "../services/studio-draft-mappers";
+import { useStudioSupabaseConnectionStatus } from "./useStudioSupabaseConnectionStatus";
 
 export const useStudioRouteController = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export const useStudioRouteController = () => {
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
 
   const { session, sessionResolved, signInWithGitHub } = useAuth();
+  const hasSupabaseConnection = useStudioSupabaseConnectionStatus({ session });
 
   const { ownedDraftItems, sharedDraftItems, draftsLoading } = useStudioDraftData({
     session,
@@ -46,6 +48,7 @@ export const useStudioRouteController = () => {
     notice,
     noticeKind,
     shouldShowSections: Boolean(session),
+    shouldShowIndexesSection: Boolean(session) && hasSupabaseConnection,
     mastheadProps: {
       sessionResolved,
       isAuthenticated: Boolean(session),

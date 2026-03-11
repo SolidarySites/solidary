@@ -70,10 +70,11 @@ export default function ProfileConnectedGithubCard({
     <section className="profile-github-card">
       <div className="profile-avatar-shell">
         {githubAvatarUrl ? (
-          <img
+          <div
             className="profile-avatar-image"
-            src={githubAvatarUrl}
-            alt={`${githubUsername} GitHub avatar`}
+            style={{ backgroundImage: `url(${githubAvatarUrl})` }}
+            role="img"
+            aria-label={`${githubUsername} GitHub avatar`}
           />
         ) : (
           <div className="profile-avatar-fallback" aria-hidden="true">
@@ -85,35 +86,6 @@ export default function ProfileConnectedGithubCard({
       <div className="profile-github-details">
         <div className="profile-github-title-row">
           <p className="profile-github-title">Connected to GitHub account</p>
-          {hasGitHubAppInstallation ? (
-            <div className="profile-github-inline-actions">
-              <button
-                type="button"
-                className="ghost profile-connect-github-app"
-                onClick={onConnectGitHubApp}
-                disabled={connectBusy}
-              >
-                {connectBusy ? "Connecting..." : connectLabel}
-              </button>
-              <button
-                type="button"
-                className="ghost profile-connect-github-app"
-                onClick={onUninstallGitHubApp}
-                disabled={connectBusy}
-              >
-                {connectBusy ? "Working..." : "Uninstall GitHub App"}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="ghost profile-connect-github-app"
-              onClick={onConnectGitHubApp}
-              disabled={connectBusy}
-            >
-              {connectBusy ? "Connecting..." : connectLabel}
-            </button>
-          )}
         </div>
         {showConnectionWarning ? (
           <p className="profile-github-warning">{githubAppConnectionMessage}</p>
@@ -184,6 +156,26 @@ export default function ProfileConnectedGithubCard({
             ) : null}
           </div>
         ) : null}
+        <div className="profile-auth-actions">
+          <button
+            type="button"
+            className="ghost profile-connect-github-app profile-auth-button"
+            onClick={onConnectGitHubApp}
+            disabled={connectBusy}
+          >
+            {connectBusy ? "Connecting..." : connectLabel}
+          </button>
+          {hasGitHubAppInstallation ? (
+            <button
+              type="button"
+              className="ghost profile-connect-github-app profile-auth-button"
+              onClick={onUninstallGitHubApp}
+              disabled={connectBusy}
+            >
+              {connectBusy ? "Working..." : "Uninstall GitHub App"}
+            </button>
+          ) : null}
+        </div>
       </div>
     </section>
   );

@@ -103,10 +103,10 @@ export default function SiteHeader() {
         >
           {session ? (
             avatarImageUrl ? (
-              <img
+              <span
                 className="avatar-image"
-                src={avatarImageUrl}
-                alt={`${displayName} avatar`}
+                style={{ backgroundImage: `url(${avatarImageUrl})` }}
+                aria-hidden="true"
               />
             ) : (
               <span className="avatar-pill">{avatarText}</span>

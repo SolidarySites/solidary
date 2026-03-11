@@ -16,6 +16,7 @@ import {
 import type { NoticeKind } from "../../../types/notice";
 
 type UseProfileSupabaseManagementControllerArgs = {
+  enabled: boolean;
   session: Session | null;
   setNotice: Dispatch<SetStateAction<string | null>>;
   setNoticeKind: Dispatch<SetStateAction<NoticeKind>>;
@@ -59,6 +60,7 @@ const openSupabaseManagementConnectPopup = () => {
 };
 
 export const useProfileSupabaseManagementController = ({
+  enabled,
   session,
   setNotice,
   setNoticeKind
@@ -114,13 +116,19 @@ export const useProfileSupabaseManagementController = ({
   }, [session]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     void refreshSupabaseManagementStatus();
-  }, [refreshSupabaseManagementStatus]);
+  }, [enabled, refreshSupabaseManagementStatus]);
 
   const applyConnectResult = useCallback(
     (status: SupabaseManagementConnectResultStatus, resultMessage: string) => {
       if (status === "connected") {
-        void refreshSupabaseManagementStatus();
+        if (enabled) {
+          void refreshSupabaseManagementStatus();
+        }
         setNotice("Supabase account connected.");
         setNoticeKind("notice");
         return;
@@ -129,7 +137,7 @@ export const useProfileSupabaseManagementController = ({
       setNotice(resultMessage || "Could not connect Supabase account.");
       setNoticeKind("error");
     },
-    [refreshSupabaseManagementStatus, setNotice, setNoticeKind]
+    [enabled, refreshSupabaseManagementStatus, setNotice, setNoticeKind]
   );
 
   useEffect(() => {
@@ -210,7 +218,9 @@ export const useProfileSupabaseManagementController = ({
     })
       .then((result) => {
         if (result.connected && !result.redirected) {
-          void refreshSupabaseManagementStatus();
+          if (enabled) {
+            void refreshSupabaseManagementStatus();
+          }
           setNotice("Supabase account already connected.");
           setNoticeKind("notice");
         }

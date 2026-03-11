@@ -57,26 +57,6 @@ export default function ProfileSupabaseConnectionCard({
       <div className="profile-supabase-details">
         <div className="profile-supabase-title-row">
           <p className="profile-supabase-title">Supabase account connection</p>
-          <div className="profile-supabase-inline-actions">
-            <button
-              type="button"
-              className="ghost profile-connect-supabase"
-              onClick={onConnect}
-              disabled={connectBusy || disconnectBusy}
-            >
-              {connectBusy ? "Connecting..." : connectLabel}
-            </button>
-            {hasStoredConnection ? (
-              <button
-                type="button"
-                className="ghost profile-connect-supabase"
-                onClick={onDisconnect}
-                disabled={connectBusy || disconnectBusy}
-              >
-                {disconnectBusy ? "Disconnecting..." : "Disconnect"}
-              </button>
-            ) : null}
-          </div>
         </div>
 
         {message ? (
@@ -143,6 +123,26 @@ export default function ProfileSupabaseConnectionCard({
             <p className="profile-supabase-note">
               Showing the first {projects.length} projects.
             </p>
+          ) : null}
+        </div>
+        <div className="profile-auth-actions">
+          <button
+            type="button"
+            className="ghost profile-connect-supabase profile-auth-button"
+            onClick={onConnect}
+            disabled={connectBusy || disconnectBusy}
+          >
+            {connectBusy ? "Connecting..." : connectLabel}
+          </button>
+          {hasStoredConnection ? (
+            <button
+              type="button"
+              className="ghost profile-connect-supabase profile-auth-button"
+              onClick={onDisconnect}
+              disabled={connectBusy || disconnectBusy}
+            >
+              {disconnectBusy ? "Disconnecting..." : "Disconnect"}
+            </button>
           ) : null}
         </div>
       </div>

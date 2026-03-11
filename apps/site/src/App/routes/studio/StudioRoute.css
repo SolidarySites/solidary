@@ -14,8 +14,8 @@
 }
 
 .studio-masthead {
-  row-gap: 1.75rem;
-  padding-bottom: 1.75rem;
+  row-gap: 0rem;
+  padding-bottom: 1rem;
 }
 
 .studio-masthead-copy {
@@ -50,17 +50,17 @@
 .studio-masthead-title {
   max-width: 11ch;
   margin: 0;
-  font-size: clamp(2.35rem, 5vw, 3.75rem);
+  font-size: clamp(2.75rem, 7vw, 5.35rem);
   line-height: 0.95;
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
 .studio-masthead-lead {
-  max-width: 39ch;
+  max-width: 36rem;
   margin: 0;
-  font-size: clamp(1rem, 1.5vw, 1.12rem);
-  line-height: 1.7;
+  font-size: clamp(1.05rem, 1.8vw, 1.32rem);
+  line-height: 1.35;
 }
 
 .studio-masthead-support {
@@ -88,9 +88,9 @@
 
 .studio-masthead-summary {
   margin: 0;
-  max-width: 56rem;
-  font-size: 1rem;
-  line-height: 1.7;
+  max-width: 34ch;
+  font-size: clamp(1.05rem, 1.8vw, 1.32rem);
+  line-height: 1.6;
 }
 
 .studio-sections {

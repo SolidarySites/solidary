@@ -1,361 +1,119 @@
-.profile-settings-card {
-  border: 1px solid rgba(31, 34, 28, 0.15);
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
+.profile-app-shell {
+  gap: clamp(3.5rem, 6vw, 6rem);
+  padding-bottom: calc(var(--app-shell-padding) + 4.5rem);
+}
+
+.profile-main-content {
+  gap: clamp(3.5rem, 6vw, 6rem);
+}
+
+.profile-route-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+  row-gap: clamp(2rem, 4vw, 3rem);
+  align-items: start;
+}
+
+.profile-route-header {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.profile-route-header h1 {
+  margin: 0;
+  font-size: clamp(2.75rem, 7vw, 5.35rem);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.profile-settings-panel {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 2rem;
+  min-width: 0;
+}
+
+.profile-github-field span,
+.profile-supabase-field span {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.profile-settings-form {
+  max-width: none;
   display: grid;
   gap: 1.5rem;
 }
 
-.profile-settings-eyebrow {
-  margin: 0 0 0.6rem;
+.profile-settings-form > label {
+  max-width: 36rem;
+  display: grid;
+  gap: 0.65rem;
   font-family: "IBM Plex Mono", monospace;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: rgba(31, 34, 28, 0.58);
-}
-
-.profile-github-card {
-  border: 1px solid rgba(31, 34, 28, 0.12);
-  background: rgba(248, 245, 239, 0.7);
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
-  align-items: center;
-}
-
-.profile-supabase-card {
-  border: 1px solid rgba(31, 34, 28, 0.12);
-  background: rgba(241, 246, 243, 0.82);
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
-.profile-supabase-avatar {
-  width: 4.2rem;
-  height: 4.2rem;
-  border-radius: 999px;
-  border: 1px solid rgba(25, 84, 54, 0.2);
-  background:
-    radial-gradient(circle at top, rgba(71, 160, 118, 0.28), transparent 58%),
-    linear-gradient(135deg, rgba(31, 34, 28, 0.08), rgba(71, 160, 118, 0.16));
-  display: grid;
-  place-items: center;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(24, 74, 47, 0.92);
-}
-
-.profile-supabase-details {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.profile-supabase-title {
-  margin: 0;
-  font-weight: 600;
-  color: rgba(31, 34, 28, 0.9);
-}
-
-.profile-supabase-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.profile-supabase-inline-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.profile-supabase-field {
-  margin: 0;
-  display: grid;
-  gap: 0.15rem;
-  color: rgba(31, 34, 28, 0.82);
-}
-
-.profile-supabase-field span {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(31, 34, 28, 0.55);
-}
-
-.profile-supabase-field strong {
-  font-weight: 500;
-}
-
-.profile-supabase-list {
-  margin: 0;
-  padding: 0 0 0 1rem;
-  display: grid;
-  gap: 0.2rem;
-}
-
-.profile-supabase-list li {
-  font-size: 0.9rem;
-  color: rgba(31, 34, 28, 0.84);
-}
-
-.profile-supabase-warning {
-  margin: 0.1rem 0 0.2rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(180, 60, 50, 0.4);
-  background: rgba(180, 60, 50, 0.08);
-  color: #7a1f17;
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.profile-supabase-info {
-  margin: 0.1rem 0 0.2rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(31, 34, 28, 0.2);
-  background: rgba(255, 255, 255, 0.54);
-  color: rgba(31, 34, 28, 0.86);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.profile-supabase-note {
-  margin: 0;
-  font-size: 0.75rem;
   color: rgba(31, 34, 28, 0.62);
 }
 
-.profile-connect-supabase {
-  justify-self: auto;
-  white-space: nowrap;
-}
-
-.profile-avatar-shell {
-  width: 4.2rem;
-  height: 4.2rem;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid rgba(31, 34, 28, 0.2);
-  background: rgba(31, 34, 28, 0.08);
-}
-
-.profile-avatar-image,
-.profile-avatar-fallback {
-  width: 100%;
-  height: 100%;
-}
-
-.profile-avatar-image {
-  object-fit: cover;
-  display: block;
-}
-
-.profile-avatar-fallback {
-  display: grid;
-  place-items: center;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.profile-github-details {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.profile-github-title {
-  margin: 0;
-  font-weight: 600;
-  color: rgba(31, 34, 28, 0.9);
-}
-
-.profile-github-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.profile-github-inline-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.profile-github-help-trigger {
-  width: 1.45rem;
-  height: 1.45rem;
-  border-radius: 999px;
-  border: 1px solid rgba(31, 34, 28, 0.35);
-  padding: 0;
-  background: rgba(31, 34, 28, 0.06);
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.76rem;
-  font-weight: 600;
-  line-height: 1;
-  position: relative;
-}
-
-.profile-github-help-tooltip {
-  position: absolute;
-  top: calc(100% + 0.45rem);
-  right: 0;
-  width: min(18rem, 72vw);
-  padding: 0.6rem 0.68rem;
-  border: 1px solid rgba(31, 34, 28, 0.2);
-  background: #fff;
-  color: rgba(31, 34, 28, 0.88);
-  font-size: 0.78rem;
-  line-height: 1.35;
-  text-align: left;
-  text-transform: none;
-  letter-spacing: 0;
-  box-shadow: 0 8px 22px rgba(31, 34, 28, 0.16);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition: opacity 0.14s ease, transform 0.14s ease;
-  pointer-events: none;
-  z-index: 3;
-}
-
-.profile-github-help-trigger:hover .profile-github-help-tooltip,
-.profile-github-help-trigger:focus-visible .profile-github-help-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.profile-github-field {
-  margin: 0;
-  display: grid;
-  gap: 0.15rem;
-  color: rgba(31, 34, 28, 0.82);
-}
-
-.profile-github-warning {
-  margin: 0.1rem 0 0.2rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(180, 60, 50, 0.4);
-  background: rgba(180, 60, 50, 0.08);
-  color: #7a1f17;
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.profile-github-info {
-  margin: 0.1rem 0 0.2rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid rgba(31, 34, 28, 0.24);
-  background: rgba(31, 34, 28, 0.04);
-  color: rgba(31, 34, 28, 0.86);
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.profile-github-link-button {
+.profile-settings-form input[type="text"] {
+  padding: 0.6rem 0;
   border: 0;
-  background: none;
-  padding: 0;
-  text-transform: none;
+  border-bottom: 1px solid rgba(31, 34, 28, 0.35);
+  background: transparent;
+  font-family: inherit;
+  font-size: clamp(1rem, 1.4vw, 1.12rem);
   letter-spacing: 0;
-  font-size: inherit;
+  text-transform: none;
   color: rgba(31, 34, 28, 0.92);
-  text-decoration: underline;
 }
 
-.profile-github-link-button:hover:not(:disabled) {
-  color: rgba(31, 34, 28, 1);
+.profile-settings-form input[type="text"]:focus {
+  outline: none;
 }
 
-.profile-github-field span {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: rgba(31, 34, 28, 0.55);
-}
-
-.profile-github-field a {
-  color: rgba(31, 34, 28, 0.86);
-}
-
-.profile-github-field strong {
-  font-weight: 500;
-}
-
-.profile-github-repo-list {
-  margin: 0;
-  padding: 0 0 0 1rem;
-  display: grid;
-  gap: 0.2rem;
-}
-
-.profile-github-repo-list li {
-  font-size: 0.9rem;
-  color: rgba(31, 34, 28, 0.84);
-}
-
-.profile-github-repo-note {
-  margin: 0;
-  font-size: 0.75rem;
-  color: rgba(31, 34, 28, 0.62);
-}
-
-.profile-connect-github-app {
-  justify-self: auto;
-  white-space: nowrap;
-}
-
-.profile-switch-auth-mode {
-  justify-self: auto;
-  white-space: nowrap;
-}
-
-.profile-settings-form {
-  max-width: 680px;
+.profile-settings-form input[type="text"]:focus-visible {
+  border-bottom-color: rgba(31, 34, 28, 0.8);
 }
 
 .profile-solidary-avatar-row {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
-  align-items: center;
-  border: 1px dashed rgba(31, 34, 28, 0.18);
-  background: rgba(255, 255, 255, 0.7);
-  padding: 0.75rem;
+  max-width: 36rem;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 1fr);
+  gap: 1rem 1.25rem;
+  align-items: start;
+  padding-top: 1rem;
 }
 
 .profile-solidary-avatar-current {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.profile-solidary-avatar-label {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
 }
 
 .profile-solidary-avatar-shell {
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 4rem;
+  height: 4rem;
 }
 
 .profile-solidary-avatar-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
 }
 
 .profile-avatar-link {
@@ -385,27 +143,40 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 3.5rem;
+  align-items: flex-start;
+  align-content: flex-start;
+  justify-content: flex-start;
+  min-height: 4rem;
 }
 
 .profile-avatar-pill {
   width: 3.5rem;
   height: 3.5rem;
+  display: inline-flex;
+  align-items: stretch;
+  justify-content: stretch;
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid rgba(31, 34, 28, 0.24);
+  border: 1px solid rgba(31, 34, 28, 0.16);
   padding: 0;
-  background: rgba(31, 34, 28, 0.05);
+  background: rgba(31, 34, 28, 0.03);
   position: relative;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.profile-avatar-pill:hover:not(:disabled),
+.profile-avatar-pill:focus-visible {
+  border-color: rgba(31, 34, 28, 0.34);
+  transform: translateY(-1px);
 }
 
 .profile-avatar-pill::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
   pointer-events: none;
 }
 
@@ -414,39 +185,307 @@
 }
 
 .profile-input-error {
-  border-color: rgba(180, 60, 50, 0.85);
-  background: rgba(180, 60, 50, 0.06);
-}
-
-.profile-input-error:focus {
-  outline-color: rgba(180, 60, 50, 0.55);
+  border-bottom-color: rgba(180, 60, 50, 0.85) !important;
 }
 
 .profile-field-error {
   font-size: 0.78rem;
   color: #7a1f17;
-}
-
-.profile-avatar-help {
-  font-size: 0.78rem;
-  color: rgba(31, 34, 28, 0.66);
+  font-family: inherit;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .profile-settings-actions {
-  justify-content: flex-start;
+  position: fixed;
+  right: var(--app-shell-padding);
+  bottom: max(var(--app-shell-padding), env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 720px) {
-  .profile-settings-card {
-    padding: 1.25rem;
+.profile-authentication-panel {
+  display: grid;
+  gap: 1.5rem;
+  align-content: start;
+  max-width: 36rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+}
+
+.profile-authentication-toggle {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 1rem;
+  align-items: start;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.profile-authentication-toggle:focus-visible {
+  outline: 2px solid rgba(31, 34, 28, 0.22);
+  outline-offset: 2px;
+}
+
+.profile-authentication-heading {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+.profile-authentication-toggle-mark {
+  grid-column: 2;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  line-height: 1;
+  color: rgba(31, 34, 28, 0.76);
+}
+
+.profile-authentication-content {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.profile-github-card,
+.profile-supabase-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: start;
+  padding-top: 0.95rem;
+  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  background: transparent;
+}
+
+.profile-avatar-shell,
+.profile-supabase-avatar {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.profile-avatar-shell {
+  border: 1px solid rgba(31, 34, 28, 0.18);
+  background: rgba(31, 34, 28, 0.08);
+}
+
+.profile-avatar-image,
+.profile-avatar-fallback {
+  width: 100%;
+  height: 100%;
+}
+
+.profile-avatar-image {
+  display: block;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.profile-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.profile-supabase-avatar {
+  border: 1px solid rgba(25, 84, 54, 0.18);
+  background:
+    radial-gradient(circle at top, rgba(71, 160, 118, 0.28), transparent 58%),
+    linear-gradient(135deg, rgba(31, 34, 28, 0.08), rgba(71, 160, 118, 0.16));
+  display: grid;
+  place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(24, 74, 47, 0.92);
+}
+
+.profile-github-details,
+.profile-supabase-details {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.profile-github-title,
+.profile-supabase-title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: rgba(31, 34, 28, 0.9);
+}
+
+.profile-github-title-row,
+.profile-supabase-title-row {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.profile-github-inline-actions,
+.profile-supabase-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.profile-connect-github-app,
+.profile-connect-supabase {
+  justify-self: auto;
+  white-space: nowrap;
+}
+
+.profile-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.35rem;
+}
+
+.profile-auth-button {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.67rem;
+  letter-spacing: 0.1em;
+}
+
+.profile-github-field,
+.profile-supabase-field {
+  margin: 0;
+  display: grid;
+  gap: 0.2rem;
+  color: rgba(31, 34, 28, 0.82);
+}
+
+.profile-github-field span,
+.profile-supabase-field span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(31, 34, 28, 0.55);
+}
+
+.profile-github-field strong,
+.profile-supabase-field strong {
+  font-weight: 500;
+}
+
+.profile-github-warning,
+.profile-supabase-warning {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: #7a1f17;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.profile-github-info,
+.profile-supabase-info {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: rgba(31, 34, 28, 0.86);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.profile-github-link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: inherit;
+  color: rgba(31, 34, 28, 0.92);
+  text-decoration: underline;
+}
+
+.profile-github-link-button:hover:not(:disabled) {
+  color: rgba(31, 34, 28, 1);
+}
+
+.profile-github-field a {
+  color: rgba(31, 34, 28, 0.86);
+}
+
+.profile-github-repo-list,
+.profile-supabase-list {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-github-repo-list li,
+.profile-supabase-list li {
+  font-size: 0.9rem;
+  color: rgba(31, 34, 28, 0.84);
+}
+
+.profile-github-repo-note,
+.profile-supabase-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(31, 34, 28, 0.62);
+}
+
+@media (max-width: 1080px) {
+  .profile-route-header,
+  .profile-settings-panel {
+    grid-column: 1 / span 7;
+  }
+}
+
+@media (max-width: 760px) {
+  .profile-route-grid {
+    grid-template-columns: 1fr;
   }
 
-  .profile-github-card {
-    grid-template-columns: 1fr;
-    justify-items: start;
+  .profile-route-header,
+  .profile-settings-panel {
+    grid-column: auto;
+    grid-row: auto;
   }
 
-  .profile-solidary-avatar-row {
+  .profile-route-header h1,
+  .profile-settings-form > label {
+    max-width: none;
+  }
+
+  .profile-settings-actions {
+    left: var(--app-shell-padding);
+    right: var(--app-shell-padding);
+    bottom: max(var(--app-shell-padding), env(safe-area-inset-bottom, 0px));
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .profile-solidary-avatar-row,
+  .profile-github-card,
+  .profile-supabase-card {
     grid-template-columns: 1fr;
+  }
+
+  .profile-authentication-toggle {
+    align-items: start;
+  }
+
+  .profile-authentication-toggle-mark {
+    margin-top: 0.05rem;
   }
 }

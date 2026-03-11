@@ -37,7 +37,12 @@ export default function StudioMasthead({
 
   if (isAuthenticated) {
     return (
-      <section className="studio-masthead studio-masthead-authenticated" aria-label="Studio account">
+      <section className="studio-masthead studio-masthead-authenticated" aria-labelledby="studio-route-title">
+        <div className="studio-masthead-copy">
+          <h1 id="studio-route-title" className="studio-masthead-title">
+            Studio
+          </h1>
+        </div>
         <div className="studio-masthead-support">
           <p className="studio-masthead-summary">
             Hello {accountName}, you&apos;re working on a total of {formatSiteCount(totalSiteCount)},
@@ -53,7 +58,7 @@ export default function StudioMasthead({
     <section className="studio-masthead studio-masthead-unauthenticated" aria-labelledby="studio-route-title">
       <div className="studio-masthead-copy">
         <h1 id="studio-route-title" className="studio-masthead-title">
-          Manage your sites and publishing workspace
+          Studio
         </h1>
         <p className="studio-masthead-lead">
           Once you have signed in with your GitHub account this is where you can 
