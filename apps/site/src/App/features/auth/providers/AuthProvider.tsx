@@ -175,12 +175,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const signInWithGitHub = useCallback(async (returnToPath?: string) => {
+    const defaultReturnToPath =
+      typeof window === "undefined"
+        ? "/"
+        : window.location.pathname === "/*"
+          ? "/"
+          : window.location.pathname;
     const normalizedReturnToPath =
       typeof returnToPath === "string" && returnToPath.trim().startsWith("/")
         ? returnToPath.trim()
-        : typeof window === "undefined"
-          ? "/"
-          : window.location.pathname;
+        : defaultReturnToPath;
     const redirectTo =
       typeof window === "undefined"
         ? undefined

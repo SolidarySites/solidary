@@ -37,13 +37,6 @@ const ConnectionExplorer = ({
     onLiveMetadataDriftChange?.(controller.hasApprovedConnectionsLiveMetadataDrift);
   }, [controller.hasApprovedConnectionsLiveMetadataDrift, onLiveMetadataDriftChange]);
 
-  useEffect(
-    () => () => {
-      onLiveMetadataDriftChange?.(false);
-    },
-    [onLiveMetadataDriftChange]
-  );
-
   return (
     <div className="connection-explorer-card">
       {controller.notice && (

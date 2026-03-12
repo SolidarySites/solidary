@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import ConnectionExplorer from "./ConnectionExplorer";
 
 type ConnectionsSettingsSectionProps = {
@@ -30,6 +30,22 @@ const ConnectionsSettingsSection = ({
     setRefreshVersion((current) => current + 1);
   };
 
+  const handleLiveMetadataDriftChange = useCallback(
+    (hasDrift: boolean) => {
+      setLiveMetadataDriftState((current) => {
+        if (current.draftId === draftId && current.hasDrift === hasDrift) {
+          return current;
+        }
+
+        return {
+          draftId,
+          hasDrift
+        };
+      });
+    },
+    [draftId]
+  );
+
   return (
     <div className="builder-section">
       <div className="section-header">
@@ -41,12 +57,7 @@ const ConnectionsSettingsSection = ({
         <ConnectionExplorer
           draftId={draftId}
           refreshVersion={refreshVersion}
-          onLiveMetadataDriftChange={(hasDrift) => {
-            setLiveMetadataDriftState({
-              draftId,
-              hasDrift
-            });
-          }}
+          onLiveMetadataDriftChange={handleLiveMetadataDriftChange}
         />
       ) : (
         <p className="builder-collaborator-hint">Save your draft first to manage connections.</p>
