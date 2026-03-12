@@ -1,3 +1,5 @@
+import { MAX_SITE_DESCRIPTION_LENGTH } from "../../../../../services/site-metadata";
+
 type GeneralSettingsSectionProps = {
   siteTitle: string;
   siteDescription: string;
@@ -38,6 +40,7 @@ const GeneralSettingsSection = ({
       Description
       <textarea
         value={siteDescription}
+        maxLength={MAX_SITE_DESCRIPTION_LENGTH}
         onChange={(event) => onSiteDescriptionChange(event.target.value)}
         rows={4}
       />

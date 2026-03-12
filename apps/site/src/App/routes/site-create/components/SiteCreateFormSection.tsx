@@ -1,3 +1,5 @@
+import { MAX_SITE_DESCRIPTION_LENGTH } from "../../../services/site-metadata";
+
 type SiteCreateFormSectionProps = {
   siteTitle: string;
   siteDescription: string;
@@ -68,6 +70,7 @@ export default function SiteCreateFormSection({
           Description
           <textarea
             value={siteDescription}
+            maxLength={MAX_SITE_DESCRIPTION_LENGTH}
             onChange={(event) => onSiteDescriptionChange(event.target.value)}
             rows={4}
           />

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type SetStateAction } from "react";
 import { DEFAULT_SEO_SETTINGS } from "../../../../../../features/site-draft/seo";
+import { clampSiteDescription } from "../../../../../../services/site-metadata";
 import {
   DEFAULT_OG_IMAGE_URL,
   SITE_IMAGE_PUBLIC_PATH
@@ -16,7 +17,9 @@ import type {
 
 export const useBuilderDocumentState = () => {
   const [siteTitle, setSiteTitle] = useState("New Astro Site");
-  const [siteDescription, setSiteDescription] = useState("Describe your site in a sentence or two.");
+  const [siteDescription, setSiteDescriptionState] = useState(
+    "Describe your site in a sentence or two."
+  );
   const [siteUrl, setSiteUrl] = useState("");
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
@@ -95,6 +98,12 @@ export const useBuilderDocumentState = () => {
     if (siteImage) return SITE_IMAGE_PUBLIC_PATH;
     return siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
   }, [draftImageUrl, siteImage, siteImagePreview]);
+
+  const setSiteDescription = (value: SetStateAction<string>) => {
+    setSiteDescriptionState((current) =>
+      clampSiteDescription(typeof value === "function" ? value(current) : value)
+    );
+  };
 
   return {
     siteTitle,

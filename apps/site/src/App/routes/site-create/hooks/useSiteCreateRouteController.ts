@@ -11,6 +11,7 @@ import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
 import { supabaseFunctionUrl } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
+import { clampSiteDescription } from "../../../services/site-metadata";
 import { provisionSiteDraft } from "../services/site-create-provisioning";
 
 const INITIAL_PROVISION_STEP = "Preparing your site...";
@@ -243,7 +244,7 @@ export const useSiteCreateRouteController = () => {
     onSiteTitleBlur: () => {
       void handleSiteTitleBlur();
     },
-    onSiteDescriptionChange: setSiteDescription,
+    onSiteDescriptionChange: (value: string) => setSiteDescription(clampSiteDescription(value)),
     onSiteImageChange: setSiteImage,
     onBackToStudio: () => navigate("/studio"),
     onCreateSite: () => {
