@@ -136,7 +136,7 @@ describe("publishLiveDomainChange", () => {
       templateSolidaryLinks: TEMPLATE_SOLIDARY_LINKS,
       siteSettingsInput: settingsInput,
       nextSiteUrl: "https://roses-are-red.netlify.app",
-      imageUrl: "/solidary-media/images/site-image.jpg",
+      imageUrl: "https://roses-are-red.netlify.app/solidary-media/images/site-image_thumb.jpg",
       sessionUserId: "user-1",
       commitMessage: "Update custom domain",
       workflowMode: "remove"
@@ -188,10 +188,13 @@ describe("publishLiveDomainChange", () => {
         id: "site-1",
         canonical_url: "https://roses-are-red.netlify.app",
         title: "Roses Are Red",
-        description: "Poems and petals.",
-        image_url: "/solidary-media/images/site-image.jpg"
+        description: "Poems and petals."
       })
     );
+    const siteUpsertCalls = sitesQuery.upsert.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >;
+    expect(siteUpsertCalls[0]?.[0]).not.toHaveProperty("image_url");
     expect(liveDomainMocks.syncConnectedSiteUrls).toHaveBeenCalledWith("site-1");
     expect(result.draftFiles[FILE_KEYS.astroConfig]).toContain("readConfiguredSiteUrl");
     expect(result.draftFiles[FILE_KEYS.robots]).toContain("sitemap-index.xml");

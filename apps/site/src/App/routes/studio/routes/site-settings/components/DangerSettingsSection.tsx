@@ -193,8 +193,9 @@ const DangerSettingsSection = ({
                 />
               </label>
               <p className="builder-advanced-warning">
-                Warning: This only updates Solidary Studio. If your site is not hosted elsewhere
-                (outside GitHub Pages), the site will break.
+                Warning: This will stop GitHub Pages from serving your site. If your site is not 
+                hosted elsewhere than GitHub Pages, the site will no longer be available online 
+                until you revert back to GitHub Pages.
               </p>
               <button
                 type="button"

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../../../../lib/supabase";
 import { toBase64 } from "../../../../../../lib/base64";
+import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import { githubRequest } from "../../../../../../services/github";
 import type { RepoFileSet } from "../../../../../../features/site-draft/types";
 import { FILE_KEYS } from "../../services/constants";
@@ -148,7 +149,10 @@ export const upsertPublishedSiteRecord = async ({
     canonical_url: canonicalUrl.trim(),
     title: title.trim(),
     description: description.trim(),
-    image_url: imageUrl,
+    image_url: normalizeSiteImagePathForStorage({
+      siteUrl: canonicalUrl,
+      imageUrl
+    }),
     meta: {
       completion: "complete",
       source: "studio"

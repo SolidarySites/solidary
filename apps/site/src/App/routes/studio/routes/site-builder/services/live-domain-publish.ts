@@ -166,7 +166,6 @@ export const publishLiveDomainChange = async ({
     canonical_url: nextSiteUrl.trim(),
     title: settingsPayload.title,
     description: settingsPayload.description,
-    image_url: imageUrl,
     meta: {
       completion: "complete",
       source: "studio"

@@ -1,4 +1,5 @@
 import { supabase } from "../../../../../../lib/supabase";
+import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import { githubRequest, listDirectory } from "../../../../../../services/github";
 import { toBase64 } from "../../../../../../lib/base64";
 import { buildFiles, buildWellKnownFiles } from "../build-files";
@@ -57,6 +58,10 @@ export const publishOwnerDraft = async ({
     draftImageUrl,
     siteImagePreview,
     siteUrl
+  });
+  const siteRecordImageUrl = normalizeSiteImagePathForStorage({
+    siteUrl,
+    imageUrl
   });
   const normalizedPages = pages.map((page) => ({
     ...page,
@@ -174,7 +179,7 @@ export const publishOwnerDraft = async ({
     canonical_url: siteUrl.trim(),
     title: normalizedTitle,
     description: siteDescription.trim(),
-    image_url: imageUrl,
+    image_url: siteRecordImageUrl,
     meta: {
       completion: "complete",
       source: "studio"
