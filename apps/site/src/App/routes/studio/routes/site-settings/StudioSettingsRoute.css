@@ -245,17 +245,7 @@
   color: rgba(31, 34, 28, 0.78);
 }
 
-.studio-settings-route label,
-.studio-settings-route .builder-delete-site-label {
-  max-width: 36rem;
-  display: grid;
-  gap: 0.65rem;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
-}
+
 
 .studio-settings-route input,
 .studio-settings-route textarea,

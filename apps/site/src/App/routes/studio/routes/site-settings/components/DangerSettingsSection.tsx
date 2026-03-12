@@ -72,7 +72,7 @@ const DangerSettingsSection = ({
   const domainActionsBusy = domainActionBusy !== "none";
   const connectButtonLabel = domainActionBusy === "github" ? "Checking..." : "CONNECT CUSTOM DOMAIN";
   const studioOnlyButtonLabel =
-    domainActionBusy === "studio" ? "Updating..." : "Update Studio Domain Only";
+    domainActionBusy === "studio" ? "Updating..." : "Update to URL provided by another host";
   const resetButtonLabel =
     domainActionBusy === "reset" ? "Resetting..." : "Reset to GitHub Pages Domain";
 
@@ -181,10 +181,11 @@ const DangerSettingsSection = ({
           )}
 
           <details className="builder-advanced-dropdown">
-            <summary>Advanced</summary>
+            <summary>Externally Hosted Site</summary>
             <div className="builder-advanced-dropdown-body">
               <label className="builder-delete-site-label">
-                Studio-only domain override
+                Only set a domain here if your site is hosted by a different provider like Netlify 
+                or Vercel, or if you are self-hosting and know what you are doing.
                 <input
                   value={studioOnlyDomainInput}
                   onChange={(event) => setStudioOnlyDomainInput(event.target.value)}
