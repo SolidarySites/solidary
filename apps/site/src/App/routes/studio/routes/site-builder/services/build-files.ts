@@ -13,6 +13,7 @@ import {
 } from "../../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
+import { normalizeSiteTitle } from "../../../../../services/site-metadata";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/site";
 import {
   DEFAULT_OG_IMAGE_URL,
@@ -102,9 +103,10 @@ export const buildSettingsPayload = (
   urlOverride?: string
 ) => {
   const resolvedSiteUrl = (urlOverride ?? input.siteUrl).trim();
+  const normalizedTitle = normalizeSiteTitle(input.siteTitle);
 
   return {
-    title: input.siteTitle.trim(),
+    title: normalizedTitle,
     description: input.siteDescription.trim(),
     siteUrl: resolvedSiteUrl,
     ogImage: resolveSettingsOgImagePath({
@@ -127,7 +129,7 @@ export const buildSettingsPayload = (
     header: {
       disabled: input.header.disabled,
       fixed: input.header.fixed,
-      brandText: input.header.brandText.trim() || input.siteTitle.trim(),
+      brandText: input.header.brandText.trim() || normalizedTitle,
       disableBrand: input.header.disableBrand
     },
     footer: {

@@ -6,6 +6,7 @@ import {
 } from "../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS } from "../../../../features/site-draft/seo";
 import { normalizeSiteUrl } from "../../../../lib/site-url";
+import { normalizeSiteTitle } from "../../../../services/site-metadata";
 
 export const FILE_KEYS = {
   solidary: "public/.well-known/solidary.json",
@@ -54,8 +55,11 @@ export const buildSettingsPayload = ({
   siteUrl: string;
   imageUrl: string;
   urlOverride?: string;
-}): AstroSettings => ({
-  title: siteTitle.trim(),
+}): AstroSettings => {
+  const normalizedTitle = normalizeSiteTitle(siteTitle);
+
+  return {
+  title: normalizedTitle,
   description: siteDescription.trim(),
   siteUrl: urlOverride || siteUrl,
   ogImage: imageUrl,
@@ -68,7 +72,7 @@ export const buildSettingsPayload = ({
   header: {
     disabled: false,
     fixed: false,
-    brandText: siteTitle.trim(),
+    brandText: normalizedTitle,
     disableBrand: false
   },
   footer: {
@@ -80,7 +84,8 @@ export const buildSettingsPayload = ({
       { content: "", alignment: "right" }
     ]
   }
-});
+  };
+};
 
 export const buildWellKnownFiles = ({
   templateSolidary,

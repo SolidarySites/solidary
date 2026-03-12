@@ -53,7 +53,7 @@ export type BuilderContentSectionProps = {
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
   onSaveGeneralToLive?: () => void;
-  onSaveConnectionsToLive?: () => void;
+  onSaveConnectionsToLive?: () => Promise<void>;
   onStudioOnlyDomainUpdate?: (value: string) => Promise<void>;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
@@ -164,7 +164,9 @@ const BuilderContentSection = ({
           draftId={draftId}
           canSaveToLive={canSaveConnectionsToLive}
           savingToLive={savingConnectionsToLive}
-          onSaveToLive={() => onSaveConnectionsToLive?.()}
+          onSaveToLive={async () => {
+            await onSaveConnectionsToLive?.();
+          }}
         />
       )}
 

@@ -14,6 +14,8 @@ export type ConnectionExplorerContext = {
   siteId: string;
   siteTitle: string;
   siteUrl: string;
+  repoFullName: string;
+  branch: string;
   accessRole: ConnectionAccessRole | null;
 };
 
@@ -95,6 +97,7 @@ type DraftContextRow = {
   id: string;
   site_id: string | null;
   repo_full_name: string | null;
+  branch: string | null;
 };
 
 const normalizeAccessRole = (value: unknown): ConnectionAccessRole | null => {
@@ -236,7 +239,7 @@ export const resolveConnectionExplorerContext = async ({
 }): Promise<ConnectionExplorerContext> => {
   const { data: draftRowData, error: draftError } = await supabase
     .from("site_drafts")
-    .select("id, site_id, repo_full_name")
+    .select("id, site_id, repo_full_name, branch")
     .eq("id", draftId)
     .maybeSingle();
 
@@ -281,6 +284,9 @@ export const resolveConnectionExplorerContext = async ({
         ? siteData.title.trim()
         : fallbackSiteTitle,
     siteUrl: typeof siteData?.canonical_url === "string" ? siteData.canonical_url : "",
+    repoFullName:
+      typeof draftRow.repo_full_name === "string" ? draftRow.repo_full_name.trim() : "",
+    branch: typeof draftRow.branch === "string" && draftRow.branch.trim() ? draftRow.branch : "main",
     accessRole: normalizeAccessRole(roleData)
   };
 };

@@ -11,7 +11,7 @@ import type { AstroPageDraft } from "../../../features/site-draft/types";
 import { slugify } from "../../../lib/slugify";
 import { supabaseFunctionUrl } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
-import { clampSiteDescription } from "../../../services/site-metadata";
+import { clampSiteDescription, clampSiteTitle } from "../../../services/site-metadata";
 import { provisionSiteDraft } from "../services/site-create-provisioning";
 
 const INITIAL_PROVISION_STEP = "Preparing your site...";
@@ -239,7 +239,7 @@ export const useSiteCreateRouteController = () => {
       siteTitleRepoCheckRequestIdRef.current += 1;
       setSiteTitleRepoCheckInFlight(false);
       setSiteTitleRepoConflict(null);
-      setSiteTitle(value);
+      setSiteTitle(clampSiteTitle(value));
     },
     onSiteTitleBlur: () => {
       void handleSiteTitleBlur();

@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import type { AstroPageDraft } from "../../../../features/site-draft/types";
 import { supabase } from "../../../../lib/supabase";
+import { normalizeSiteTitle } from "../../../../services/site-metadata";
 import { buildSettingsPayload, FILE_KEYS } from "./content";
 import type { DbWriteStage, ProvisioningDiagnostics } from "./types";
 
@@ -128,7 +129,7 @@ export const saveProvisionedSiteDraft = async ({
   tokensCss: string;
   pages: AstroPageDraft[];
 }) => {
-  const normalizedTitle = siteTitle.trim();
+  const normalizedTitle = normalizeSiteTitle(siteTitle);
   const normalizedDescription = siteDescription.trim();
   const { liveAuthUserId, diagnostics } = await verifyLiveAuthUser({
     session,

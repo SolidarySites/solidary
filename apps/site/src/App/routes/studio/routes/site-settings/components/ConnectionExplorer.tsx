@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useConnectionExplorerController } from "../hooks/useConnectionExplorerController";
 
 type ConnectionExplorerProps = {
   draftId: string;
+  refreshVersion?: number;
+  onLiveMetadataDriftChange?: (hasDrift: boolean) => void;
 };
 
 const formatConnectionState = (value: "available" | "pending_outgoing" | "pending_incoming" | "connected") => {
@@ -17,14 +20,29 @@ const formatShortDate = (iso: string) => {
   return new Date(parsed).toLocaleString();
 };
 
-const ConnectionExplorer = ({ draftId }: ConnectionExplorerProps) => {
-  const controller = useConnectionExplorerController({ draftId });
+const ConnectionExplorer = ({
+  draftId,
+  refreshVersion = 0,
+  onLiveMetadataDriftChange
+}: ConnectionExplorerProps) => {
+  const controller = useConnectionExplorerController({ draftId, refreshVersion });
   const normalizedSearchQuery = controller.searchQuery.trim();
   const showEmptySearch =
     normalizedSearchQuery.length >= 2 &&
     !controller.searchLoading &&
     !controller.searchError &&
     controller.searchResults.length === 0;
+
+  useEffect(() => {
+    onLiveMetadataDriftChange?.(controller.hasApprovedConnectionsLiveMetadataDrift);
+  }, [controller.hasApprovedConnectionsLiveMetadataDrift, onLiveMetadataDriftChange]);
+
+  useEffect(
+    () => () => {
+      onLiveMetadataDriftChange?.(false);
+    },
+    [onLiveMetadataDriftChange]
+  );
 
   return (
     <div className="connection-explorer-card">
@@ -242,20 +260,53 @@ const ConnectionExplorer = ({ draftId }: ConnectionExplorerProps) => {
                   <p>Connections already approved for this site.</p>
                 </div>
 
-                {!controller.requestsLoading && !controller.approvedRequests.length && (
+                {controller.approvedConnectionsComparisonError && (
+                  <p className="connection-explorer-error">
+                    {controller.approvedConnectionsComparisonError}
+                  </p>
+                )}
+
+                {!controller.requestsLoading && !controller.approvedConnections.length && (
                   <p>No approved connections yet.</p>
                 )}
 
-                {!controller.requestsLoading && controller.approvedRequests.length > 0 && (
+                {!controller.requestsLoading && controller.approvedConnections.length > 0 && (
                   <div className="connection-request-list">
-                    {controller.approvedRequests.map((request) => (
+                    {controller.approvedConnections.map((request) => (
                       <article key={request.requestId} className="connection-request-card">
                         <div className="connection-request-header">
-                          <h4>
-                            {request.isIncoming ? request.sourceSiteTitle : request.targetSiteTitle}
-                          </h4>
+                          <h4>{request.connectedSiteTitle}</h4>
                           <span>{formatShortDate(request.respondedAt ?? request.createdAt)}</span>
                         </div>
+                        {request.isLiveMetadataStale && (
+                          <div className="connection-request-live-metadata">
+                            <p className="connection-explorer-error">Live metadata is out of date.</p>
+                            <p className="connection-request-live-metadata-row">
+                              <span>Live repo URL</span>
+                              {request.liveRepoUrl ? (
+                                <a href={request.liveRepoUrl} target="_blank" rel="noreferrer">
+                                  {request.liveRepoUrl}
+                                </a>
+                              ) : (
+                                <strong>Missing from live solidary-links.json</strong>
+                              )}
+                            </p>
+                            <p className="connection-request-live-metadata-row">
+                              <span>Current URL</span>
+                              {request.currentCanonicalUrl ? (
+                                <a
+                                  href={request.currentCanonicalUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {request.currentCanonicalUrl}
+                                </a>
+                              ) : (
+                                <strong>No canonical URL in the database</strong>
+                              )}
+                            </p>
+                          </div>
+                        )}
                         <p className="connection-request-uuid">
                           Connection UUID: {request.connectionUuid}
                         </p>

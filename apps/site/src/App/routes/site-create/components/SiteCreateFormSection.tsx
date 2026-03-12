@@ -1,4 +1,7 @@
-import { MAX_SITE_DESCRIPTION_LENGTH } from "../../../services/site-metadata";
+import {
+  MAX_SITE_DESCRIPTION_LENGTH,
+  MAX_SITE_TITLE_LENGTH
+} from "../../../services/site-metadata";
 
 type SiteCreateFormSectionProps = {
   siteTitle: string;
@@ -43,6 +46,7 @@ export default function SiteCreateFormSection({
           Site title
           <input
             value={siteTitle}
+            maxLength={MAX_SITE_TITLE_LENGTH}
             className={siteTitleRepoConflict ? "site-create-input-error" : undefined}
             aria-invalid={siteTitleRepoConflict ? "true" : undefined}
             onChange={(event) => onSiteTitleChange(event.target.value)}

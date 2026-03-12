@@ -3,7 +3,7 @@ import {
   TEMPLATE_SOLIDARY,
   TEMPLATE_SOLIDARY_LINKS
 } from "../../../../../../templates/site";
-import { buildFiles } from "./build-files";
+import { buildFiles, buildSettingsPayload } from "./build-files";
 import { DEFAULT_OG_IMAGE_URL } from "./constants";
 import { FILE_KEYS } from "./constants";
 import type { BuilderPage, BuilderStyleSettings } from "./types";
@@ -177,5 +177,23 @@ describe("buildFiles styles output", () => {
     expect(files["src/content/pages/home.md"]).toContain(
       '<img src="/new-site/solidary-media/images/pages/flower.jpg" alt="Flower" />'
     );
+  });
+
+  it("clamps site titles to 50 characters in published settings payloads", () => {
+    const longTitle = "A".repeat(80);
+    const payload = buildSettingsPayload(
+      {
+        ...settingsInput,
+        siteTitle: longTitle,
+        header: {
+          ...settingsInput.header,
+          brandText: ""
+        }
+      },
+      "/og.jpg"
+    );
+
+    expect(payload.title).toBe("A".repeat(50));
+    expect(payload.header.brandText).toBe("A".repeat(50));
   });
 });

@@ -1,5 +1,6 @@
 import { githubRequest } from "../../../../services/github";
 import { resolveSiteUrlFromRepo } from "../../../../lib/site-url";
+import { normalizeSiteTitle } from "../../../../services/site-metadata";
 import type {
   CreateRepoResponse,
   CreateRepoStartResponse,
@@ -239,7 +240,7 @@ export const provisionGitHubRepository = async ({
     private: false,
     supabase_access_token: supabaseAccessToken,
     site_id: siteId,
-    site_title: siteTitle.trim(),
+    site_title: normalizeSiteTitle(siteTitle),
     site_description: siteDescription.trim(),
     site_image_path: siteImagePath,
     site_image_content_b64: siteImageContentB64,

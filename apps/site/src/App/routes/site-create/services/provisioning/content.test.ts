@@ -4,7 +4,10 @@ import {
   TEMPLATE_SOLIDARY_LINKS
 } from "../../../../../templates/site";
 import { resolveSiteUrlFromRepo } from "../../../../lib/site-url";
-import { buildWellKnownFiles as buildCreateWellKnownFiles } from "./content";
+import {
+  buildSettingsPayload as buildCreateSettingsPayload,
+  buildWellKnownFiles as buildCreateWellKnownFiles
+} from "./content";
 import { buildWellKnownFiles as buildPublishWellKnownFiles } from "../../../studio/routes/site-builder/services/build-files";
 
 describe("well-known file generation", () => {
@@ -68,5 +71,17 @@ describe("well-known file generation", () => {
 
     expect(createResult.solidaryFile).toBe(publishResult.solidaryFile);
     expect(createResult.solidaryLinksFile).toBe(publishResult.solidaryLinksFile);
+  });
+
+  it("clamps site titles to 50 characters in create settings payloads", () => {
+    const payload = buildCreateSettingsPayload({
+      siteTitle: "B".repeat(80),
+      siteDescription: "Description",
+      siteUrl: "https://example.com",
+      imageUrl: "/og.jpg"
+    });
+
+    expect(payload.title).toBe("B".repeat(50));
+    expect(payload.header.brandText).toBe("B".repeat(50));
   });
 });

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-10T20:24:24.094Z",
-  "latest_commit_sha": "3d48c0188eb517fd1f5961bbe9271dc41d86c55b",
+  "generated_at": "2026-03-12T18:48:24.234Z",
+  "latest_commit_sha": "25d80dc0055a5e75a6c99ba2341767fa91354b98",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -55,19 +55,19 @@
                 "directories": [],
                 "files": [
                   {
-                    "path": "src/App/components/SiteFooter.css",
-                    "description": "Component-scoped footer styles for notices/warnings and footer layout.",
-                    "LOC": 28
+                    "path": "src/App/components/PublicInfoPage.css",
+                    "description": "?",
+                    "LOC": 129
                   },
                   {
-                    "path": "src/App/components/SiteFooter.tsx",
-                    "description": "Global footer that shows Supabase env setup warnings and route-level notice/error messages.",
-                    "LOC": 25
+                    "path": "src/App/components/PublicInfoPage.tsx",
+                    "description": "?",
+                    "LOC": 82
                   },
                   {
                     "path": "src/App/components/SiteHeader.css",
                     "description": "Component-scoped header styles for navigation links, avatar menu, and responsive layout.",
-                    "LOC": 184
+                    "LOC": 239
                   },
                   {
                     "path": "src/App/components/SiteHeader.tsx",
@@ -218,6 +218,72 @@
                     ]
                   },
                   {
+                    "path": "src/App/features/site-notice",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/App/features/site-notice/components",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/site-notice/components/SiteNoticePopout.tsx",
+                            "description": "?",
+                            "LOC": 152
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/site-notice/context",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/site-notice/context/SiteNoticeContext.ts",
+                            "description": "?",
+                            "LOC": 8
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/site-notice/hooks",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/site-notice/hooks/useSyncRouteNotice.ts",
+                            "description": "?",
+                            "LOC": 58
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/features/site-notice/providers",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/features/site-notice/providers/SiteNoticeProvider.tsx",
+                            "description": "?",
+                            "LOC": 75
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/features/site-notice/site-notice.css",
+                        "description": "?",
+                        "LOC": 99
+                      },
+                      {
+                        "path": "src/App/features/site-notice/types.ts",
+                        "description": "?",
+                        "LOC": 7
+                      }
+                    ]
+                  },
+                  {
                     "path": "src/App/features/supabase-management",
                     "description": "?",
                     "directories": [
@@ -272,9 +338,19 @@
                     "LOC": 520
                   },
                   {
+                    "path": "src/App/lib/site-image-url.test.ts",
+                    "description": "?",
+                    "LOC": 22
+                  },
+                  {
                     "path": "src/App/lib/site-image-url.ts",
                     "description": "Utilities that resolve canonical site image and thumbnail URLs from relative asset paths plus site base URL context.",
                     "LOC": 137
+                  },
+                  {
+                    "path": "src/App/lib/site-url.ts",
+                    "description": "?",
+                    "LOC": 14
                   },
                   {
                     "path": "src/App/lib/slugify.ts",
@@ -292,6 +368,29 @@
                 "path": "src/App/routes",
                 "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded).",
                 "directories": [
+                  {
+                    "path": "src/App/routes/contact",
+                    "description": "?",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/App/routes/contact/ContactRoute.tsx",
+                        "description": "?",
+                        "LOC": 38
+                      },
+                      {
+                        "path": "src/App/routes/contact/index.ts",
+                        "description": "?",
+                        "LOC": 1
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/donate",
+                    "description": "?",
+                    "directories": [],
+                    "files": []
+                  },
                   {
                     "path": "src/App/routes/explorer",
                     "description": "Public explorer route module for browsing the site connection graph.",
@@ -331,9 +430,14 @@
                         "directories": [],
                         "files": [
                           {
+                            "path": "src/App/routes/explorer/services/explorer-data.test.ts",
+                            "description": "?",
+                            "LOC": 110
+                          },
+                          {
                             "path": "src/App/routes/explorer/services/explorer-data.ts",
                             "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
-                            "LOC": 140
+                            "LOC": 96
                           },
                           {
                             "path": "src/App/routes/explorer/services/explorer-graph.ts",
@@ -369,13 +473,40 @@
                         "path": "src/App/routes/landing/components",
                         "description": "Reserved folder for future landing-specific presentational components (currently placeholder only).",
                         "directories": [],
-                        "files": []
+                        "files": [
+                          {
+                            "path": "src/App/routes/landing/components/LandingMasthead.tsx",
+                            "description": "?",
+                            "LOC": 64
+                          },
+                          {
+                            "path": "src/App/routes/landing/components/PublicSiteCard.tsx",
+                            "description": "?",
+                            "LOC": 48
+                          },
+                          {
+                            "path": "src/App/routes/landing/components/PublishedSitesSection.tsx",
+                            "description": "?",
+                            "LOC": 66
+                          }
+                        ]
                       },
                       {
                         "path": "src/App/routes/landing/hooks",
                         "description": "Reserved folder for future landing route hooks/controller logic (currently placeholder only).",
                         "directories": [],
-                        "files": []
+                        "files": [
+                          {
+                            "path": "src/App/routes/landing/hooks/useLandingRouteController.ts",
+                            "description": "?",
+                            "LOC": 43
+                          },
+                          {
+                            "path": "src/App/routes/landing/hooks/useLandingTitleTooltipBounds.ts",
+                            "description": "?",
+                            "LOC": 68
+                          }
+                        ]
                       },
                       {
                         "path": "src/App/routes/landing/services",
@@ -393,12 +524,12 @@
                       {
                         "path": "src/App/routes/landing/LandingRoute.css",
                         "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
-                        "LOC": 78
+                        "LOC": 367
                       },
                       {
                         "path": "src/App/routes/landing/LandingRoute.tsx",
                         "description": "Public homepage route that renders brand messaging, feature highlights, and primary navigation into the authenticated Studio flow.",
-                        "LOC": 42
+                        "LOC": 21
                       }
                     ]
                   },
@@ -412,14 +543,19 @@
                         "directories": [],
                         "files": [
                           {
+                            "path": "src/App/routes/profile/components/ProfileAuthenticationSection.tsx",
+                            "description": "?",
+                            "LOC": 43
+                          },
+                          {
                             "path": "src/App/routes/profile/components/ProfileConnectedGithubCard.tsx",
                             "description": "Profile card showing connected GitHub identity details with action to connect/refresh GitHub App access.",
-                            "LOC": 190
+                            "LOC": 182
                           },
                           {
                             "path": "src/App/routes/profile/components/ProfileSettingsFormSection.tsx",
                             "description": "Profile settings form section for display-name edits plus avatar upload/select/remove controls.",
-                            "LOC": 165
+                            "LOC": 172
                           },
                           {
                             "path": "src/App/routes/profile/components/ProfileSupabaseConnectionCard.tsx",
@@ -441,12 +577,12 @@
                           {
                             "path": "src/App/routes/profile/hooks/useProfileRouteController.ts",
                             "description": "Controller hook for profile form state, avatar upload/removal, and save/reset flows.",
-                            "LOC": 470
+                            "LOC": 483
                           },
                           {
                             "path": "src/App/routes/profile/hooks/useProfileSupabaseManagementController.ts",
                             "description": "?",
-                            "LOC": 270
+                            "LOC": 280
                           }
                         ]
                       },
@@ -477,19 +613,42 @@
                       {
                         "path": "src/App/routes/profile/ProfileRoute.css",
                         "description": "Profile settings route styles for account cards, avatars, and form layout.",
-                        "LOC": 452
+                        "LOC": 491
                       },
                       {
                         "path": "src/App/routes/profile/ProfileRoute.tsx",
                         "description": "Profile settings route with GitHub account summary plus display name and avatar management form.",
-                        "LOC": 90
+                        "LOC": 106
                       }
                     ]
                   },
                   {
                     "path": "src/App/routes/search",
                     "description": "Public search route module that reuses explorer list UI to filter sites.",
-                    "directories": [],
+                    "directories": [
+                      {
+                        "path": "src/App/routes/search/components",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/search/components/SearchMasthead.tsx",
+                            "description": "?",
+                            "LOC": 68
+                          },
+                          {
+                            "path": "src/App/routes/search/components/SearchResultsSection.tsx",
+                            "description": "?",
+                            "LOC": 73
+                          },
+                          {
+                            "path": "src/App/routes/search/components/SearchSiteCard.tsx",
+                            "description": "?",
+                            "LOC": 82
+                          }
+                        ]
+                      }
+                    ],
                     "files": [
                       {
                         "path": "src/App/routes/search/index.ts",
@@ -497,9 +656,14 @@
                         "LOC": 1
                       },
                       {
+                        "path": "src/App/routes/search/SearchRoute.css",
+                        "description": "?",
+                        "LOC": 295
+                      },
+                      {
                         "path": "src/App/routes/search/SearchRoute.tsx",
                         "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
-                        "LOC": 38
+                        "LOC": 29
                       }
                     ]
                   },
@@ -515,7 +679,7 @@
                           {
                             "path": "src/App/routes/site-create/components/SiteCreateFormSection.tsx",
                             "description": "Controlled create-site form section for title/description/image input, repo-name conflict feedback, and create/back actions.",
-                            "LOC": 103
+                            "LOC": 110
                           },
                           {
                             "path": "src/App/routes/site-create/components/SiteCreateProvisioningSection.tsx",
@@ -532,7 +696,7 @@
                           {
                             "path": "src/App/routes/site-create/hooks/useSiteCreateRouteController.ts",
                             "description": "Primary create-site controller hook: default form values, image preview object URL cleanup, session/provider-token checks, provisioning invocation, and redirect to `/site-builder?draftId=...` on success.",
-                            "LOC": 253
+                            "LOC": 254
                           }
                         ]
                       },
@@ -548,22 +712,22 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/content.test.ts",
                                 "description": "?",
-                                "LOC": 56
+                                "LOC": 87
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/content.ts",
                                 "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-                                "LOC": 145
+                                "LOC": 136
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
                                 "description": "GitHub provisioning client for create flow: starts background repo job, polls status, enables Pages, waits for deploy readiness, and returns resolved repo metadata.",
-                                "LOC": 307
+                                "LOC": 308
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
                                 "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-                                "LOC": 234
+                                "LOC": 235
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/types.ts",
@@ -596,7 +760,7 @@
                       {
                         "path": "src/App/routes/site-create/SiteCreateRoute.tsx",
                         "description": "Thin route orchestrator that composes global header/footer and conditionally renders either metadata form or provisioning progress from controller state.",
-                        "LOC": 35
+                        "LOC": 37
                       }
                     ]
                   },
@@ -612,12 +776,17 @@
                           {
                             "path": "src/App/routes/studio/components/IndexesListSection.tsx",
                             "description": "Currently a placeholder index section with a create CTA and empty-state copy; does not yet manage real index records.",
-                            "LOC": 17
+                            "LOC": 34
                           },
                           {
                             "path": "src/App/routes/studio/components/SitesListSection.tsx",
                             "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
-                            "LOC": 149
+                            "LOC": 201
+                          },
+                          {
+                            "path": "src/App/routes/studio/components/StudioMasthead.tsx",
+                            "description": "?",
+                            "LOC": 82
                           }
                         ]
                       },
@@ -634,7 +803,12 @@
                           {
                             "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
                             "description": "Studio controller that merges owned/shared draft cards into one recency-sorted list, manages delete-dialog state/validation, and wires section action handlers/navigation.",
-                            "LOC": 60
+                            "LOC": 92
+                          },
+                          {
+                            "path": "src/App/routes/studio/hooks/useStudioSupabaseConnectionStatus.ts",
+                            "description": "?",
+                            "LOC": 40
                           }
                         ]
                       },
@@ -726,7 +900,7 @@
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildContentSectionProps.ts",
                                             "description": "?",
-                                            "LOC": 93
+                                            "LOC": 94
                                           },
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildPreviewPanelProps.ts",
@@ -751,7 +925,7 @@
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/types.ts",
                                             "description": "?",
-                                            "LOC": 291
+                                            "LOC": 294
                                           }
                                         ]
                                       }
@@ -765,7 +939,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderDocumentState.ts",
                                         "description": "?",
-                                        "LOC": 149
+                                        "LOC": 158
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderRouteEffects.ts",
@@ -787,12 +961,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/shared.ts",
                                         "description": "?",
-                                        "LOC": 163
+                                        "LOC": 168
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/types.ts",
                                         "description": "?",
-                                        "LOC": 84
+                                        "LOC": 91
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDeleteActions.ts",
@@ -802,12 +976,12 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDomainActions.ts",
                                         "description": "?",
-                                        "LOC": 310
+                                        "LOC": 449
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsPublishingActions.ts",
                                         "description": "?",
-                                        "LOC": 306
+                                        "LOC": 307
                                       }
                                     ]
                                   },
@@ -903,12 +1077,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderLiveSettingsActions.ts",
                                     "description": "?",
-                                    "LOC": 103
+                                    "LOC": 110
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 589
+                                    "LOC": 593
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -1066,7 +1240,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/publishOwnerDraft.ts",
                                         "description": "Owner/admin publish workflow that writes draft changes directly to repository and live site paths.",
-                                        "LOC": 206
+                                        "LOC": 212
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/services/publish/shared.ts",
@@ -1085,12 +1259,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 130
+                                    "LOC": 199
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 273
+                                    "LOC": 275
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -1105,7 +1279,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
                                     "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
-                                    "LOC": 33
+                                    "LOC": 36
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
@@ -1116,6 +1290,16 @@
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.ts",
                                     "description": "Draft normalization/signature/url utility helpers reused across builder load/save/publish logic.",
                                     "LOC": 161
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/live-domain-publish.test.ts",
+                                    "description": "?",
+                                    "LOC": 270
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/live-domain-publish.ts",
+                                    "description": "?",
+                                    "LOC": 187
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
@@ -1244,12 +1428,12 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 2204
+                                "LOC": 2207
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
                                 "description": "Site-builder route shell composing lock-aware topbar, sidebar, preview panel, and footer notices.",
-                                "LOC": 23
+                                "LOC": 25
                               }
                             ]
                           },
@@ -1265,7 +1449,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 210
+                                    "LOC": 221
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -1275,22 +1459,22 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionExplorer.tsx",
                                     "description": "Embedded connection explorer UI for searching sites, sending invites, and reviewing connection requests.",
-                                    "LOC": 275
+                                    "LOC": 326
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionsSettingsSection.tsx",
                                     "description": "Settings section wrapper that mounts the embedded connection explorer when draft context exists.",
-                                    "LOC": 41
+                                    "LOC": 71
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
                                     "description": "Owner-only destructive-actions section for deleting site records and optional GitHub repository deletion.",
-                                    "LOC": 246
+                                    "LOC": 282
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
                                     "description": "Settings section form for editable site title, description, URL, and image metadata.",
-                                    "LOC": 79
+                                    "LOC": 89
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
@@ -1307,7 +1491,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useConnectionExplorerController.ts",
                                     "description": "Controller hook for embedded connection explorer state, context loading, search, invite, and request-response actions.",
-                                    "LOC": 278
+                                    "LOC": 360
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
@@ -1322,6 +1506,16 @@
                                 "directories": [],
                                 "files": [
                                   {
+                                    "path": "src/App/routes/studio/routes/site-settings/services/approved-connection-live-metadata.test.ts",
+                                    "description": "?",
+                                    "LOC": 170
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/services/approved-connection-live-metadata.ts",
+                                    "description": "?",
+                                    "LOC": 86
+                                  },
+                                  {
                                     "path": "src/App/routes/studio/routes/site-settings/services/settings-lock.ts",
                                     "description": "Small helper that normalizes lock holder names for settings lock conflict messaging.",
                                     "LOC": 4
@@ -1334,7 +1528,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/services/site-connections.ts",
                                     "description": "Supabase RPC service layer for embedded connection explorer context, search, invites, and request responses.",
-                                    "LOC": 373
+                                    "LOC": 379
                                   }
                                 ]
                               }
@@ -1348,12 +1542,12 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 541
+                                "LOC": 556
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
                                 "description": "Studio settings route shell composing the settings topbar, section content renderer, and global footer notices.",
-                                "LOC": 34
+                                "LOC": 36
                               }
                             ]
                           }
@@ -1387,12 +1581,29 @@
                       {
                         "path": "src/App/routes/studio/StudioRoute.css",
                         "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
-                        "LOC": 167
+                        "LOC": 378
                       },
                       {
                         "path": "src/App/routes/studio/StudioRoute.tsx",
                         "description": "Thin Studio route shell that composes global header/footer, renders \"Your sites\" plus the current index placeholder section, and mounts the delete dialog.",
-                        "LOC": 20
+                        "LOC": 26
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/support",
+                    "description": "?",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/App/routes/support/index.ts",
+                        "description": "?",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/support/SupportRoute.tsx",
+                        "description": "?",
+                        "LOC": 38
                       }
                     ]
                   }
@@ -1426,6 +1637,21 @@
                     "path": "src/App/services/github.ts",
                     "description": "Shared GitHub API adapter wrapping Netlify function endpoints for file read/list/write/delete operations with base64 handling.",
                     "LOC": 111
+                  },
+                  {
+                    "path": "src/App/services/public-sites.test.ts",
+                    "description": "?",
+                    "LOC": 129
+                  },
+                  {
+                    "path": "src/App/services/public-sites.ts",
+                    "description": "?",
+                    "LOC": 106
+                  },
+                  {
+                    "path": "src/App/services/site-metadata.ts",
+                    "description": "?",
+                    "LOC": 11
                   }
                 ]
               },
@@ -1446,7 +1672,7 @@
               {
                 "path": "src/App/App.css",
                 "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
-                "LOC": 105
+                "LOC": 107
               },
               {
                 "path": "src/App/App.tsx",
@@ -1478,6 +1704,11 @@
                             "LOC": 9
                           },
                           {
+                            "path": "src/templates/site/default_template/runtime/robots.txt.ts.txt",
+                            "description": "?",
+                            "LOC": 18
+                          },
+                          {
                             "path": "src/templates/site/default_template/runtime/solidary-config-site.ts.txt",
                             "description": "?",
                             "LOC": 143
@@ -1505,7 +1736,7 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/.github/workflows/deploy.yml",
                                     "description": "?",
-                                    "LOC": 82
+                                    "LOC": 68
                                   }
                                 ]
                               }
@@ -1696,7 +1927,7 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/src/pages/robots.txt.ts",
                                     "description": "?",
-                                    "LOC": 13
+                                    "LOC": 18
                                   }
                                 ]
                               },
@@ -1781,7 +2012,7 @@
                           {
                             "path": "src/templates/site/default_template/scaffold/astro.config.mjs",
                             "description": "?",
-                            "LOC": 22
+                            "LOC": 61
                           },
                           {
                             "path": "src/templates/site/default_template/scaffold/LICENSE",
@@ -1815,17 +2046,17 @@
                       {
                         "path": "src/templates/site/default_template/runtime-files.ts",
                         "description": "?",
-                        "LOC": 23
+                        "LOC": 25
                       },
                       {
                         "path": "src/templates/site/default_template/scaffold.ts",
                         "description": "?",
-                        "LOC": 23
+                        "LOC": 25
                       },
                       {
                         "path": "src/templates/site/default_template/template-integrity.test.ts",
                         "description": "?",
-                        "LOC": 51
+                        "LOC": 65
                       }
                     ]
                   }
@@ -1834,7 +2065,7 @@
                   {
                     "path": "src/templates/site/index.ts",
                     "description": "?",
-                    "LOC": 16
+                    "LOC": 17
                   }
                 ]
               }
@@ -1902,7 +2133,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 1929
+        "LOC": 2160
       },
       {
         "path": "tsconfig.app.json",

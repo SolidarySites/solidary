@@ -10,9 +10,9 @@
   align-items: end;
   padding: 0 0 1rem;
   border: 0;
-  position: sticky;
-  top: var(--builder-topbar-sticky-top);
-  z-index: 30;
+  position: static;
+  top: auto;
+  z-index: auto;
   box-shadow: none;
 }
 
@@ -21,7 +21,7 @@
 }
 
 .studio-settings-route .studio-settings-topbar {
-  justify-content: initial;
+  justify-content: flex-end;
   align-items: end;
 }
 
@@ -30,6 +30,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.75rem 1rem;
   min-width: 0;
 }
@@ -143,7 +144,7 @@
 .studio-settings-route .builder-settings-full {
   grid-column: 1 / -1;
   border: 0;
-  padding: 0;
+  padding: 0 0 6rem;
   background: transparent;
   display: grid;
   gap: 2rem;
@@ -298,9 +299,20 @@
 .studio-settings-route .studio-settings-save-row,
 .studio-settings-route .builder-delete-site-actions {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-end;
   gap: 0.8rem;
   flex-wrap: wrap;
+}
+
+.studio-settings-route .studio-settings-save-row {
+  position: fixed;
+  right: clamp(1rem, 3vw, 2.5rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 40;
+}
+
+.studio-settings-route .studio-settings-save-row .primary {
+  box-shadow: 0 14px 32px rgba(31, 34, 28, 0.18);
 }
 
 .studio-settings-route .builder-collaborator-section,
@@ -482,6 +494,31 @@
   color: rgba(31, 34, 28, 0.7);
 }
 
+.studio-settings-route .connection-request-live-metadata {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid rgba(122, 31, 23, 0.18);
+}
+
+.studio-settings-route .connection-request-live-metadata-row {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.studio-settings-route .connection-request-live-metadata-row span {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(31, 34, 28, 0.7);
+}
+
+.studio-settings-route .connection-request-live-metadata-row a,
+.studio-settings-route .connection-request-live-metadata-row strong {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 980px) {
   .studio-settings-route .builder-topbar {
     grid-template-columns: 1fr;
@@ -506,6 +543,11 @@
     flex: 0 0 auto;
     padding-right: 1.65rem;
     font-size: 0.63rem;
+  }
+
+  .studio-settings-route .studio-settings-save-row {
+    right: 1rem;
+    bottom: 1rem;
   }
 
   .studio-settings-route .studio-settings-topbar-button-shell > .builder-lock-avatar-pill {

@@ -53,9 +53,7 @@ export const buildContentSectionProps = ({
   onSaveGeneralToLive: () => {
     void liveSettings.saveGeneralSettingsToLive();
   },
-  onSaveConnectionsToLive: () => {
-    void liveSettings.saveConnectionsToLive();
-  },
+  onSaveConnectionsToLive: liveSettings.saveConnectionsToLive,
   onStudioOnlyDomainUpdate: liveSettings.handleStudioOnlyDomainUpdate,
   onConnectGithubDomain: (value: string) => {
     void liveSettings.handleConnectGithubDomain(value);

@@ -1,4 +1,7 @@
-import { MAX_SITE_DESCRIPTION_LENGTH } from "../../../../../services/site-metadata";
+import {
+  MAX_SITE_DESCRIPTION_LENGTH,
+  MAX_SITE_TITLE_LENGTH
+} from "../../../../../services/site-metadata";
 
 type GeneralSettingsSectionProps = {
   siteTitle: string;
@@ -34,7 +37,11 @@ const GeneralSettingsSection = ({
     </div>
     <label>
       Site title
-      <input value={siteTitle} onChange={(event) => onSiteTitleChange(event.target.value)} />
+      <input
+        value={siteTitle}
+        maxLength={MAX_SITE_TITLE_LENGTH}
+        onChange={(event) => onSiteTitleChange(event.target.value)}
+      />
     </label>
     <label>
       Description
@@ -70,7 +77,7 @@ const GeneralSettingsSection = ({
       <button
         className="primary"
         type="button"
-        disabled={!canSaveToLive || savingToLive}
+        disabled={!canSaveToLive || !hasUnsavedChanges || savingToLive}
         onClick={onSaveToLive}
       >
         {savingToLive ? "Saving..." : "Save"}

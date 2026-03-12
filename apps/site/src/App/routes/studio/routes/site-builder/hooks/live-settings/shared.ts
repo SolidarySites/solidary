@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { supabase } from "../../../../../../lib/supabase";
 import { toBase64 } from "../../../../../../lib/base64";
 import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
+import { normalizeSiteTitle } from "../../../../../../services/site-metadata";
 import { githubRequest } from "../../../../../../services/github";
 import type { RepoFileSet } from "../../../../../../features/site-draft/types";
 import { FILE_KEYS } from "../../services/constants";
@@ -147,7 +148,7 @@ export const upsertPublishedSiteRecord = async ({
   const { error } = await supabase.from("sites").upsert({
     id: siteId,
     canonical_url: canonicalUrl.trim(),
-    title: title.trim(),
+    title: normalizeSiteTitle(title),
     description: description.trim(),
     image_url: normalizeSiteImagePathForStorage({
       siteUrl: canonicalUrl,

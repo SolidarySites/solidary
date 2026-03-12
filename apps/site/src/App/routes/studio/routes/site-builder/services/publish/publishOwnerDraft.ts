@@ -2,6 +2,7 @@ import { supabase } from "../../../../../../lib/supabase";
 import { normalizeSiteImagePathForStorage } from "../../../../../../lib/site-image-url";
 import { githubRequest, listDirectory } from "../../../../../../services/github";
 import { toBase64 } from "../../../../../../lib/base64";
+import { normalizeSiteTitle } from "../../../../../../services/site-metadata";
 import { buildFiles, buildWellKnownFiles } from "../build-files";
 import { FILE_KEYS, PAGE_PATH_PREFIX, PAGE_PATH_SUFFIX } from "../constants";
 import { buildDraftSaveSignature, replaceDraftImageUrlsWithSitePaths } from "../draft-utils";
@@ -46,7 +47,7 @@ export const publishOwnerDraft = async ({
     throw new Error("Owner draft is required for direct publish.");
   }
 
-  const normalizedTitle = siteTitle.trim();
+  const normalizedTitle = normalizeSiteTitle(siteTitle);
   const [ownerLogin, repoName] = draftState.repoFullName.split("/");
   if (!ownerLogin || !repoName) {
     throw new Error("Invalid repository name.");

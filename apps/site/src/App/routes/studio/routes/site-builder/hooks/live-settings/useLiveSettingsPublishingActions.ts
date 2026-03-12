@@ -259,6 +259,7 @@ export const useLiveSettingsPublishingActions = ({
     setNoticeKind(null);
     try {
       await requireFreshGithubAuth();
+      await syncConnectedSiteUrls(draftState.siteId);
       const { solidaryLinksRaw: latestSolidaryLinksRaw } = await loadLatestDraftWellKnownFiles({
         targetDraftId: draftState.id,
         setDraftState
