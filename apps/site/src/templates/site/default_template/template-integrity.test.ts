@@ -50,6 +50,7 @@ describe("default site template integrity", () => {
   it("pins the deploy workflow to the expected GitHub Actions versions", () => {
     const deployWorkflow = readFileSync(deployWorkflowPath, "utf8");
 
+    expect(deployWorkflow).toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true");
     expect(deployWorkflow).toContain("uses: actions/checkout@v5");
     expect(deployWorkflow).toContain("uses: actions/setup-node@v6");
     expect(deployWorkflow).toContain('node-version: "24"');
