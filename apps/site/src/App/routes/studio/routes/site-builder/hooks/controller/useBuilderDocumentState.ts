@@ -1,4 +1,4 @@
-import { useMemo, useState, type SetStateAction } from "react";
+import { useCallback, useMemo, useState, type SetStateAction } from "react";
 import { DEFAULT_SEO_SETTINGS } from "../../../../../../features/site-draft/seo";
 import { clampSiteDescription } from "../../../../../../services/site-metadata";
 import {
@@ -99,11 +99,11 @@ export const useBuilderDocumentState = () => {
     return siteImagePreview || draftImageUrl || DEFAULT_OG_IMAGE_URL;
   }, [draftImageUrl, siteImage, siteImagePreview]);
 
-  const setSiteDescription = (value: SetStateAction<string>) => {
+  const setSiteDescription = useCallback((value: SetStateAction<string>) => {
     setSiteDescriptionState((current) =>
       clampSiteDescription(typeof value === "function" ? value(current) : value)
     );
-  };
+  }, []);
 
   return {
     siteTitle,
