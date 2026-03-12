@@ -3,7 +3,7 @@ import { buildSolidaryMarkdown } from "../../../../../features/site-draft/servic
 import { supabase } from "../../../../../lib/supabase";
 import { toBase64 } from "../../../../../lib/base64";
 import { githubRequest } from "../../../../../services/github";
-import { DEPLOY_WORKFLOW_TEMPLATE } from "../../../../../../templates/site";
+import { DEPLOY_WORKFLOW_TEMPLATE, RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/site";
 import { buildSettingsPayload, buildWellKnownFiles } from "./build-files";
 import { FILE_KEYS } from "./constants";
 import type { DraftSaveSettingsInput } from "./draft-utils";
@@ -20,6 +20,7 @@ const resolveRepoCoordinates = (repoFullName: string) => {
 };
 
 export type LiveDomainPublishResult = {
+  draftFiles: RepoFileSet;
   solidaryRaw: string;
   solidaryLinksRaw: string;
   draftRevisionRow: DraftRevisionRow;
@@ -67,6 +68,22 @@ export const publishLiveDomainChange = async ({
   });
   const settingsPayload = buildSettingsPayload(nextSettingsInput, imageUrl, nextSiteUrl);
   const solidaryContent = buildSolidaryMarkdown(settingsPayload);
+  const nextDraftFiles: RepoFileSet = {
+    ...draftFiles,
+    [FILE_KEYS.astroConfig]:
+      RUNTIME_TEMPLATE_FILES[FILE_KEYS.astroConfig] ?? draftFiles[FILE_KEYS.astroConfig] ?? "",
+    [FILE_KEYS.robots]:
+      RUNTIME_TEMPLATE_FILES[FILE_KEYS.robots] ?? draftFiles[FILE_KEYS.robots] ?? "",
+    [FILE_KEYS.solidaryContent]: solidaryContent,
+    [FILE_KEYS.solidary]: solidaryFile,
+    [FILE_KEYS.solidaryLinks]: solidaryLinksFile
+  };
+  if (workflowMode === "restore") {
+    nextDraftFiles[FILE_KEYS.deployWorkflow] = DEPLOY_WORKFLOW_TEMPLATE;
+  }
+  if (workflowMode === "remove") {
+    delete nextDraftFiles[FILE_KEYS.deployWorkflow];
+  }
   const { owner, repo } = resolveRepoCoordinates(draftState.repoFullName);
 
   const { data: draftRow, error: draftUpdateError } = await supabase
@@ -74,11 +91,7 @@ export const publishLiveDomainChange = async ({
     .update({
       branch: draftState.branch,
       commit_sha: "",
-      files: {
-        ...draftFiles,
-        [FILE_KEYS.solidary]: solidaryFile,
-        [FILE_KEYS.solidaryLinks]: solidaryLinksFile
-      },
+      files: nextDraftFiles,
       last_edited_by_user_id: sessionUserId
     })
     .eq("id", draftState.id)
@@ -125,6 +138,16 @@ export const publishLiveDomainChange = async ({
         mode: "100644",
         content: toBase64(new TextEncoder().encode(solidaryContent).buffer)
       },
+      {
+        path: FILE_KEYS.astroConfig,
+        mode: "100644",
+        content: toBase64(new TextEncoder().encode(nextDraftFiles[FILE_KEYS.astroConfig] ?? "").buffer)
+      },
+      {
+        path: FILE_KEYS.robots,
+        mode: "100644",
+        content: toBase64(new TextEncoder().encode(nextDraftFiles[FILE_KEYS.robots] ?? "").buffer)
+      },
       ...(workflowMode === "restore"
         ? [
             {
@@ -157,6 +180,7 @@ export const publishLiveDomainChange = async ({
   await syncConnectedSiteUrls(draftState.siteId);
 
   return {
+    draftFiles: nextDraftFiles,
     solidaryRaw: solidaryFile,
     solidaryLinksRaw: solidaryLinksFile,
     draftRevisionRow: draftRow

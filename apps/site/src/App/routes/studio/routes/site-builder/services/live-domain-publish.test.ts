@@ -148,11 +148,18 @@ describe("publishLiveDomainChange", () => {
         commit_sha: "",
         last_edited_by_user_id: "user-1",
         files: expect.objectContaining({
+          [FILE_KEYS.astroConfig]: expect.stringContaining("readConfiguredSiteUrl"),
+          [FILE_KEYS.robots]: expect.stringContaining("sitemap-index.xml"),
           [FILE_KEYS.solidary]: expect.stringContaining('"site_url": "https://roses-are-red.netlify.app"'),
           [FILE_KEYS.solidaryLinks]: expect.stringContaining('"@id": "https://roses-are-red.netlify.app"')
         })
       })
     );
+    const firstDraftUpdateCalls = draftUpdateQuery.update.mock.calls as unknown as Array<
+      [{ files?: Record<string, string> }]
+    >;
+    const firstDraftUpdatePayload = firstDraftUpdateCalls[0]?.[0];
+    expect(firstDraftUpdatePayload?.files?.[FILE_KEYS.deployWorkflow]).toBeUndefined();
     expect(liveDomainMocks.rpc).toHaveBeenCalledWith("site_draft_upsert_settings_metadata", {
       p_draft_id: "draft-1",
       p_title: "Roses Are Red",
@@ -168,6 +175,8 @@ describe("publishLiveDomainChange", () => {
         message: "Update custom domain",
         deletes: [FILE_KEYS.deployWorkflow],
         upserts: expect.arrayContaining([
+          expect.objectContaining({ path: FILE_KEYS.astroConfig }),
+          expect.objectContaining({ path: FILE_KEYS.robots }),
           expect.objectContaining({ path: FILE_KEYS.solidary }),
           expect.objectContaining({ path: FILE_KEYS.solidaryLinks }),
           expect.objectContaining({ path: FILE_KEYS.solidaryContent })
@@ -184,6 +193,9 @@ describe("publishLiveDomainChange", () => {
       })
     );
     expect(liveDomainMocks.syncConnectedSiteUrls).toHaveBeenCalledWith("site-1");
+    expect(result.draftFiles[FILE_KEYS.astroConfig]).toContain("readConfiguredSiteUrl");
+    expect(result.draftFiles[FILE_KEYS.robots]).toContain("sitemap-index.xml");
+    expect(result.draftFiles[FILE_KEYS.deployWorkflow]).toBeUndefined();
     expect(result.solidaryLinksRaw).toContain('"@id": "https://roses-are-red.netlify.app"');
     expect(result.solidaryLinksRaw).toContain('"urn:uuid:conn-1"');
     expect(result.draftRevisionRow.revision).toBe(5);
@@ -246,5 +258,10 @@ describe("publishLiveDomainChange", () => {
         ])
       })
     );
+    const restoreDraftUpdateCalls = draftUpdateQuery.update.mock.calls as unknown as Array<
+      [{ files?: Record<string, string> }]
+    >;
+    const restoreDraftUpdatePayload = restoreDraftUpdateCalls[0]?.[0];
+    expect(restoreDraftUpdatePayload?.files?.[FILE_KEYS.deployWorkflow]).toBeTypeOf("string");
   });
 });

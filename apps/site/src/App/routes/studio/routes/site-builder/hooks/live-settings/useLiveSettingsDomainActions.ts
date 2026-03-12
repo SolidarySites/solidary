@@ -14,7 +14,6 @@ import type {
 } from "./types";
 import {
   loadLatestDraftWellKnownFiles,
-  mergeDraftWellKnownFiles,
   normalizeCustomDomainInput,
   resolveRepoCoordinates,
   toCanonicalSiteUrl
@@ -79,51 +78,47 @@ export const useLiveSettingsDomainActions = ({
       siteSettingsInput.siteUrl.trim() &&
       defaultGitHubPagesUrl !== siteSettingsInput.siteUrl.trim()
   );
+  const showGithubPagesDomainConnect = !(
+    defaultGitHubPagesUrl &&
+    siteSettingsInput.siteUrl.trim() &&
+    defaultGitHubPagesUrl !== siteSettingsInput.siteUrl.trim() &&
+    !draftState?.files?.[FILE_KEYS.deployWorkflow]
+  );
 
   useEffect(() => {
     setDomainActionBusy("none");
     setDomainDnsFeedback(null);
   }, [draftState?.siteId]);
 
-  const updateCachedWellKnownFiles = ({
-    solidaryRaw,
-    solidaryLinksRaw
+  const updateDraftStateAfterPublish = ({
+    draftFiles,
+    draftRevisionRow
   }: {
-    solidaryRaw?: string;
-    solidaryLinksRaw?: string;
-  }) => {
-    setDraftState((current: DraftState | null) =>
-      mergeDraftWellKnownFiles({
-        current,
-        solidaryRaw,
-        solidaryLinksRaw
-      })
-    );
-  };
-
-  const updateDraftRevisionState = (draftRevisionRow: {
-    revision: number | null;
-    last_edited_at: string | null;
-    last_edited_by_user_id: string | null;
+    draftFiles: DraftState["files"];
+    draftRevisionRow: {
+      revision: number | null;
+      last_edited_at: string | null;
+      last_edited_by_user_id: string | null;
+    };
   }) => {
     setDraftState((current) => {
-      const nextState = mergeDraftWellKnownFiles({ current });
-      if (!nextState) return nextState;
+      if (!current) return current;
 
       return {
-        ...nextState,
+        ...current,
+        files: draftFiles,
         revision:
           typeof draftRevisionRow.revision === "number"
             ? draftRevisionRow.revision
-            : nextState.revision,
+            : current.revision,
         lastEditedAt:
           typeof draftRevisionRow.last_edited_at === "string"
             ? draftRevisionRow.last_edited_at
-            : (nextState.lastEditedAt ?? null),
+            : (current.lastEditedAt ?? null),
         lastEditedByUserId:
           typeof draftRevisionRow.last_edited_by_user_id === "string"
             ? draftRevisionRow.last_edited_by_user_id
-            : (nextState.lastEditedByUserId ?? null)
+            : (current.lastEditedByUserId ?? null)
       };
     });
   };
@@ -165,11 +160,10 @@ export const useLiveSettingsDomainActions = ({
     });
 
     setSiteUrl(nextSiteUrl);
-    updateCachedWellKnownFiles({
-      solidaryRaw: result.solidaryRaw,
-      solidaryLinksRaw: result.solidaryLinksRaw
+    updateDraftStateAfterPublish({
+      draftFiles: result.draftFiles,
+      draftRevisionRow: result.draftRevisionRow
     });
-    updateDraftRevisionState(result.draftRevisionRow);
     setLastSavedDraftSignature(
       buildDraftSaveSignature({
         draftId: draftState.id,
@@ -444,6 +438,7 @@ export const useLiveSettingsDomainActions = ({
   return {
     domainActionBusy,
     domainDnsFeedback,
+    showGithubPagesDomainConnect,
     defaultGitHubPagesUrl,
     canResetGitHubPagesDomain,
     handleStudioOnlyDomainUpdate,

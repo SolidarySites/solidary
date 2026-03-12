@@ -9,6 +9,7 @@ type DangerSettingsSectionProps = {
     status: "valid" | "invalid" | "pending";
     message: string;
   } | null;
+  showGithubPagesDomainConnect?: boolean;
   canResetGitHubPagesDomain?: boolean;
   resetGitHubPagesUrl?: string | null;
   onStudioOnlyDomainUpdate?: (value: string) => Promise<void>;
@@ -39,6 +40,7 @@ const DangerSettingsSection = ({
   siteUrl,
   domainActionBusy = "none",
   domainDnsFeedback = null,
+  showGithubPagesDomainConnect = true,
   canResetGitHubPagesDomain = false,
   resetGitHubPagesUrl = null,
   onStudioOnlyDomainUpdate,
@@ -89,70 +91,74 @@ const DangerSettingsSection = ({
 
       {ownerAccess && (
         <div className="builder-advanced-domain-panel">
-          <h3>Connect Custom Domain</h3>
-          <p>
-            Before connecting, set these A records for your apex domain at your DNS provider:
-          </p>
-          <ul className="builder-advanced-domain-records">
-            <li><code>185.199.108.153</code></li>
-            <li><code>185.199.109.153</code></li>
-            <li><code>185.199.110.153</code></li>
-            <li><code>185.199.111.153</code></li>
-          </ul>
-          <p className="builder-collaborator-hint">
-            Full setup docs:{" "}
-            <a
-              href="https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site"
-              target="_blank"
-              rel="noreferrer"
-            >
-              GitHub Pages custom domain guide
-            </a>
-          </p>
-          <p className="builder-advanced-warning">
-            Warning: Do not connect the domain until DNS records are configured with your domain
-            provider.
-          </p>
-          <label className="builder-delete-site-label">
-            Domain
-            <input
-              value={connectDomainInput}
-              onChange={(event) => setConnectDomainInput(event.target.value)}
-              placeholder="example.com"
-              spellCheck={false}
-            />
-          </label>
-          <button
-            type="button"
-            className="primary"
-            disabled={!hasConnectDomainValue || domainActionsBusy || deleteBusy}
-            onClick={() => onConnectGithubDomain?.(connectDomainInput)}
-          >
-            {connectButtonLabel}
-          </button>
+          {showGithubPagesDomainConnect && (
+            <>
+              <h3>Connect Custom Domain</h3>
+              <p>
+                Before connecting, set these A records for your apex domain at your DNS provider:
+              </p>
+              <ul className="builder-advanced-domain-records">
+                <li><code>185.199.108.153</code></li>
+                <li><code>185.199.109.153</code></li>
+                <li><code>185.199.110.153</code></li>
+                <li><code>185.199.111.153</code></li>
+              </ul>
+              <p className="builder-collaborator-hint">
+                Full setup docs:{" "}
+                <a
+                  href="https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  GitHub Pages custom domain guide
+                </a>
+              </p>
+              <p className="builder-advanced-warning">
+                Warning: Do not connect the domain until DNS records are configured with your domain
+                provider.
+              </p>
+              <label className="builder-delete-site-label">
+                Domain
+                <input
+                  value={connectDomainInput}
+                  onChange={(event) => setConnectDomainInput(event.target.value)}
+                  placeholder="example.com"
+                  spellCheck={false}
+                />
+              </label>
+              <button
+                type="button"
+                className="primary"
+                disabled={!hasConnectDomainValue || domainActionsBusy || deleteBusy}
+                onClick={() => onConnectGithubDomain?.(connectDomainInput)}
+              >
+                {connectButtonLabel}
+              </button>
 
-          {domainDnsFeedback && (
-            <div className="builder-advanced-dns-feedback">
-              <p>{domainDnsFeedback.message}</p>
-              <div className="builder-advanced-dns-feedback-actions">
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={domainActionsBusy || deleteBusy}
-                  onClick={() => onRecheckGithubDomain?.(domainDnsFeedback.domain)}
-                >
-                  {domainActionBusy === "github" ? "Rechecking..." : "Recheck DNS"}
-                </button>
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={domainActionsBusy || deleteBusy}
-                  onClick={() => onResetGithubDomain?.()}
-                >
-                  {resetButtonLabel}
-                </button>
-              </div>
-            </div>
+              {domainDnsFeedback && (
+                <div className="builder-advanced-dns-feedback">
+                  <p>{domainDnsFeedback.message}</p>
+                  <div className="builder-advanced-dns-feedback-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      disabled={domainActionsBusy || deleteBusy}
+                      onClick={() => onRecheckGithubDomain?.(domainDnsFeedback.domain)}
+                    >
+                      {domainActionBusy === "github" ? "Rechecking..." : "Recheck DNS"}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      disabled={domainActionsBusy || deleteBusy}
+                      onClick={() => onResetGithubDomain?.()}
+                    >
+                      {resetButtonLabel}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {canResetGitHubPagesDomain && (

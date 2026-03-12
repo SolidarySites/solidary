@@ -39,6 +39,7 @@ export const buildContentSectionProps = ({
   deleteRepoFullName: deleteSiteRepoFullName,
   domainActionBusy: liveSettings.domainActionBusy,
   domainDnsFeedback: liveSettings.domainDnsFeedback,
+  showGithubPagesDomainConnect: liveSettings.showGithubPagesDomainConnect,
   canResetGitHubPagesDomain: liveSettings.canResetGitHubPagesDomain,
   resetGitHubPagesUrl: liveSettings.defaultGitHubPagesUrl,
   canSaveGeneralToLive: liveSettings.canSaveGeneralSettingsToLive,

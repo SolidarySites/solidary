@@ -46,6 +46,7 @@ export type BuilderContentSectionProps = {
     status: "valid" | "invalid" | "pending";
     message: string;
   } | null;
+  showGithubPagesDomainConnect?: boolean;
   canResetGitHubPagesDomain?: boolean;
   resetGitHubPagesUrl?: string | null;
   onSiteTitleChange: (value: string) => void;
@@ -102,6 +103,7 @@ const BuilderContentSection = ({
   deleteRepoFullName = "",
   domainActionBusy = "none",
   domainDnsFeedback = null,
+  showGithubPagesDomainConnect = true,
   canResetGitHubPagesDomain = false,
   resetGitHubPagesUrl = null,
   onSiteTitleChange,
@@ -192,6 +194,7 @@ const BuilderContentSection = ({
           siteUrl={siteUrl}
           domainActionBusy={domainActionBusy}
           domainDnsFeedback={domainDnsFeedback}
+          showGithubPagesDomainConnect={showGithubPagesDomainConnect}
           canResetGitHubPagesDomain={canResetGitHubPagesDomain}
           resetGitHubPagesUrl={resetGitHubPagesUrl}
           onStudioOnlyDomainUpdate={onStudioOnlyDomainUpdate}

@@ -182,6 +182,7 @@ export type BuilderLiveSettingsViewModelSource = {
   deleteBusy: boolean;
   domainActionBusy: "none" | "github" | "reset" | "studio";
   domainDnsFeedback: DomainDnsFeedbackState | null;
+  showGithubPagesDomainConnect: boolean;
   defaultGitHubPagesUrl: string | null;
   canResetGitHubPagesDomain: boolean;
   savingGeneralSettingsToLive: boolean;
