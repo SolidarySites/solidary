@@ -39,6 +39,8 @@ export const buildContentSectionProps = ({
   deleteRepoFullName: deleteSiteRepoFullName,
   domainActionBusy: liveSettings.domainActionBusy,
   domainDnsFeedback: liveSettings.domainDnsFeedback,
+  canResetGitHubPagesDomain: liveSettings.canResetGitHubPagesDomain,
+  resetGitHubPagesUrl: liveSettings.defaultGitHubPagesUrl,
   canSaveGeneralToLive: liveSettings.canSaveGeneralSettingsToLive,
   savingGeneralToLive: liveSettings.savingGeneralSettingsToLive,
   canSaveConnectionsToLive: liveSettings.canSaveConnectionsSettingsToLive,
@@ -60,8 +62,8 @@ export const buildContentSectionProps = ({
   onRecheckGithubDomain: (value: string) => {
     void liveSettings.handleRecheckGithubDomain(value);
   },
-  onRemoveProposedGithubDomain: (value: string) => {
-    void liveSettings.handleRemoveProposedGithubDomain(value);
+  onResetGithubDomain: () => {
+    void liveSettings.handleResetGithubDomain();
   },
   onCollaboratorQueryChange: collaborators.handleCollaboratorQueryChange,
   onCollaboratorRoleChange: collaborators.setCollaboratorRole,

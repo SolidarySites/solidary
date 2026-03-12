@@ -1,5 +1,6 @@
 export { RUNTIME_TEMPLATE_FILES } from "./default_template/runtime-files";
 export {
+  DEPLOY_WORKFLOW_TEMPLATE,
   FONTS_TEMPLATE,
   FOOTER_CONTENT_TEMPLATE,
   GLOBAL_STYLES_TEMPLATE,

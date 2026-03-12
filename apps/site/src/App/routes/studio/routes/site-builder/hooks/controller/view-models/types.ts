@@ -180,8 +180,10 @@ export type BuilderLiveSettingsViewModelSource = {
   deleteConfirmText: string;
   setDeleteConfirmText: Dispatch<SetStateAction<string>>;
   deleteBusy: boolean;
-  domainActionBusy: "none" | "github";
+  domainActionBusy: "none" | "github" | "reset" | "studio";
   domainDnsFeedback: DomainDnsFeedbackState | null;
+  defaultGitHubPagesUrl: string | null;
+  canResetGitHubPagesDomain: boolean;
   savingGeneralSettingsToLive: boolean;
   savingConnectionsToLive: boolean;
   canSaveGeneralSettingsToLive: boolean;
@@ -189,10 +191,10 @@ export type BuilderLiveSettingsViewModelSource = {
   saveGeneralDraftSilently: () => Promise<boolean>;
   saveGeneralSettingsToLive: () => Promise<void>;
   saveConnectionsToLive: () => Promise<void>;
-  handleStudioOnlyDomainUpdate: (value: string) => void;
+  handleStudioOnlyDomainUpdate: (value: string) => Promise<void>;
   handleConnectGithubDomain: (value: string) => Promise<void>;
   handleRecheckGithubDomain: (value: string) => Promise<void>;
-  handleRemoveProposedGithubDomain: (value: string) => Promise<void>;
+  handleResetGithubDomain: () => Promise<void>;
   handleDeleteSite: () => Promise<void>;
 };
 

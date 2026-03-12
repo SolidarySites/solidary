@@ -1,5 +1,7 @@
 export const FILE_KEYS = {
+  deployWorkflow: ".github/workflows/deploy.yml",
   astroConfig: "astro.config.mjs",
+  robots: "src/pages/robots.txt.ts",
   solidaryContent: "src/content/solidary.md",
   headerContent: "src/content/header.md",
   footerContent: "src/content/footer.md",
@@ -26,7 +28,8 @@ export const TEMPLATE_RUNTIME_FILE_PATHS = [
   "src/components/Footer.astro",
   "src/components/SEO.astro",
   "src/pages/index.astro",
-  "src/pages/[slug].astro"
+  "src/pages/[slug].astro",
+  "src/pages/robots.txt.ts"
 ] as const;
 
 export const PAGE_PATH_PREFIX = "src/content/pages/";

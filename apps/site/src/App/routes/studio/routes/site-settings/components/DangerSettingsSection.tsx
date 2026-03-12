@@ -3,16 +3,18 @@ import { useEffect, useState } from "react";
 type DangerSettingsSectionProps = {
   ownerAccess: boolean;
   siteUrl: string;
-  domainActionBusy?: "none" | "github";
+  domainActionBusy?: "none" | "github" | "reset" | "studio";
   domainDnsFeedback?: {
     domain: string;
     status: "valid" | "invalid" | "pending";
     message: string;
   } | null;
-  onStudioOnlyDomainUpdate?: (value: string) => void;
+  canResetGitHubPagesDomain?: boolean;
+  resetGitHubPagesUrl?: string | null;
+  onStudioOnlyDomainUpdate?: (value: string) => Promise<void>;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
-  onRemoveProposedGithubDomain?: (value: string) => void;
+  onResetGithubDomain?: () => void;
   canDeleteSite?: boolean;
   deleteMode?: "builder" | "github" | null;
   deleteConfirmText?: string;
@@ -37,10 +39,12 @@ const DangerSettingsSection = ({
   siteUrl,
   domainActionBusy = "none",
   domainDnsFeedback = null,
+  canResetGitHubPagesDomain = false,
+  resetGitHubPagesUrl = null,
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
   onRecheckGithubDomain,
-  onRemoveProposedGithubDomain,
+  onResetGithubDomain,
   canDeleteSite = false,
   deleteMode = null,
   deleteConfirmText = "",
@@ -64,6 +68,11 @@ const DangerSettingsSection = ({
   const normalizedStudioOnlyDomain = normalizeDomainInput(studioOnlyDomainInput);
   const hasStudioOnlyDomainValue = Boolean(normalizedStudioOnlyDomain);
   const domainActionsBusy = domainActionBusy !== "none";
+  const connectButtonLabel = domainActionBusy === "github" ? "Checking..." : "CONNECT CUSTOM DOMAIN";
+  const studioOnlyButtonLabel =
+    domainActionBusy === "studio" ? "Updating..." : "Update Studio Domain Only";
+  const resetButtonLabel =
+    domainActionBusy === "reset" ? "Resetting..." : "Reset to GitHub Pages Domain";
 
   return (
     <div className="builder-section builder-advanced-section">
@@ -119,7 +128,7 @@ const DangerSettingsSection = ({
             disabled={!hasConnectDomainValue || domainActionsBusy || deleteBusy}
             onClick={() => onConnectGithubDomain?.(connectDomainInput)}
           >
-            {domainActionBusy === "github" ? "Checking..." : "CONNECT CUSTOM DOMAIN"}
+            {connectButtonLabel}
           </button>
 
           {domainDnsFeedback && (
@@ -138,9 +147,28 @@ const DangerSettingsSection = ({
                   type="button"
                   className="ghost"
                   disabled={domainActionsBusy || deleteBusy}
-                  onClick={() => onRemoveProposedGithubDomain?.(domainDnsFeedback.domain)}
+                  onClick={() => onResetGithubDomain?.()}
                 >
-                  Remove proposed URL
+                  {resetButtonLabel}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {canResetGitHubPagesDomain && (
+            <div className="builder-advanced-dns-feedback">
+              <p>
+                Reset the site back to its default GitHub Pages URL.
+                {resetGitHubPagesUrl ? ` Target: ${resetGitHubPagesUrl}` : ""}
+              </p>
+              <div className="builder-advanced-dns-feedback-actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={domainActionsBusy || deleteBusy}
+                  onClick={() => onResetGithubDomain?.()}
+                >
+                  {resetButtonLabel}
                 </button>
               </div>
             </div>
@@ -168,7 +196,7 @@ const DangerSettingsSection = ({
                 disabled={!hasStudioOnlyDomainValue || domainActionsBusy || deleteBusy}
                 onClick={() => onStudioOnlyDomainUpdate?.(studioOnlyDomainInput)}
               >
-                Update Studio Domain Only
+                {studioOnlyButtonLabel}
               </button>
             </div>
           </details>

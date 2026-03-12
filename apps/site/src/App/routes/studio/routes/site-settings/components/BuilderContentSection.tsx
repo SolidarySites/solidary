@@ -40,21 +40,23 @@ export type BuilderContentSectionProps = {
   deleteConfirmText?: string;
   deleteBusy?: boolean;
   deleteRepoFullName?: string;
-  domainActionBusy?: "none" | "github";
+  domainActionBusy?: "none" | "github" | "reset" | "studio";
   domainDnsFeedback?: {
     domain: string;
     status: "valid" | "invalid" | "pending";
     message: string;
   } | null;
+  canResetGitHubPagesDomain?: boolean;
+  resetGitHubPagesUrl?: string | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
   onSiteImageChange: (file: File | null) => void;
   onSaveGeneralToLive?: () => void;
   onSaveConnectionsToLive?: () => void;
-  onStudioOnlyDomainUpdate?: (value: string) => void;
+  onStudioOnlyDomainUpdate?: (value: string) => Promise<void>;
   onConnectGithubDomain?: (value: string) => void;
   onRecheckGithubDomain?: (value: string) => void;
-  onRemoveProposedGithubDomain?: (value: string) => void;
+  onResetGithubDomain?: () => void;
   onCollaboratorQueryChange: (value: string) => void;
   onCollaboratorRoleChange: (value: CollaboratorRole) => void;
   onCollaboratorSuggestionSelect: (suggestion: CollaboratorSearchResult) => void;
@@ -100,6 +102,8 @@ const BuilderContentSection = ({
   deleteRepoFullName = "",
   domainActionBusy = "none",
   domainDnsFeedback = null,
+  canResetGitHubPagesDomain = false,
+  resetGitHubPagesUrl = null,
   onSiteTitleChange,
   onSiteDescriptionChange,
   onSiteImageChange,
@@ -108,7 +112,7 @@ const BuilderContentSection = ({
   onStudioOnlyDomainUpdate,
   onConnectGithubDomain,
   onRecheckGithubDomain,
-  onRemoveProposedGithubDomain,
+  onResetGithubDomain,
   onCollaboratorQueryChange,
   onCollaboratorRoleChange,
   onCollaboratorSuggestionSelect,
@@ -188,10 +192,12 @@ const BuilderContentSection = ({
           siteUrl={siteUrl}
           domainActionBusy={domainActionBusy}
           domainDnsFeedback={domainDnsFeedback}
+          canResetGitHubPagesDomain={canResetGitHubPagesDomain}
+          resetGitHubPagesUrl={resetGitHubPagesUrl}
           onStudioOnlyDomainUpdate={onStudioOnlyDomainUpdate}
           onConnectGithubDomain={onConnectGithubDomain}
           onRecheckGithubDomain={onRecheckGithubDomain}
-          onRemoveProposedGithubDomain={onRemoveProposedGithubDomain}
+          onResetGithubDomain={onResetGithubDomain}
           canDeleteSite={canDeleteSite}
           deleteMode={deleteMode}
           deleteConfirmText={deleteConfirmText}

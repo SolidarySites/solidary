@@ -84,7 +84,8 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain('"site_url"');
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain("connection_uuid");
     expect(files[FILE_KEYS.solidaryContent]).toContain(`ogImage: "${DEFAULT_OG_IMAGE_URL}"`);
-    expect(files[FILE_KEYS.astroConfig]).toContain("const base = (() => {");
+    expect(files[FILE_KEYS.astroConfig]).toContain("const readConfiguredSiteUrl = () => {");
+    expect(files[FILE_KEYS.robots]).toContain("parseSolidaryFrontmatter");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
     expect(files[FILE_KEYS.seoContent]).toContain("twitter: false");
     expect(files[FILE_KEYS.seoContent]).toContain("theme-color");
@@ -126,5 +127,55 @@ describe("buildFiles styles output", () => {
     });
 
     expect(files["src/content/pages/home.md"]).toContain('javascript: "console.log(\'home\')"');
+  });
+
+  it("keeps page uploads at the site root for custom domains", () => {
+    const files = buildFiles({
+      siteId: "site-1",
+      ogImageUrl: "/og.jpg",
+      settingsInput: {
+        ...settingsInput,
+        siteUrl: "https://roses-are-red.netlify.app"
+      },
+      styles: baseStyles,
+      templateSolidary,
+      templateSolidaryLinks,
+      pages: [
+        {
+          ...pages[0],
+          body: '<img src="/solidary-media/images/pages/flower.jpg" alt="Flower" />'
+        }
+      ],
+      defaultHomeContent: "Default home"
+    });
+
+    expect(files["src/content/pages/home.md"]).toContain(
+      '<img src="/solidary-media/images/pages/flower.jpg" alt="Flower" />'
+    );
+  });
+
+  it("prefixes page uploads with the repo path for GitHub Pages project sites", () => {
+    const files = buildFiles({
+      siteId: "site-1",
+      ogImageUrl: "/og.jpg",
+      settingsInput: {
+        ...settingsInput,
+        siteUrl: "https://jazbogross.github.io/new-site"
+      },
+      styles: baseStyles,
+      templateSolidary,
+      templateSolidaryLinks,
+      pages: [
+        {
+          ...pages[0],
+          body: '<img src="/solidary-media/images/pages/flower.jpg" alt="Flower" />'
+        }
+      ],
+      defaultHomeContent: "Default home"
+    });
+
+    expect(files["src/content/pages/home.md"]).toContain(
+      '<img src="/new-site/solidary-media/images/pages/flower.jpg" alt="Flower" />'
+    );
   });
 });

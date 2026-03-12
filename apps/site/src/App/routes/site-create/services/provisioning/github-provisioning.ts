@@ -1,5 +1,5 @@
 import { githubRequest } from "../../../../services/github";
-import { resolveSiteUrlFromRepo } from "./content";
+import { resolveSiteUrlFromRepo } from "../../../../lib/site-url";
 import type {
   CreateRepoResponse,
   CreateRepoStartResponse,

@@ -6,6 +6,7 @@ import baseLayoutTemplate from "./scaffold/src/layouts/Base.astro?raw";
 import indexPageTemplate from "./scaffold/src/pages/index.astro?raw";
 import slugPageTemplate from "./scaffold/src/pages/[slug].astro?raw";
 import contentConfigTemplate from "./runtime/content-config.ts.txt?raw";
+import robotsPageTemplate from "./runtime/robots.txt.ts.txt?raw";
 import solidaryConfigSiteTemplate from "./runtime/solidary-config-site.ts.txt?raw";
 import solidaryConfigManifestTemplate from "./runtime/solidary-config-solidary.ts.txt?raw";
 
@@ -19,5 +20,6 @@ export const RUNTIME_TEMPLATE_FILES: Record<string, string> = {
   "src/components/Footer.astro": footerComponentTemplate,
   "src/components/SEO.astro": seoComponentTemplate,
   "src/pages/index.astro": indexPageTemplate,
-  "src/pages/[slug].astro": slugPageTemplate
+  "src/pages/[slug].astro": slugPageTemplate,
+  "src/pages/robots.txt.ts": robotsPageTemplate
 };

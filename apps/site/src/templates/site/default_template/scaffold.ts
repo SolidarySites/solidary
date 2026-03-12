@@ -1,3 +1,4 @@
+import deployWorkflowTemplate from "./scaffold/.github/workflows/deploy.yml?raw";
 import footerContentTemplate from "./scaffold/src/content/footer.md?raw";
 import headerContentTemplate from "./scaffold/src/content/header.md?raw";
 import homePageTemplate from "./scaffold/src/content/pages/home.md?raw";
@@ -15,6 +16,7 @@ export const HEADER_CONTENT_TEMPLATE = headerContentTemplate;
 export const FOOTER_CONTENT_TEMPLATE = footerContentTemplate;
 export const SEO_CONTENT_TEMPLATE = seoContentTemplate;
 export const HOME_PAGE_TEMPLATE = homePageTemplate;
+export const DEPLOY_WORKFLOW_TEMPLATE = deployWorkflowTemplate;
 export const TEMPLATE_SOLIDARY = solidaryTemplate;
 export const TEMPLATE_SOLIDARY_LINKS = solidaryLinksTemplate;
 export const TOKENS_TEMPLATE = tokensTemplate;

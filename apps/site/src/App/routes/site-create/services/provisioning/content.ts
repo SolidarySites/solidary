@@ -5,6 +5,7 @@ import {
   resolveSolidaryMetadataImages
 } from "../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS } from "../../../../features/site-draft/seo";
+import { normalizeSiteUrl } from "../../../../lib/site-url";
 
 export const FILE_KEYS = {
   solidary: "public/.well-known/solidary.json",
@@ -16,21 +17,6 @@ export const SITE_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image.jpg`;
 export const SITE_IMAGE_THUMB_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/site-image_thumb.jpg`;
 export const DEFAULT_OG_IMAGE_PATH = `${SOLIDARY_MEDIA_IMAGE_ROOT}/og/og-home.jpg`;
 export const DEFAULT_OG_IMAGE_URL = `/${DEFAULT_OG_IMAGE_PATH.replace(/^public\//, "")}`;
-
-export const normalizeSiteUrl = (value: string) => value.trim().replace(/\/+$/, "");
-
-export const resolveSiteUrlFromRepo = ({
-  ownerLogin,
-  repoName
-}: {
-  ownerLogin: string;
-  repoName: string;
-}) => {
-  const pagesRootUrl = `https://${ownerLogin}.github.io`;
-  const isUserSite = repoName.toLowerCase() === `${ownerLogin.toLowerCase()}.github.io`;
-  const baseUrl = isUserSite ? "" : `/${repoName}`;
-  return normalizeSiteUrl(isUserSite ? pagesRootUrl : `${pagesRootUrl}${baseUrl}`);
-};
 
 const normalizePublicAssetPath = (assetPath: string) =>
   `/${assetPath.trim().replace(/^public\//, "").replace(/^\/+/, "")}`;

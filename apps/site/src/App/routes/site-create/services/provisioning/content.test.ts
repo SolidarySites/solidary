@@ -3,10 +3,26 @@ import {
   TEMPLATE_SOLIDARY,
   TEMPLATE_SOLIDARY_LINKS
 } from "../../../../../templates/site";
+import { resolveSiteUrlFromRepo } from "../../../../lib/site-url";
 import { buildWellKnownFiles as buildCreateWellKnownFiles } from "./content";
 import { buildWellKnownFiles as buildPublishWellKnownFiles } from "../../../studio/routes/site-builder/services/build-files";
 
 describe("well-known file generation", () => {
+  it("resolves GitHub Pages URLs for user and project sites", () => {
+    expect(
+      resolveSiteUrlFromRepo({
+        ownerLogin: "jazbogross",
+        repoName: "jazbogross.github.io"
+      })
+    ).toBe("https://jazbogross.github.io");
+    expect(
+      resolveSiteUrlFromRepo({
+        ownerLogin: "jazbogross",
+        repoName: "new-site"
+      })
+    ).toBe("https://jazbogross.github.io/new-site");
+  });
+
   it("uses the same canonical solidary templates for create and publish flows", () => {
     const createResult = buildCreateWellKnownFiles({
       templateSolidary: TEMPLATE_SOLIDARY,

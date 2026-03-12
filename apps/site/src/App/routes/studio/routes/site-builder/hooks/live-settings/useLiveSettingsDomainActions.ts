@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { requireFreshGithubAuth } from "../../../../../../features/auth/services/github-auth";
 import { githubRequest } from "../../../../../../services/github";
-import { buildWellKnownFiles } from "../../services/build-files";
+import { resolveSiteUrlFromRepo } from "../../../../../../lib/site-url";
+import { FILE_KEYS } from "../../services/constants";
+import { buildDraftSaveSignature } from "../../services/draft-utils";
+import { publishLiveDomainChange } from "../../services/live-domain-publish";
 import type { DraftState } from "../../services/types";
 import type {
   DomainActionMode,
@@ -13,25 +16,25 @@ import {
   loadLatestDraftWellKnownFiles,
   mergeDraftWellKnownFiles,
   normalizeCustomDomainInput,
-  publishWellKnownFilesToRepo,
   resolveRepoCoordinates,
-  syncConnectedSiteUrls,
-  toCanonicalSiteUrl,
-  upsertPublishedSiteRecord
+  toCanonicalSiteUrl
 } from "./shared";
 
 type UseLiveSettingsDomainActionsOptions = Pick<
   UseSiteBuilderLiveSettingsActionsOptions,
   | "draftState"
+  | "sessionUserId"
   | "isOwnerOnOwnerDraft"
   | "canDirectPublish"
-  | "siteTitle"
-  | "siteDescription"
   | "setSiteUrl"
   | "draftSaveImageUrl"
+  | "pages"
+  | "draftImages"
+  | "styles"
   | "templateSolidary"
   | "templateSolidaryLinks"
   | "siteSettingsInput"
+  | "setLastSavedDraftSignature"
   | "setNotice"
   | "setNoticeKind"
   | "setDraftState"
@@ -39,21 +42,43 @@ type UseLiveSettingsDomainActionsOptions = Pick<
 
 export const useLiveSettingsDomainActions = ({
   draftState,
+  sessionUserId,
   isOwnerOnOwnerDraft,
   canDirectPublish,
-  siteTitle,
-  siteDescription,
   setSiteUrl,
   draftSaveImageUrl,
+  pages,
+  draftImages,
+  styles,
   templateSolidary,
   templateSolidaryLinks,
   siteSettingsInput,
+  setLastSavedDraftSignature,
   setNotice,
   setNoticeKind,
   setDraftState
 }: UseLiveSettingsDomainActionsOptions) => {
   const [domainActionBusy, setDomainActionBusy] = useState<DomainActionMode | "none">("none");
   const [domainDnsFeedback, setDomainDnsFeedback] = useState<DomainDnsFeedbackState | null>(null);
+  const defaultGitHubPagesUrl = useMemo(() => {
+    const repoFullName = draftState?.repoFullName?.trim() ?? "";
+    if (!repoFullName) return null;
+
+    try {
+      const { owner, repo } = resolveRepoCoordinates(repoFullName);
+      return resolveSiteUrlFromRepo({
+        ownerLogin: owner,
+        repoName: repo
+      });
+    } catch {
+      return null;
+    }
+  }, [draftState?.repoFullName]);
+  const canResetGitHubPagesDomain = Boolean(
+    defaultGitHubPagesUrl &&
+      siteSettingsInput.siteUrl.trim() &&
+      defaultGitHubPagesUrl !== siteSettingsInput.siteUrl.trim()
+  );
 
   useEffect(() => {
     setDomainActionBusy("none");
@@ -76,6 +101,90 @@ export const useLiveSettingsDomainActions = ({
     );
   };
 
+  const updateDraftRevisionState = (draftRevisionRow: {
+    revision: number | null;
+    last_edited_at: string | null;
+    last_edited_by_user_id: string | null;
+  }) => {
+    setDraftState((current) => {
+      const nextState = mergeDraftWellKnownFiles({ current });
+      if (!nextState) return nextState;
+
+      return {
+        ...nextState,
+        revision:
+          typeof draftRevisionRow.revision === "number"
+            ? draftRevisionRow.revision
+            : nextState.revision,
+        lastEditedAt:
+          typeof draftRevisionRow.last_edited_at === "string"
+            ? draftRevisionRow.last_edited_at
+            : (nextState.lastEditedAt ?? null),
+        lastEditedByUserId:
+          typeof draftRevisionRow.last_edited_by_user_id === "string"
+            ? draftRevisionRow.last_edited_by_user_id
+            : (nextState.lastEditedByUserId ?? null)
+      };
+    });
+  };
+
+  const publishDomainChange = async ({
+    nextSiteUrl,
+    commitMessage,
+    workflowMode = "keep"
+  }: {
+    nextSiteUrl: string;
+    commitMessage: string;
+    workflowMode?: "keep" | "remove" | "restore";
+  }) => {
+    if (!draftState || !canDirectPublish) {
+      throw new Error("Save your draft first to manage the live domain.");
+    }
+
+    const { solidaryRaw: latestSolidaryRaw, solidaryLinksRaw: latestSolidaryLinksRaw } =
+      await loadLatestDraftWellKnownFiles({
+        targetDraftId: draftState.id,
+        setDraftState
+      });
+    const draftFiles = {
+      ...draftState.files,
+      [FILE_KEYS.solidary]: latestSolidaryRaw,
+      [FILE_KEYS.solidaryLinks]: latestSolidaryLinksRaw
+    };
+    const result = await publishLiveDomainChange({
+      draftState,
+      draftFiles,
+      templateSolidary,
+      templateSolidaryLinks,
+      siteSettingsInput,
+      nextSiteUrl,
+      imageUrl: draftSaveImageUrl,
+      sessionUserId,
+      commitMessage,
+      workflowMode
+    });
+
+    setSiteUrl(nextSiteUrl);
+    updateCachedWellKnownFiles({
+      solidaryRaw: result.solidaryRaw,
+      solidaryLinksRaw: result.solidaryLinksRaw
+    });
+    updateDraftRevisionState(result.draftRevisionRow);
+    setLastSavedDraftSignature(
+      buildDraftSaveSignature({
+        draftId: draftState.id,
+        settingsInput: {
+          ...siteSettingsInput,
+          siteUrl: nextSiteUrl
+        },
+        imageUrl: draftSaveImageUrl,
+        styles,
+        pagesSnapshot: pages,
+        draftImages
+      })
+    );
+  };
+
   const applyDomainConnectResult = async ({
     requestedDomain,
     result
@@ -90,47 +199,13 @@ export const useLiveSettingsDomainActions = ({
 
     if (dnsStatus === "valid") {
       setDomainDnsFeedback(null);
-      setSiteUrl(resolvedSiteUrl);
       const pagesUrl = result.pagesUrl?.trim() || result.pages?.html_url?.trim() || "";
 
       try {
-        if (draftState && canDirectPublish) {
-          const { solidaryRaw: latestSolidaryRaw, solidaryLinksRaw: latestSolidaryLinksRaw } =
-            await loadLatestDraftWellKnownFiles({
-              targetDraftId: draftState.id,
-              setDraftState
-            });
-          const { solidaryFile: nextSolidaryRaw, solidaryLinksFile: nextSolidaryLinksRaw } =
-            buildWellKnownFiles({
-              templateSolidary,
-              templateSolidaryLinks,
-              siteId: draftState.siteId,
-              settingsInput: siteSettingsInput,
-              urlOverride: resolvedSiteUrl,
-              previousSolidaryRaw: latestSolidaryRaw,
-              previousSolidaryLinksRaw: latestSolidaryLinksRaw
-            });
-
-          await publishWellKnownFilesToRepo({
-            draftState,
-            message: "Update custom domain",
-            solidaryRaw: nextSolidaryRaw,
-            solidaryLinksRaw: nextSolidaryLinksRaw
-          });
-          updateCachedWellKnownFiles({
-            solidaryRaw: nextSolidaryRaw,
-            solidaryLinksRaw: nextSolidaryLinksRaw
-          });
-
-          await upsertPublishedSiteRecord({
-            siteId: draftState.siteId,
-            canonicalUrl: resolvedSiteUrl,
-            title: siteTitle,
-            description: siteDescription,
-            imageUrl: draftSaveImageUrl
-          });
-          await syncConnectedSiteUrls(draftState.siteId);
-        }
+        await publishDomainChange({
+          nextSiteUrl: resolvedSiteUrl,
+          commitMessage: "Update custom domain"
+        });
 
         setNotice(
           pagesUrl
@@ -166,7 +241,7 @@ export const useLiveSettingsDomainActions = ({
     setNoticeKind("error");
   };
 
-  const handleStudioOnlyDomainUpdate = (rawDomain: string) => {
+  const handleStudioOnlyDomainUpdate = async (rawDomain: string) => {
     if (!isOwnerOnOwnerDraft) {
       setNotice("Only the site owner can update the domain in advanced settings.");
       setNoticeKind("error");
@@ -180,12 +255,27 @@ export const useLiveSettingsDomainActions = ({
       return;
     }
 
-    setSiteUrl(toCanonicalSiteUrl(normalizedDomain));
-    setDomainDnsFeedback(null);
-    setNotice(
-      "Studio domain updated only. Do this only if the site is hosted outside GitHub Pages."
-    );
-    setNoticeKind("notice");
+    setDomainActionBusy("studio");
+    try {
+      const resolvedSiteUrl = toCanonicalSiteUrl(normalizedDomain);
+      await publishDomainChange({
+        nextSiteUrl: resolvedSiteUrl,
+        commitMessage: "Update studio domain",
+        workflowMode: "remove"
+      });
+      setDomainDnsFeedback(null);
+      setNotice(
+        "Studio domain updated and published. Use this only when the site is hosted outside GitHub Pages."
+      );
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to update the Studio domain.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDomainActionBusy("none");
+    }
   };
 
   const runGithubDomainAction = async ({
@@ -197,7 +287,7 @@ export const useLiveSettingsDomainActions = ({
     clearFeedbackBeforeRequest = false
   }: {
     rawDomain: string;
-    action: "connect" | "check" | "remove";
+    action: "connect" | "check";
     ownerErrorMessage: string;
     invalidDomainMessage: string;
     genericErrorMessage: string;
@@ -248,13 +338,6 @@ export const useLiveSettingsDomainActions = ({
         }
       );
 
-      if (action === "remove") {
-        setDomainDnsFeedback(null);
-        setNotice("Removed proposed custom domain from GitHub Pages.");
-        setNoticeKind("notice");
-        return;
-      }
-
       await applyDomainConnectResult({
         requestedDomain: normalizedDomain,
         result
@@ -289,22 +372,83 @@ export const useLiveSettingsDomainActions = ({
     });
   };
 
-  const handleRemoveProposedGithubDomain = async (rawDomain: string) => {
-    await runGithubDomainAction({
-      rawDomain,
-      action: "remove",
-      ownerErrorMessage: "Only the site owner can remove a proposed GitHub Pages custom domain.",
-      invalidDomainMessage: "Missing proposed domain to remove.",
-      genericErrorMessage: "Failed to remove proposed custom domain."
-    });
+  const handleResetGithubDomain = async () => {
+    if (!isOwnerOnOwnerDraft) {
+      setNotice("Only the site owner can reset the site domain.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!defaultGitHubPagesUrl) {
+      setNotice("Could not resolve the default GitHub Pages URL for this repository.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (!draftState) {
+      setNotice("Save your draft first to manage the site domain.");
+      setNoticeKind("error");
+      return;
+    }
+
+    const repoFullName = draftState.repoFullName?.trim() ?? "";
+    let owner: string;
+    let repo: string;
+    try {
+      const coordinates = resolveRepoCoordinates(repoFullName);
+      owner = coordinates.owner;
+      repo = coordinates.repo;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Invalid repository name.";
+      setNotice(message);
+      setNoticeKind("error");
+      return;
+    }
+
+    setDomainActionBusy("reset");
+    setDomainDnsFeedback(null);
+
+    try {
+      const freshAuth = await requireFreshGithubAuth();
+      try {
+        await githubRequest<GitHubPagesDomainResponse>("github-pages-set-domain", {
+          owner,
+          repo,
+          action: "remove",
+          supabase_access_token: freshAuth.supabaseAccessToken
+        });
+      } catch (caught) {
+        const message = caught instanceof Error ? caught.message : "Failed to reset the custom domain.";
+        if (!/No custom domain is configured yet/i.test(message)) {
+          throw caught;
+        }
+      }
+
+      await publishDomainChange({
+        nextSiteUrl: defaultGitHubPagesUrl,
+        commitMessage: "Reset domain to GitHub Pages",
+        workflowMode: "restore"
+      });
+      setNotice(`Site domain reset to GitHub Pages: ${defaultGitHubPagesUrl}`);
+      setNoticeKind("notice");
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : "Failed to reset to the GitHub Pages domain.";
+      setNotice(message);
+      setNoticeKind("error");
+    } finally {
+      setDomainActionBusy("none");
+    }
   };
 
   return {
     domainActionBusy,
     domainDnsFeedback,
+    defaultGitHubPagesUrl,
+    canResetGitHubPagesDomain,
     handleStudioOnlyDomainUpdate,
     handleConnectGithubDomain,
     handleRecheckGithubDomain,
-    handleRemoveProposedGithubDomain
+    handleResetGithubDomain
   };
 };

@@ -4,13 +4,16 @@ import type { NavigateFunction } from "react-router-dom";
 import type { NoticeKind } from "../../../../../../types/notice";
 import type {
   BuilderEditableSectionKey,
+  BuilderPage,
+  BuilderStyleSettings,
+  DraftImageAsset,
   DraftState,
   FooterOptions,
   HeaderOptions
 } from "../../services/types";
 
 export type SiteDeleteMode = "builder" | "github";
-export type DomainActionMode = "github";
+export type DomainActionMode = "github" | "reset" | "studio";
 export type DomainDnsFeedbackStatus = "valid" | "invalid" | "pending";
 
 export type DomainDnsFeedbackState = {
@@ -52,6 +55,7 @@ export type UseSiteBuilderLiveSettingsActionsOptions = {
   draftState: DraftState | null;
   canDeleteSite: boolean;
   deleteSiteRepoFullName: string;
+  sessionUserId: string | null;
   isOwnerOnOwnerDraft: boolean;
   canDirectPublish: boolean;
   canEditDraft: boolean;
@@ -69,6 +73,9 @@ export type UseSiteBuilderLiveSettingsActionsOptions = {
   draftImageUrl: string | null;
   setDraftImageUrl: Dispatch<SetStateAction<string | null>>;
   draftSaveImageUrl: string;
+  pages: BuilderPage[];
+  draftImages: DraftImageAsset[];
+  styles: BuilderStyleSettings;
   computedSlug: string;
   templateSolidary: string;
   templateSolidaryLinks: string;
