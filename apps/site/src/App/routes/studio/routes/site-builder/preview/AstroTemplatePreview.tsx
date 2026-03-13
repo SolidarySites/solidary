@@ -601,6 +601,18 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     };
   }
 
+  function getImageElementLoadState(image) {
+    if (!(image instanceof HTMLImageElement)) {
+      return "pending";
+    }
+
+    if (!image.complete) {
+      return "pending";
+    }
+
+    return image.naturalWidth > 0 && image.naturalHeight > 0 ? "loaded" : "error";
+  }
+
   function resolveExternalImageLoadSource(image, fallbackSource) {
     var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
     var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
@@ -653,7 +665,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
 
     image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, targetSource);
 
-    if (image.getAttribute("src") === loadSource && image.complete && image.naturalWidth > 0) {
+    if (image.getAttribute("src") === loadSource && getImageElementLoadState(image) === "loaded") {
       image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
       cacheExternalImageDimensions(image.naturalWidth, image.naturalHeight, placeholderCandidates);
       clearExternalImagePlaceholderSizing(image);
@@ -679,10 +691,6 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       if (spinnerRemoved) return;
       spinnerRemoved = true;
       removeSpinner();
-    }
-
-    if (placeholderSource && placeholderSource !== loadSource) {
-      image.setAttribute("src", placeholderSource);
     }
 
     function syncPlaceholderSizing() {
@@ -742,7 +750,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       clearRevealListeners();
     }
 
-    if (isExternalImageSource(placeholderSource)) {
+    var handleInitialDisplayLoad = null;
+    if (isExternalImageSource(placeholderSource) && placeholderSource !== loadSource) {
       var onInitialDisplayLoad = function () {
         if (cancelled) return;
         if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
@@ -750,10 +759,18 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         clearInitialDisplayLoadListener();
       };
 
+      handleInitialDisplayLoad = onInitialDisplayLoad;
       image.addEventListener("load", onInitialDisplayLoad);
       removeInitialDisplayLoadListener = function () {
         image.removeEventListener("load", onInitialDisplayLoad);
       };
+    }
+
+    if (placeholderSource && placeholderSource !== loadSource) {
+      image.setAttribute("src", placeholderSource);
+      if (handleInitialDisplayLoad && getImageElementLoadState(image) === "loaded") {
+        handleInitialDisplayLoad();
+      }
     }
 
     loader.onload = function () {
@@ -774,7 +791,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       image.addEventListener("error", revealErrorListener);
       image.setAttribute("src", loadSource);
 
-      if (image.complete && image.naturalWidth > 0) {
+      var currentImageLoadState = getImageElementLoadState(image);
+      if (currentImageLoadState === "loaded") {
         complete("loaded");
       }
     };

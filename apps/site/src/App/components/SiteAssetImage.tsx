@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode
+} from "react";
 import { ImageLoadSpinner } from "./ImageLoadSpinner";
 import { EXTERNAL_IMAGE_SKIP_ATTR } from "../lib/external-image-loading";
+import { getImageElementLoadState } from "../lib/image-element-load-state";
 import { IMAGE_LOAD_SPINNER_HOST_CLASS } from "../lib/image-load-spinner";
 import { shouldLoadFullSiteAssetImage } from "../lib/site-asset-image";
 import { resolveSitePrimaryImageUrl } from "../lib/site-image-url";
@@ -49,6 +58,8 @@ export function SiteAssetImage({
   loading = "lazy"
 }: SiteAssetImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
+  const fullImageRef = useRef<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [thumbLoaded, setThumbLoaded] = useState(false);
   const [thumbError, setThumbError] = useState(false);
@@ -73,12 +84,28 @@ export function SiteAssetImage({
     (!hasThumbnail && Boolean(fullImageUrl) && !fullLoaded && !fullError) ||
     (thumbError && shouldLoadFull && !fullLoaded && !fullError);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setThumbLoaded(false);
     setThumbError(false);
     setFullLoaded(false);
     setFullError(false);
   }, [normalizedThumbnailUrl, fullImageUrl]);
+
+  useLayoutEffect(() => {
+    const thumbnailState = getImageElementLoadState(thumbnailImageRef.current);
+    if (thumbnailState === "loaded") {
+      setThumbLoaded(true);
+    } else if (thumbnailState === "error") {
+      setThumbError(true);
+    }
+
+    const fullState = getImageElementLoadState(fullImageRef.current);
+    if (fullState === "loaded") {
+      setFullLoaded(true);
+    } else if (fullState === "error") {
+      setFullError(true);
+    }
+  }, [normalizedThumbnailUrl, fullImageUrl, shouldRenderFull]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -116,6 +143,7 @@ export function SiteAssetImage({
       {showSpinner && <ImageLoadSpinner />}
       {hasThumbnail ? (
         <img
+          ref={thumbnailImageRef}
           {...{ [EXTERNAL_IMAGE_SKIP_ATTR]: "true" }}
           className={imageClassName}
           src={normalizedThumbnailUrl}
@@ -139,6 +167,7 @@ export function SiteAssetImage({
 
       {shouldRenderFull && (
         <img
+          ref={fullImageRef}
           {...{ [EXTERNAL_IMAGE_SKIP_ATTR]: "true" }}
           className={imageClassName}
           src={fullImageUrl}

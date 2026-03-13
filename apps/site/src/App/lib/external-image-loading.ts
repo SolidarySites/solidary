@@ -1,3 +1,4 @@
+import { getImageElementLoadState } from "./image-element-load-state"
 import { mountImageLoadSpinner } from "./image-load-spinner"
 
 const TINY_SVG_PLACEHOLDER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(31,34,28,0.2)" stroke-width="2"/><path d="M12 3a9 9 0 0 1 7.8 4.5" stroke="rgba(31,34,28,0.65)" stroke-width="2" stroke-linecap="round"/></svg>`
@@ -381,7 +382,7 @@ export const startExternalImageLoadWithPlaceholder = (
 
   image.setAttribute(EXTERNAL_IMAGE_SOURCE_ATTR, targetSource)
 
-  if (image.getAttribute("src") === loadSource && image.complete && image.naturalWidth > 0) {
+  if (image.getAttribute("src") === loadSource && getImageElementLoadState(image) === "loaded") {
     cacheExternalImageDimensions({
       width: image.naturalWidth,
       height: image.naturalHeight,
@@ -435,14 +436,6 @@ export const startExternalImageLoadWithPlaceholder = (
     window.addEventListener("resize", schedulePlaceholderSizingSync)
   }
 
-  image.setAttribute(
-    "src",
-    isExternalImageSource(blurredPlaceholderSource)
-      ? blurredPlaceholderSource
-      : EXTERNAL_IMAGE_PLACEHOLDER_SRC
-  )
-  setExternalImageState(image, "loading")
-
   const loader = new Image()
   let removeRevealListeners: (() => void) | null = null
   let removeInitialDisplayLoadListener: (() => void) | null = null
@@ -458,6 +451,7 @@ export const startExternalImageLoadWithPlaceholder = (
     removeInitialDisplayLoadListener = null
   }
 
+  let handleInitialDisplayLoad: (() => void) | null = null
   if (isExternalImageSource(blurredPlaceholderSource)) {
     const onInitialDisplayLoad = () => {
       if (cancelled) return
@@ -467,10 +461,23 @@ export const startExternalImageLoadWithPlaceholder = (
       clearInitialDisplayLoadListener()
     }
 
+    handleInitialDisplayLoad = onInitialDisplayLoad
     image.addEventListener("load", onInitialDisplayLoad)
     removeInitialDisplayLoadListener = () => {
       image.removeEventListener("load", onInitialDisplayLoad)
     }
+  }
+
+  image.setAttribute(
+    "src",
+    isExternalImageSource(blurredPlaceholderSource)
+      ? blurredPlaceholderSource
+      : EXTERNAL_IMAGE_PLACEHOLDER_SRC
+  )
+  setExternalImageState(image, "loading")
+
+  if (handleInitialDisplayLoad && getImageElementLoadState(image) === "loaded") {
+    handleInitialDisplayLoad()
   }
 
   const revealSource = (state: ExternalImageState) => {
@@ -499,7 +506,11 @@ export const startExternalImageLoadWithPlaceholder = (
 
     image.setAttribute("src", loadSource)
 
-    if (image.complete && (image.naturalWidth > 0 || state === "error")) {
+    const currentImageLoadState = getImageElementLoadState(image)
+    if (
+      currentImageLoadState === "loaded" ||
+      (state === "error" && currentImageLoadState === "error")
+    ) {
       onImageReady()
     }
   }

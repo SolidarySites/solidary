@@ -13,7 +13,8 @@
 
 .image-load-spinner-svg {
   display: block;
-  inline-size: 14%;
+  inline-size: min(14%, 30px);
+  max-inline-size: 30px;
   block-size: auto;
   aspect-ratio: 1 / 1;
   animation: image-load-spinner-rotate 1.05s linear infinite;
