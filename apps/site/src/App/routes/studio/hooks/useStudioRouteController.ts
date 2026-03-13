@@ -76,9 +76,9 @@ export const useStudioRouteController = () => {
       loading: draftsLoading,
       showThumbnails: true,
       actionLabel: "Create new site",
-      onEdit: (id: string) => navigate(`/studio/builder?draftId=${id}`),
+      getEditHref: (id: string) => `/studio/builder?draftId=${id}`,
       onCreate: () => navigate("/site-create"),
-      onSettings: (id: string) => navigate(`/studio/settings?draftId=${id}`)
+      getSettingsHref: (id: string) => `/studio/settings?draftId=${id}`
     },
     indexesProps: {
       title: "Indexes",

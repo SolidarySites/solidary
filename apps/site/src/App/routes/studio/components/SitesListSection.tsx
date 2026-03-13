@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SiteAssetImage } from "../../../components/SiteAssetImage";
 
 type SiteListItem = {
@@ -20,8 +21,8 @@ type SitesListSectionProps = {
   emptyMessage: string;
   items: SiteListItem[];
   loading: boolean;
-  onEdit: (id: string) => void;
-  onSettings?: (id: string) => void;
+  getEditHref: (id: string) => string;
+  getSettingsHref?: (id: string) => string;
   onCreate?: () => void;
   actionLabel?: string;
   showThumbnails?: boolean;
@@ -69,8 +70,8 @@ export default function SitesListSection({
   emptyMessage,
   items,
   loading,
-  onEdit,
-  onSettings,
+  getEditHref,
+  getSettingsHref,
   onCreate,
   actionLabel,
   showThumbnails = false
@@ -151,41 +152,45 @@ export default function SitesListSection({
                   />
                 )}
                 <div className="site-card-body">
-                  <div className="site-card-heading">
-                    <p className="site-card-role">{formatRole(item.accessRole)}</p>
-                    <h3>{item.title || item.repoFullName}</h3>
-                  </div>
+                  <p className="site-card-role">{formatRole(item.accessRole)}</p>
+                  <h3 className="site-card-title" title={item.title || item.repoFullName}>
+                    {item.title || item.repoFullName}
+                  </h3>
                   <div className="site-card-meta">
-                    <span>{item.repoFullName}</span>
-                    {updatedAtLabel && <span>Updated {updatedAtLabel}</span>}
+                    <span className="site-card-repo" title={item.repoFullName}>
+                      {item.repoFullName}
+                    </span>
+                    {updatedAtLabel && <span className="site-card-updated">Updated {updatedAtLabel}</span>}
+                  </div>
+                  <div className="site-card-actions">
+                    <Link to={getEditHref(item.id)} className="site-card-action-link">
+                      Edit
+                    </Link>
+                    {getSettingsHref && item.canManageSettings !== false && (
+                      <Link to={getSettingsHref(item.id)} className="site-card-action-link">
+                        Settings
+                      </Link>
+                    )}
                     {item.siteUrl && (
-                      <a href={item.siteUrl} target="_blank" rel="noreferrer">
+                      <a
+                        href={item.siteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="site-card-action-link"
+                      >
                         Visit site
                       </a>
                     )}
-                    <a href={item.repoHtmlUrl} target="_blank" rel="noreferrer">
+                    <a
+                      href={item.repoHtmlUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="site-card-action-link"
+                    >
                       GitHub repo
                     </a>
                   </div>
                 </div>
-              </div>
-              <div className="site-card-actions">
-                <button
-                  type="button"
-                  className="studio-secondary-button"
-                  onClick={() => onEdit(item.id)}
-                >
-                  Edit
-                </button>
-                {onSettings && item.canManageSettings !== false && (
-                  <button
-                    type="button"
-                    className="studio-secondary-button"
-                    onClick={() => onSettings(item.id)}
-                  >
-                    Settings
-                  </button>
-                )}
               </div>
             </article>
           );
