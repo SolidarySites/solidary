@@ -71,11 +71,6 @@ const GeneralSettingsSection = ({
     {siteImagePreview && (
       <SiteSettingsImagePreview siteUrl={siteUrl} src={siteImagePreview} alt="Preview" />
     )}
-    <p className="builder-collaborator-hint">
-      {hasUnsavedChanges
-        ? "Unsaved changes are safely stored in draft and will go live after Save."
-        : "Changes are automatically drafted as you work."}
-    </p>
     <div className="studio-settings-save-row">
       <button
         className="primary"
