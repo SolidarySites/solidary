@@ -3,14 +3,14 @@
 }
 
 .studio-main-content {
-  gap: clamp(2.5rem, 4vw, 3.5rem);
+  gap: var(--site-section-gap-regular);
 }
 
 .studio-masthead,
 .section-heading {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--site-grid-gap);
 }
 
 .studio-masthead {
@@ -30,7 +30,7 @@
 .studio-masthead-account-label,
 .site-card-role,
 .site-card-meta {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
 }
 
 .studio-masthead-label,
@@ -39,7 +39,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .studio-masthead-label,
@@ -77,7 +77,7 @@
   display: grid;
   gap: 0.35rem;
   padding-top: 0.8rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .studio-masthead-account-name {
@@ -105,7 +105,7 @@
 
 .site-list + .site-list {
   padding-top: 2.25rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .section-heading {
@@ -129,7 +129,7 @@
   margin: 0;
   font-size: 0.98rem;
   line-height: 1.65;
-  color: rgba(31, 34, 28, 0.78);
+  color: var(--site-color-text-muted);
 }
 
 .section-heading-actions {
@@ -143,7 +143,7 @@
 .site-list-status {
   max-width: 36rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .site-list-status p {
@@ -162,7 +162,7 @@
   gap: 1.5rem;
   align-items: start;
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .site-card-main {
@@ -182,8 +182,8 @@
 .site-card-thumbnail-placeholder {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px solid rgba(31, 34, 28, 0.16);
-  background: rgba(31, 34, 28, 0.04);
+  border: 1px solid var(--site-color-border-soft);
+  background: var(--site-color-surface-soft);
 }
 
 .site-card-thumbnail {
@@ -201,7 +201,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -265,20 +265,20 @@
   width: fit-content;
   border: 1px solid rgba(31, 34, 28, 0.38);
   padding: 0.65rem 1rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .studio-primary-button {
-  background: #1f221c;
+  background: var(--site-color-ink);
   color: #f4f1ea;
 }
 
 .studio-secondary-button {
   background: transparent;
-  color: #1f221c;
+  color: var(--site-color-ink);
 }
 
 .site-card-actions .studio-secondary-button {

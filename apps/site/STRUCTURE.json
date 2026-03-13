@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-12T18:48:24.234Z",
-  "latest_commit_sha": "25d80dc0055a5e75a6c99ba2341767fa91354b98",
+  "generated_at": "2026-03-13T10:39:23.842Z",
+  "latest_commit_sha": "79893c6a3ee45c6c595d0f00315adba78aadb166",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -44,35 +44,29 @@
             "description": "Primary application module containing router shell (`App.tsx`), shared primitive styles, route/component-scoped stylesheets, shared layout components, cross-route features, and route folders.",
             "directories": [
               {
-                "path": "src/App/assets",
-                "description": "App-local static assets (currently scaffold leftovers).",
-                "directories": [],
-                "files": []
-              },
-              {
                 "path": "src/App/components",
                 "description": "Global shell components reused across routes (`SiteHeader` and `SiteFooter`) with co-located component stylesheets.",
                 "directories": [],
                 "files": [
                   {
-                    "path": "src/App/components/PublicInfoPage.css",
+                    "path": "src/App/components/ImageLoadSpinner.tsx",
                     "description": "?",
-                    "LOC": 129
+                    "LOC": 33
                   },
                   {
                     "path": "src/App/components/PublicInfoPage.tsx",
                     "description": "?",
-                    "LOC": 82
+                    "LOC": 81
                   },
                   {
-                    "path": "src/App/components/SiteHeader.css",
-                    "description": "Component-scoped header styles for navigation links, avatar menu, and responsive layout.",
-                    "LOC": 239
+                    "path": "src/App/components/SiteAssetImage.tsx",
+                    "description": "?",
+                    "LOC": 184
                   },
                   {
                     "path": "src/App/components/SiteHeader.tsx",
                     "description": "Global header with brand link, explorer/search nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
-                    "LOC": 153
+                    "LOC": 152
                   }
                 ]
               },
@@ -128,7 +122,7 @@
                           {
                             "path": "src/App/features/auth/providers/AuthProvider.tsx",
                             "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
-                            "LOC": 234
+                            "LOC": 238
                           }
                         ]
                       },
@@ -318,7 +312,7 @@
                   {
                     "path": "src/App/hooks/useGlobalExternalImageLoading.ts",
                     "description": "Global hook that tracks external images, swaps in placeholders during load, and cleans up via a MutationObserver.",
-                    "LOC": 96
+                    "LOC": 102
                   }
                 ]
               },
@@ -335,17 +329,42 @@
                   {
                     "path": "src/App/lib/external-image-loading.ts",
                     "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
-                    "LOC": 520
+                    "LOC": 576
+                  },
+                  {
+                    "path": "src/App/lib/image-element-load-state.test.ts",
+                    "description": "?",
+                    "LOC": 34
+                  },
+                  {
+                    "path": "src/App/lib/image-element-load-state.ts",
+                    "description": "?",
+                    "LOC": 16
+                  },
+                  {
+                    "path": "src/App/lib/image-load-spinner.ts",
+                    "description": "?",
+                    "LOC": 64
+                  },
+                  {
+                    "path": "src/App/lib/site-asset-image.test.ts",
+                    "description": "?",
+                    "LOC": 34
+                  },
+                  {
+                    "path": "src/App/lib/site-asset-image.ts",
+                    "description": "?",
+                    "LOC": 16
                   },
                   {
                     "path": "src/App/lib/site-image-url.test.ts",
                     "description": "?",
-                    "LOC": 22
+                    "LOC": 33
                   },
                   {
                     "path": "src/App/lib/site-image-url.ts",
                     "description": "Utilities that resolve canonical site image and thumbnail URLs from relative asset paths plus site base URL context.",
-                    "LOC": 137
+                    "LOC": 141
                   },
                   {
                     "path": "src/App/lib/site-url.ts",
@@ -386,12 +405,6 @@
                     ]
                   },
                   {
-                    "path": "src/App/routes/donate",
-                    "description": "?",
-                    "directories": [],
-                    "files": []
-                  },
-                  {
                     "path": "src/App/routes/explorer",
                     "description": "Public explorer route module for browsing the site connection graph.",
                     "directories": [
@@ -403,7 +416,7 @@
                           {
                             "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
                             "description": "Canvas-driven interactive explorer graph using @cosmos.gl/graph with hover cards, viewer beacons, and deterministic point placement.",
-                            "LOC": 642
+                            "LOC": 638
                           },
                           {
                             "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
@@ -482,7 +495,7 @@
                           {
                             "path": "src/App/routes/landing/components/PublicSiteCard.tsx",
                             "description": "?",
-                            "LOC": 48
+                            "LOC": 38
                           },
                           {
                             "path": "src/App/routes/landing/components/PublishedSitesSection.tsx",
@@ -524,7 +537,7 @@
                       {
                         "path": "src/App/routes/landing/LandingRoute.css",
                         "description": "Landing route stylesheet for hero, feature cards, and route-level call-to-action link styling.",
-                        "LOC": 367
+                        "LOC": 345
                       },
                       {
                         "path": "src/App/routes/landing/LandingRoute.tsx",
@@ -644,7 +657,7 @@
                           {
                             "path": "src/App/routes/search/components/SearchSiteCard.tsx",
                             "description": "?",
-                            "LOC": 82
+                            "LOC": 72
                           }
                         ]
                       }
@@ -658,7 +671,7 @@
                       {
                         "path": "src/App/routes/search/SearchRoute.css",
                         "description": "?",
-                        "LOC": 295
+                        "LOC": 273
                       },
                       {
                         "path": "src/App/routes/search/SearchRoute.tsx",
@@ -781,7 +794,7 @@
                           {
                             "path": "src/App/routes/studio/components/SitesListSection.tsx",
                             "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
-                            "LOC": 201
+                            "LOC": 196
                           },
                           {
                             "path": "src/App/routes/studio/components/StudioMasthead.tsx",
@@ -1152,7 +1165,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/preview/AstroTemplatePreview.tsx",
                                     "description": "?",
-                                    "LOC": 3089
+                                    "LOC": 3201
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/preview/BuilderEditorToolbar.tsx",
@@ -1428,7 +1441,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.css",
                                 "description": "Builder route stylesheet covering layout, topbar/sidebar surfaces, preview editor chrome, and collaborator/danger section visuals.",
-                                "LOC": 2207
+                                "LOC": 2179
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-builder/SiteBuilderRoute.tsx",
@@ -1459,12 +1472,12 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionExplorer.tsx",
                                     "description": "Embedded connection explorer UI for searching sites, sending invites, and reviewing connection requests.",
-                                    "LOC": 326
+                                    "LOC": 319
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionsSettingsSection.tsx",
                                     "description": "Settings section wrapper that mounts the embedded connection explorer when draft context exists.",
-                                    "LOC": 71
+                                    "LOC": 82
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/DangerSettingsSection.tsx",
@@ -1474,12 +1487,17 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
                                     "description": "Settings section form for editable site title, description, URL, and image metadata.",
-                                    "LOC": 89
+                                    "LOC": 87
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
                                     "description": "Settings-specific topbar with section buttons and save/publish controls.",
                                     "LOC": 50
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-settings/components/SiteSettingsImagePreview.tsx",
+                                    "description": "?",
+                                    "LOC": 33
                                   }
                                 ]
                               },
@@ -1542,7 +1560,7 @@
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.css",
                                 "description": "Route-scoped stylesheet for settings page layout, topbar, section surfaces, and embedded connection explorer styles.",
-                                "LOC": 556
+                                "LOC": 575
                               },
                               {
                                 "path": "src/App/routes/studio/routes/site-settings/StudioSettingsRoute.tsx",
@@ -1581,7 +1599,7 @@
                       {
                         "path": "src/App/routes/studio/StudioRoute.css",
                         "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
-                        "LOC": 378
+                        "LOC": 356
                       },
                       {
                         "path": "src/App/routes/studio/StudioRoute.tsx",
@@ -1656,6 +1674,66 @@
                 ]
               },
               {
+                "path": "src/App/styles",
+                "description": "?",
+                "directories": [
+                  {
+                    "path": "src/App/styles/partials",
+                    "description": "?",
+                    "directories": [],
+                    "files": [
+                      {
+                        "path": "src/App/styles/partials/base.css",
+                        "description": "?",
+                        "LOC": 34
+                      },
+                      {
+                        "path": "src/App/styles/partials/buttons.css",
+                        "description": "?",
+                        "LOC": 23
+                      },
+                      {
+                        "path": "src/App/styles/partials/forms.css",
+                        "description": "?",
+                        "LOC": 42
+                      },
+                      {
+                        "path": "src/App/styles/partials/layout.css",
+                        "description": "?",
+                        "LOC": 57
+                      },
+                      {
+                        "path": "src/App/styles/partials/public-info-page.css",
+                        "description": "?",
+                        "LOC": 129
+                      },
+                      {
+                        "path": "src/App/styles/partials/site-header.css",
+                        "description": "?",
+                        "LOC": 239
+                      },
+                      {
+                        "path": "src/App/styles/partials/spinner.css",
+                        "description": "?",
+                        "LOC": 35
+                      },
+                      {
+                        "path": "src/App/styles/partials/tokens.css",
+                        "description": "?",
+                        "LOC": 48
+                      }
+                    ]
+                  }
+                ],
+                "files": [
+                  {
+                    "path": "src/App/styles/site.css",
+                    "description": "?",
+                    "LOC": 8
+                  }
+                ]
+              },
+              {
                 "path": "src/App/types",
                 "description": "Shared lightweight app-level types (currently notice severity union used by route footers/controllers).",
                 "directories": [],
@@ -1670,14 +1748,9 @@
             ],
             "files": [
               {
-                "path": "src/App/App.css",
-                "description": "Shared UI primitives (shell layout, header spacing, form controls, action button variants, loading styles) plus header stacking context adjustments.",
-                "LOC": 107
-              },
-              {
                 "path": "src/App/App.tsx",
                 "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
-                "LOC": 158
+                "LOC": 163
               }
             ]
           },
@@ -2056,7 +2129,7 @@
                       {
                         "path": "src/templates/site/default_template/template-integrity.test.ts",
                         "description": "?",
-                        "LOC": 65
+                        "LOC": 90
                       }
                     ]
                   }
@@ -2087,14 +2160,9 @@
         ],
         "files": [
           {
-            "path": "src/index.css",
-            "description": "Global base styles: typography, background textures, form/control defaults, and markdown editor overrides.",
-            "LOC": 54
-          },
-          {
             "path": "src/main.tsx",
             "description": "Bootstraps the React app by rendering App inside StrictMode at the root DOM node.",
-            "LOC": 10
+            "LOC": 9
           },
           {
             "path": "src/vite-env.d.ts",
@@ -2123,17 +2191,17 @@
       {
         "path": "index.html",
         "description": "Vite HTML entry template that mounts the React root, loads `/src/main.tsx`, and defines base document metadata/favicon.",
-        "LOC": 13
+        "LOC": 19
       },
       {
         "path": "package.json",
         "description": "App workspace package manifest (still named `studio`) defining local scripts and dependencies, including @cosmos.gl/graph for the explorer graph.",
-        "LOC": 47
+        "LOC": 48
       },
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 2160
+        "LOC": 2228
       },
       {
         "path": "tsconfig.app.json",
@@ -2153,7 +2221,7 @@
       {
         "path": "vite.config.ts",
         "description": "Vite config for the app: React plugin plus fixed local dev host/port settings.",
-        "LOC": 12
+        "LOC": 18
       }
     ]
   }

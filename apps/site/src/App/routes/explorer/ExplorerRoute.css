@@ -20,14 +20,14 @@
 .explorer-panel {
   border: 1px solid rgba(31, 34, 28, 0.15);
   padding: 1.1rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--site-color-surface-panel);
   display: grid;
   gap: 0.75rem;
 }
 
 .explorer-eyebrow {
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -50,7 +50,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -70,11 +70,11 @@
 }
 
 .explorer-search-label span {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .explorer-search-label input {
@@ -107,7 +107,7 @@
 
 .explorer-error {
   margin: 0;
-  color: #7a1f17;
+  color: var(--site-color-danger);
 }
 
 .explorer-loading-panel {
@@ -120,7 +120,7 @@
   max-width: min(420px, calc(100vw - 1.3rem));
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(31, 34, 28, 0.18);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.03em;
   z-index: 30;
@@ -216,7 +216,7 @@
   left: 0.65rem;
   margin: 0;
   padding: 0.2rem 0.4rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.62rem;
   letter-spacing: 0.03em;
   color: rgba(31, 34, 28, 0.75);
@@ -297,7 +297,7 @@
 
 .explorer-hover-card-body a {
   width: fit-content;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -311,9 +311,9 @@
 }
 
 .explorer-graph-label {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 11px;
-  fill: rgba(31, 34, 28, 0.92);
+  fill: var(--site-color-ink-strong);
   pointer-events: none;
 }
 
@@ -347,11 +347,11 @@
 }
 
 .explorer-site-card-head span {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.72);
+  color: var(--site-color-text-soft);
 }
 
 .explorer-site-card-meta {
@@ -360,7 +360,7 @@
   gap: 0.8rem;
   flex-wrap: wrap;
   font-size: 0.8rem;
-  color: rgba(31, 34, 28, 0.78);
+  color: var(--site-color-text-muted);
 }
 
 .explorer-site-card-meta a {

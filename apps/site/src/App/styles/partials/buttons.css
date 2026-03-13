@@ -1,0 +1,23 @@
+button {
+  border: 1px solid var(--site-color-border-emphasis);
+  padding: 0.6rem 1.2rem;
+  background: transparent;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+}
+
+button.primary {
+  background: var(--site-color-ink);
+  color: var(--site-color-surface-page);
+}
+
+button.ghost {
+  background: var(--site-color-surface-muted);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

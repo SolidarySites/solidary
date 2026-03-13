@@ -1,12 +1,12 @@
 .studio-settings-route.builder-shell {
-  gap: clamp(2.5rem, 4vw, 3.5rem);
+  gap: var(--site-section-gap-regular);
   --builder-topbar-sticky-top: 1rem;
 }
 
 .studio-settings-route .builder-topbar {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--site-grid-gap);
   align-items: end;
   padding: 0 0 1rem;
   border: 0;
@@ -48,9 +48,9 @@
   gap: 0.5rem;
   border: 0;
   background: transparent;
-  color: rgba(31, 34, 28, 0.9);
+  color: var(--site-color-text-emphasis);
   padding: 0.55rem 1.9rem 0 0;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -69,12 +69,12 @@
 
 .studio-settings-route .builder-topbar-link-button:hover:not(:disabled) {
   background: transparent;
-  color: #1f221c;
+  color: var(--site-color-ink);
 }
 
 .studio-settings-route .builder-topbar-link-button.is-active {
   background: transparent;
-  color: #1f221c;
+  color: var(--site-color-ink);
 }
 
 .studio-settings-route .builder-topbar-link-button.is-locked {
@@ -128,7 +128,7 @@
   font-size: 0.5rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(31, 34, 28, 0.9);
+  color: var(--site-color-text-emphasis);
   text-transform: uppercase;
 }
 
@@ -161,11 +161,11 @@
 
 .studio-settings-route .studio-settings-loading-label {
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .studio-settings-route .studio-settings-loading-grid {
@@ -176,7 +176,7 @@
 .studio-settings-route .studio-settings-loading-block {
   height: 0;
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
   background: transparent;
   animation: none;
 }
@@ -192,7 +192,7 @@
   max-width: 38rem;
   font-size: 0.94rem;
   line-height: 1.65;
-  color: rgba(31, 34, 28, 0.72);
+  color: var(--site-color-text-soft);
 }
 
 .studio-settings-route .builder-section-lock-shell.is-locked {
@@ -219,7 +219,7 @@
   display: grid;
   gap: 0.45rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .studio-settings-route .section-header h2,
@@ -243,7 +243,7 @@
   margin: 0;
   font-size: 0.98rem;
   line-height: 1.65;
-  color: rgba(31, 34, 28, 0.78);
+  color: var(--site-color-text-muted);
 }
 
 
@@ -260,7 +260,7 @@
   font-size: clamp(1rem, 1.4vw, 1.12rem);
   letter-spacing: 0;
   text-transform: none;
-  color: rgba(31, 34, 28, 0.92);
+  color: var(--site-color-ink-strong);
 }
 
 .studio-settings-route textarea {
@@ -295,8 +295,8 @@
 .studio-settings-route .preview-image-placeholder {
   width: 100%;
   height: 100%;
-  border: 1px solid rgba(31, 34, 28, 0.16);
-  background: rgba(31, 34, 28, 0.04);
+  border: 1px solid var(--site-color-border-soft);
+  background: var(--site-color-surface-soft);
   padding: 0;
 }
 
@@ -308,7 +308,7 @@
 .studio-settings-route .preview-image-placeholder {
   display: grid;
   place-items: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -341,7 +341,7 @@
 .studio-settings-route .builder-advanced-dropdown,
 .studio-settings-route .builder-delete-site-divider {
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .studio-settings-route .builder-collaborator-suggestions,
@@ -361,7 +361,7 @@
 .studio-settings-route .connection-request-card {
   width: 100%;
   padding-top: 0.9rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
   background: transparent;
   display: grid;
   gap: 0.55rem;
@@ -377,7 +377,7 @@
 .studio-settings-route .connection-result-owner,
 .studio-settings-route .connection-request-uuid,
 .studio-settings-route .connection-explorer-context-role {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.02em;
   color: rgba(31, 34, 28, 0.7);
@@ -419,7 +419,7 @@
   padding-inline-start: 1.1rem;
   display: grid;
   gap: 0.2rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.78rem;
 }
 
@@ -430,7 +430,7 @@
 .studio-settings-route .builder-advanced-warning,
 .studio-settings-route .connection-explorer-error {
   margin: 0;
-  color: #7a1f17;
+  color: var(--site-color-danger);
   font-size: 0.86rem;
   line-height: 1.6;
 }
@@ -450,7 +450,7 @@
 }
 
 .studio-settings-route .builder-advanced-dns-feedback p {
-  color: #7a1f17;
+  color: var(--site-color-danger);
   font-size: 0.86rem;
   line-height: 1.6;
 }
@@ -467,7 +467,7 @@
 
 .studio-settings-route .builder-advanced-dropdown summary {
   cursor: pointer;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -506,7 +506,7 @@
 .studio-settings-route .connection-result-header span,
 .studio-settings-route .connection-request-header span,
 .studio-settings-route .connection-result-state {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -526,7 +526,7 @@
 }
 
 .studio-settings-route .connection-request-live-metadata-row span {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;

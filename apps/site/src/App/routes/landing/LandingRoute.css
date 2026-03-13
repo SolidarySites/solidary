@@ -1,5 +1,5 @@
 .landing-main-content {
-  gap: clamp(3.5rem, 6vw, 6rem);
+  gap: var(--site-section-gap-loose);
 }
 
 .landing-masthead,
@@ -7,7 +7,7 @@
 .landing-sites-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--site-grid-gap);
 }
 
 .landing-masthead {
@@ -16,7 +16,7 @@
   align-items: stretch;
   row-gap: clamp(2rem, 4vw, 3rem);
   padding-bottom: clamp(1.75rem, 3vw, 2.5rem);
-  border-bottom: 1px solid rgba(31, 34, 28, 0.16);
+  border-bottom: 1px solid var(--site-color-border-soft);
 }
 
 .landing-masthead-copy {
@@ -75,13 +75,13 @@
     visibility 140ms ease;
   pointer-events: none;
   white-space: normal;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: clamp(0.74rem, 1.1vw, 0.9rem);
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.45;
   text-transform: none;
-  color: rgba(31, 34, 28, 0.72);
+  color: var(--site-color-text-soft);
 }
 
 .landing-home-title-term:hover .landing-home-title-tooltip,
@@ -126,11 +126,11 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.72rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
 }
 
 .landing-primary-link {
-  background: #1f221c;
+  background: var(--site-color-ink);
   color: #f4f1ea;
 }
 
@@ -163,17 +163,17 @@
   grid-column: 10 / -1;
   margin: 0;
   padding-top: 0.85rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
-  font-family: "IBM Plex Mono", monospace;
+  border-top: 1px solid var(--site-color-border-soft);
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .landing-status-panel {
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
   display: grid;
   gap: 0.45rem;
   max-width: 34rem;
@@ -197,7 +197,7 @@
   grid-column: span 4;
   min-width: 0;
   padding-top: 0.95rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .landing-site-card-link {
@@ -227,8 +227,8 @@
 .landing-site-card-placeholder {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px solid rgba(31, 34, 28, 0.16);
-  background: rgba(31, 34, 28, 0.04);
+  border: 1px solid var(--site-color-border-soft);
+  background: var(--site-color-surface-soft);
 }
 
 .landing-site-card-thumbnail {
@@ -246,7 +246,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.65rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -269,7 +269,7 @@
   margin: 0;
   font-size: 0.98rem;
   line-height: 1.65;
-  color: rgba(31, 34, 28, 0.78);
+  color: var(--site-color-text-muted);
 }
 
 @media (max-width: 1080px) {

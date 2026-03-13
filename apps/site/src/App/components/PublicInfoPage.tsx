@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import "./PublicInfoPage.css";
 
 type PublicInfoAction = {
   href: string;

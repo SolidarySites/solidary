@@ -1,0 +1,42 @@
+button,
+input,
+textarea,
+select {
+  font-family: var(--site-font-mono);
+}
+
+label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+input,
+textarea,
+select {
+  border: 1px solid var(--site-color-border-strong);
+  padding: 0.6rem 0.8rem;
+  background: #fff;
+  font-size: 0.9rem;
+  color: var(--site-color-ink);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.preview-image {
+  max-width: 260px;
+  border: 1px dashed var(--site-color-border-base);
+  padding: 0.4rem;
+}
+
+.w-md-editor {
+  box-shadow: none;
+  border: 1px solid var(--site-color-border-base);
+}
+
+.w-md-editor-text,
+.w-md-editor-preview {
+  background: #fff;
+}

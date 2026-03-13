@@ -1,23 +1,25 @@
-import { useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
-import "./App.css";
-import "./components/ImageLoadSpinner.css";
+import "./styles/site.css";
 import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
-import LandingRoute from "./routes/landing/LandingRoute";
-import SupportRoute from "./routes/support/SupportRoute";
-import ContactRoute from "./routes/contact/ContactRoute";
-import ExplorerRoute from "./routes/explorer/ExplorerRoute";
-import SearchRoute from "./routes/search/SearchRoute";
-import StudioRoute from "./routes/studio/StudioRoute";
-import SiteCreateRoute from "./routes/site-create/SiteCreateRoute";
-import StudioBuilderRoute from "./routes/studio/routes/site-builder/SiteBuilderRoute";
-import StudioSettingsRoute from "./routes/studio/routes/site-settings/StudioSettingsRoute";
-import ProfileRoute from "./routes/profile/ProfileRoute";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
 import { supabase } from "./lib/supabase";
 import { SiteNoticeProvider } from "./features/site-notice/providers/SiteNoticeProvider";
+
+const LandingRoute = lazy(() => import("./routes/landing/LandingRoute"));
+const SupportRoute = lazy(() => import("./routes/support/SupportRoute"));
+const ContactRoute = lazy(() => import("./routes/contact/ContactRoute"));
+const ExplorerRoute = lazy(() => import("./routes/explorer/ExplorerRoute"));
+const SearchRoute = lazy(() => import("./routes/search/SearchRoute"));
+const StudioRoute = lazy(() => import("./routes/studio/StudioRoute"));
+const SiteCreateRoute = lazy(() => import("./routes/site-create/SiteCreateRoute"));
+const StudioBuilderRoute = lazy(() => import("./routes/studio/routes/site-builder/SiteBuilderRoute"));
+const StudioSettingsRoute = lazy(
+  () => import("./routes/studio/routes/site-settings/StudioSettingsRoute")
+);
+const ProfileRoute = lazy(() => import("./routes/profile/ProfileRoute"));
 
 const isStudioEditingPath = (pathname: string) =>
   pathname === "/studio/builder" || pathname === "/studio/settings";
@@ -112,46 +114,48 @@ export default function App() {
             <SiteHeader />
           </div>
           <StudioLockExitGuard />
-          <Routes>
-            <Route path="/" element={<LandingRoute />} />
-            <Route path="/support" element={<SupportRoute />} />
-            <Route path="/contact" element={<ContactRoute />} />
-            <Route path="/explorer" element={<ExplorerRoute />} />
-            <Route path="/search" element={<SearchRoute />} />
-            <Route path="/studio" element={<StudioRoute />} />
-            <Route
-              path="/site-create"
-              element={
-                <RequireAuth>
-                  <SiteCreateRoute />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/studio/builder"
-              element={
-                <RequireAuth>
-                  <StudioBuilderRoute />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/studio/settings"
-              element={
-                <RequireAuth>
-                  <StudioSettingsRoute />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <RequireAuth>
-                  <ProfileRoute />
-                </RequireAuth>
-              }
-            />
-          </Routes>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<LandingRoute />} />
+              <Route path="/support" element={<SupportRoute />} />
+              <Route path="/contact" element={<ContactRoute />} />
+              <Route path="/explorer" element={<ExplorerRoute />} />
+              <Route path="/search" element={<SearchRoute />} />
+              <Route path="/studio" element={<StudioRoute />} />
+              <Route
+                path="/site-create"
+                element={
+                  <RequireAuth>
+                    <SiteCreateRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/studio/builder"
+                element={
+                  <RequireAuth>
+                    <StudioBuilderRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/studio/settings"
+                element={
+                  <RequireAuth>
+                    <StudioSettingsRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <ProfileRoute />
+                  </RequireAuth>
+                }
+              />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </SiteNoticeProvider>
     </AuthProvider>

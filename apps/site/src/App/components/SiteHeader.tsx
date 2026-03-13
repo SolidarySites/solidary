@@ -5,7 +5,6 @@ import {
   getSessionAvatarUrl,
   getSessionDisplayName
 } from "../features/auth/services/user-profile";
-import "./SiteHeader.css";
 
 export default function SiteHeader() {
   const { session, signInWithGitHub, signOut } = useAuth();

@@ -1,22 +1,22 @@
 .site-form {
   border: 1px solid rgba(31, 34, 28, 0.15);
   padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--site-color-surface-panel);
   display: grid;
   gap: 1.5rem;
 }
 
 .site-create-input-error {
-  border-color: #b42318;
-  color: #b42318;
+  border-color: var(--site-color-danger-bright);
+  color: var(--site-color-danger-bright);
 }
 
 .site-create-input-error:focus {
-  outline-color: #b42318;
+  outline-color: var(--site-color-danger-bright);
 }
 
 .site-create-field-error {
-  color: #b42318;
+  color: var(--site-color-danger-bright);
   font-size: 0.82rem;
   line-height: 1.35;
 }
@@ -26,7 +26,7 @@
 }
 
 .site-create-field-hint {
-  color: rgba(31, 34, 28, 0.72);
+  color: var(--site-color-text-soft);
   font-size: 0.82rem;
   line-height: 1.35;
 }

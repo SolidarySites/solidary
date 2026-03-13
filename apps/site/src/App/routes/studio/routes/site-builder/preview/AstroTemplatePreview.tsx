@@ -8,7 +8,7 @@ import {
   type CSSProperties
 } from "react";
 import siteBuilderStylesRaw from "../SiteBuilderRoute.css?raw";
-import imageLoadSpinnerStylesRaw from "../../../../../components/ImageLoadSpinner.css?raw";
+import imageLoadSpinnerStylesRaw from "../../../../../styles/partials/spinner.css?raw";
 import { normalizePageSlug } from "../services/utils";
 import {
   extractCssVariables as extractStyleVariables,

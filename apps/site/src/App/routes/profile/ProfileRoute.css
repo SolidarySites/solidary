@@ -1,16 +1,16 @@
 .profile-app-shell {
-  gap: clamp(3.5rem, 6vw, 6rem);
+  gap: var(--site-section-gap-loose);
   padding-bottom: calc(var(--app-shell-padding) + 4.5rem);
 }
 
 .profile-main-content {
-  gap: clamp(3.5rem, 6vw, 6rem);
+  gap: var(--site-section-gap-loose);
 }
 
 .profile-route-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--site-grid-gap);
   row-gap: clamp(2rem, 4vw, 3rem);
   align-items: start;
 }
@@ -39,7 +39,7 @@
 
 .profile-github-field span,
 .profile-supabase-field span {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
 }
 
 .profile-settings-form {
@@ -52,11 +52,11 @@
   max-width: 36rem;
   display: grid;
   gap: 0.65rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .profile-settings-form input[type="text"] {
@@ -68,7 +68,7 @@
   font-size: clamp(1rem, 1.4vw, 1.12rem);
   letter-spacing: 0;
   text-transform: none;
-  color: rgba(31, 34, 28, 0.92);
+  color: var(--site-color-ink-strong);
 }
 
 .profile-settings-form input[type="text"]:focus {
@@ -97,11 +97,11 @@
 .profile-solidary-avatar-label {
   grid-column: 1 / -1;
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .profile-solidary-avatar-shell {
@@ -124,7 +124,7 @@
   letter-spacing: 0;
   font-size: 0.82rem;
   text-decoration: underline;
-  color: rgba(31, 34, 28, 0.78);
+  color: var(--site-color-text-muted);
 }
 
 .profile-avatar-link:hover:not(:disabled) {
@@ -157,7 +157,7 @@
   justify-content: stretch;
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid rgba(31, 34, 28, 0.16);
+  border: 1px solid var(--site-color-border-soft);
   padding: 0;
   background: rgba(31, 34, 28, 0.03);
   position: relative;
@@ -190,7 +190,7 @@
 
 .profile-field-error {
   font-size: 0.78rem;
-  color: #7a1f17;
+  color: var(--site-color-danger);
   font-family: inherit;
   letter-spacing: 0;
   text-transform: none;
@@ -212,7 +212,7 @@
   align-content: start;
   max-width: 36rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
 }
 
 .profile-authentication-toggle {
@@ -235,16 +235,16 @@
 }
 
 .profile-authentication-heading {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 .profile-authentication-toggle-mark {
   grid-column: 2;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 1rem;
   line-height: 1;
   color: rgba(31, 34, 28, 0.76);
@@ -262,7 +262,7 @@
   gap: 1rem;
   align-items: start;
   padding-top: 0.95rem;
-  border-top: 1px solid rgba(31, 34, 28, 0.16);
+  border-top: 1px solid var(--site-color-border-soft);
   background: transparent;
 }
 
@@ -295,7 +295,7 @@
 .profile-avatar-fallback {
   display: grid;
   place-items: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 1rem;
   font-weight: 600;
 }
@@ -307,7 +307,7 @@
     linear-gradient(135deg, rgba(31, 34, 28, 0.08), rgba(71, 160, 118, 0.16));
   display: grid;
   place-items: center;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--site-font-mono);
   font-size: 1rem;
   font-weight: 600;
   color: rgba(24, 74, 47, 0.92);
@@ -325,7 +325,7 @@
   margin: 0;
   font-size: 1.08rem;
   font-weight: 600;
-  color: rgba(31, 34, 28, 0.9);
+  color: var(--site-color-text-emphasis);
 }
 
 .profile-github-title-row,
@@ -388,7 +388,7 @@
   margin: 0;
   padding: 0;
   background: transparent;
-  color: #7a1f17;
+  color: var(--site-color-danger);
   font-size: 0.8rem;
   line-height: 1.6;
 }
@@ -410,7 +410,7 @@
   text-transform: none;
   letter-spacing: 0;
   font-size: inherit;
-  color: rgba(31, 34, 28, 0.92);
+  color: var(--site-color-ink-strong);
   text-decoration: underline;
 }
 
@@ -440,7 +440,7 @@
 .profile-supabase-note {
   margin: 0;
   font-size: 0.75rem;
-  color: rgba(31, 34, 28, 0.62);
+  color: var(--site-color-text-subtle);
 }
 
 @media (max-width: 1080px) {

@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  font-family: var(--site-font-display);
+  color: var(--site-color-ink);
+  background-color: var(--site-color-surface-page);
+
+  --site-font-display: "Newsreader", serif;
+  --site-font-mono: "IBM Plex Mono", monospace;
+
+  --site-color-ink: #1f221c;
+  --site-color-ink-strong: rgba(31, 34, 28, 0.92);
+  --site-color-text-emphasis: rgba(31, 34, 28, 0.9);
+  --site-color-text-muted: rgba(31, 34, 28, 0.78);
+  --site-color-text-soft: rgba(31, 34, 28, 0.72);
+  --site-color-text-subtle: rgba(31, 34, 28, 0.62);
+  --site-color-text-faint: rgba(31, 34, 28, 0.58);
+  --site-color-text-disabled: rgba(31, 34, 28, 0.45);
+
+  --site-color-surface-page: #f4f1ea;
+  --site-color-surface-page-top: rgba(246, 243, 234, 0.95);
+  --site-color-surface-page-bottom: rgba(237, 233, 221, 0.92);
+  --site-color-surface-panel: rgba(255, 255, 255, 0.9);
+  --site-color-surface-overlay: rgba(249, 247, 241, 0.98);
+  --site-color-surface-soft: rgba(31, 34, 28, 0.04);
+  --site-color-surface-muted: rgba(31, 34, 28, 0.05);
+  --site-color-surface-strong: rgba(31, 34, 28, 0.08);
+
+  --site-color-border-soft: rgba(31, 34, 28, 0.16);
+  --site-color-border-base: rgba(31, 34, 28, 0.2);
+  --site-color-border-subtle: rgba(31, 34, 28, 0.22);
+  --site-color-border-medium: rgba(31, 34, 28, 0.24);
+  --site-color-border-strong: rgba(31, 34, 28, 0.35);
+  --site-color-border-emphasis: rgba(31, 34, 28, 0.4);
+  --site-color-border-heavy: rgba(31, 34, 28, 0.45);
+
+  --site-color-danger: #7a1f17;
+  --site-color-danger-bright: #b42318;
+  --site-color-warning: #7a5a10;
+
+  --site-radius-pill: 999px;
+  --site-shadow-floating: 0 14px 32px rgba(31, 34, 28, 0.18);
+
+  --site-grid-gap: 1rem;
+  --app-shell-padding: clamp(1.5rem, 3vw, 3.5rem);
+  --site-section-gap-loose: clamp(3.5rem, 6vw, 6rem);
+  --site-section-gap-regular: clamp(2.5rem, 4vw, 3.5rem);
+  --site-header-height: 0px;
+  --site-header-visible-height: 0px;
+}
