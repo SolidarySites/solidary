@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import {
   clearExternalImageTracking,
+  EXTERNAL_IMAGE_SKIP_ATTR,
   getTrackedExternalImageSource,
   isExternalImageSource,
   startExternalImageLoadWithPlaceholder
@@ -38,6 +39,11 @@ export const useGlobalExternalImageLoading = () => {
     }
 
     const processImage = (image: HTMLImageElement) => {
+      if (image.hasAttribute(EXTERNAL_IMAGE_SKIP_ATTR)) {
+        stopTracking(image, true)
+        return
+      }
+
       const source = getTrackedExternalImageSource(image)
       if (!isExternalImageSource(source)) {
         stopTracking(image, true)
@@ -80,7 +86,7 @@ export const useGlobalExternalImageLoading = () => {
         subtree: true,
         childList: true,
         attributes: true,
-        attributeFilter: ["src", "data-external-image-src"]
+        attributeFilter: ["src", "data-external-image-src", EXTERNAL_IMAGE_SKIP_ATTR]
       })
     }
 

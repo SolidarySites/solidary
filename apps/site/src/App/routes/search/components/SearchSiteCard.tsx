@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { SiteAssetImage } from "../../../components/SiteAssetImage";
 import type { ExplorerSite } from "../../explorer/services/explorer-data";
 
 type SearchSiteCardProps = {
@@ -33,8 +33,6 @@ const formatSiteDomain = (value: string) => {
 };
 
 export function SearchSiteCard({ site, connectionCount }: SearchSiteCardProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const canShowImage = Boolean(site.imageUrl) && !imageFailed;
   const description = site.description || FALLBACK_DESCRIPTION;
   const domain = formatSiteDomain(site.canonicalUrl);
 
@@ -47,23 +45,15 @@ export function SearchSiteCard({ site, connectionCount }: SearchSiteCardProps) {
         rel="noreferrer"
         aria-label={`Open ${site.title} in a new tab`}
       >
-        <div
-          className="search-site-card-media"
-          data-external-image-container="true"
-          aria-hidden={!canShowImage}
-        >
-          {canShowImage ? (
-            <img
-              className="search-site-card-thumbnail"
-              src={site.imageUrl}
-              alt={`${site.title} thumbnail`}
-              loading="lazy"
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <div className="search-site-card-placeholder">No image</div>
-          )}
-        </div>
+        <SiteAssetImage
+          siteUrl={site.canonicalUrl}
+          thumbnailUrl={site.imageUrl}
+          alt={`${site.title} thumbnail`}
+          containerClassName="search-site-card-media"
+          imageClassName="search-site-card-thumbnail"
+          placeholderClassName="search-site-card-placeholder"
+          placeholderContent="No image"
+        />
 
         <div className="search-site-card-body">
           <div className="search-site-card-heading">

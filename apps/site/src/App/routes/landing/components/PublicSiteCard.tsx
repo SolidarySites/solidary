@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { SiteAssetImage } from "../../../components/SiteAssetImage";
 import type { PublicSite } from "../../../services/public-sites";
 
 type PublicSiteCardProps = {
@@ -8,8 +8,6 @@ type PublicSiteCardProps = {
 const FALLBACK_DESCRIPTION = "No description provided.";
 
 export function PublicSiteCard({ site }: PublicSiteCardProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const canShowImage = Boolean(site.imageUrl) && !imageFailed;
   const description = site.description || FALLBACK_DESCRIPTION;
 
   return (
@@ -21,23 +19,15 @@ export function PublicSiteCard({ site }: PublicSiteCardProps) {
         rel="noreferrer"
         aria-label={`Open ${site.title} in a new tab`}
       >
-        <div
-          className="landing-site-card-media"
-          data-external-image-container="true"
-          aria-hidden={!canShowImage}
-        >
-          {canShowImage ? (
-            <img
-              className="landing-site-card-thumbnail"
-              src={site.imageUrl}
-              alt={`${site.title} thumbnail`}
-              loading="lazy"
-              onError={() => setImageFailed(true)}
-            />
-          ) : (
-            <div className="landing-site-card-placeholder">No image</div>
-          )}
-        </div>
+        <SiteAssetImage
+          siteUrl={site.canonicalUrl}
+          thumbnailUrl={site.imageUrl}
+          alt={`${site.title} thumbnail`}
+          containerClassName="landing-site-card-media"
+          imageClassName="landing-site-card-thumbnail"
+          placeholderClassName="landing-site-card-placeholder"
+          placeholderContent="No image"
+        />
         <div className="landing-site-card-body">
           <h3 className="landing-site-card-title">{site.title}</h3>
           <p className="landing-site-card-description">{description}</p>

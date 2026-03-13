@@ -1,9 +1,12 @@
+import { mountImageLoadSpinner } from "./image-load-spinner"
+
 const TINY_SVG_PLACEHOLDER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(31,34,28,0.2)" stroke-width="2"/><path d="M12 3a9 9 0 0 1 7.8 4.5" stroke="rgba(31,34,28,0.65)" stroke-width="2" stroke-linecap="round"/></svg>`
 
 export const EXTERNAL_IMAGE_PLACEHOLDER_SRC = `data:image/svg+xml,${encodeURIComponent(TINY_SVG_PLACEHOLDER)}`
 export const EXTERNAL_IMAGE_SOURCE_ATTR = "data-external-image-src"
 export const EXTERNAL_IMAGE_STATE_ATTR = "data-external-image-state"
 export const EXTERNAL_IMAGE_CONTAINER_ATTR = "data-external-image-container"
+export const EXTERNAL_IMAGE_SKIP_ATTR = "data-skip-external-image-loading"
 export const EXTERNAL_IMAGE_VARIANT_SMALL_ATTR = "data-external-image-src-small"
 export const EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR = "data-external-image-src-medium"
 export const EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR = "data-external-image-src-original"
@@ -29,6 +32,15 @@ type ExternalImageVariantSources = {
 const getBuilderImageFigure = (image: Element) => image.closest(BUILDER_IMAGE_FIGURE_SELECTOR)
 const getExternalImageContainer = (image: Element) =>
   image.closest(`[${EXTERNAL_IMAGE_CONTAINER_ATTR}="true"]`)
+const getExternalImageSpinnerHost = (image: Element) => {
+  const figure = getBuilderImageFigure(image)
+  if (figure instanceof HTMLElement) return figure
+
+  const container = getExternalImageContainer(image)
+  if (container instanceof HTMLElement) return container
+
+  return null
+}
 
 const parsePositiveNumber = (value: string | null | undefined) => {
   if (!value) return null
@@ -381,6 +393,14 @@ export const startExternalImageLoadWithPlaceholder = (
   }
 
   const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const spinnerHost = getExternalImageSpinnerHost(image)
+  const removeSpinner = spinnerHost ? mountImageLoadSpinner(spinnerHost) : null
+  let spinnerRemoved = false
+  const hideSpinner = () => {
+    if (spinnerRemoved) return
+    spinnerRemoved = true
+    removeSpinner?.()
+  }
   image.setAttribute(EXTERNAL_IMAGE_TOKEN_ATTR, token)
   const syncPlaceholderSizing = () => {
     if (cancelled) return
@@ -425,11 +445,32 @@ export const startExternalImageLoadWithPlaceholder = (
 
   const loader = new Image()
   let removeRevealListeners: (() => void) | null = null
+  let removeInitialDisplayLoadListener: (() => void) | null = null
 
   const clearRevealListeners = () => {
     if (!removeRevealListeners) return
     removeRevealListeners()
     removeRevealListeners = null
+  }
+  const clearInitialDisplayLoadListener = () => {
+    if (!removeInitialDisplayLoadListener) return
+    removeInitialDisplayLoadListener()
+    removeInitialDisplayLoadListener = null
+  }
+
+  if (isExternalImageSource(blurredPlaceholderSource)) {
+    const onInitialDisplayLoad = () => {
+      if (cancelled) return
+      if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return
+
+      hideSpinner()
+      clearInitialDisplayLoadListener()
+    }
+
+    image.addEventListener("load", onInitialDisplayLoad)
+    removeInitialDisplayLoadListener = () => {
+      image.removeEventListener("load", onInitialDisplayLoad)
+    }
   }
 
   const revealSource = (state: ExternalImageState) => {
@@ -441,6 +482,8 @@ export const startExternalImageLoadWithPlaceholder = (
       if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return
 
       clearRevealListeners()
+      clearInitialDisplayLoadListener()
+      hideSpinner()
       image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR)
       stopPlaceholderSizingSync()
       clearExternalImagePlaceholderSizing(image)
@@ -483,6 +526,8 @@ export const startExternalImageLoadWithPlaceholder = (
     loader.onload = null
     loader.onerror = null
     clearRevealListeners()
+    clearInitialDisplayLoadListener()
+    hideSpinner()
 
     if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) === token) {
       image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR)

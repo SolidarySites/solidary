@@ -1,6 +1,7 @@
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
 
-const THUMB_ASSET_PATH = "/solidary-media/images/site-image_thumb.jpg";
+export const SITE_IMAGE_ASSET_PATH = "/solidary-media/images/site-image.jpg";
+export const SITE_IMAGE_THUMB_ASSET_PATH = "/solidary-media/images/site-image_thumb.jpg";
 const SITE_IMAGE_PATH_FALLBACK = "/solidary-media/images/og/og-home.jpg";
 
 const normalizePathLikeValue = (value: string): string => {
@@ -93,6 +94,9 @@ export const resolveSiteImageUrl = (siteUrl: string, imageUrl: string) => {
   return resolveSiteScopedPath(siteUrl, normalizedImageUrl) || normalizedImageUrl;
 };
 
+export const resolveSitePrimaryImageUrl = (siteUrl: string) =>
+  resolveSiteScopedPath(siteUrl, SITE_IMAGE_ASSET_PATH);
+
 export const normalizeSiteImagePathForStorage = ({
   siteUrl,
   imageUrl,
@@ -128,7 +132,7 @@ export const resolveSiteThumbnailUrl = ({
   siteUrl: string;
   fallbackImageUrl: string;
 }) => {
-  const thumbnailUrl = resolveSiteScopedPath(siteUrl, THUMB_ASSET_PATH);
+  const thumbnailUrl = resolveSiteScopedPath(siteUrl, SITE_IMAGE_THUMB_ASSET_PATH);
   if (thumbnailUrl) {
     return thumbnailUrl;
   }

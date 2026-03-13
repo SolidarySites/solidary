@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent
 } from "react";
+import { SiteAssetImage } from "../../../components/SiteAssetImage";
 import type { ExplorerConnection, ExplorerSite } from "../services/explorer-data";
 import { buildConnectedSiteLookup } from "../services/explorer-graph";
 
@@ -607,20 +608,15 @@ export default function ExplorerGraph({
             style={infoCardStyle}
             ref={infoCardRef}
           >
-            <div className="explorer-hover-card-image-wrap">
-              {selectedSite.imageUrl ? (
-                <img
-                  className="explorer-hover-card-image"
-                  src={selectedSite.imageUrl}
-                  alt={truncateLabel(selectedSite.title)}
-                  loading="lazy"
-                />
-              ) : (
-                <div className="explorer-hover-card-image explorer-hover-card-image-placeholder">
-                  {selectedSite.title.slice(0, 1).toUpperCase()}
-                </div>
-              )}
-            </div>
+            <SiteAssetImage
+              siteUrl={selectedSite.canonicalUrl}
+              thumbnailUrl={selectedSite.imageUrl}
+              alt={truncateLabel(selectedSite.title)}
+              containerClassName="explorer-hover-card-image-wrap"
+              imageClassName="explorer-hover-card-image"
+              placeholderClassName="explorer-hover-card-image explorer-hover-card-image-placeholder"
+              placeholderContent={selectedSite.title.slice(0, 1).toUpperCase()}
+            />
             <div className="explorer-hover-card-body">
               <h4>{truncateLabel(selectedSite.title)}</h4>
               <p>

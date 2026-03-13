@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSiteImagePathForStorage } from "./site-image-url";
+import {
+  normalizeSiteImagePathForStorage,
+  resolveSitePrimaryImageUrl
+} from "./site-image-url";
 
 describe("normalizeSiteImagePathForStorage", () => {
   it("converts absolute site asset URLs to stored relative paths", () => {
@@ -18,5 +21,13 @@ describe("normalizeSiteImagePathForStorage", () => {
         imageUrl: "/solidary-media/images/site-image.jpg"
       })
     ).toBe("/solidary-media/images/site-image.jpg");
+  });
+});
+
+describe("resolveSitePrimaryImageUrl", () => {
+  it("resolves the canonical published site image path from the site URL", () => {
+    expect(resolveSitePrimaryImageUrl("https://jazbogross.github.io/site")).toBe(
+      "https://jazbogross.github.io/site/solidary-media/images/site-image.jpg"
+    );
   });
 });

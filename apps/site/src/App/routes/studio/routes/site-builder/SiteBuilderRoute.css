@@ -1549,28 +1549,6 @@
   min-height: var(--external-image-placeholder-height, 180px);
 }
 
-.astro-preview
-  .prose
-  figure[data-builder-image-figure="true"][data-external-image-state="loading"]::after {
-  content: "";
-  position: absolute;
-  left: calc(
-    var(--external-image-placeholder-left, 0px) +
-      (var(--external-image-placeholder-width, 100%) / 2)
-  );
-  top: calc(var(--external-image-placeholder-height, 180px) / 2);
-  width: 18px;
-  height: 18px;
-  margin-left: -9px;
-  margin-top: -9px;
-  border-radius: 999px;
-  border: 2px solid rgba(31, 34, 28, 0.24);
-  border-top-color: rgba(31, 34, 28, 0.68);
-  animation: astro-preview-image-spinner 1.4s linear infinite;
-  pointer-events: none;
-  z-index: 2;
-}
-
 .astro-preview .prose figure[data-builder-image-figure="true"] img {
   display: inline-block;
   max-width: 100%;
@@ -1959,12 +1937,6 @@
 
 .astro-preview.is-simple .skip-link:focus {
   left: var(--space-3);
-}
-
-@keyframes astro-preview-image-spinner {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .builder-collaborator-section {

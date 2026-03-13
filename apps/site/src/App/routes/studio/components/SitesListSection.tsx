@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { SiteAssetImage } from "../../../components/SiteAssetImage";
 
 type SiteListItem = {
   id: string;
@@ -28,28 +28,22 @@ type SitesListSectionProps = {
 };
 
 type SiteCardThumbnailProps = {
+  siteUrl: string;
   imageUrl: string;
   title: string;
 };
 
-function SiteCardThumbnail({ imageUrl, title }: SiteCardThumbnailProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const canShowImage = Boolean(imageUrl) && !imageFailed;
-
+function SiteCardThumbnail({ siteUrl, imageUrl, title }: SiteCardThumbnailProps) {
   return (
-    <div className="site-card-thumbnail-shell" data-external-image-container="true" aria-hidden={!canShowImage}>
-      {canShowImage ? (
-        <img
-          className="site-card-thumbnail"
-          src={imageUrl}
-          alt={`${title} thumbnail`}
-          loading="lazy"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className="site-card-thumbnail-placeholder">No image</div>
-      )}
-    </div>
+    <SiteAssetImage
+      siteUrl={siteUrl}
+      thumbnailUrl={imageUrl}
+      alt={`${title} thumbnail`}
+      containerClassName="site-card-thumbnail-shell"
+      imageClassName="site-card-thumbnail"
+      placeholderClassName="site-card-thumbnail-placeholder"
+      placeholderContent="No image"
+    />
   );
 }
 
@@ -151,6 +145,7 @@ export default function SitesListSection({
               <div className="site-card-main">
                 {showThumbnails && (
                   <SiteCardThumbnail
+                    siteUrl={item.siteUrl}
                     imageUrl={item.imageUrl}
                     title={item.title || item.repoFullName}
                   />

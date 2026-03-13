@@ -8,6 +8,7 @@ import {
   type CSSProperties
 } from "react";
 import siteBuilderStylesRaw from "../SiteBuilderRoute.css?raw";
+import imageLoadSpinnerStylesRaw from "../../../../../components/ImageLoadSpinner.css?raw";
 import { normalizePageSlug } from "../services/utils";
 import {
   extractCssVariables as extractStyleVariables,
@@ -543,6 +544,63 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     }
   }
 
+  function mountImageLoadSpinner(host) {
+    if (!(host instanceof HTMLElement)) {
+      return function () {};
+    }
+
+    host.classList.add("image-load-spinner-host");
+
+    var spinner = host.ownerDocument.createElement("span");
+    spinner.setAttribute("data-image-load-spinner", "true");
+    spinner.setAttribute("aria-hidden", "true");
+    spinner.className = "image-load-spinner-overlay";
+
+    var svg = host.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("class", "image-load-spinner-svg");
+
+    var track = host.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "circle");
+    track.setAttribute("class", "image-load-spinner-track");
+    track.setAttribute("cx", "12");
+    track.setAttribute("cy", "12");
+    track.setAttribute("r", "8.5");
+    track.setAttribute("stroke-width", "2");
+    svg.appendChild(track);
+
+    var indicator = host.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "path");
+    indicator.setAttribute("class", "image-load-spinner-indicator");
+    indicator.setAttribute("d", "M12 3.5a8.5 8.5 0 0 1 6.98 3.64");
+    indicator.setAttribute("stroke-width", "2.4");
+    indicator.setAttribute("stroke-linecap", "round");
+    svg.appendChild(indicator);
+
+    spinner.appendChild(svg);
+
+    var previousPosition = host.style.position;
+    var shouldRestorePosition = !previousPosition;
+    if (!previousPosition) {
+      host.style.position = "relative";
+    }
+
+    host.appendChild(spinner);
+
+    return function () {
+      if (spinner.parentElement === host) {
+        host.removeChild(spinner);
+      }
+      if (shouldRestorePosition) {
+        host.style.removeProperty("position");
+      }
+      if (!host.querySelector("[data-image-load-spinner='true']")) {
+        host.classList.remove("image-load-spinner-host");
+      }
+    };
+  }
+
   function resolveExternalImageLoadSource(image, fallbackSource) {
     var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
     var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
@@ -607,12 +665,21 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var cancelled = false;
     var revealLoadListener = null;
     var revealErrorListener = null;
+    var removeInitialDisplayLoadListener = null;
     var loader = new Image();
     var placeholderSizingFrameId = null;
+    var removeSpinner = mountImageLoadSpinner(image.closest("figure[data-builder-image-figure='true']"));
+    var spinnerRemoved = false;
 
     image.setAttribute(EXTERNAL_IMAGE_TOKEN_ATTR, token);
     setExternalImageState(image, "loading");
     applyExternalImagePlaceholderSizing(image, placeholderCandidates);
+
+    function hideSpinner() {
+      if (spinnerRemoved) return;
+      spinnerRemoved = true;
+      removeSpinner();
+    }
 
     if (placeholderSource && placeholderSource !== loadSource) {
       image.setAttribute("src", placeholderSource);
@@ -656,14 +723,37 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       }
     }
 
+    function clearInitialDisplayLoadListener() {
+      if (removeInitialDisplayLoadListener) {
+        removeInitialDisplayLoadListener();
+        removeInitialDisplayLoadListener = null;
+      }
+    }
+
     function complete(stateValue) {
       if (cancelled) return;
       if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+      clearInitialDisplayLoadListener();
+      hideSpinner();
       image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
       stopPlaceholderSizingSync();
       clearExternalImagePlaceholderSizing(image);
       setExternalImageState(image, stateValue);
       clearRevealListeners();
+    }
+
+    if (isExternalImageSource(placeholderSource)) {
+      var onInitialDisplayLoad = function () {
+        if (cancelled) return;
+        if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return;
+        hideSpinner();
+        clearInitialDisplayLoadListener();
+      };
+
+      image.addEventListener("load", onInitialDisplayLoad);
+      removeInitialDisplayLoadListener = function () {
+        image.removeEventListener("load", onInitialDisplayLoad);
+      };
     }
 
     loader.onload = function () {
@@ -704,6 +794,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       loader.onload = null;
       loader.onerror = null;
       clearRevealListeners();
+      clearInitialDisplayLoadListener();
+      hideSpinner();
 
       if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) === token) {
         image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
@@ -2583,6 +2675,7 @@ const buildPreviewFrameSrcDoc = (headHtml: string) => {
     buildPreviewFrameRuntimeScript(PREVIEW_BRIDGE_CHANNEL, PREVIEW_IMAGE_ASPECT_RATIO_ATTR)
   );
   const baseStyles = escapeInlineTagContent(siteBuilderStylesRaw);
+  const spinnerStyles = escapeInlineTagContent(imageLoadSpinnerStylesRaw);
   const customHeadHtml = headHtml.trim();
 
   return `<!doctype html>
@@ -2592,6 +2685,7 @@ const buildPreviewFrameSrcDoc = (headHtml: string) => {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     ${customHeadHtml}
     <style>${baseStyles}</style>
+    <style>${spinnerStyles}</style>
     <style>
       html,
       body {

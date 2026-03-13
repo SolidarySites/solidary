@@ -286,14 +286,33 @@
   font-size: 0.86rem;
 }
 
-.studio-settings-route .preview-image {
+.studio-settings-route .preview-image-shell {
   width: min(100%, 22rem);
   aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
+}
+
+.studio-settings-route .preview-image,
+.studio-settings-route .preview-image-placeholder {
+  width: 100%;
+  height: 100%;
   border: 1px solid rgba(31, 34, 28, 0.16);
   background: rgba(31, 34, 28, 0.04);
   padding: 0;
+}
+
+.studio-settings-route .preview-image {
+  object-fit: cover;
+  display: block;
+}
+
+.studio-settings-route .preview-image-placeholder {
+  display: grid;
+  place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.5);
 }
 
 .studio-settings-route .studio-settings-save-row,

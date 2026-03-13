@@ -1,0 +1,34 @@
+.image-load-spinner-host {
+  position: relative;
+}
+
+.image-load-spinner-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.image-load-spinner-svg {
+  display: block;
+  inline-size: 14%;
+  block-size: auto;
+  aspect-ratio: 1 / 1;
+  animation: image-load-spinner-rotate 1.05s linear infinite;
+}
+
+.image-load-spinner-track {
+  stroke: rgba(31, 34, 28, 0.2);
+}
+
+.image-load-spinner-indicator {
+  stroke: rgba(31, 34, 28, 0.72);
+}
+
+@keyframes image-load-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

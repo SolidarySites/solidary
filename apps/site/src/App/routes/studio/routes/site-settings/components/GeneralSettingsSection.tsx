@@ -2,6 +2,7 @@ import {
   MAX_SITE_DESCRIPTION_LENGTH,
   MAX_SITE_TITLE_LENGTH
 } from "../../../../../services/site-metadata";
+import { SiteSettingsImagePreview } from "./SiteSettingsImagePreview";
 
 type GeneralSettingsSectionProps = {
   siteTitle: string;
@@ -67,7 +68,9 @@ const GeneralSettingsSection = ({
         onChange={(event) => onSiteImageChange(event.target.files?.[0] ?? null)}
       />
     </label>
-    {siteImagePreview && <img className="preview-image" src={siteImagePreview} alt="Preview" />}
+    {siteImagePreview && (
+      <SiteSettingsImagePreview siteUrl={siteUrl} src={siteImagePreview} alt="Preview" />
+    )}
     <p className="builder-collaborator-hint">
       {hasUnsavedChanges
         ? "Unsaved changes are safely stored in draft and will go live after Save."

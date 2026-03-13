@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import "./App.css";
+import "./components/ImageLoadSpinner.css";
 import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
 import LandingRoute from "./routes/landing/LandingRoute";
