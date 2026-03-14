@@ -11,6 +11,14 @@ const SUPABASE_MANAGEMENT_TOKEN_ENDPOINT =
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const MAX_PROFILE_ORGANIZATIONS = 8;
 const MAX_PROFILE_PROJECTS = 12;
+const REQUESTED_MANAGEMENT_SCOPES = [
+  "organizations:read",
+  "projects:read",
+  "projects:write",
+  "database:write",
+  "secrets:read",
+  "secrets:write",
+] as const;
 const SUPA_MANAGEMENT_OAUTH_CLIENT_ID =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_CLIENT_ID") ?? "";
 const SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET =
@@ -575,11 +583,16 @@ const buildStatusFromResources = ({
   organizations: SupabaseManagementOrganizationSummary[];
   projects: SupabaseManagementProjectSummary[];
 }): SupabaseManagementConnectionStatus => {
+  const grantedScopes = splitSupabaseManagementScopes(scope);
+  const resolvedScopes = grantedScopes.length
+    ? grantedScopes
+    : [...REQUESTED_MANAGEMENT_SCOPES];
+
   return {
     connected: true,
     state: "connected",
     message: null,
-    grantedScopes: splitSupabaseManagementScopes(scope),
+    grantedScopes: resolvedScopes,
     organizations: organizations.slice(0, MAX_PROFILE_ORGANIZATIONS),
     projects: projects.slice(0, MAX_PROFILE_PROJECTS),
     projectsTruncated: projects.length > MAX_PROFILE_PROJECTS,

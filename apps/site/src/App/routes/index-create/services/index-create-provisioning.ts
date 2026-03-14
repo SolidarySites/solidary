@@ -16,6 +16,12 @@ export const REQUIRED_SUPABASE_MANAGEMENT_SCOPES = [
 ] as const;
 
 export const hasRequiredSupabaseManagementScopes = (grantedScopes: string[]) => {
+  // Supabase may omit the `scope` field on token exchange responses even when
+  // the authorized token can access the required Management API endpoints.
+  if (!grantedScopes.length) {
+    return true;
+  }
+
   const granted = new Set(grantedScopes.map((entry) => entry.trim().toLowerCase()).filter(Boolean));
   return REQUIRED_SUPABASE_MANAGEMENT_SCOPES.every((scope) => granted.has(scope));
 };

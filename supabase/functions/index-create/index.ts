@@ -52,6 +52,12 @@ const parseBearerToken = (authorizationHeader: string | undefined) => {
 const normalizeScope = (value: string) => value.trim().toLowerCase();
 
 const hasRequiredScopes = (grantedScopes: string[]) => {
+  // Supabase may omit the `scope` field from OAuth token responses even when
+  // the token can use the required Management API endpoints.
+  if (!grantedScopes.length) {
+    return true;
+  }
+
   const granted = new Set(grantedScopes.map(normalizeScope).filter(Boolean));
   return REQUIRED_SUPABASE_MANAGEMENT_SCOPES.every((scope) =>
     granted.has(scope)

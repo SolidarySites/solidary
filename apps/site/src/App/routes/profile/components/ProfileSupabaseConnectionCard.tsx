@@ -85,7 +85,13 @@ export default function ProfileSupabaseConnectionCard({
               ))}
             </ul>
           ) : (
-            <strong>{statusLoading ? "Loading..." : "No scopes granted yet."}</strong>
+            <strong>
+              {statusLoading
+                ? "Loading..."
+                : connected
+                ? "Not reported by Supabase for this token."
+                : "No scopes granted yet."}
+            </strong>
           )}
         </div>
 
