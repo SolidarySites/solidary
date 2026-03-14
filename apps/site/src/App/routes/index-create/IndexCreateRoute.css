@@ -1,0 +1,49 @@
+.index-create-checklist {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  background: rgba(241, 244, 234, 0.9);
+}
+
+.index-create-checklist-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.index-create-checklist-heading h3 {
+  margin: 0 0 0.25rem;
+}
+
+.index-create-checklist-heading p {
+  margin: 0;
+  color: var(--site-color-text-soft);
+}
+
+.index-create-checklist-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.index-create-checklist-items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(31, 34, 28, 0.1);
+  background: var(--site-color-surface-panel);
+}
+
+.index-create-checklist-items li.is-ready strong {
+  color: #1f6b2f;
+}
+
+.index-create-checklist-items li.is-blocked strong {
+  color: var(--site-color-danger-bright);
+}

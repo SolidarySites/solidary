@@ -15,6 +15,7 @@ const ExplorerRoute = lazy(() => import("./routes/explorer/ExplorerRoute"));
 const SearchRoute = lazy(() => import("./routes/search/SearchRoute"));
 const StudioRoute = lazy(() => import("./routes/studio/StudioRoute"));
 const SiteCreateRoute = lazy(() => import("./routes/site-create/SiteCreateRoute"));
+const IndexCreateRoute = lazy(() => import("./routes/index-create/IndexCreateRoute"));
 const StudioBuilderRoute = lazy(() => import("./routes/studio/routes/site-builder/SiteBuilderRoute"));
 const StudioSettingsRoute = lazy(
   () => import("./routes/studio/routes/site-settings/StudioSettingsRoute")
@@ -127,6 +128,14 @@ export default function App() {
                 element={
                   <RequireAuth>
                     <SiteCreateRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/index-create"
+                element={
+                  <RequireAuth>
+                    <IndexCreateRoute />
                   </RequireAuth>
                 }
               />

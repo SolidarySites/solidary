@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solidary Index</title>
+    <meta name="description" content="A standalone Solidary index." />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Solidary Index</p>
+        <h1 id="index-title">Loading...</h1>
+        <p id="index-description" class="hero-copy"></p>
+        <div class="hero-actions" id="hero-actions"></div>
+      </section>
+
+      <section class="resource-grid">
+        <article class="resource-card">
+          <h2>GitHub repo</h2>
+          <p>The source repository created for this index.</p>
+          <a id="repo-link" href="#" target="_blank" rel="noreferrer">Open repository</a>
+        </article>
+
+        <article class="resource-card">
+          <h2>Supabase project</h2>
+          <p>The database project provisioned for this index.</p>
+          <a id="supabase-link" href="#" target="_blank" rel="noreferrer">Open project</a>
+        </article>
+
+        <article class="resource-card">
+          <h2>Runtime status</h2>
+          <p id="runtime-status">
+            Database bootstrap completed. Standalone auth and editor surfaces are disabled in this
+            v1 scaffold.
+          </p>
+        </article>
+      </section>
+
+      <section class="details-card">
+        <div class="details-head">
+          <h2>Provisioned configuration</h2>
+          <p>These values were injected during index creation.</p>
+        </div>
+        <dl class="details-list">
+          <div>
+            <dt>Archive slug</dt>
+            <dd id="archive-slug">-</dd>
+          </div>
+          <div>
+            <dt>Archive id</dt>
+            <dd id="archive-id">-</dd>
+          </div>
+          <div>
+            <dt>Project ref</dt>
+            <dd id="project-ref">-</dd>
+          </div>
+          <div>
+            <dt>Project URL</dt>
+            <dd id="project-url">-</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

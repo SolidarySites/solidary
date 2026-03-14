@@ -27,6 +27,9 @@ const SUPABASE_MANAGEMENT_OAUTH_SCOPES = [
   "organizations:read",
   "projects:read",
   "projects:write",
+  "database:write",
+  "secrets:read",
+  "secrets:write",
 ].join(" ");
 
 type ConnectStartBody = {

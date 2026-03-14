@@ -230,6 +230,18 @@
   text-overflow: ellipsis;
 }
 
+.site-card-description {
+  margin: 0;
+  min-width: 0;
+  color: rgba(31, 34, 28, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .site-card-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

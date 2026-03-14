@@ -29,6 +29,8 @@ const runOrExit = (command, args) => {
 };
 
 runOrExit("node", ["./scripts/generate-github-create-repo-template-bundle.mjs"]);
+runOrExit("node", ["./scripts/generate-index-create-template-bundle.mjs"]);
+runOrExit("node", ["./scripts/generate-index-bootstrap-sql.mjs"]);
 
 const rawManifest = readFileSync(manifestPath, "utf8");
 const manifest = JSON.parse(rawManifest);

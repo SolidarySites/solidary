@@ -8,7 +8,9 @@ const DEFAULT_CORS_ALLOW_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const titleCaseHeaderName = (value: string) =>
   value
     .split("-")
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
+    .map((
+      part,
+    ) => (part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part))
     .join("-");
 
 const buildEventHeaders = (request: Request): Record<string, string> => {
@@ -39,16 +41,25 @@ const decodeBase64Body = (value: string): Uint8Array => {
   return output;
 };
 
+const decodeBase64BodyToBlob = (value: string) => {
+  const bytes = decodeBase64Body(value);
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return new Blob([buffer]);
+};
+
 const buildCorsHeaders = (request: Request): Record<string, string> => {
   const origin = request.headers.get("origin")?.trim() || "*";
-  const requestedHeaders = request.headers.get("access-control-request-headers")?.trim() || "";
+  const requestedHeaders =
+    request.headers.get("access-control-request-headers")?.trim() || "";
 
   return {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": DEFAULT_CORS_ALLOW_METHODS,
-    "access-control-allow-headers": requestedHeaders || DEFAULT_CORS_ALLOW_HEADERS,
+    "access-control-allow-headers": requestedHeaders ||
+      DEFAULT_CORS_ALLOW_HEADERS,
     "access-control-max-age": "86400",
-    vary: "origin, access-control-request-headers"
+    vary: "origin, access-control-request-headers",
   };
 };
 
@@ -67,12 +78,14 @@ const withCors = (response: Response, request: Request): Response => {
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers
+    headers,
   });
 };
 
 const toResponse = (result: HandlerResult): Response => {
-  const statusCode = Number.isFinite(result?.statusCode) ? Number(result.statusCode) : 200;
+  const statusCode = Number.isFinite(result?.statusCode)
+    ? Number(result.statusCode)
+    : 200;
   const responseHeaders = new Headers();
 
   if (result?.headers && typeof result.headers === "object") {
@@ -87,41 +100,54 @@ const toResponse = (result: HandlerResult): Response => {
   const body: BodyInit | null = statusDisallowsResponseBody(statusCode)
     ? null
     : result?.isBase64Encoded
-      ? decodeBase64Body(rawBody)
-      : rawBody;
+    ? decodeBase64BodyToBlob(rawBody)
+    : rawBody;
 
   return new Response(body, {
     status: statusCode,
-    headers: responseHeaders
+    headers: responseHeaders,
   });
 };
 
-export const runHandler = async (request: Request, handler: Handler): Promise<Response> => {
+export const runHandler = async (
+  request: Request,
+  handler: Handler,
+): Promise<Response> => {
   if (request.method === "OPTIONS") {
     return withCors(new Response(null, { status: 204 }), request);
   }
 
   const url = new URL(request.url);
-  const bodyText = request.method === "GET" || request.method === "HEAD" ? "" : await request.text();
+  const bodyText = request.method === "GET" || request.method === "HEAD"
+    ? ""
+    : await request.text();
 
   const event: HandlerEvent = {
     httpMethod: request.method,
     headers: buildEventHeaders(request),
     body: bodyText.length ? bodyText : null,
     rawUrl: request.url,
-    rawQuery: url.search.startsWith("?") ? url.search.slice(1) : ""
+    rawQuery: url.search.startsWith("?") ? url.search.slice(1) : "",
   };
 
   try {
     const result = await handler(event, {} as any);
-    return withCors(toResponse(result ?? { statusCode: 204, body: "" }), request);
+    return withCors(
+      toResponse(result ?? { statusCode: 204, body: "" }),
+      request,
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unhandled function error.";
-    return withCors(new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: {
-        "content-type": "application/json"
-      }
-    }), request);
+    const message = error instanceof Error
+      ? error.message
+      : "Unhandled function error.";
+    return withCors(
+      new Response(JSON.stringify({ error: message }), {
+        status: 500,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+      request,
+    );
   }
 };

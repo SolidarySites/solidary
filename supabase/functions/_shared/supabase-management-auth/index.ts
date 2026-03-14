@@ -2,11 +2,12 @@ import { Buffer } from "node:buffer";
 import {
   decryptTokenValue,
   encryptTokenValue,
-  getTokenEncryptionVersion
+  getTokenEncryptionVersion,
 } from "../token-crypto.ts";
 
 const SUPABASE_MANAGEMENT_API = "https://api.supabase.com";
-const SUPABASE_MANAGEMENT_TOKEN_ENDPOINT = `${SUPABASE_MANAGEMENT_API}/v1/oauth/token`;
+const SUPABASE_MANAGEMENT_TOKEN_ENDPOINT =
+  `${SUPABASE_MANAGEMENT_API}/v1/oauth/token`;
 const TOKEN_EXPIRY_SKEW_SECONDS = 90;
 const MAX_PROFILE_ORGANIZATIONS = 8;
 const MAX_PROFILE_PROJECTS = 12;
@@ -129,7 +130,9 @@ const normalizeScopeString = (value: string | null | undefined) => {
   return splitSupabaseManagementScopes(value).join(" ");
 };
 
-export const splitSupabaseManagementScopes = (value: string | null | undefined) => {
+export const splitSupabaseManagementScopes = (
+  value: string | null | undefined,
+) => {
   const seen = new Set<string>();
   return (value ?? "")
     .split(/[\s,]+/g)
@@ -150,21 +153,26 @@ const parseDateToMs = (value: string | null | undefined) => {
 };
 
 const computeExpiresAt = (seconds: unknown): string | null => {
-  const normalized = typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
-    ? Math.floor(seconds)
-    : 0;
+  const normalized =
+    typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+      ? Math.floor(seconds)
+      : 0;
   if (!normalized) return null;
   return new Date(Date.now() + normalized * 1000).toISOString();
 };
 
-export const isSupabaseManagementTokenUsable = (expiresAt: string | null | undefined) => {
+export const isSupabaseManagementTokenUsable = (
+  expiresAt: string | null | undefined,
+) => {
   if (!expiresAt) return true;
   const expiresAtMs = parseDateToMs(expiresAt);
   if (!expiresAtMs) return false;
   return expiresAtMs - Date.now() > TOKEN_EXPIRY_SKEW_SECONDS * 1000;
 };
 
-const normalizeStoredConnection = (value: unknown): StoredSupabaseManagementConnectionRow | null => {
+const normalizeStoredConnection = (
+  value: unknown,
+): StoredSupabaseManagementConnectionRow | null => {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -177,14 +185,19 @@ const normalizeStoredConnection = (value: unknown): StoredSupabaseManagementConn
 
   return {
     user_id: userId,
-    access_token_encrypted: normalizeTrimmedString(row.access_token_encrypted) || null,
-    access_token_expires_at: normalizeTrimmedString(row.access_token_expires_at) || null,
-    refresh_token_encrypted: normalizeTrimmedString(row.refresh_token_encrypted) || null,
-    refresh_token_expires_at: normalizeTrimmedString(row.refresh_token_expires_at) || null,
-    token_encryption_key_version: normalizeTrimmedString(row.token_encryption_key_version) || null,
+    access_token_encrypted:
+      normalizeTrimmedString(row.access_token_encrypted) || null,
+    access_token_expires_at:
+      normalizeTrimmedString(row.access_token_expires_at) || null,
+    refresh_token_encrypted:
+      normalizeTrimmedString(row.refresh_token_encrypted) || null,
+    refresh_token_expires_at:
+      normalizeTrimmedString(row.refresh_token_expires_at) || null,
+    token_encryption_key_version:
+      normalizeTrimmedString(row.token_encryption_key_version) || null,
     token_type: normalizeTrimmedString(row.token_type) || null,
     scope: normalizeTrimmedString(row.scope) || null,
-    connected_at: normalizeTrimmedString(row.connected_at) || null
+    connected_at: normalizeTrimmedString(row.connected_at) || null,
   };
 };
 
@@ -195,16 +208,17 @@ const getTokenEndpointBasicAuthHeader = () => {
     throw new Error("Supabase management OAuth is not configured.");
   }
 
-  return `Basic ${Buffer.from(`${clientId}:${clientSecret}`, "utf8").toString("base64")}`;
+  return `Basic ${
+    Buffer.from(`${clientId}:${clientSecret}`, "utf8").toString("base64")
+  }`;
 };
 
 export const parseSupabaseManagementTokenPayload = (
-  payload: SupabaseManagementTokenPayload
+  payload: SupabaseManagementTokenPayload,
 ): SupabaseManagementTokenExchange => {
   const accessToken = normalizeTrimmedString(payload.access_token);
   if (!accessToken) {
-    const description =
-      normalizeTrimmedString(payload.error_description) ||
+    const description = normalizeTrimmedString(payload.error_description) ||
       normalizeTrimmedString(payload.error) ||
       "Supabase did not return an access token.";
     throw new Error(description);
@@ -216,29 +230,30 @@ export const parseSupabaseManagementTokenPayload = (
     tokenType: normalizeTrimmedString(payload.token_type) || "Bearer",
     scope: normalizeScopeString(payload.scope),
     accessTokenExpiresAt: computeExpiresAt(payload.expires_in),
-    refreshTokenExpiresAt: computeExpiresAt(payload.refresh_token_expires_in)
+    refreshTokenExpiresAt: computeExpiresAt(payload.refresh_token_expires_in),
   };
 };
 
 const postSupabaseManagementTokenExchange = async (
-  body: URLSearchParams
+  body: URLSearchParams,
 ): Promise<SupabaseManagementTokenExchange> => {
   const response = await fetch(SUPABASE_MANAGEMENT_TOKEN_ENDPOINT, {
     method: "POST",
     headers: {
       Accept: "application/json",
       Authorization: getTokenEndpointBasicAuthHeader(),
-      "content-type": "application/x-www-form-urlencoded"
+      "content-type": "application/x-www-form-urlencoded",
     },
-    body
+    body,
   });
 
-  const payload = (await response.json().catch(() => ({}))) as SupabaseManagementTokenPayload;
+  const payload =
+    (await response.json().catch(() => ({}))) as SupabaseManagementTokenPayload;
   if (!response.ok) {
     throw new Error(
       normalizeTrimmedString(payload.error_description) ||
         normalizeTrimmedString(payload.error) ||
-        `Supabase token exchange failed (${response.status}).`
+        `Supabase token exchange failed (${response.status}).`,
     );
   }
 
@@ -248,7 +263,7 @@ const postSupabaseManagementTokenExchange = async (
 export const exchangeSupabaseManagementAuthorizationCode = async ({
   code,
   redirectUri,
-  codeVerifier
+  codeVerifier,
 }: {
   code: string;
   redirectUri: string;
@@ -259,27 +274,27 @@ export const exchangeSupabaseManagementAuthorizationCode = async ({
       grant_type: "authorization_code",
       code: code.trim(),
       redirect_uri: redirectUri.trim(),
-      code_verifier: codeVerifier.trim()
-    })
+      code_verifier: codeVerifier.trim(),
+    }),
   );
 };
 
 export const refreshSupabaseManagementAccessToken = async ({
-  refreshToken
+  refreshToken,
 }: {
   refreshToken: string;
 }) => {
   return postSupabaseManagementTokenExchange(
     new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: refreshToken.trim()
-    })
+      refresh_token: refreshToken.trim(),
+    }),
   );
 };
 
 export const upsertSupabaseManagementConnection = async ({
   supabase,
-  input
+  input,
 }: {
   supabase: SupabaseManagementClient;
   input: UpsertSupabaseManagementConnectionInput;
@@ -287,7 +302,9 @@ export const upsertSupabaseManagementConnection = async ({
   const userId = input.userId.trim();
   const accessToken = input.accessToken.trim();
   if (!userId || !accessToken) {
-    throw new Error("Supabase management connection is missing required fields.");
+    throw new Error(
+      "Supabase management connection is missing required fields.",
+    );
   }
 
   const encryptedAccessToken = encryptTokenValue(accessToken);
@@ -296,17 +313,18 @@ export const upsertSupabaseManagementConnection = async ({
     ? encryptTokenValue(normalizedRefreshToken)
     : null;
 
-  const { error } = await supabase.from("supabase_management_connections").upsert({
-    user_id: userId,
-    access_token_encrypted: encryptedAccessToken,
-    access_token_expires_at: input.accessTokenExpiresAt ?? null,
-    refresh_token_encrypted: encryptedRefreshToken,
-    refresh_token_expires_at: input.refreshTokenExpiresAt ?? null,
-    token_encryption_key_version: getTokenEncryptionVersion(),
-    token_type: input.tokenType?.trim() ?? null,
-    scope: normalizeScopeString(input.scope),
-    connected_at: new Date().toISOString()
-  });
+  const { error } = await supabase.from("supabase_management_connections")
+    .upsert({
+      user_id: userId,
+      access_token_encrypted: encryptedAccessToken,
+      access_token_expires_at: input.accessTokenExpiresAt ?? null,
+      refresh_token_encrypted: encryptedRefreshToken,
+      refresh_token_expires_at: input.refreshTokenExpiresAt ?? null,
+      token_encryption_key_version: getTokenEncryptionVersion(),
+      token_type: input.tokenType?.trim() ?? null,
+      scope: normalizeScopeString(input.scope),
+      connected_at: new Date().toISOString(),
+    });
 
   if (error) {
     throw new Error(error.message);
@@ -315,7 +333,7 @@ export const upsertSupabaseManagementConnection = async ({
 
 export const disconnectSupabaseManagementConnection = async ({
   supabase,
-  userId
+  userId,
 }: {
   supabase: SupabaseManagementClient;
   userId: string;
@@ -332,7 +350,7 @@ export const disconnectSupabaseManagementConnection = async ({
 
 const getStoredSupabaseManagementConnection = async ({
   supabase,
-  userId
+  userId,
 }: {
   supabase: SupabaseManagementClient;
   userId: string;
@@ -349,8 +367,8 @@ const getStoredSupabaseManagementConnection = async ({
         "token_encryption_key_version",
         "token_type",
         "scope",
-        "connected_at"
-      ].join(", ")
+        "connected_at",
+      ].join(", "),
     )
     .eq("user_id", userId.trim())
     .maybeSingle();
@@ -364,11 +382,11 @@ const getStoredSupabaseManagementConnection = async ({
 
 export const resolveSupabaseManagementAccessForConnection = async ({
   connection,
-  onRefresh
+  onRefresh,
 }: {
   connection: StoredSupabaseManagementConnectionRow;
   onRefresh: (
-    connection: StoredSupabaseManagementConnectionRow
+    connection: StoredSupabaseManagementConnectionRow,
   ) => Promise<StoredSupabaseManagementConnectionRow>;
 }): Promise<ResolvedSupabaseManagementAccess> => {
   const accessToken = connection.access_token_encrypted
@@ -381,7 +399,7 @@ export const resolveSupabaseManagementAccessForConnection = async ({
   if (isSupabaseManagementTokenUsable(connection.access_token_expires_at)) {
     return {
       connection,
-      accessToken
+      accessToken,
     };
   }
 
@@ -402,13 +420,13 @@ export const resolveSupabaseManagementAccessForConnection = async ({
 
   return {
     connection: refreshedConnection,
-    accessToken: refreshedAccessToken
+    accessToken: refreshedAccessToken,
   };
 };
 
 const refreshStoredSupabaseManagementConnection = async ({
   supabase,
-  connection
+  connection,
 }: {
   supabase: SupabaseManagementClient;
   connection: StoredSupabaseManagementConnectionRow;
@@ -421,7 +439,7 @@ const refreshStoredSupabaseManagementConnection = async ({
   }
 
   const refreshed = await refreshSupabaseManagementAccessToken({
-    refreshToken
+    refreshToken,
   });
   await upsertSupabaseManagementConnection({
     supabase,
@@ -432,13 +450,14 @@ const refreshStoredSupabaseManagementConnection = async ({
       tokenType: refreshed.tokenType,
       scope: refreshed.scope || connection.scope,
       accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-      refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt ?? connection.refresh_token_expires_at
-    }
+      refreshTokenExpiresAt: refreshed.refreshTokenExpiresAt ??
+        connection.refresh_token_expires_at,
+    },
   });
 
   const nextConnection = await getStoredSupabaseManagementConnection({
     supabase,
-    userId: connection.user_id
+    userId: connection.user_id,
   });
   if (!nextConnection) {
     throw new SupabaseManagementReauthError();
@@ -448,44 +467,47 @@ const refreshStoredSupabaseManagementConnection = async ({
 
 const fetchSupabaseManagementJson = async <T>({
   path,
-  accessToken
+  accessToken,
 }: {
   path: string;
   accessToken: string;
 }) => {
-  const response = await fetch(new URL(path, SUPABASE_MANAGEMENT_API).toString(), {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+  const response = await fetch(
+    new URL(path, SUPABASE_MANAGEMENT_API).toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   const payload = (await response.json().catch(() => null)) as T | null;
   return {
     response,
-    payload
+    payload,
   };
 };
 
 const readSupabaseManagementResources = async ({
-  accessToken
+  accessToken,
 }: {
   accessToken: string;
 }) => {
   const [organizationsResult, projectsResult] = await Promise.all([
     fetchSupabaseManagementJson<unknown[]>({
       path: "/v1/organizations",
-      accessToken
+      accessToken,
     }),
     fetchSupabaseManagementJson<unknown[]>({
       path: "/v1/projects",
-      accessToken
-    })
+      accessToken,
+    }),
   ]);
 
   return {
     organizationsResult,
-    projectsResult
+    projectsResult,
   };
 };
 
@@ -506,10 +528,12 @@ const mapOrganizations = (value: unknown) => {
       return {
         id,
         slug: normalizeTrimmedString(payload.slug) || null,
-        name
+        name,
       } satisfies SupabaseManagementOrganizationSummary;
     })
-    .filter((entry): entry is SupabaseManagementOrganizationSummary => Boolean(entry));
+    .filter((entry): entry is SupabaseManagementOrganizationSummary =>
+      Boolean(entry)
+    );
 };
 
 const mapProjects = (value: unknown) => {
@@ -530,19 +554,22 @@ const mapProjects = (value: unknown) => {
         id,
         ref: normalizeTrimmedString(payload.ref) || null,
         organizationId: normalizeTrimmedString(payload.organization_id) || null,
-        organizationSlug: normalizeTrimmedString(payload.organization_slug) || null,
+        organizationSlug: normalizeTrimmedString(payload.organization_slug) ||
+          null,
         name,
         region: normalizeTrimmedString(payload.region) || null,
-        status: normalizeTrimmedString(payload.status) || null
+        status: normalizeTrimmedString(payload.status) || null,
       } satisfies SupabaseManagementProjectSummary;
     })
-    .filter((entry): entry is SupabaseManagementProjectSummary => Boolean(entry));
+    .filter((entry): entry is SupabaseManagementProjectSummary =>
+      Boolean(entry)
+    );
 };
 
 const buildStatusFromResources = ({
   scope,
   organizations,
-  projects
+  projects,
 }: {
   scope: string | null | undefined;
   organizations: SupabaseManagementOrganizationSummary[];
@@ -555,12 +582,12 @@ const buildStatusFromResources = ({
     grantedScopes: splitSupabaseManagementScopes(scope),
     organizations: organizations.slice(0, MAX_PROFILE_ORGANIZATIONS),
     projects: projects.slice(0, MAX_PROFILE_PROJECTS),
-    projectsTruncated: projects.length > MAX_PROFILE_PROJECTS
+    projectsTruncated: projects.length > MAX_PROFILE_PROJECTS,
   };
 };
 
 const getUnauthorizedStatus = (
-  scope: string | null | undefined
+  scope: string | null | undefined,
 ): SupabaseManagementConnectionStatus => ({
   connected: false,
   state: "needs_reauth",
@@ -568,19 +595,19 @@ const getUnauthorizedStatus = (
   grantedScopes: splitSupabaseManagementScopes(scope),
   organizations: [],
   projects: [],
-  projectsTruncated: false
+  projectsTruncated: false,
 });
 
 export const getSupabaseManagementConnectionStatusForUser = async ({
   supabase,
-  userId
+  userId,
 }: {
   supabase: SupabaseManagementClient;
   userId: string;
 }): Promise<SupabaseManagementConnectionStatus> => {
   const connection = await getStoredSupabaseManagementConnection({
     supabase,
-    userId
+    userId,
   });
   if (!connection) {
     return {
@@ -590,7 +617,7 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
       grantedScopes: [],
       organizations: [],
       projects: [],
-      projectsTruncated: false
+      projectsTruncated: false,
     };
   }
 
@@ -601,8 +628,8 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
       onRefresh: async (staleConnection) =>
         refreshStoredSupabaseManagementConnection({
           supabase,
-          connection: staleConnection
-        })
+          connection: staleConnection,
+        }),
     });
   } catch (error) {
     if (error instanceof SupabaseManagementReauthError) {
@@ -612,7 +639,7 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
   }
 
   const resources = await readSupabaseManagementResources({
-    accessToken: access.accessToken
+    accessToken: access.accessToken,
   });
 
   const hasUnauthorizedResponse =
@@ -623,13 +650,13 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
       access = await resolveSupabaseManagementAccessForConnection({
         connection: {
           ...access.connection,
-          access_token_expires_at: new Date(0).toISOString()
+          access_token_expires_at: new Date(0).toISOString(),
         },
         onRefresh: async (staleConnection) =>
           refreshStoredSupabaseManagementConnection({
             supabase,
-            connection: staleConnection
-          })
+            connection: staleConnection,
+          }),
       });
     } catch (error) {
       if (error instanceof SupabaseManagementReauthError) {
@@ -639,7 +666,7 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
     }
 
     const refreshedResources = await readSupabaseManagementResources({
-      accessToken: access.accessToken
+      accessToken: access.accessToken,
     });
     if (
       refreshedResources.organizationsResult.response.status === 401 ||
@@ -655,36 +682,73 @@ export const getSupabaseManagementConnectionStatusForUser = async ({
       return {
         connected: false,
         state: "error",
-        message: "Could not read your Supabase organizations or projects right now.",
+        message:
+          "Could not read your Supabase organizations or projects right now.",
         grantedScopes: splitSupabaseManagementScopes(access.connection.scope),
         organizations: [],
         projects: [],
-        projectsTruncated: false
+        projectsTruncated: false,
       };
     }
 
     return buildStatusFromResources({
       scope: access.connection.scope,
-      organizations: mapOrganizations(refreshedResources.organizationsResult.payload),
-      projects: mapProjects(refreshedResources.projectsResult.payload)
+      organizations: mapOrganizations(
+        refreshedResources.organizationsResult.payload,
+      ),
+      projects: mapProjects(refreshedResources.projectsResult.payload),
     });
   }
 
-  if (!resources.organizationsResult.response.ok || !resources.projectsResult.response.ok) {
+  if (
+    !resources.organizationsResult.response.ok ||
+    !resources.projectsResult.response.ok
+  ) {
     return {
       connected: false,
       state: "error",
-      message: "Could not read your Supabase organizations or projects right now.",
+      message:
+        "Could not read your Supabase organizations or projects right now.",
       grantedScopes: splitSupabaseManagementScopes(access.connection.scope),
       organizations: [],
       projects: [],
-      projectsTruncated: false
+      projectsTruncated: false,
     };
   }
 
   return buildStatusFromResources({
     scope: access.connection.scope,
     organizations: mapOrganizations(resources.organizationsResult.payload),
-    projects: mapProjects(resources.projectsResult.payload)
+    projects: mapProjects(resources.projectsResult.payload),
   });
+};
+
+export const resolveSupabaseManagementAccessForUser = async ({
+  supabase,
+  userId,
+}: {
+  supabase: SupabaseManagementClient;
+  userId: string;
+}): Promise<{ accessToken: string; scope: string }> => {
+  const connection = await getStoredSupabaseManagementConnection({
+    supabase,
+    userId,
+  });
+  if (!connection) {
+    throw new SupabaseManagementReauthError();
+  }
+
+  const access = await resolveSupabaseManagementAccessForConnection({
+    connection,
+    onRefresh: async (staleConnection) =>
+      refreshStoredSupabaseManagementConnection({
+        supabase,
+        connection: staleConnection,
+      }),
+  });
+
+  return {
+    accessToken: access.accessToken,
+    scope: access.connection.scope ?? "",
+  };
 };
