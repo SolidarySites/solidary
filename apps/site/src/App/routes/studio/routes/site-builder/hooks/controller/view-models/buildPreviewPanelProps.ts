@@ -49,6 +49,7 @@ export const buildPreviewPanelProps = ({
   styleMode: styleMedia.styleMode,
   advancedStructureCss: styleMedia.advancedStructureCss,
   previewStylesCss: styleMedia.previewStylesCss,
+  dynamicImageLoadingEnabled: documentState.dynamicImageLoadingEnabled,
   homeFallbackBody: defaultHomeContent,
   activePreviewSlug: documentState.activePreviewSlug,
   publishedSiteBaseUrl,

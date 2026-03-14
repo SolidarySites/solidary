@@ -1,4 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import { normalizeAstroSiteFeatures } from "../../../../../features/site-draft/types";
 import { supabase } from "../../../../../lib/supabase";
 import { buildWellKnownFiles } from "./build-files";
 import { DEFAULT_OG_IMAGE_URL, FILE_KEYS } from "./constants";
@@ -100,7 +101,8 @@ export const saveMetadataSection = async ({
     p_draft_id: draftState.id,
     p_title: siteSettingsInput.siteTitle,
     p_description: siteSettingsInput.siteDescription,
-    p_site_url: siteSettingsInput.siteUrl
+    p_site_url: siteSettingsInput.siteUrl,
+    p_features: normalizeAstroSiteFeatures(siteSettingsInput.features)
   });
   if (settingsError) {
     throw new Error(settingsError.message);

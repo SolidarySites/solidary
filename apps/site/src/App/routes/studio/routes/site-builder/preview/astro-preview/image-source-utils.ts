@@ -1,6 +1,7 @@
 import type { DraftImageAsset } from "../../services/types";
 import {
   BUILDER_IMAGE_ASPECT_RATIO_ATTR,
+  EXTERNAL_IMAGE_VARIANT_LARGE_ATTR,
   EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
   EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR,
   EXTERNAL_IMAGE_VARIANT_SMALL_ATTR
@@ -11,18 +12,19 @@ import {
   toPublishedUrl
 } from "./content-utils";
 
-type ManagedImageVariant = "original" | "medium" | "small";
+type ManagedImageVariant = "original" | "large" | "medium" | "small";
 type ManagedImageVariantSet = Partial<Record<ManagedImageVariant, DraftImageAsset>>;
 
 const managedImageVariantAttrs = [
   EXTERNAL_IMAGE_VARIANT_SMALL_ATTR,
   EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
+  EXTERNAL_IMAGE_VARIANT_LARGE_ATTR,
   EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR
 ] as const;
 
 export const managedImageSyncedAttrs = [...managedImageVariantAttrs, BUILDER_IMAGE_ASPECT_RATIO_ATTR] as const;
 
-const managedImageVariantPattern = /^(.+_[a-f0-9]{10})_(original|medium|small)\.[^./?#]+$/i;
+const managedImageVariantPattern = /^(.+_[a-f0-9]{10})_(original|large|medium|small)\.[^./?#]+$/i;
 
 const stripHashAndSearch = (value: string) => {
   const withoutHash = value.split("#")[0] ?? value;
@@ -42,6 +44,7 @@ const getManagedImageVariantDescriptor = (
   const normalizedVariant = match[2]?.toLowerCase();
   if (
     normalizedVariant !== "original" &&
+    normalizedVariant !== "large" &&
     normalizedVariant !== "medium" &&
     normalizedVariant !== "small"
   ) {
@@ -81,6 +84,7 @@ const setManagedImageVariantAttributes = (
 ) => {
   const smallSource = variants?.small?.publicUrl?.trim() ?? "";
   const mediumSource = variants?.medium?.publicUrl?.trim() ?? "";
+  const largeSource = variants?.large?.publicUrl?.trim() ?? "";
   const originalSource = variants?.original?.publicUrl?.trim() ?? "";
 
   if (smallSource) {
@@ -93,6 +97,12 @@ const setManagedImageVariantAttributes = (
     imageElement.setAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR, mediumSource);
   } else {
     imageElement.removeAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR);
+  }
+
+  if (largeSource) {
+    imageElement.setAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR, largeSource);
+  } else {
+    imageElement.removeAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR);
   }
 
   if (originalSource) {
@@ -112,7 +122,8 @@ export const mapHtmlImageSources = (
   html: string,
   draftImages: DraftImageAsset[],
   publishedSiteBaseUrl: string | null,
-  mode: "display" | "persist"
+  mode: "display" | "persist",
+  enableManagedVariants = true
 ) => {
   const pageImagesPrefix = "/solidary-media/images/pages/";
   if (!html.trim()) return html;
@@ -159,10 +170,14 @@ export const mapHtmlImageSources = (
 
       if (resolvedImage) {
         imageElement.setAttribute("src", resolvedImage.publicUrl);
-        setManagedImageVariantAttributes(
-          imageElement,
-          getManagedImageVariantsForAsset(resolvedImage, groupedByVariantFamily)
-        );
+        if (enableManagedVariants) {
+          setManagedImageVariantAttributes(
+            imageElement,
+            getManagedImageVariantsForAsset(resolvedImage, groupedByVariantFamily)
+          );
+        } else {
+          setManagedImageVariantAttributes(imageElement, null);
+        }
         return;
       }
 

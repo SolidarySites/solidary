@@ -30,6 +30,9 @@ const settingsInput = {
   siteTitle: "Roses Are Red",
   siteDescription: "Poems and petals.",
   siteUrl: "https://jazbogross.github.io/new-site",
+  features: {
+    dynamicImageLoading: true
+  },
   headHtml: "",
   locale: "en-US",
   twitter: true,
@@ -164,7 +167,10 @@ describe("publishLiveDomainChange", () => {
       p_draft_id: "draft-1",
       p_title: "Roses Are Red",
       p_description: "Poems and petals.",
-      p_site_url: "https://roses-are-red.netlify.app"
+      p_site_url: "https://roses-are-red.netlify.app",
+      p_features: {
+        dynamicImageLoading: true
+      }
     });
     expect(liveDomainMocks.githubRequest).toHaveBeenCalledWith(
       "github-contents-batch-commit",

@@ -16,7 +16,12 @@ export type SolidaryFrontmatter = {
   description: string;
   url: string;
   ogImage?: string;
+  features?: SiteFeatures;
   robots: string;
+};
+
+export type SiteFeatures = {
+  dynamicImageLoading: boolean;
 };
 
 export type HeaderFrontmatter = {
@@ -40,6 +45,9 @@ export type FooterFrontmatter = {
 };
 
 export const DEFAULT_SEO_LOCALE = "en-US";
+export const DEFAULT_SITE_FEATURES: SiteFeatures = {
+  dynamicImageLoading: true
+};
 
 export type SeoFrontmatter = {
   headHtml: string;
@@ -84,6 +92,16 @@ export const normalizeSeoLocale = (
 export const toOpenGraphLocale = (value: string): string =>
   normalizeSeoLocale(value).replaceAll("-", "_");
 
+export const parseSiteFeatures = (value: unknown): SiteFeatures => {
+  const record = asRecord(value);
+  return {
+    dynamicImageLoading: readBoolean(
+      record.dynamicImageLoading,
+      DEFAULT_SITE_FEATURES.dynamicImageLoading
+    )
+  };
+};
+
 export const parseSolidaryFrontmatter = (value: unknown): SolidaryFrontmatter => {
   const record = asRecord(value);
   const robots = readString(record.robots, "index,follow");
@@ -92,6 +110,7 @@ export const parseSolidaryFrontmatter = (value: unknown): SolidaryFrontmatter =>
     description: readString(record.description),
     url: readString(record.url),
     ogImage: readString(record.ogImage) || undefined,
+    features: parseSiteFeatures(record.features),
     robots
   };
 };

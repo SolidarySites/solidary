@@ -37,6 +37,7 @@ export type BuilderPreviewPanelProps = {
   styleMode: BuilderStylesMode;
   advancedStructureCss: string;
   previewStylesCss: string;
+  dynamicImageLoadingEnabled: boolean;
   homeFallbackBody: string;
   activePreviewSlug: string;
   publishedSiteBaseUrl: string | null;
@@ -120,6 +121,7 @@ const BuilderPreviewPanel = ({
   styleMode,
   advancedStructureCss,
   previewStylesCss,
+  dynamicImageLoadingEnabled,
   homeFallbackBody,
   activePreviewSlug,
   publishedSiteBaseUrl,
@@ -348,6 +350,7 @@ const BuilderPreviewPanel = ({
                     styleMode={styleMode}
                     advancedStructureCss={advancedStructureCss}
                     previewStylesCss={previewStylesCss}
+                    dynamicImageLoadingEnabled={dynamicImageLoadingEnabled}
                     homeFallbackBody={homeFallbackBody}
                     activePageSlug={activePreviewSlug}
                     publishedSiteBaseUrl={publishedSiteBaseUrl}
@@ -375,6 +378,7 @@ const BuilderPreviewPanel = ({
                   styleMode={styleMode}
                   advancedStructureCss={advancedStructureCss}
                   previewStylesCss={previewStylesCss}
+                  dynamicImageLoadingEnabled={dynamicImageLoadingEnabled}
                   homeFallbackBody={homeFallbackBody}
                   activePageSlug={activePreviewSlug}
                   publishedSiteBaseUrl={publishedSiteBaseUrl}

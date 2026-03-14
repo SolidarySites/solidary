@@ -1,4 +1,7 @@
-import type { AstroSettings } from "../../../../features/site-draft/types";
+import {
+  normalizeAstroSiteFeatures,
+  type AstroSettings
+} from "../../../../features/site-draft/types";
 import { buildSolidaryLinksFile } from "../../../../features/site-draft/services/solidary-links";
 import {
   buildSolidaryMetadataFile,
@@ -48,13 +51,15 @@ export const buildSettingsPayload = ({
   siteDescription,
   siteUrl,
   imageUrl,
-  urlOverride
+  urlOverride,
+  features
 }: {
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
   imageUrl: string;
   urlOverride?: string;
+  features?: AstroSettings["features"];
 }): AstroSettings => {
   const normalizedTitle = normalizeSiteTitle(siteTitle);
 
@@ -63,6 +68,7 @@ export const buildSettingsPayload = ({
   description: siteDescription.trim(),
   siteUrl: urlOverride || siteUrl,
   ogImage: imageUrl,
+  features: normalizeAstroSiteFeatures(features),
   headHtml: "",
   locale: DEFAULT_SEO_SETTINGS.locale,
   twitter: DEFAULT_SEO_SETTINGS.twitter,

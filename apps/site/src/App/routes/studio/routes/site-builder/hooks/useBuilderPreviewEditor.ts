@@ -34,7 +34,7 @@ type UseBuilderPreviewEditorParams = {
 
 type UploadFormat = "image/jpeg" | "image/png" | "image/webp";
 
-type UploadVariantKey = "original" | "medium" | "small";
+type UploadVariantKey = "original" | "large" | "medium" | "small";
 
 type UploadVariant = {
   key: UploadVariantKey;
@@ -50,7 +50,7 @@ const MIME_EXTENSION_MAP: Record<UploadFormat, string> = {
   "image/webp": "webp"
 };
 
-const MANAGED_VARIANT_SUFFIX_PATTERN = /_[a-f0-9]{10}_(original|medium|small)$/i;
+const MANAGED_VARIANT_SUFFIX_PATTERN = /_[a-f0-9]{10}_(original|large|medium|small)$/i;
 
 const normalizeMimeType = (value: string): string => {
   const normalized = value.trim().toLowerCase();
@@ -131,19 +131,21 @@ const buildProcessedVariants = async ({
 }): Promise<{
   outputFormat: UploadFormat;
   variants: UploadVariant[];
+  primaryVariantKey: UploadVariantKey;
 }> => {
-  const originalTargetBytes =
+  const primaryVariantKey: UploadVariantKey = options.noCompression ? "original" : "large";
+  const primaryTargetBytes =
     !options.noCompression && file.size > BYTES_1_MB ? BYTES_1_MB : clampBytes(file.size);
 
-  const originalResult = await processImageVariantsFromOriginal({
+  const primaryResult = await processImageVariantsFromOriginal({
     sourceImage: file,
     sourceMimeType: file.type,
     outputFormat: getOutputFormatPreference(options.convertFormat),
     variants: [
       {
-        key: "original",
-        label: "Original image",
-        maxBytes: originalTargetBytes
+        key: primaryVariantKey,
+        label: primaryVariantKey === "original" ? "Original image" : "Large image",
+        maxBytes: primaryTargetBytes
       }
     ],
     jpegQuality: 0.9,
@@ -152,13 +154,50 @@ const buildProcessedVariants = async ({
     maxDimensionAttempts: 30
   });
 
-  const originalBlob = originalResult.original;
-  const mediumTargetBytes = clampBytes(originalBlob.size * TARGET_MEDIUM_RATIO);
-  const smallTargetBytes = clampBytes(originalBlob.size * TARGET_SMALL_RATIO);
+  const primaryBlob = primaryResult[primaryVariantKey];
+  const smallTargetBytes = clampBytes(primaryBlob.size * TARGET_SMALL_RATIO);
+
+  if (options.noCompression) {
+    const scaledResult = await processImageVariantsFromOriginal({
+      sourceImage: primaryBlob,
+      sourceMimeType: primaryBlob.type || file.type,
+      outputFormat: "preserve",
+      variants: [
+        {
+          key: "small",
+          label: "Small image",
+          maxBytes: smallTargetBytes
+        }
+      ],
+      jpegQuality: 0.9,
+      jpegDpi: 72,
+      minDimensionLimit: 64,
+      maxDimensionAttempts: 30
+    });
+
+    const outputFormat = resolveUploadFormat(primaryBlob.type || file.type);
+
+    return {
+      outputFormat,
+      primaryVariantKey,
+      variants: [
+        {
+          key: "original",
+          blob: primaryBlob
+        },
+        {
+          key: "small",
+          blob: scaledResult.small
+        }
+      ]
+    };
+  }
+
+  const mediumTargetBytes = clampBytes(primaryBlob.size * TARGET_MEDIUM_RATIO);
 
   const scaledResult = await processImageVariantsFromOriginal({
-    sourceImage: originalBlob,
-    sourceMimeType: originalBlob.type || file.type,
+    sourceImage: primaryBlob,
+    sourceMimeType: primaryBlob.type || file.type,
     outputFormat: "preserve",
     variants: [
       {
@@ -178,14 +217,15 @@ const buildProcessedVariants = async ({
     maxDimensionAttempts: 30
   });
 
-  const outputFormat = resolveUploadFormat(originalBlob.type || file.type);
+  const outputFormat = resolveUploadFormat(primaryBlob.type || file.type);
 
   return {
     outputFormat,
+    primaryVariantKey,
     variants: [
       {
-        key: "original",
-        blob: originalBlob
+        key: "large",
+        blob: primaryBlob
       },
       {
         key: "medium",
@@ -343,7 +383,7 @@ export const useBuilderPreviewEditor = ({
         const uploadedAt = new Date().toISOString();
 
         const uploadedAssets: DraftImageAsset[] = [];
-        let originalPublicUrl = "";
+        let primaryPublicUrl = "";
 
         for (const variant of processed.variants) {
           const filename = `${sanitizedBaseName}_${uniqueToken}_${variant.key}.${extension}`;
@@ -382,8 +422,8 @@ export const useBuilderPreviewEditor = ({
             sitePath,
             uploadedAt
           });
-          if (variant.key === "original") {
-            originalPublicUrl = imageUrl;
+          if (variant.key === processed.primaryVariantKey) {
+            primaryPublicUrl = imageUrl;
           }
         }
 
@@ -401,13 +441,13 @@ export const useBuilderPreviewEditor = ({
 
         setDraftImages((items) => [...items, ...uploadedAssets]);
 
-        if (!originalPublicUrl) {
-          throw new Error("Failed to resolve uploaded original image.");
+        if (!primaryPublicUrl) {
+          throw new Error("Failed to resolve the primary uploaded image.");
         }
 
         previewRef.current?.replaceImageSource(
           localPreviewUrl,
-          originalPublicUrl,
+          primaryPublicUrl,
           imageAspectRatio ?? undefined
         );
         setNotice("Image uploaded.");

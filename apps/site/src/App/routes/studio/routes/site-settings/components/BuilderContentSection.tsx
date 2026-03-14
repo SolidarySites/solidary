@@ -25,6 +25,7 @@ export type BuilderContentSectionProps = {
   siteDescription: string;
   siteUrl: string;
   siteImagePreview: string | null;
+  dynamicImageLoadingEnabled: boolean;
   collaboratorQuery: string;
   collaboratorRole: CollaboratorRole;
   collaboratorSuggestions: CollaboratorSearchResult[];
@@ -51,6 +52,7 @@ export type BuilderContentSectionProps = {
   resetGitHubPagesUrl?: string | null;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
+  onDynamicImageLoadingChange: (value: boolean) => void;
   onSiteImageChange: (file: File | null) => void;
   onSaveGeneralToLive?: () => void;
   onSaveConnectionsToLive?: () => Promise<void>;
@@ -86,6 +88,7 @@ const BuilderContentSection = ({
   siteDescription,
   siteUrl,
   siteImagePreview,
+  dynamicImageLoadingEnabled,
   collaboratorQuery,
   collaboratorRole,
   collaboratorSuggestions,
@@ -108,6 +111,7 @@ const BuilderContentSection = ({
   resetGitHubPagesUrl = null,
   onSiteTitleChange,
   onSiteDescriptionChange,
+  onDynamicImageLoadingChange,
   onSiteImageChange,
   onSaveGeneralToLive,
   onSaveConnectionsToLive,
@@ -149,11 +153,13 @@ const BuilderContentSection = ({
           siteDescription={siteDescription}
           siteUrl={siteUrl}
           siteImagePreview={siteImagePreview}
+          dynamicImageLoadingEnabled={dynamicImageLoadingEnabled}
           canSaveToLive={canSaveGeneralToLive}
           savingToLive={savingGeneralToLive}
           hasUnsavedChanges={hasUnsavedSettingsChanges}
           onSiteTitleChange={onSiteTitleChange}
           onSiteDescriptionChange={onSiteDescriptionChange}
+          onDynamicImageLoadingChange={onDynamicImageLoadingChange}
           onSiteImageChange={onSiteImageChange}
           onSaveToLive={() => onSaveGeneralToLive?.()}
         />

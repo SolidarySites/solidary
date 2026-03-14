@@ -1,5 +1,6 @@
 import type { RepoFileSet } from "../../../../../features/site-draft/types";
 import { buildSolidaryMarkdown } from "../../../../../features/site-draft/services/astro-builders";
+import { normalizeAstroSiteFeatures } from "../../../../../features/site-draft/types";
 import { supabase } from "../../../../../lib/supabase";
 import { toBase64 } from "../../../../../lib/base64";
 import { githubRequest } from "../../../../../services/github";
@@ -110,7 +111,8 @@ export const publishLiveDomainChange = async ({
     p_draft_id: draftState.id,
     p_title: settingsPayload.title,
     p_description: settingsPayload.description,
-    p_site_url: nextSiteUrl
+    p_site_url: nextSiteUrl,
+    p_features: normalizeAstroSiteFeatures(siteSettingsInput.features)
   });
 
   if (settingsError) {

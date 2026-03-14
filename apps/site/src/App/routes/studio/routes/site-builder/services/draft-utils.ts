@@ -1,4 +1,5 @@
 import { buildSettingsPayload } from "./build-files";
+import { sanitizeBuilderImageHtml } from "./builder-image-html";
 import { SOLIDARY_MEDIA_IMAGES_BASE_PATH } from "./constants";
 import type {
   BuilderPage,
@@ -104,7 +105,7 @@ export const replaceDraftImageUrlsWithSitePaths = (
   body: string,
   draftImages: DraftImageAsset[]
 ): string => {
-  let nextBody = body;
+  let nextBody = sanitizeBuilderImageHtml(body);
   draftImages.forEach((image) => {
     const publicUrl = image.publicUrl.trim();
     const sitePath = normalizeSitePath(image.sitePath);

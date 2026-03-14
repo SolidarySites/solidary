@@ -56,6 +56,7 @@ export type AstroTemplatePreviewProps = {
   styleMode: BuilderStylesMode;
   advancedStructureCss: string;
   previewStylesCss: string;
+  dynamicImageLoadingEnabled: boolean;
   homeFallbackBody: string;
   activePageSlug: string;
   publishedSiteBaseUrl: string | null;

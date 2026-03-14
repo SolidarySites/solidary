@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type SetStateAction } from "react";
 import { DEFAULT_SEO_SETTINGS } from "../../../../../../features/site-draft/seo";
+import { DEFAULT_ASTRO_SITE_FEATURES } from "../../../../../../features/site-draft/types";
 import { clampSiteDescription } from "../../../../../../services/site-metadata";
 import {
   DEFAULT_OG_IMAGE_URL,
@@ -21,6 +22,9 @@ export const useBuilderDocumentState = () => {
     "Describe your site in a sentence or two."
   );
   const [siteUrl, setSiteUrl] = useState("");
+  const [dynamicImageLoadingEnabled, setDynamicImageLoadingEnabled] = useState(
+    DEFAULT_ASTRO_SITE_FEATURES.dynamicImageLoading
+  );
 
   const [siteImage, setSiteImage] = useState<File | null>(null);
   const [siteImagePreview, setSiteImagePreview] = useState<string | null>(null);
@@ -56,6 +60,9 @@ export const useBuilderDocumentState = () => {
       siteTitle,
       siteDescription,
       siteUrl,
+      features: {
+        dynamicImageLoading: dynamicImageLoadingEnabled
+      },
       headHtml,
       locale: seoLocale,
       twitter: seoTwitter,
@@ -90,7 +97,8 @@ export const useBuilderDocumentState = () => {
       seoTwitter,
       siteDescription,
       siteTitle,
-      siteUrl
+      siteUrl,
+      dynamicImageLoadingEnabled
     ]
   );
 
@@ -112,6 +120,8 @@ export const useBuilderDocumentState = () => {
     setSiteDescription,
     siteUrl,
     setSiteUrl,
+    dynamicImageLoadingEnabled,
+    setDynamicImageLoadingEnabled,
     siteImage,
     setSiteImage,
     siteImagePreview,

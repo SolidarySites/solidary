@@ -2,6 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import type { Dispatch, SetStateAction } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import type { NoticeKind } from "../../../../../../types/notice";
+import type { AstroSiteFeatures } from "../../../../../../features/site-draft/types";
 import type {
   BuilderEditableSectionKey,
   BuilderPage,
@@ -40,6 +41,7 @@ export type SiteSettingsInput = {
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
+  features?: Partial<AstroSiteFeatures>;
   headHtml?: string;
   locale?: string;
   twitter?: boolean;

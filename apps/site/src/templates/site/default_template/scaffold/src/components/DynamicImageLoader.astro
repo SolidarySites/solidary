@@ -1,0 +1,145 @@
+---
+const dynamicImageLoaderScript = `
+(() => {
+  const MANAGED_ATTR = "data-dynamic-image-managed";
+  const SMALL_ATTR = "data-dynamic-image-src-small";
+  const MEDIUM_ATTR = "data-dynamic-image-src-medium";
+  const LARGE_ATTR = "data-dynamic-image-src-large";
+  const ORIGINAL_ATTR = "data-dynamic-image-src-original";
+  const SMALL_MAX_PX = 560;
+  const MEDIUM_MAX_PX = 1080;
+  const LARGE_MAX_PX = 1600;
+  const PREVIEW_SPINNER_HOST_CLASS = "image-load-spinner-host";
+
+  const parsePositiveNumber = (value) => {
+    if (!value) return null;
+    const parsed = Number.parseFloat(String(value).trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
+  const cleanupPreviewImageArtifacts = (image) => {
+    if (!(image instanceof HTMLImageElement)) return;
+
+    image.removeAttribute("data-builder-image-id");
+    image.removeAttribute("data-builder-image-aspect-ratio");
+    image.style.removeProperty("height");
+
+    const figure = image.closest("figure");
+    if (!(figure instanceof HTMLElement)) return;
+
+    figure.removeAttribute("data-builder-image-figure");
+    figure.classList.remove(PREVIEW_SPINNER_HOST_CLASS);
+    if (!figure.className.trim()) {
+      figure.removeAttribute("class");
+    }
+    figure.style.removeProperty("position");
+    figure.style.removeProperty("--external-image-placeholder-width");
+    figure.style.removeProperty("--external-image-placeholder-left");
+    figure.style.removeProperty("--external-image-placeholder-height");
+    figure.querySelectorAll("[data-image-load-spinner='true']").forEach((spinner) => spinner.remove());
+
+    const figcaption = figure.querySelector(":scope > figcaption");
+    if (!(figcaption instanceof HTMLElement)) return;
+    figcaption.style.removeProperty("width");
+    figcaption.style.removeProperty("max-width");
+    figcaption.style.removeProperty("margin-left");
+    figcaption.style.removeProperty("display");
+  };
+
+  const getDisplayWidth = (image) => {
+    const measuredWidth = image.getBoundingClientRect().width;
+    if (measuredWidth > 0) return measuredWidth;
+
+    const widthAttribute = parsePositiveNumber(image.getAttribute("width"));
+    if (widthAttribute) return widthAttribute;
+
+    const parentWidth = image.parentElement?.getBoundingClientRect().width ?? 0;
+    if (parentWidth > 0) return parentWidth;
+
+    return Math.min(window.innerWidth || 1200, 1200);
+  };
+
+  const resolveVariantSource = (image) => {
+    const small = (image.getAttribute(SMALL_ATTR) || "").trim();
+    const medium = (image.getAttribute(MEDIUM_ATTR) || "").trim();
+    const large = (image.getAttribute(LARGE_ATTR) || "").trim();
+    const original = (image.getAttribute(ORIGINAL_ATTR) || "").trim();
+
+    if (!small && !medium && !large && !original) return "";
+
+    const targetPixels = getDisplayWidth(image);
+
+    if (targetPixels <= SMALL_MAX_PX) {
+      return small || medium || large || original;
+    }
+
+    if (targetPixels <= MEDIUM_MAX_PX) {
+      return medium || large || original || small;
+    }
+
+    if (targetPixels <= LARGE_MAX_PX) {
+      return large || original || medium || small;
+    }
+
+    return original || large || medium || small;
+  };
+
+  const syncManagedImage = (image) => {
+    cleanupPreviewImageArtifacts(image);
+    const nextSource = resolveVariantSource(image);
+    if (!nextSource) return;
+    const currentSource = (image.getAttribute("src") || "").trim();
+    if (currentSource === nextSource) return;
+    image.setAttribute("src", nextSource);
+  };
+
+  let frameId = 0;
+  const scheduleSync = () => {
+    if (frameId) return;
+    frameId = window.requestAnimationFrame(() => {
+      frameId = 0;
+      document
+        .querySelectorAll('img[' + MANAGED_ATTR + '="true"]')
+        .forEach((image) => syncManagedImage(image));
+    });
+  };
+
+  const resizeObserver =
+    typeof ResizeObserver === "function" ? new ResizeObserver(() => scheduleSync()) : null;
+  const observedImages = new WeakSet();
+  const observeManagedImages = () => {
+    if (!resizeObserver) return;
+    document.querySelectorAll('img[' + MANAGED_ATTR + '="true"]').forEach((image) => {
+      if (!(image instanceof HTMLImageElement) || observedImages.has(image)) return;
+      observedImages.add(image);
+      resizeObserver.observe(image);
+    });
+  };
+
+  const mutationObserver =
+    typeof MutationObserver === "function"
+      ? new MutationObserver(() => {
+          observeManagedImages();
+          scheduleSync();
+        })
+      : null;
+
+  observeManagedImages();
+  scheduleSync();
+  window.addEventListener("load", () => {
+    observeManagedImages();
+    scheduleSync();
+  });
+  window.addEventListener("resize", scheduleSync, { passive: true });
+  mutationObserver?.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["src", SMALL_ATTR, MEDIUM_ATTR, LARGE_ATTR, ORIGINAL_ATTR]
+  });
+})();
+`.trim();
+---
+
+<script is:inline set:html={dynamicImageLoaderScript} />

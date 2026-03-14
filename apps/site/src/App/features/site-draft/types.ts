@@ -1,5 +1,22 @@
 export type RepoFileSet = Record<string, string>;
 
+export type AstroSiteFeatures = {
+  dynamicImageLoading: boolean;
+};
+
+export const DEFAULT_ASTRO_SITE_FEATURES: AstroSiteFeatures = {
+  dynamicImageLoading: true
+};
+
+export const normalizeAstroSiteFeatures = (
+  value: Partial<AstroSiteFeatures> | null | undefined
+): AstroSiteFeatures => ({
+  dynamicImageLoading:
+    typeof value?.dynamicImageLoading === "boolean"
+      ? value.dynamicImageLoading
+      : DEFAULT_ASTRO_SITE_FEATURES.dynamicImageLoading
+});
+
 export type AstroSeoSettings = {
   headHtml: string;
   locale: string;
@@ -30,6 +47,7 @@ export type AstroSettings = {
   description: string;
   siteUrl: string;
   ogImage: string;
+  features: AstroSiteFeatures;
   headHtml: string;
   locale: string;
   twitter: boolean;

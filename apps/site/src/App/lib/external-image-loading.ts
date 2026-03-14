@@ -10,6 +10,7 @@ export const EXTERNAL_IMAGE_CONTAINER_ATTR = "data-external-image-container"
 export const EXTERNAL_IMAGE_SKIP_ATTR = "data-skip-external-image-loading"
 export const EXTERNAL_IMAGE_VARIANT_SMALL_ATTR = "data-external-image-src-small"
 export const EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR = "data-external-image-src-medium"
+export const EXTERNAL_IMAGE_VARIANT_LARGE_ATTR = "data-external-image-src-large"
 export const EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR = "data-external-image-src-original"
 export const BUILDER_IMAGE_ASPECT_RATIO_ATTR = "data-builder-image-aspect-ratio"
 
@@ -20,12 +21,14 @@ const EXTERNAL_IMAGE_PLACEHOLDER_WIDTH_CSS_VAR = "--external-image-placeholder-w
 const EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-left"
 const EXTERNAL_IMAGE_VARIANT_SMALL_TARGET_PX = 560
 const EXTERNAL_IMAGE_VARIANT_MEDIUM_TARGET_PX = 1080
+const EXTERNAL_IMAGE_VARIANT_LARGE_TARGET_PX = 1600
 
 const EXTERNAL_IMAGE_DIMENSIONS_CACHE = new Map<string, { width: number; height: number }>()
 
 type ExternalImageState = "loading" | "loaded" | "error"
 type ExternalImageVariantSources = {
   original: string
+  large: string
   medium: string
   small: string
 }
@@ -93,14 +96,6 @@ const getImageDisplayWidthEstimate = (image: HTMLImageElement) => {
   return widthAttribute ?? 0
 }
 
-const getDevicePixelRatio = () => {
-  if (typeof window === "undefined") return 1
-  if (!Number.isFinite(window.devicePixelRatio) || window.devicePixelRatio <= 0) {
-    return 1
-  }
-  return window.devicePixelRatio
-}
-
 const getWindowInnerWidth = () => {
   if (typeof window === "undefined") return 1024
   if (!Number.isFinite(window.innerWidth) || window.innerWidth <= 0) return 1024
@@ -109,6 +104,7 @@ const getWindowInnerWidth = () => {
 
 const getExternalImageVariantSources = (image: Element): ExternalImageVariantSources => ({
   original: image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR)?.trim() ?? "",
+  large: image.getAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR)?.trim() ?? "",
   medium: image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR)?.trim() ?? "",
   small: image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR)?.trim() ?? ""
 })
@@ -127,23 +123,27 @@ const collectUniqueSources = (sources: string[]) => {
 
 const resolveExternalImageLoadSource = (image: HTMLImageElement, fallbackSource: string) => {
   const variants = getExternalImageVariantSources(image)
-  if (!variants.small && !variants.medium && !variants.original) {
+  if (!variants.small && !variants.medium && !variants.large && !variants.original) {
     return fallbackSource
   }
 
   const estimatedDisplayWidth =
     getImageDisplayWidthEstimate(image) || Math.min(getWindowInnerWidth(), 1200)
-  const targetDisplayPixels = estimatedDisplayWidth * getDevicePixelRatio()
+  const targetDisplayPixels = estimatedDisplayWidth
 
   if (targetDisplayPixels <= EXTERNAL_IMAGE_VARIANT_SMALL_TARGET_PX) {
-    return variants.small || variants.medium || variants.original || fallbackSource
+    return variants.small || variants.medium || variants.large || variants.original || fallbackSource
   }
 
   if (targetDisplayPixels <= EXTERNAL_IMAGE_VARIANT_MEDIUM_TARGET_PX) {
-    return variants.medium || variants.original || variants.small || fallbackSource
+    return variants.medium || variants.large || variants.original || variants.small || fallbackSource
   }
 
-  return variants.original || variants.medium || variants.small || fallbackSource
+  if (targetDisplayPixels <= EXTERNAL_IMAGE_VARIANT_LARGE_TARGET_PX) {
+    return variants.large || variants.original || variants.medium || variants.small || fallbackSource
+  }
+
+  return variants.original || variants.large || variants.medium || variants.small || fallbackSource
 }
 
 const resolveImageAspectRatio = (image: HTMLImageElement, sourceCandidates: string[]) => {
@@ -274,6 +274,7 @@ const isManagedVariantSource = (image: Element, source: string) => {
   return (
     variants.small === normalizedSource ||
     variants.medium === normalizedSource ||
+    variants.large === normalizedSource ||
     variants.original === normalizedSource
   )
 }
@@ -371,11 +372,16 @@ export const startExternalImageLoadWithPlaceholder = (
   const loadSource = resolveExternalImageLoadSource(image, targetSource)
   const variantSources = getExternalImageVariantSources(image)
   const blurredPlaceholderSource =
-    variantSources.small || variantSources.medium || variantSources.original || loadSource
+    variantSources.small ||
+    variantSources.medium ||
+    variantSources.large ||
+    variantSources.original ||
+    loadSource
   const placeholderCandidates = collectUniqueSources([
     targetSource,
     loadSource,
     variantSources.original,
+    variantSources.large,
     variantSources.medium,
     variantSources.small
   ])
@@ -559,7 +565,9 @@ export const normalizeExternalImageForPersistence = (image: Element) => {
   image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR)
   image.removeAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR)
   image.removeAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR)
+  image.removeAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR)
   image.removeAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR)
+  image.removeAttribute(BUILDER_IMAGE_ASPECT_RATIO_ATTR)
 
   const figure = getBuilderImageFigure(image)
   if (figure instanceof HTMLElement) {

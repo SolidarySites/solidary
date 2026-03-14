@@ -13,6 +13,9 @@ const SETTINGS: AstroSettings = {
   description: "Shared resources",
   siteUrl: "https://example.com/community",
   ogImage: "/solidary-media/images/og/custom.jpg",
+  features: {
+    dynamicImageLoading: true
+  },
   headHtml: "<meta name=\"theme-color\" content=\"#202020\" />",
   locale: "en-GB",
   twitter: true,
@@ -44,6 +47,7 @@ describe("astro markdown builders", () => {
     expect(output).toContain('description: "Shared resources"');
     expect(output).toContain('url: "https://example.com/community"');
     expect(output).toContain('ogImage: "/solidary-media/images/og/custom.jpg"');
+    expect(output).toContain('features: {"dynamicImageLoading":true}');
   });
 
   it("builds header.md and footer.md from settings", () => {

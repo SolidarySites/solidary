@@ -46,6 +46,8 @@ export type BuilderDocumentStateViewModelSource = {
   setSiteDescription: (value: string) => void;
   siteUrl: string;
   setSiteUrl: (value: string) => void;
+  dynamicImageLoadingEnabled: boolean;
+  setDynamicImageLoadingEnabled: (value: boolean) => void;
   setSiteImage: (value: File | null) => void;
   siteImagePreview: string | null;
   pages: BuilderPage[];

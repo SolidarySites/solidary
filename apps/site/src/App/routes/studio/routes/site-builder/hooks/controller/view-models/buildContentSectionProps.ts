@@ -23,6 +23,7 @@ export const buildContentSectionProps = ({
   siteDescription: documentState.siteDescription,
   siteUrl: documentState.siteUrl,
   siteImagePreview: documentState.siteImagePreview,
+  dynamicImageLoadingEnabled: documentState.dynamicImageLoadingEnabled,
   collaboratorQuery: collaborators.collaboratorQuery,
   collaboratorRole: collaborators.collaboratorRole,
   collaboratorSuggestions: collaborators.collaboratorSuggestions,
@@ -49,6 +50,7 @@ export const buildContentSectionProps = ({
   hasUnsavedSettingsChanges: hasUnsavedChanges,
   onSiteTitleChange: documentState.setSiteTitle,
   onSiteDescriptionChange: documentState.setSiteDescription,
+  onDynamicImageLoadingChange: documentState.setDynamicImageLoadingEnabled,
   onSiteImageChange: documentState.setSiteImage,
   onSaveGeneralToLive: () => {
     void liveSettings.saveGeneralSettingsToLive();

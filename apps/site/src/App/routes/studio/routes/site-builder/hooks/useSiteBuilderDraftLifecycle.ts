@@ -50,6 +50,7 @@ type UseSiteBuilderDraftLifecycleParams = {
   setHeaderBrandDisabled: Dispatch<SetStateAction<boolean>>;
   setSiteDescription: Dispatch<SetStateAction<string>>;
   setSiteUrl: Dispatch<SetStateAction<string>>;
+  setDynamicImageLoadingEnabled: Dispatch<SetStateAction<boolean>>;
   setTokensCss: Dispatch<SetStateAction<string>>;
   setStyleMode: Dispatch<SetStateAction<BuilderStylesMode>>;
   setAdvancedStructureCss: Dispatch<SetStateAction<string>>;
@@ -114,6 +115,7 @@ export const useSiteBuilderDraftLifecycle = ({
   setHeaderBrandDisabled,
   setSiteDescription,
   setSiteUrl,
+  setDynamicImageLoadingEnabled,
   setTokensCss,
   setStyleMode,
   setAdvancedStructureCss,
@@ -187,6 +189,7 @@ export const useSiteBuilderDraftLifecycle = ({
 
       if (typeof loaded.siteDescription === "string") setSiteDescription(loaded.siteDescription);
       if (typeof loaded.siteUrl === "string") setSiteUrl(loaded.siteUrl);
+      setDynamicImageLoadingEnabled(loaded.dynamicImageLoadingEnabled ?? true);
       setTokensCss(typeof loaded.tokensCss === "string" ? loaded.tokensCss : defaultTokensCss);
       setStyleMode(loaded.styleMode ?? defaultStylesMode);
       setAdvancedStructureCss(
@@ -244,6 +247,7 @@ export const useSiteBuilderDraftLifecycle = ({
       setSiteImagePreview,
       setSiteTitle,
       setSiteUrl,
+      setDynamicImageLoadingEnabled,
       setStyleMode,
       setAdvancedStructureCss,
       setBaseStructureCss,

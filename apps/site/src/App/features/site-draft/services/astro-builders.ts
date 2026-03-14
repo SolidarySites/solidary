@@ -13,6 +13,7 @@ export const buildSolidaryMarkdown = (settings: AstroSettings) =>
     description: settings.description,
     url: settings.siteUrl,
     ogImage: settings.ogImage,
+    features: settings.features,
     robots: "index,follow"
   });
 

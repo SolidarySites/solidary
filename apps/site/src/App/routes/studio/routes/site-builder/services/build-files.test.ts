@@ -84,6 +84,8 @@ describe("buildFiles styles output", () => {
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain('"site_url"');
     expect(files[FILE_KEYS.solidaryLinks]).not.toContain("connection_uuid");
     expect(files[FILE_KEYS.solidaryContent]).toContain(`ogImage: "${DEFAULT_OG_IMAGE_URL}"`);
+    expect(files[FILE_KEYS.solidaryContent]).toContain('features: {"dynamicImageLoading":true}');
+    expect(files["src/components/DynamicImageLoader.astro"]).toContain("data-dynamic-image-managed");
     expect(files[FILE_KEYS.astroConfig]).toContain("const readConfiguredSiteUrl = () => {");
     expect(files[FILE_KEYS.robots]).toContain("parseSolidaryFrontmatter");
     expect(files[FILE_KEYS.seoContent]).toContain('locale: "fr-FR"');
@@ -195,5 +197,39 @@ describe("buildFiles styles output", () => {
 
     expect(payload.title).toBe("A".repeat(50));
     expect(payload.header.brandText).toBe("A".repeat(50));
+  });
+
+  it("defaults dynamic image loading on and preserves explicit opt-out", () => {
+    const defaultPayload = buildSettingsPayload(settingsInput, "/og.jpg");
+    const disabledPayload = buildSettingsPayload(
+      {
+        ...settingsInput,
+        features: {
+          dynamicImageLoading: false
+        }
+      },
+      "/og.jpg"
+    );
+    const disabledFiles = buildFiles({
+      siteId: "site-1",
+      ogImageUrl: "/og.jpg",
+      settingsInput: {
+        ...settingsInput,
+        features: {
+          dynamicImageLoading: false
+        }
+      },
+      styles: baseStyles,
+      templateSolidary,
+      templateSolidaryLinks,
+      pages,
+      defaultHomeContent: "Default home"
+    });
+
+    expect(defaultPayload.features.dynamicImageLoading).toBe(true);
+    expect(disabledPayload.features.dynamicImageLoading).toBe(false);
+    expect(disabledFiles[FILE_KEYS.solidaryContent]).toContain(
+      'features: {"dynamicImageLoading":false}'
+    );
   });
 });

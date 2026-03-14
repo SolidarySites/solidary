@@ -226,6 +226,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var EXTERNAL_IMAGE_CONTAINER_ATTR = "data-external-image-container";
   var EXTERNAL_IMAGE_VARIANT_SMALL_ATTR = "data-external-image-src-small";
   var EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR = "data-external-image-src-medium";
+  var EXTERNAL_IMAGE_VARIANT_LARGE_ATTR = "data-external-image-src-large";
   var EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR = "data-external-image-src-original";
   var EXTERNAL_IMAGE_TOKEN_ATTR = "data-external-image-token";
   var INSPECTABLE_ELEMENT_ID_ATTR = "data-builder-inspectable-element-id";
@@ -312,6 +313,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var candidates = [
       (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim(),
       (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim(),
+      (image.getAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR) || "").trim(),
       (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim()
     ];
 
@@ -616,9 +618,10 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   function resolveExternalImageLoadSource(image, fallbackSource) {
     var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
     var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
+    var large = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR) || "").trim();
     var original = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim();
 
-    if (!small && !medium && !original) {
+    if (!small && !medium && !large && !original) {
       return fallbackSource;
     }
 
@@ -633,14 +636,18 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var targetDisplayPixels = estimatedDisplayWidth * devicePixelRatio;
 
     if (targetDisplayPixels <= 560) {
-      return small || medium || original || fallbackSource;
+      return small || medium || large || original || fallbackSource;
     }
 
     if (targetDisplayPixels <= 1080) {
-      return medium || original || small || fallbackSource;
+      return medium || large || original || small || fallbackSource;
     }
 
-    return original || medium || small || fallbackSource;
+    if (targetDisplayPixels <= 1600) {
+      return large || original || medium || small || fallbackSource;
+    }
+
+    return original || large || medium || small || fallbackSource;
   }
 
   function startExternalImageLoadWithPlaceholder(image, source) {
@@ -653,12 +660,15 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
     var loadSource = resolveExternalImageLoadSource(image, targetSource);
     var small = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR) || "").trim();
     var medium = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR) || "").trim();
+    var large = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR) || "").trim();
     var original = (image.getAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR) || "").trim();
-    var placeholderSource = small || medium || original || EXTERNAL_IMAGE_PLACEHOLDER_SRC;
+    var placeholderSource =
+      small || medium || large || original || EXTERNAL_IMAGE_PLACEHOLDER_SRC;
     var placeholderCandidates = collectUniqueSources([
       targetSource,
       loadSource,
       original,
+      large,
       medium,
       small
     ]);
@@ -912,6 +922,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         EXTERNAL_IMAGE_SOURCE_ATTR,
         EXTERNAL_IMAGE_VARIANT_SMALL_ATTR,
         EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR,
+        EXTERNAL_IMAGE_VARIANT_LARGE_ATTR,
         EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR
       ]
     });
@@ -936,6 +947,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       image.removeAttribute(EXTERNAL_IMAGE_TOKEN_ATTR);
       image.removeAttribute(EXTERNAL_IMAGE_VARIANT_SMALL_ATTR);
       image.removeAttribute(EXTERNAL_IMAGE_VARIANT_MEDIUM_ATTR);
+      image.removeAttribute(EXTERNAL_IMAGE_VARIANT_LARGE_ATTR);
       image.removeAttribute(EXTERNAL_IMAGE_VARIANT_ORIGINAL_ATTR);
     }
 
@@ -2748,6 +2760,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       styleMode,
       advancedStructureCss,
       previewStylesCss,
+      dynamicImageLoadingEnabled,
       homeFallbackBody,
       activePageSlug,
       publishedSiteBaseUrl,
@@ -2832,8 +2845,15 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     const activeBodyHtml = useMemo(() => markdownToHtml(activeBodyRaw), [activeBodyRaw]);
 
     const displayBodyHtml = useMemo(
-      () => mapHtmlImageSources(activeBodyHtml, draftImages, publishedSiteBaseUrl, "display"),
-      [activeBodyHtml, draftImages, publishedSiteBaseUrl]
+      () =>
+        mapHtmlImageSources(
+          activeBodyHtml,
+          draftImages,
+          publishedSiteBaseUrl,
+          "display",
+          dynamicImageLoadingEnabled
+        ),
+      [activeBodyHtml, draftImages, dynamicImageLoadingEnabled, publishedSiteBaseUrl]
     );
 
     const effectivePreviewCss = useMemo(() => {

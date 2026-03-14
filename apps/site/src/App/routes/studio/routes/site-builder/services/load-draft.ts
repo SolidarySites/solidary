@@ -1,5 +1,8 @@
 import { supabase } from "../../../../../lib/supabase";
-import type { RepoFileSet } from "../../../../../features/site-draft/types";
+import {
+  normalizeAstroSiteFeatures,
+  type RepoFileSet
+} from "../../../../../features/site-draft/types";
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
 import { parseSolidaryJson } from "../../../../../features/site-draft/services/solidary";
 import {
@@ -7,6 +10,7 @@ import {
   resolveSiteThumbnailUrl
 } from "../../../../../lib/site-image-url";
 import { FILE_KEYS } from "./constants";
+import { sanitizeBuilderImageHtml } from "./builder-image-html";
 import type {
   BuilderStylesMode,
   BuilderPage,
@@ -30,6 +34,7 @@ export type LoadedDraftResult = {
   siteTitle?: string;
   siteDescription?: string;
   siteUrl?: string;
+  dynamicImageLoadingEnabled?: boolean;
   tokensCss?: string;
   styleMode?: BuilderStylesMode;
   advancedStructureCss?: string;
@@ -57,7 +62,7 @@ const getSitePathFromStoragePath = (storagePath: string) => {
 };
 
 const replaceDraftImageUrls = (body: string, draftImages: DraftImageAsset[]) => {
-  let nextBody = body;
+  let nextBody = sanitizeBuilderImageHtml(body);
   draftImages.forEach((image) => {
     const publicUrl = image.publicUrl.trim();
     const sitePath = image.sitePath.trim();
@@ -303,6 +308,9 @@ export const loadDraftById = async ({
 
   const settings = (settingsData?.settings as Record<string, unknown>) ?? {};
   const styles = (settingsData?.styles as Record<string, unknown>) ?? {};
+  const features = normalizeAstroSiteFeatures(
+    settings.features as { dynamicImageLoading?: boolean } | undefined
+  );
 
   const result: LoadedDraftResult = {
     draftState,
@@ -322,6 +330,7 @@ export const loadDraftById = async ({
 
   if (typeof settings.siteUrl === "string") result.siteUrl = settings.siteUrl;
   else if (solidary?.site_url) result.siteUrl = solidary.site_url;
+  result.dynamicImageLoadingEnabled = features.dynamicImageLoading;
 
   if (typeof styles.tokensCss === "string") result.tokensCss = styles.tokensCss;
   if (styles.styleMode === "simple" || styles.styleMode === "advanced") {

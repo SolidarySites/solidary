@@ -2,8 +2,13 @@
 import SEO from "../components/SEO.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import DynamicImageLoader from "../components/DynamicImageLoader.astro";
 import SkipLink from "../components/SkipLink.astro";
-import { parseSeoFrontmatter, parseSolidaryFrontmatter } from "../solidary-config/site";
+import {
+  DEFAULT_SITE_FEATURES,
+  parseSeoFrontmatter,
+  parseSolidaryFrontmatter
+} from "../solidary-config/site";
 
 import "../styles/global.css";
 
@@ -15,6 +20,8 @@ const siteName = solidary.title;
 const siteDescription = solidary.description;
 const siteUrl = solidary.url;
 const htmlLang = seo.locale;
+const dynamicImageLoadingEnabled =
+  solidary.features?.dynamicImageLoading ?? DEFAULT_SITE_FEATURES.dynamicImageLoading;
 
 const {
   title: legacyTitle,
@@ -72,5 +79,6 @@ const canonical = (() => {
       <slot />
     </main>
     <Footer />
+    {dynamicImageLoadingEnabled && <DynamicImageLoader />}
   </body>
 </html>

@@ -9,11 +9,13 @@ type GeneralSettingsSectionProps = {
   siteDescription: string;
   siteUrl: string;
   siteImagePreview: string | null;
+  dynamicImageLoadingEnabled: boolean;
   canSaveToLive: boolean;
   savingToLive: boolean;
   hasUnsavedChanges: boolean;
   onSiteTitleChange: (value: string) => void;
   onSiteDescriptionChange: (value: string) => void;
+  onDynamicImageLoadingChange: (value: boolean) => void;
   onSiteImageChange: (file: File | null) => void;
   onSaveToLive: () => void;
 };
@@ -23,11 +25,13 @@ const GeneralSettingsSection = ({
   siteDescription,
   siteUrl,
   siteImagePreview,
+  dynamicImageLoadingEnabled,
   canSaveToLive,
   savingToLive,
   hasUnsavedChanges,
   onSiteTitleChange,
   onSiteDescriptionChange,
+  onDynamicImageLoadingChange,
   onSiteImageChange,
   onSaveToLive
 }: GeneralSettingsSectionProps) => (
@@ -59,6 +63,17 @@ const GeneralSettingsSection = ({
     </label>
     <p className="builder-collaborator-hint">
       Domain changes are managed in the Advanced section.
+    </p>
+    <label>
+      <input
+        type="checkbox"
+        checked={dynamicImageLoadingEnabled}
+        onChange={(event) => onDynamicImageLoadingChange(event.target.checked)}
+      />{" "}
+      Dynamic image loading
+    </label>
+    <p className="builder-collaborator-hint">
+      Serve managed page images as smaller variants on smaller displays.
     </p>
     <label>
       Site image (JPEG)

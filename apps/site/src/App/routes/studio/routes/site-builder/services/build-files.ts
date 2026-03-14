@@ -12,7 +12,10 @@ import {
   resolveSolidaryMetadataImages
 } from "../../../../../features/site-draft/services/solidary";
 import { DEFAULT_SEO_SETTINGS, normalizeSeoLocale } from "../../../../../features/site-draft/seo";
-import type { RepoFileSet } from "../../../../../features/site-draft/types";
+import {
+  normalizeAstroSiteFeatures,
+  type RepoFileSet
+} from "../../../../../features/site-draft/types";
 import { normalizeSiteTitle } from "../../../../../services/site-metadata";
 import { RUNTIME_TEMPLATE_FILES } from "../../../../../../templates/site";
 import {
@@ -23,6 +26,7 @@ import {
 } from "./constants";
 import { resolveSettingsOgImagePath } from "./site-settings-images";
 import { combineTokensAndStructureCss, toggleTokensImportInGlobalCss } from "./style-editor";
+import { sanitizeBuilderImageHtml } from "./builder-image-html";
 import type { BuilderPage, BuilderStyleSettings, FooterOptions, HeaderOptions } from "./types";
 import { getPageSafeSlug } from "./utils";
 
@@ -30,6 +34,9 @@ type SiteSettingsInput = {
   siteTitle: string;
   siteDescription: string;
   siteUrl: string;
+  features?: {
+    dynamicImageLoading?: boolean;
+  };
   headHtml?: string;
   locale?: string;
   twitter?: boolean;
@@ -113,6 +120,7 @@ export const buildSettingsPayload = (
       siteUrl: resolvedSiteUrl,
       imageUrl: imageUrl.trim() || DEFAULT_OG_IMAGE_URL
     }),
+    features: normalizeAstroSiteFeatures(input.features),
     headHtml: typeof input.headHtml === "string" ? input.headHtml : "",
     locale: normalizeSeoLocale(input.locale),
     twitter: typeof input.twitter === "boolean" ? input.twitter : DEFAULT_SEO_SETTINGS.twitter,
@@ -262,7 +270,8 @@ export const buildFiles = ({
   pages.forEach((page, index) => {
     const safeSlug = getPageSafeSlug(page, index);
     const baseBody = page.isHome && !page.body?.trim() ? defaultHomeContent : page.body ?? "";
-    const body = rewriteUploadsForBasePath(baseBody, publishBasePath);
+    const sanitizedBody = sanitizeBuilderImageHtml(baseBody);
+    const body = rewriteUploadsForBasePath(sanitizedBody, publishBasePath);
     files[`${PAGE_PATH_PREFIX}${safeSlug}.md`] = buildPageMarkdown({
       ...page,
       slug: safeSlug,

@@ -24,6 +24,7 @@ export const TEMPLATE_RUNTIME_FILE_PATHS = [
   "src/solidary-config/site.ts",
   "src/solidary-config/solidary.ts",
   "src/layouts/Base.astro",
+  "src/components/DynamicImageLoader.astro",
   "src/components/Header.astro",
   "src/components/Footer.astro",
   "src/components/SEO.astro",
