@@ -2,6 +2,7 @@ import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
 import {
   buildStandaloneAdminSetup,
+  isIndexFinalizationJobStale,
   parseBearerToken,
   parseBridgeTokenFromEvent,
   readIndexAdminState,
@@ -145,8 +146,25 @@ export const handler: Handler = async (event) => {
         supabase: context.supabase,
         archiveId,
       });
+      if (existingJob && isIndexFinalizationJobStale(existingJob)) {
+        const { error: staleJobError } = await context.supabase
+          .from("index_finalization_jobs")
+          .update({
+            status: "failed",
+            step: "Index finalization stalled.",
+            error:
+              "The previous finalization job stopped reporting progress. Retry finalization.",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", existingJob.id)
+          .eq("archive_id", archiveId);
+        if (staleJobError) {
+          throw new Error(staleJobError.message);
+        }
+      }
       if (
         existingJob &&
+        !isIndexFinalizationJobStale(existingJob) &&
         (existingJob.status === "queued" || existingJob.status === "running")
       ) {
         throw new Error("Index finalization is already running.");

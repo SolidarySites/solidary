@@ -35,6 +35,8 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 ]);
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
+const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
+const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 const SOURCE_TREE_EXCLUSIONS = [
   ".env",
@@ -446,6 +448,7 @@ async function createCommitFromFiles({
   branch,
   files,
   message,
+  onProgress,
 }: {
   userToken: string;
   owner: string;
@@ -453,6 +456,9 @@ async function createCommitFromFiles({
   branch: string;
   files: SourceBlobFile[];
   message: string;
+  onProgress?: (
+    progress: { completed: number; total: number },
+  ) => Promise<void>;
 }) {
   const parentCommitSha = await getBranchHeadSha({
     userToken,
@@ -474,19 +480,42 @@ async function createCommitFromFiles({
     sha: string;
   }> = [];
 
-  for (const file of files) {
-    const blobSha = await createBlob({
-      userToken,
-      owner,
-      repo,
-      contentB64: file.contentB64,
-    });
-    tree.push({
-      path: file.path,
-      mode: file.mode,
-      type: "blob",
-      sha: blobSha,
-    });
+  let completed = 0;
+  for (
+    let offset = 0;
+    offset < files.length;
+    offset += GITHUB_BLOB_WRITE_CONCURRENCY
+  ) {
+    const batch = files.slice(offset, offset + GITHUB_BLOB_WRITE_CONCURRENCY);
+    const batchTree = await Promise.all(
+      batch.map(async (file) => {
+        const blobSha = await createBlob({
+          userToken,
+          owner,
+          repo,
+          contentB64: file.contentB64,
+        });
+        return {
+          path: file.path,
+          mode: file.mode,
+          type: "blob" as const,
+          sha: blobSha,
+        };
+      }),
+    );
+    tree.push(...batchTree);
+    completed += batch.length;
+
+    if (
+      onProgress &&
+      (completed === files.length ||
+        completed % GITHUB_BLOB_PROGRESS_INTERVAL === 0)
+    ) {
+      await onProgress({
+        completed,
+        total: files.length,
+      });
+    }
   }
 
   const { res: treeRes, data: treeData } = await ghUserWithRetry<
@@ -1402,10 +1431,22 @@ export const handler: Handler = async (event) => {
         projectUrl: credentials.supabase_project_url,
         publishableKey: toTrimmedString(credentials.supabase_publishable_key),
       });
+      const totalFinalRepoFiles = finalRepoFiles.length;
 
       await updateJob({
-        step: "Writing finalized repository files...",
+        step:
+          `Writing finalized repository files (0/${totalFinalRepoFiles})...`,
         source_branch: sourceBranch,
+        payload: {
+          source_repo_full_name: parentSource.repoFullName,
+          source_repo_url: parentSource.repoUrl,
+          source_repo_resolution: parentSource.sourceKind,
+          source_branch: sourceBranch,
+          target_repo_full_name: credentials.repo_full_name,
+          child_project_ref: credentials.supabase_project_ref,
+          total_repo_files: totalFinalRepoFiles,
+          repo_files_written: 0,
+        },
       });
       await createCommitFromFiles({
         userToken: githubToken,
@@ -1414,6 +1455,34 @@ export const handler: Handler = async (event) => {
         branch: "main",
         files: finalRepoFiles,
         message: `Finalize index from ${parentSource.repoFullName}`,
+        onProgress: async ({ completed, total }) => {
+          try {
+            await updateJob({
+              step:
+                `Writing finalized repository files (${completed}/${total})...`,
+              payload: {
+                source_repo_full_name: parentSource.repoFullName,
+                source_repo_url: parentSource.repoUrl,
+                source_repo_resolution: parentSource.sourceKind,
+                source_branch: sourceBranch,
+                target_repo_full_name: credentials.repo_full_name,
+                child_project_ref: credentials.supabase_project_ref,
+                total_repo_files: total,
+                repo_files_written: completed,
+              },
+            });
+          } catch (error) {
+            console.warn(
+              "[index-finalize-worker] failed to report write progress",
+              {
+                archiveId,
+                completed,
+                total,
+                message: error instanceof Error ? error.message : String(error),
+              },
+            );
+          }
+        },
       });
 
       await updateJob({

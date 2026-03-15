@@ -23,6 +23,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
 const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
+const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 10;
 
 export type IndexAdminRole = IndexAdminBridgeRole;
 
@@ -483,6 +484,49 @@ export const readLatestIndexFinalizationJob = async ({
   }
 
   return (data ?? null) as unknown as IndexFinalizationJobRow | null;
+};
+
+const getIndexFinalizationActivityTimestamp = (
+  job: IndexFinalizationJobRow,
+) => {
+  const timestamp = toTrimmedString(job.updated_at) ||
+    toTrimmedString(job.started_at) ||
+    toTrimmedString(job.created_at);
+  const parsed = Date.parse(timestamp);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const isIndexFinalizationJobStale = (
+  job: IndexFinalizationJobRow | null,
+) => {
+  if (!job || (job.status !== "queued" && job.status !== "running")) {
+    return false;
+  }
+
+  const activityAt = getIndexFinalizationActivityTimestamp(job);
+  if (activityAt === null) {
+    return false;
+  }
+
+  return Date.now() - activityAt > INDEX_FINALIZATION_STALE_WINDOW_MS;
+};
+
+export const getEffectiveIndexFinalizationJob = (
+  job: IndexFinalizationJobRow | null,
+): IndexFinalizationJobRow | null => {
+  if (!job || !isIndexFinalizationJobStale(job)) {
+    return job;
+  }
+
+  return {
+    ...job,
+    status: "failed",
+    step: "Index finalization stalled.",
+    error: toTrimmedString(job.error) ||
+      "The previous finalization job stopped reporting progress. Retry finalization.",
+    completed_at: job.completed_at ?? job.updated_at ?? job.started_at ??
+      job.created_at,
+  };
 };
 
 export const resolveIndexAdminContext = async ({
@@ -1570,7 +1614,8 @@ const buildFinalizationSetup = ({
       parent_repo_url: state.archive.parentRepoUrl,
     },
   });
-  const jobStatus = latestJob?.status ?? null;
+  const effectiveJob = getEffectiveIndexFinalizationJob(latestJob);
+  const jobStatus = effectiveJob?.status ?? null;
   const isFinalized = context.archive.runtime_mode === "finalized";
   const isRunning = jobStatus === "queued" || jobStatus === "running";
 
@@ -1583,12 +1628,12 @@ const buildFinalizationSetup = ({
     status: isFinalized ? "finalized" : jobStatus ?? "idle",
     step: isFinalized
       ? "Standalone app finalized."
-      : toTrimmedString(latestJob?.step) || null,
-    error: jobStatus === "failed" ? toTrimmedString(latestJob?.error) : null,
-    startedAt: latestJob?.started_at ?? null,
+      : toTrimmedString(effectiveJob?.step) || null,
+    error: jobStatus === "failed" ? toTrimmedString(effectiveJob?.error) : null,
+    startedAt: effectiveJob?.started_at ?? null,
     completedAt: isFinalized
-      ? (context.archive.finalized_at ?? latestJob?.completed_at ?? null)
-      : (latestJob?.completed_at ?? null),
+      ? (context.archive.finalized_at ?? effectiveJob?.completed_at ?? null)
+      : (effectiveJob?.completed_at ?? null),
     sourceRepoFullName: parentSource.repoFullName,
     sourceRepoUrl: parentSource.repoUrl,
     sourceRepoStatus: parentSource.sourceKind,
