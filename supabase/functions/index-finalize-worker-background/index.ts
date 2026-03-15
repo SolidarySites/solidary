@@ -35,6 +35,7 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 ]);
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
+const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 const SOURCE_TREE_EXCLUSIONS = [
   ".env",
   ".env.example",
@@ -390,6 +391,9 @@ async function getBlobBase64({
   const rawContent: string = typeof blobPayload.content === "string"
     ? blobPayload.content
     : "";
+  if (blobSha === EMPTY_GIT_BLOB_SHA) {
+    return "";
+  }
   const content = rawContent.trim() ? rawContent : "";
   if (encoding !== "base64" || !content) {
     throw new HttpError(
