@@ -16,6 +16,7 @@ const REQUESTED_MANAGEMENT_SCOPES = [
   "projects:read",
   "projects:write",
   "database:write",
+  "edge_functions:write",
   "secrets:read",
   "secrets:write",
 ] as const;

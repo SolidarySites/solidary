@@ -38,6 +38,7 @@ const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
 const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+const REQUIRED_FINALIZATION_SUPABASE_SCOPES = ["edge_functions:write"] as const;
 const SOURCE_TREE_EXCLUSIONS = [
   ".env",
   ".env.example",
@@ -151,6 +152,11 @@ const asRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+
+const splitScopes = (value: string) =>
+  value.split(/[\s,]+/g).map((entry) => entry.trim().toLowerCase()).filter(
+    Boolean,
+  );
 
 const createServiceSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -1024,6 +1030,12 @@ async function deployFunctionBundle({
     | ManagementFunctionPayload
     | GhErrorPayload;
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new HttpError(
+        412,
+        "Reconnect your Supabase account with Edge Functions write access before finalising the index.",
+      );
+    }
     throw new HttpError(
       response.status,
       getGhErrorMessage(
@@ -1359,13 +1371,15 @@ export const handler: Handler = async (event) => {
       }
 
       let managementAccessToken = "";
+      let managementScope = "";
       try {
-        managementAccessToken = (
+        const resolvedManagementAccess =
           await resolveSupabaseManagementAccessForUser({
             supabase,
             userId: ownerUserId,
-          })
-        ).accessToken;
+          });
+        managementAccessToken = resolvedManagementAccess.accessToken;
+        managementScope = resolvedManagementAccess.scope;
       } catch (error) {
         if (error instanceof SupabaseManagementReauthError) {
           throw new HttpError(
@@ -1374,6 +1388,19 @@ export const handler: Handler = async (event) => {
           );
         }
         throw error;
+      }
+
+      const grantedManagementScopes = splitScopes(managementScope);
+      if (
+        grantedManagementScopes.length &&
+        !REQUIRED_FINALIZATION_SUPABASE_SCOPES.every((scope) =>
+          grantedManagementScopes.includes(scope)
+        )
+      ) {
+        throw new HttpError(
+          412,
+          "Reconnect your Supabase account with Edge Functions write access before finalising the index.",
+        );
       }
 
       const childArchive = await readChildParentSourceArchive({
