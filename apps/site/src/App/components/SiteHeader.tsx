@@ -83,7 +83,11 @@ export default function SiteHeader() {
             Search
           </Link>
           <Link
-            className={`site-header-nav-link ${location.pathname.startsWith("/studio") ? "is-active" : ""}`.trim()}
+            className={`site-header-nav-link ${
+              location.pathname.startsWith("/studio") || location.pathname.startsWith("/admin")
+                ? "is-active"
+                : ""
+            }`.trim()}
             to="/studio"
           >
             Studio

@@ -18,6 +18,12 @@
 
       <section class="resource-grid">
         <article class="resource-card">
+          <h2>Standalone admin</h2>
+          <p>Use the bridge-backed admin until local auth is configured on this index.</p>
+          <a id="admin-link" href="./admin/">Open /admin</a>
+        </article>
+
+        <article class="resource-card">
           <h2>GitHub repo</h2>
           <p>The source repository created for this index.</p>
           <a id="repo-link" href="#" target="_blank" rel="noreferrer">Open repository</a>
@@ -32,16 +38,23 @@
         <article class="resource-card">
           <h2>Runtime status</h2>
           <p id="runtime-status">
-            Database bootstrap completed. Standalone auth and editor surfaces are disabled in this
-            v1 scaffold.
+            Loading live index data...
           </p>
         </article>
       </section>
 
       <section class="details-card">
         <div class="details-head">
+          <h2>Connected sites</h2>
+          <p>The public index reads these directly from the child project database.</p>
+        </div>
+        <div class="connected-site-list" id="connected-site-list"></div>
+      </section>
+
+      <section class="details-card">
+        <div class="details-head">
           <h2>Provisioned configuration</h2>
-          <p>These values were injected during index creation.</p>
+          <p>These values were injected during provisioning and updated from live index state.</p>
         </div>
         <dl class="details-list">
           <div>
@@ -59,6 +72,18 @@
           <div>
             <dt>Project URL</dt>
             <dd id="project-url">-</dd>
+          </div>
+          <div>
+            <dt>Index level</dt>
+            <dd id="index-level">-</dd>
+          </div>
+          <div>
+            <dt>Parent index URL</dt>
+            <dd id="parent-index-url">-</dd>
+          </div>
+          <div>
+            <dt>Auth callback URL</dt>
+            <dd id="auth-callback-url">-</dd>
           </div>
         </dl>
       </section>

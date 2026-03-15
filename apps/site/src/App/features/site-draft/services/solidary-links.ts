@@ -1,9 +1,13 @@
 export const SOLIDARY_LINKS_SITE_TYPE = "site";
+export const SOLIDARY_LINKS_INDEX_TYPE = "index";
 export const SOLIDARY_LINKS_CONNECTION_TYPE = "connection";
+type SolidaryLinksRootType =
+  | typeof SOLIDARY_LINKS_SITE_TYPE
+  | typeof SOLIDARY_LINKS_INDEX_TYPE;
 
 export type SolidaryLinksConnectedSite = {
   "@id": string;
-  "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
+  "@type": SolidaryLinksRootType;
   site_id: string;
 };
 
@@ -16,6 +20,7 @@ export type SolidaryLinksConnection = {
 export type SolidaryLinksDocument = {
   "@context": {
     site: string;
+    index: string;
     connection: string;
     site_id: string;
     connections: {
@@ -25,13 +30,14 @@ export type SolidaryLinksDocument = {
     connected_site: string;
   };
   "@id": string;
-  "@type": typeof SOLIDARY_LINKS_SITE_TYPE;
+  "@type": SolidaryLinksRootType;
   site_id: string;
   connections: SolidaryLinksConnection[];
 };
 
 const DEFAULT_CONTEXT: SolidaryLinksDocument["@context"] = {
   site: "urn:solidary:type:site",
+  index: "urn:solidary:type:index",
   connection: "urn:solidary:type:connection",
   site_id: "urn:solidary:term:site_id",
   connections: {
@@ -64,6 +70,10 @@ const normalizeConnection = (value: unknown): SolidaryLinksConnection | null => 
   const record = asRecord(value);
   const connectionId = readString(record["@id"]);
   const connectedSiteRecord = asRecord(record.connected_site);
+  const connectedSiteType =
+    readString(connectedSiteRecord["@type"]) === SOLIDARY_LINKS_INDEX_TYPE
+      ? SOLIDARY_LINKS_INDEX_TYPE
+      : SOLIDARY_LINKS_SITE_TYPE;
   const site_id = readString(connectedSiteRecord.site_id);
   const connectedSiteId = readString(connectedSiteRecord["@id"]);
   if (!connectionId || !site_id || !connectedSiteId) {
@@ -75,7 +85,7 @@ const normalizeConnection = (value: unknown): SolidaryLinksConnection | null => 
     "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
     connected_site: {
       "@id": connectedSiteId,
-      "@type": SOLIDARY_LINKS_SITE_TYPE,
+      "@type": connectedSiteType,
       site_id
     }
   };
@@ -99,11 +109,15 @@ const buildDefaultDocument = (): SolidaryLinksDocument => ({
 export const parseSolidaryLinksJson = (raw: string): SolidaryLinksDocument | null => {
   const record = parseJsonObject(raw);
   if (!record) return null;
+  const rootType =
+    readString(record["@type"]) === SOLIDARY_LINKS_INDEX_TYPE
+      ? SOLIDARY_LINKS_INDEX_TYPE
+      : SOLIDARY_LINKS_SITE_TYPE;
 
   return {
     "@context": DEFAULT_CONTEXT,
     "@id": readString(record["@id"]),
-    "@type": SOLIDARY_LINKS_SITE_TYPE,
+    "@type": rootType,
     site_id: readString(record.site_id),
     connections: normalizeConnections(record.connections)
   };
@@ -113,11 +127,13 @@ export const buildSolidaryLinksFile = ({
   templateSolidaryLinks,
   siteId,
   siteUrl,
+  rootType = SOLIDARY_LINKS_SITE_TYPE,
   previousSolidaryLinksRaw
 }: {
   templateSolidaryLinks: string;
   siteId: string;
   siteUrl: string;
+  rootType?: SolidaryLinksRootType;
   previousSolidaryLinksRaw?: string;
 }) => {
   const templateDocument =
@@ -128,7 +144,7 @@ export const buildSolidaryLinksFile = ({
     ...templateDocument,
     "@context": DEFAULT_CONTEXT,
     "@id": siteUrl.trim(),
-    "@type": SOLIDARY_LINKS_SITE_TYPE,
+    "@type": rootType,
     site_id: siteId.trim(),
     connections: previousDocument?.connections ?? templateDocument.connections
   };

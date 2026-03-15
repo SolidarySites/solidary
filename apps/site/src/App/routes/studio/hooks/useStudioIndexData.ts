@@ -24,6 +24,7 @@ type UseStudioIndexDataArgs = {
 
 type ArchiveRow = {
   id: string;
+  type: string | null;
   title: string | null;
   slug: string | null;
   description: string | null;
@@ -57,6 +58,7 @@ export const useStudioIndexData = ({
         .select(
           [
             "id",
+            "type",
             "title",
             "slug",
             "description",
@@ -69,6 +71,7 @@ export const useStudioIndexData = ({
           ].join(", ")
         )
         .eq("owner_user_id", session.user.id)
+        .eq("type", "index")
         .order("updated_at", { ascending: false });
 
       if (!mounted) {

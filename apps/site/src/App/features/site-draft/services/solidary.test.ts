@@ -19,6 +19,7 @@ describe("parseSolidaryJson", () => {
       title: "Solidary Site",
       description: "A description",
       protocol_version: "1.0",
+      type: "site",
       site_url: "https://example.com",
       site_image: "https://example.com/images/site.jpg",
       site_image_thumb: "https://example.com/images/site-thumb.jpg"
@@ -38,6 +39,7 @@ describe("parseSolidaryJson", () => {
 
     expect(parseSolidaryJson(raw)).toEqual({
       protocol_version: "1.0",
+      type: "site",
       site_id: "site-1",
       site_url: "https://example.com",
       title: "Solidary Site",

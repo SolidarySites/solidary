@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Standalone Index Admin</title>
+    <meta name="description" content="Bridge-backed admin for a standalone Solidary index." />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <main class="page-shell admin-page-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Standalone /admin</p>
+        <h1 id="admin-title">Loading admin...</h1>
+        <p id="admin-lead" class="hero-copy">
+          This admin uses a Solidary bridge token until the standalone index has its own local auth.
+        </p>
+        <div class="hero-actions" id="admin-links"></div>
+      </section>
+
+      <section class="details-card admin-notice-card" id="admin-notice-card" hidden>
+        <p id="admin-notice-text"></p>
+      </section>
+
+      <section class="details-card" id="admin-guard">
+        <div class="details-head">
+          <h2>Loading access...</h2>
+          <p id="admin-guard-text">Checking the bridge token for this standalone admin.</p>
+        </div>
+      </section>
+
+      <section class="details-card admin-shell" id="admin-shell" hidden>
+        <div class="admin-tabs" id="admin-tabs"></div>
+        <div class="admin-panel" id="admin-panel"></div>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

@@ -301,12 +301,12 @@ export const useIndexCreateRouteController = () => {
         onStep: setProvisionStep
       });
 
+      const createdArchiveId = completedJob.archive?.id?.trim() ?? "";
       const archiveTitle = completedJob.archive?.title?.trim() || title.trim();
-      navigate("/studio", {
-        state: {
-          indexCreateSuccessNotice: `${archiveTitle} was created.`
-        }
-      });
+      if (!createdArchiveId) {
+        throw new Error(`${archiveTitle} was created, but the admin handoff route is missing the archive id.`);
+      }
+      navigate(`/admin?archiveId=${createdArchiveId}&section=general&created=1`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Something went wrong.");
       setNoticeKind("error");

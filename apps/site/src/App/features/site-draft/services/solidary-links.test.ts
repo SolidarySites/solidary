@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TEMPLATE_SOLIDARY_LINKS } from "../../../../templates/site";
 import {
   buildSolidaryLinksFile,
+  SOLIDARY_LINKS_INDEX_TYPE,
   parseSolidaryLinksJson,
   SOLIDARY_LINKS_CONNECTION_TYPE,
   SOLIDARY_LINKS_SITE_TYPE
@@ -34,11 +35,12 @@ describe("solidary-links", () => {
     });
 
     expect(parseSolidaryLinksJson(raw)).toEqual({
-      "@context": {
-        site: "urn:solidary:type:site",
-        connection: "urn:solidary:type:connection",
-        site_id: "urn:solidary:term:site_id",
-        connections: {
+        "@context": {
+          site: "urn:solidary:type:site",
+          index: "urn:solidary:type:index",
+          connection: "urn:solidary:type:connection",
+          site_id: "urn:solidary:term:site_id",
+          connections: {
           "@id": "urn:solidary:term:connections",
           "@container": "@set"
         },
@@ -61,5 +63,16 @@ describe("solidary-links", () => {
     });
     expect(raw).not.toContain('"site_url"');
     expect(raw).not.toContain("connection_uuid");
+  });
+
+  it("supports index roots", () => {
+    const raw = buildSolidaryLinksFile({
+      templateSolidaryLinks,
+      siteId: "index-1",
+      siteUrl: "https://index.example.com",
+      rootType: SOLIDARY_LINKS_INDEX_TYPE
+    });
+
+    expect(parseSolidaryLinksJson(raw)?.["@type"]).toBe(SOLIDARY_LINKS_INDEX_TYPE);
   });
 });

@@ -10,7 +10,19 @@ import {
   resolveSupabaseManagementAccessForUser,
   SupabaseManagementReauthError,
 } from "../_shared/supabase-management-auth/index.ts";
+import {
+  encryptTokenValue,
+  getTokenEncryptionVersion,
+} from "../_shared/token-crypto.ts";
 import { indexBootstrapSql } from "../_shared/index-bootstrap-sql.ts";
+import { createIndexAdminBootstrapSql } from "../_shared/index-admin-bootstrap-sql.ts";
+import {
+  getDefaultChildIndexLevel,
+  getSolidaryAppUrl,
+  getSolidaryRootIndexId,
+  getSolidaryRootIndexLevel,
+  getSolidaryRootIndexUrl,
+} from "../_shared/solidary-root-index.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
 
 const GITHUB_API = "https://api.github.com";
@@ -32,6 +44,7 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 
 type GhErrorPayload = { message?: string; documentation_url?: string };
 type GhRepoPayload = {
@@ -142,6 +155,29 @@ const normalizeRepoImageContent = (value: string | undefined) => {
   return normalized.replace(/^data:[^;]+;base64,/, "").trim();
 };
 
+const resolveAbsoluteAssetUrl = ({
+  siteUrl,
+  assetPath,
+}: {
+  siteUrl: string;
+  assetPath: string;
+}) => {
+  try {
+    const base = new URL(siteUrl.trim());
+    const normalizedAssetPath = assetPath.trim().replace(/^\/+/, "");
+    const basePath = base.pathname.replace(/\/$/, "");
+    base.pathname = `${basePath}/${normalizedAssetPath}`.replace(
+      /\/{2,}/g,
+      "/",
+    );
+    base.search = "";
+    base.hash = "";
+    return base.toString();
+  } catch {
+    return assetPath.trim();
+  }
+};
+
 const resolveSiteUrlForRepo = (owner: string, repo: string) => {
   const pagesRootUrl = `https://${owner}.github.io`;
   const isUserSite = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`;
@@ -167,29 +203,83 @@ const createDatabasePassword = () => {
   );
 };
 
-const createArchiveBootstrapSql = ({
+const createTemplateSolidaryFile = ({
   archiveId,
-  slug,
   title,
-  canonicalUrl,
+  description,
+  siteUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+  hasImage,
 }: {
   archiveId: string;
-  slug: string;
   title: string;
-  canonicalUrl: string;
-}) => {
-  const escape = (value: string) => value.replace(/'/g, "''");
-  return [
-    "insert into public.archives (id, slug, title, canonical_url, owner_user_id)",
-    `values ('${escape(archiveId)}', '${escape(slug)}', '${escape(title)}', '${
-      escape(canonicalUrl)
-    }', null)`,
-    "on conflict (slug) do update set",
-    "  id = excluded.id,",
-    `  title = excluded.title,`,
-    `  canonical_url = excluded.canonical_url;`,
-  ].join("\n");
-};
+  description: string;
+  siteUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+  hasImage: boolean;
+}) =>
+  `${
+    JSON.stringify(
+      {
+        protocol_version: "1.0",
+        type: "index",
+        site_id: archiveId,
+        site_url: siteUrl,
+        title,
+        site_image: hasImage
+          ? resolveAbsoluteAssetUrl({
+            siteUrl,
+            assetPath: DEFAULT_INDEX_IMAGE_PATH,
+          })
+          : "",
+        site_image_thumb: "",
+        description,
+        index_level: indexLevel,
+        parent_index_id: parentIndexId,
+        parent_index_url: parentIndexUrl,
+        parent_index_level: parentIndexLevel,
+      },
+      null,
+      2,
+    )
+  }\n`;
+
+const createTemplateSolidaryLinksFile = ({
+  archiveId,
+  siteUrl,
+}: {
+  archiveId: string;
+  siteUrl: string;
+}) =>
+  `${
+    JSON.stringify(
+      {
+        "@context": {
+          site: "urn:solidary:type:site",
+          index: "urn:solidary:type:index",
+          connection: "urn:solidary:type:connection",
+          site_id: "urn:solidary:term:site_id",
+          connections: {
+            "@id": "urn:solidary:term:connections",
+            "@container": "@set",
+          },
+          connected_site: "urn:solidary:term:connected_site",
+        },
+        "@id": siteUrl,
+        "@type": "index",
+        site_id: archiveId,
+        connections: [],
+      },
+      null,
+      2,
+    )
+  }\n`;
 
 const getGhErrorMessage = (payload: unknown, fallback: string) => {
   const maybePayload = payload as GhErrorPayload;
@@ -760,21 +850,37 @@ const createTemplateConfigFile = ({
   description,
   slug,
   archiveId,
+  repoFullName,
   repoUrl,
   projectRef,
   projectUrl,
   projectDashboardUrl,
+  publishableKey,
   siteUrl,
+  solidaryAppUrl,
+  solidarySupabaseUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
 }: {
   title: string;
   description: string;
   slug: string;
   archiveId: string;
+  repoFullName: string;
   repoUrl: string;
   projectRef: string;
   projectUrl: string;
   projectDashboardUrl: string;
+  publishableKey: string;
   siteUrl: string;
+  solidaryAppUrl: string;
+  solidarySupabaseUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
 }) =>
   `${
     JSON.stringify(
@@ -783,11 +889,21 @@ const createTemplateConfigFile = ({
         description,
         slug,
         archiveId,
+        repoFullName,
         repoUrl,
         projectRef,
         projectUrl,
+        publishableKey,
         projectDashboardUrl,
         siteUrl,
+        solidaryAppUrl,
+        solidarySupabaseUrl,
+        authCallbackUrl: `${projectUrl}/auth/v1/callback`,
+        authProvidersDashboardUrl: `${projectDashboardUrl}/auth/providers`,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
       },
       null,
       2,
@@ -827,11 +943,19 @@ const applyIndexTemplateOverrides = ({
   description,
   slug,
   archiveId,
+  repoFullName,
   repoUrl,
   projectRef,
   projectUrl,
   projectDashboardUrl,
+  publishableKey,
   siteUrl,
+  solidaryAppUrl,
+  solidarySupabaseUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
   imageContentB64,
 }: {
   files: TemplateFile[];
@@ -839,11 +963,19 @@ const applyIndexTemplateOverrides = ({
   description: string;
   slug: string;
   archiveId: string;
+  repoFullName: string;
   repoUrl: string;
   projectRef: string;
   projectUrl: string;
   projectDashboardUrl: string;
+  publishableKey: string;
   siteUrl: string;
+  solidaryAppUrl: string;
+  solidarySupabaseUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
   imageContentB64?: string;
 }) => {
   const filesByPath = new Map(
@@ -857,10 +989,41 @@ const applyIndexTemplateOverrides = ({
       description,
       slug,
       archiveId,
+      repoFullName,
       repoUrl,
       projectRef,
       projectUrl,
       projectDashboardUrl,
+      publishableKey,
+      siteUrl,
+      solidaryAppUrl,
+      solidarySupabaseUrl,
+      indexLevel,
+      parentIndexId,
+      parentIndexUrl,
+      parentIndexLevel,
+    }),
+  });
+  upsertTemplateFile({
+    filesByPath,
+    relPath: "site/.well-known/solidary.json",
+    content: createTemplateSolidaryFile({
+      archiveId,
+      title,
+      description,
+      siteUrl,
+      indexLevel,
+      parentIndexId,
+      parentIndexUrl,
+      parentIndexLevel,
+      hasImage: Boolean(normalizeRepoImageContent(imageContentB64)),
+    }),
+  });
+  upsertTemplateFile({
+    filesByPath,
+    relPath: "site/.well-known/solidary-links.json",
+    content: createTemplateSolidaryLinksFile({
+      archiveId,
       siteUrl,
     }),
   });
@@ -1220,22 +1383,40 @@ async function bootstrapProjectDatabase({
   archiveId,
   slug,
   title,
+  description,
   canonicalUrl,
+  imageUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
 }: {
   accessToken: string;
   projectRef: string;
   archiveId: string;
   slug: string;
   title: string;
+  description: string;
   canonicalUrl: string;
+  imageUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
 }) {
   const queries = [
     indexBootstrapSql,
-    createArchiveBootstrapSql({
+    createIndexAdminBootstrapSql({
       archiveId,
       slug,
       title,
+      description,
       canonicalUrl,
+      imageUrl,
+      indexLevel,
+      parentIndexId,
+      parentIndexUrl,
+      parentIndexLevel,
     }),
   ];
 
@@ -1258,6 +1439,120 @@ async function bootstrapProjectDatabase({
         throw error;
       }
     }
+  }
+}
+
+async function saveParentIndexMetadata({
+  supabase,
+  archiveId,
+  ownerUserId,
+  slug,
+  title,
+  description,
+  siteUrl,
+  imageUrl,
+  repoOwner,
+  repoName,
+  repoFullName,
+  repoUrl,
+  projectId,
+  projectRef,
+  projectName,
+  projectUrl,
+  projectDashboardUrl,
+  publishableKey,
+  secretKey,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+}: {
+  supabase: ReturnType<typeof createSupabaseAdmin>;
+  archiveId: string;
+  ownerUserId: string;
+  slug: string;
+  title: string;
+  description: string;
+  siteUrl: string;
+  imageUrl: string;
+  repoOwner: string;
+  repoName: string;
+  repoFullName: string;
+  repoUrl: string;
+  projectId: string | null;
+  projectRef: string;
+  projectName: string;
+  projectUrl: string;
+  projectDashboardUrl: string;
+  publishableKey: string;
+  secretKey: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+}) {
+  const { error: archiveError } = await supabase.from("archives").upsert({
+    id: archiveId,
+    owner_user_id: ownerUserId,
+    slug,
+    title,
+    description,
+    image_url: imageUrl,
+    canonical_url: siteUrl,
+    repo_full_name: repoFullName,
+    repo_url: repoUrl,
+    supabase_project_id: projectId,
+    supabase_project_ref: projectRef,
+    supabase_project_name: projectName,
+    supabase_dashboard_url: projectDashboardUrl,
+    source: "index_create",
+    type: "index",
+    index_level: indexLevel,
+    parent_index_id: parentIndexId,
+    parent_index_url: parentIndexUrl,
+    parent_index_level: parentIndexLevel,
+  });
+  if (archiveError) {
+    throw new HttpError(
+      500,
+      archiveError.message || "Failed to save archive metadata in Solidary.",
+    );
+  }
+
+  const { error: membershipError } = await supabase
+    .from("index_admin_memberships")
+    .upsert({
+      archive_id: archiveId,
+      user_id: ownerUserId,
+      role: "owner",
+    });
+  if (membershipError) {
+    throw new HttpError(
+      500,
+      membershipError.message || "Failed to save index admin membership.",
+    );
+  }
+
+  const { error: credentialsError } = await supabase
+    .from("index_project_credentials")
+    .upsert({
+      archive_id: archiveId,
+      owner_user_id: ownerUserId,
+      supabase_project_ref: projectRef,
+      supabase_project_url: projectUrl,
+      supabase_publishable_key: publishableKey,
+      supabase_secret_key_encrypted: encryptTokenValue(secretKey),
+      token_encryption_key_version: getTokenEncryptionVersion(),
+      repo_owner: repoOwner,
+      repo_name: repoName,
+      repo_full_name: repoFullName,
+      repo_url: repoUrl,
+    });
+  if (credentialsError) {
+    throw new HttpError(
+      500,
+      credentialsError.message || "Failed to save child project credentials.",
+    );
   }
 }
 
@@ -1328,6 +1623,11 @@ export const handler: Handler = async (event) => {
     let createdRepo = "";
     let createdProjectRef = "";
     let userToken = "";
+    const solidaryAppUrl = getSolidaryAppUrl();
+    const parentIndexId = getSolidaryRootIndexId();
+    const parentIndexUrl = getSolidaryRootIndexUrl();
+    const parentIndexLevel = getSolidaryRootIndexLevel();
+    const indexLevel = getDefaultChildIndexLevel();
 
     await updateJob({
       status: "running",
@@ -1458,6 +1758,13 @@ export const handler: Handler = async (event) => {
 
       const projectDashboardUrl = getProjectDashboardUrl(projectRef);
       const projectUrl = getProjectUrl(projectRef);
+      const defaultImageUrl =
+        normalizeRepoImageContent(payload.imageContentB64?.trim())
+          ? resolveAbsoluteAssetUrl({
+            siteUrl,
+            assetPath: DEFAULT_INDEX_IMAGE_PATH,
+          })
+          : "";
 
       await updateJob({
         step: "Retrieving project API keys...",
@@ -1473,7 +1780,7 @@ export const handler: Handler = async (event) => {
           project_url: projectUrl,
         },
       });
-      await ensureProjectApiKeys({
+      const { publishableKey, secretKey } = await ensureProjectApiKeys({
         accessToken: managementAccessToken,
         projectRef,
       });
@@ -1488,7 +1795,13 @@ export const handler: Handler = async (event) => {
         archiveId,
         slug: repoName,
         title,
+        description,
         canonicalUrl: siteUrl,
+        imageUrl: defaultImageUrl,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
       });
 
       await updateJob({
@@ -1500,11 +1813,19 @@ export const handler: Handler = async (event) => {
         description,
         slug: repoName,
         archiveId,
+        repoFullName: `${owner}/${repo}`,
         repoUrl: `https://github.com/${owner}/${repo}`,
         projectRef,
         projectUrl,
         projectDashboardUrl,
+        publishableKey,
         siteUrl,
+        solidaryAppUrl,
+        solidarySupabaseUrl: SUPABASE_URL,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
         imageContentB64: payload.imageContentB64?.trim(),
       });
       await createTemplateSeedCommit({
@@ -1543,8 +1864,15 @@ export const handler: Handler = async (event) => {
       const repoPayload = await getRepo({ userToken, owner, repo });
       const archivePayload = {
         id: archiveId,
+        type: "index",
         title,
         slug: repoName,
+        description,
+        image_url: defaultImageUrl || null,
+        index_level: indexLevel,
+        parent_index_id: parentIndexId,
+        parent_index_url: parentIndexUrl,
+        parent_index_level: parentIndexLevel,
         canonical_url: siteUrl,
         repo_full_name: repoPayload.full_name ?? `${owner}/${repo}`,
         repo_url: repoPayload.html_url ?? `https://github.com/${owner}/${repo}`,
@@ -1553,40 +1881,37 @@ export const handler: Handler = async (event) => {
       await updateJob({
         step: "Saving index metadata...",
       });
-      const { data: insertedArchive, error: archiveInsertError } =
-        await supabase
-          .from("archives")
-          .insert({
-            id: archiveId,
-            owner_user_id: ownerUserId,
-            slug: repoName,
-            title,
-            description,
-            canonical_url: siteUrl,
-            repo_full_name: archivePayload.repo_full_name,
-            repo_url: archivePayload.repo_url,
-            supabase_project_id: resolvedProject.id ?? null,
-            supabase_project_ref: projectRef,
-            supabase_project_name: resolvedProject.name ?? title,
-            supabase_dashboard_url: projectDashboardUrl,
-            source: "index_create",
-          })
-          .select("id")
-          .single();
-
-      if (archiveInsertError || !insertedArchive?.id) {
-        throw new HttpError(
-          500,
-          archiveInsertError?.message ??
-            "Failed to save index metadata in Solidary.",
-        );
-      }
+      await saveParentIndexMetadata({
+        supabase,
+        archiveId,
+        ownerUserId,
+        slug: repoName,
+        title,
+        description,
+        siteUrl,
+        imageUrl: defaultImageUrl,
+        repoOwner: owner,
+        repoName: repo,
+        repoFullName: archivePayload.repo_full_name,
+        repoUrl: archivePayload.repo_url,
+        projectId: resolvedProject.id ?? null,
+        projectRef,
+        projectName: resolvedProject.name ?? title,
+        projectUrl,
+        projectDashboardUrl,
+        publishableKey,
+        secretKey,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+      });
 
       await updateJob({
         status: "succeeded",
         step: "Index provisioning completed.",
         error: null,
-        archive_id: insertedArchive.id,
+        archive_id: archiveId,
         repo_full_name: archivePayload.repo_full_name,
         repo_payload: repoPayload,
         archive_payload: archivePayload,
@@ -1601,6 +1926,7 @@ export const handler: Handler = async (event) => {
           status: resolvedProject.status ?? null,
           dashboard_url: projectDashboardUrl,
           project_url: projectUrl,
+          publishable_key: publishableKey,
         },
         completed_at: new Date().toISOString(),
       });

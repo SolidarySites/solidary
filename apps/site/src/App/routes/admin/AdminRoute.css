@@ -1,0 +1,162 @@
+.admin-route {
+  gap: 1.75rem;
+}
+
+.admin-route .main-content {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.admin-route-header {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--site-grid-gap);
+  align-items: end;
+}
+
+.admin-route-header-copy {
+  grid-column: 1 / span 7;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-route-header-copy h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.admin-route-header-controls {
+  grid-column: 9 / -1;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.admin-route-header-controls label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-route .admin-setup-panel {
+  gap: 1rem;
+}
+
+.admin-route .admin-setup-panel.is-highlighted {
+  padding: 1.25rem;
+  border: 1px solid rgba(31, 34, 28, 0.15);
+  background: rgba(31, 34, 28, 0.02);
+}
+
+.admin-setup-links,
+.admin-advanced-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.admin-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-setup-card,
+.admin-owner-card,
+.admin-general-readonly-grid,
+.admin-connection-meta,
+.admin-advanced-reference {
+  padding-top: 1rem;
+  border-top: 1px solid var(--site-color-border-soft);
+}
+
+.admin-setup-card,
+.admin-general-readonly-grid,
+.admin-connection-meta,
+.admin-advanced-reference {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-setup-card h3,
+.admin-setup-card p {
+  margin: 0;
+}
+
+.admin-setup-card dl,
+.admin-advanced-reference,
+.admin-connection-meta {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.admin-setup-card dl div,
+.admin-advanced-reference div,
+.admin-connection-meta div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-setup-card dt,
+.admin-advanced-reference dt,
+.admin-connection-meta dt {
+  font-family: var(--site-font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(31, 34, 28, 0.68);
+}
+
+.admin-setup-card dd,
+.admin-advanced-reference dd,
+.admin-connection-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-setup-steps {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.admin-general-readonly-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-general-readonly-grid strong,
+.admin-general-readonly-grid a {
+  font-size: 0.95rem;
+}
+
+.admin-save-row-inline {
+  position: static;
+  justify-content: flex-start;
+}
+
+.admin-connection-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-route .builder-collaborator-list-item.admin-owner-card {
+  border-top: 1px solid var(--site-color-border-soft);
+  padding-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .admin-route-header {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-route-header-copy,
+  .admin-route-header-controls {
+    grid-column: 1 / -1;
+  }
+
+  .admin-setup-grid,
+  .admin-general-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+}

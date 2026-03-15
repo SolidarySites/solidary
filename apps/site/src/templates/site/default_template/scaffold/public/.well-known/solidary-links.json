@@ -1,6 +1,7 @@
 {
   "@context": {
     "site": "urn:solidary:type:site",
+    "index": "urn:solidary:type:index",
     "connection": "urn:solidary:type:connection",
     "site_id": "urn:solidary:term:site_id",
     "connections": {

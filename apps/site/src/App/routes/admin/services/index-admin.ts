@@ -1,0 +1,354 @@
+import { githubRequest } from "../../../services/github";
+import { toBase64 } from "../../../lib/base64";
+import type {
+  CollaboratorRole,
+  CollaboratorSearchResult,
+  ManagedCollaborator
+} from "../../studio/routes/site-builder/services/types";
+import {
+  mapCollaboratorSearchRows,
+  mapManagedCollaboratorRows,
+  type CollaboratorSearchRpcRow,
+  type ManagedCollaboratorApiRow
+} from "../../studio/routes/site-builder/services/collaborators";
+import type {
+  IndexAdminAdvancedPayload,
+  IndexAdminConnection,
+  IndexAdminConnectionStatusPayload,
+  IndexAdminGeneralPayload,
+  IndexAdminListItem,
+  IndexAdminReadResponse,
+  IndexAdminSearchResponse,
+  IndexAdminSetup,
+  IndexAdminState,
+  IndexAdminWriteResponse
+} from "./types";
+
+type RawIndexAdminActor = {
+  userId?: string;
+  role?: "owner" | "admin" | "editor" | "contributor";
+  via?: "session" | "bridge";
+  canEditGeneral?: boolean;
+  canManageConnections?: boolean;
+  canManageCollaborators?: boolean;
+  canManageAdvanced?: boolean;
+};
+
+type RawIndexAdminArchive = {
+  id?: string;
+  slug?: string;
+  title?: string;
+  description?: string;
+  imageUrl?: string;
+  canonicalUrl?: string;
+  repoFullName?: string | null;
+  repoUrl?: string | null;
+  supabaseProjectRef?: string | null;
+  supabaseDashboardUrl?: string | null;
+  supabaseProjectUrl?: string;
+  supabasePublishableKey?: string;
+  indexLevel?: number | null;
+  parentIndexId?: string | null;
+  parentIndexUrl?: string | null;
+  parentIndexLevel?: number | null;
+  type?: "site" | "index";
+  standaloneAdminUrl?: string;
+  solidaryAdminUrl?: string;
+  authCallbackUrl?: string;
+  authProvidersDashboardUrl?: string;
+};
+
+type RawIndexAdminConnection = {
+  siteId?: string;
+  status?: "tracked" | "delisted";
+  createdAt?: string | null;
+  delistReasonCode?: string | null;
+  delistNote?: string | null;
+  title?: string;
+  description?: string;
+  canonicalUrl?: string;
+  imageUrl?: string | null;
+  type?: "site" | "index" | null;
+  parentIndexId?: string | null;
+  parentIndexUrl?: string | null;
+  parentIndexLevel?: number | null;
+};
+
+type RawIndexAdminCollaborator = {
+  role?: CollaboratorRole | "owner" | "viewer" | null;
+  userId?: string | null;
+  email?: string | null;
+  displayName?: string | null;
+  githubLogin?: string | null;
+  syncState?: "synced" | "pending_invite" | "unknown" | null;
+};
+
+type RawIndexAdminState = {
+  actor?: RawIndexAdminActor;
+  archive?: RawIndexAdminArchive;
+  connections?: RawIndexAdminConnection[];
+  collaborators?: RawIndexAdminCollaborator[];
+};
+
+type RawIndexAdminSetup = Partial<IndexAdminSetup>;
+
+const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): IndexAdminState => {
+  const actor = rawState?.actor;
+  const archive = rawState?.archive;
+  const collaboratorRows = rawState?.collaborators ?? [];
+  const ownerRow = collaboratorRows.find((entry) => entry.role === "owner") ?? null;
+  const managedCollaboratorRows: ManagedCollaboratorApiRow[] = collaboratorRows
+    .filter(
+      (entry) =>
+        entry.role === "admin" || entry.role === "editor" || entry.role === "contributor"
+    )
+    .map((entry) => ({
+      userId: typeof entry.userId === "string" ? entry.userId : null,
+      role:
+        entry.role === "admin" || entry.role === "editor" || entry.role === "contributor"
+          ? entry.role
+          : null,
+      email: typeof entry.email === "string" ? entry.email : null,
+      displayName: typeof entry.displayName === "string" ? entry.displayName : null,
+      githubLogin: typeof entry.githubLogin === "string" ? entry.githubLogin : null,
+      syncState:
+        entry.syncState === "synced" ||
+        entry.syncState === "pending_invite" ||
+        entry.syncState === "unknown"
+          ? entry.syncState
+          : null
+    }));
+
+  return {
+    actor: {
+      userId: typeof actor?.userId === "string" ? actor.userId : "",
+      role:
+        actor?.role === "admin" ||
+        actor?.role === "editor" ||
+        actor?.role === "contributor" ||
+        actor?.role === "owner"
+          ? actor.role
+          : "owner",
+      via: actor?.via === "bridge" ? "bridge" : "session",
+      canEditGeneral: actor?.canEditGeneral !== false,
+      canManageConnections: actor?.canManageConnections !== false,
+      canManageCollaborators: actor?.canManageCollaborators !== false,
+      canManageAdvanced: actor?.canManageAdvanced !== false
+    },
+    archive: {
+      id: typeof archive?.id === "string" ? archive.id : "",
+      slug: typeof archive?.slug === "string" ? archive.slug : "",
+      title: typeof archive?.title === "string" ? archive.title : "",
+      description: typeof archive?.description === "string" ? archive.description : "",
+      imageUrl: typeof archive?.imageUrl === "string" ? archive.imageUrl : "",
+      canonicalUrl: typeof archive?.canonicalUrl === "string" ? archive.canonicalUrl : "",
+      repoFullName: typeof archive?.repoFullName === "string" ? archive.repoFullName : null,
+      repoUrl: typeof archive?.repoUrl === "string" ? archive.repoUrl : null,
+      supabaseProjectRef:
+        typeof archive?.supabaseProjectRef === "string" ? archive.supabaseProjectRef : null,
+      supabaseDashboardUrl:
+        typeof archive?.supabaseDashboardUrl === "string" ? archive.supabaseDashboardUrl : null,
+      supabaseProjectUrl:
+        typeof archive?.supabaseProjectUrl === "string" ? archive.supabaseProjectUrl : "",
+      supabasePublishableKey:
+        typeof archive?.supabasePublishableKey === "string" ? archive.supabasePublishableKey : "",
+      indexLevel: typeof archive?.indexLevel === "number" ? archive.indexLevel : null,
+      parentIndexId:
+        typeof archive?.parentIndexId === "string" ? archive.parentIndexId : null,
+      parentIndexUrl:
+        typeof archive?.parentIndexUrl === "string" ? archive.parentIndexUrl : null,
+      parentIndexLevel:
+        typeof archive?.parentIndexLevel === "number" ? archive.parentIndexLevel : null,
+      type: archive?.type === "site" || archive?.type === "index" ? archive.type : "index",
+      standaloneAdminUrl:
+        typeof archive?.standaloneAdminUrl === "string" ? archive.standaloneAdminUrl : "",
+      solidaryAdminUrl:
+        typeof archive?.solidaryAdminUrl === "string" ? archive.solidaryAdminUrl : "",
+      authCallbackUrl:
+        typeof archive?.authCallbackUrl === "string" ? archive.authCallbackUrl : "",
+      authProvidersDashboardUrl:
+        typeof archive?.authProvidersDashboardUrl === "string"
+          ? archive.authProvidersDashboardUrl
+          : ""
+    },
+    connections: (rawState?.connections ?? []).map(
+      (connection) =>
+        ({
+          siteId: typeof connection.siteId === "string" ? connection.siteId : "",
+          status: connection.status === "delisted" ? "delisted" : "tracked",
+          createdAt: typeof connection.createdAt === "string" ? connection.createdAt : null,
+          delistReasonCode:
+            typeof connection.delistReasonCode === "string" ? connection.delistReasonCode : null,
+          delistNote: typeof connection.delistNote === "string" ? connection.delistNote : null,
+          title: typeof connection.title === "string" ? connection.title : "Untitled site",
+          description: typeof connection.description === "string" ? connection.description : "",
+          canonicalUrl:
+            typeof connection.canonicalUrl === "string" ? connection.canonicalUrl : "",
+          imageUrl: typeof connection.imageUrl === "string" ? connection.imageUrl : null,
+          type: connection.type === "site" || connection.type === "index" ? connection.type : null,
+          parentIndexId:
+            typeof connection.parentIndexId === "string" ? connection.parentIndexId : null,
+          parentIndexUrl:
+            typeof connection.parentIndexUrl === "string" ? connection.parentIndexUrl : null,
+          parentIndexLevel:
+            typeof connection.parentIndexLevel === "number" ? connection.parentIndexLevel : null
+        }) satisfies IndexAdminConnection
+    ),
+    collaborators: mapManagedCollaboratorRows(managedCollaboratorRows),
+    owner: ownerRow
+      ? ({
+          userId: typeof ownerRow.userId === "string" ? ownerRow.userId : "",
+          email: typeof ownerRow.email === "string" ? ownerRow.email : "",
+          displayName:
+            typeof ownerRow.displayName === "string" && ownerRow.displayName.trim()
+              ? ownerRow.displayName
+              : typeof ownerRow.email === "string"
+                ? ownerRow.email
+                : "",
+          githubLogin: typeof ownerRow.githubLogin === "string" ? ownerRow.githubLogin : null
+        } satisfies CollaboratorSearchResult)
+      : null
+  };
+};
+
+const mapSetup = (rawSetup: RawIndexAdminSetup | null | undefined): IndexAdminSetup => ({
+  liveUrl: typeof rawSetup?.liveUrl === "string" ? rawSetup.liveUrl : "",
+  repoUrl: typeof rawSetup?.repoUrl === "string" ? rawSetup.repoUrl : null,
+  supabaseDashboardUrl:
+    typeof rawSetup?.supabaseDashboardUrl === "string" ? rawSetup.supabaseDashboardUrl : null,
+  standaloneAdminUrl:
+    typeof rawSetup?.standaloneAdminUrl === "string" ? rawSetup.standaloneAdminUrl : "",
+  authCallbackUrl: typeof rawSetup?.authCallbackUrl === "string" ? rawSetup.authCallbackUrl : "",
+  authProvidersDashboardUrl:
+    typeof rawSetup?.authProvidersDashboardUrl === "string"
+      ? rawSetup.authProvidersDashboardUrl
+      : "",
+  nextSteps: Array.isArray(rawSetup?.nextSteps)
+    ? rawSetup.nextSteps.filter((entry): entry is string => typeof entry === "string")
+    : [],
+  solidaryAdminUrl:
+    typeof rawSetup?.solidaryAdminUrl === "string" ? rawSetup.solidaryAdminUrl : ""
+});
+
+const mapReadResponse = (payload: {
+  state?: RawIndexAdminState | null;
+  setup?: RawIndexAdminSetup | null;
+}): IndexAdminReadResponse => ({
+  state: mapIndexAdminState(payload.state),
+  setup: mapSetup(payload.setup)
+});
+
+export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]> => {
+  const payload = await githubRequest<{ items?: IndexAdminListItem[] }>("index-admin-list", {});
+  return Array.isArray(payload.items) ? payload.items : [];
+};
+
+export const readIndexAdmin = async (archiveId: string): Promise<IndexAdminReadResponse> => {
+  const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
+    "index-admin-read",
+    {
+      archive_id: archiveId
+    }
+  );
+  return mapReadResponse(payload);
+};
+
+export const searchIndexAdminCollaborators = async ({
+  archiveId,
+  query
+}: {
+  archiveId: string;
+  query: string;
+}): Promise<IndexAdminSearchResponse> => {
+  const payload = await githubRequest<{ results?: CollaboratorSearchRpcRow[] }>(
+    "index-admin-search-collaborators",
+    {
+      archive_id: archiveId,
+      query
+    }
+  );
+
+  return {
+    results: mapCollaboratorSearchRows(payload.results)
+  };
+};
+
+const writeIndexAdmin = async (
+  body: Record<string, unknown>
+): Promise<IndexAdminWriteResponse> => {
+  const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
+    "index-admin-write",
+    body
+  );
+  return mapReadResponse(payload);
+};
+
+export const saveIndexAdminGeneral = async ({
+  archiveId,
+  title,
+  description,
+  imageContentB64
+}: IndexAdminGeneralPayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "update_general",
+    title,
+    description,
+    image_content_b64: imageContentB64
+  });
+
+export const saveIndexAdminConnectionStatus = async ({
+  archiveId,
+  siteId,
+  status
+}: IndexAdminConnectionStatusPayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "set_connection_status",
+    site_id: siteId,
+    status
+  });
+
+export const saveIndexAdminCollaborator = async ({
+  archiveId,
+  collaboratorUserId,
+  role
+}: {
+  archiveId: string;
+  collaboratorUserId: string;
+  role: CollaboratorRole;
+}) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "upsert_collaborator",
+    collaborator_user_id: collaboratorUserId,
+    role
+  });
+
+export const removeIndexAdminCollaborator = async ({
+  archiveId,
+  collaboratorUserId
+}: {
+  archiveId: string;
+  collaboratorUserId: string;
+}) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "remove_collaborator",
+    collaborator_user_id: collaboratorUserId
+  });
+
+export const saveIndexAdminAdvanced = async ({
+  archiveId,
+  domain
+}: IndexAdminAdvancedPayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "update_advanced",
+    domain
+  });
+
+export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());
+
+export const collaboratorRoleLabel = (role: ManagedCollaborator["role"]) =>
+  role.slice(0, 1).toUpperCase() + role.slice(1);

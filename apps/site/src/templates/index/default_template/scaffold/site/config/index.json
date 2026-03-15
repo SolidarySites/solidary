@@ -3,9 +3,19 @@
   "description": "This configuration is replaced during provisioning.",
   "slug": "solidary-index",
   "archiveId": "",
+  "repoFullName": "",
   "repoUrl": "",
   "projectRef": "",
   "projectUrl": "",
+  "publishableKey": "",
   "projectDashboardUrl": "",
-  "siteUrl": ""
+  "siteUrl": "",
+  "solidaryAppUrl": "https://solidary.netlify.app",
+  "solidarySupabaseUrl": "",
+  "authCallbackUrl": "",
+  "authProvidersDashboardUrl": "",
+  "indexLevel": 1,
+  "parentIndexId": "",
+  "parentIndexUrl": "",
+  "parentIndexLevel": 0
 }

@@ -150,6 +150,9 @@ export default function IndexesListSection({
                         Supabase project
                       </a>
                     ) : null}
+                    <Link to={`/admin?archiveId=${item.id}`} className="site-card-action-link">
+                      Admin
+                    </Link>
                     <Link to="/index-create" className="site-card-action-link">
                       Create another
                     </Link>
