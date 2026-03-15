@@ -885,16 +885,8 @@ const splitRepoFullName = (repoFullName: string) => {
   };
 };
 
-const buildSecretsPayloads = (
-  secrets: Record<string, string>,
-) => [
-  secrets,
-  { secrets },
-  Object.entries(secrets).map(([name, value]) => ({
-    name,
-    value,
-  })),
-];
+const isReservedSupabaseSecretName = (name: string) =>
+  name.trim().toUpperCase().startsWith("SUPABASE_");
 
 async function setProjectSecrets({
   accessToken,
@@ -905,35 +897,50 @@ async function setProjectSecrets({
   projectRef: string;
   secrets: Record<string, string>;
 }) {
-  const filteredSecrets = Object.fromEntries(
-    Object.entries(secrets).filter(([, value]) => value.trim()),
+  const filteredSecrets = Object.entries(secrets)
+    .filter(([name, value]) =>
+      value.trim() && !isReservedSupabaseSecretName(name)
+    )
+    .map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+  const skippedSecrets = Object.keys(secrets).filter((name) =>
+    isReservedSupabaseSecretName(name)
   );
-  if (!Object.keys(filteredSecrets).length) {
+  if (skippedSecrets.length) {
+    console.log("[index-finalize-worker] skipped reserved secrets", {
+      projectRef,
+      skippedSecrets,
+    });
+  }
+
+  if (!filteredSecrets.length) {
     return;
   }
 
-  let lastMessage = "Failed to create project secrets.";
-  for (const body of buildSecretsPayloads(filteredSecrets)) {
-    const response = await fetch(
-      `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/secrets`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+  const response = await fetch(
+    `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/secrets`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
-    );
-    if (response.ok) {
-      return;
-    }
-    const payload = await response.json().catch(() => ({}));
-    lastMessage = getGhErrorMessage(payload, lastMessage);
+      body: JSON.stringify(filteredSecrets),
+    },
+  );
+  if (response.ok) {
+    return;
   }
 
-  throw new HttpError(500, lastMessage);
+  const payload = await response.json().catch(() => ({}));
+  throw new HttpError(
+    500,
+    getGhErrorMessage(payload, "Failed to create project secrets."),
+  );
 }
 
 async function deployFunctionBundle({
@@ -1492,7 +1499,6 @@ export const handler: Handler = async (event) => {
         accessToken: managementAccessToken,
         projectRef: credentials.supabase_project_ref,
         secrets: {
-          SUPABASE_URL: credentials.supabase_project_url,
           CREATE_SITE_SUPABASE_API_KEY: decryptTokenValue(
             credentials.supabase_secret_key_encrypted,
           ),
