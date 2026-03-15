@@ -157,6 +157,11 @@ const normalizeRepoImageContent = (value: string | undefined) => {
   return normalized.replace(/^data:[^;]+;base64,/, "").trim();
 };
 
+const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
+
+const toSqlText = (value: string | null) =>
+  value === null ? "null" : `'${escapeSqlLiteral(value)}'`;
+
 const resolveAbsoluteAssetUrl = ({
   siteUrl,
   assetPath,
@@ -1461,8 +1466,7 @@ async function bootstrapProjectDatabase({
 }
 
 async function syncChildRootArchive({
-  projectUrl,
-  secretKey,
+  accessToken,
   archiveId,
   slug,
   title,
@@ -1482,8 +1486,7 @@ async function syncChildRootArchive({
   parentRepoFullName,
   parentRepoUrl,
 }: {
-  projectUrl: string;
-  secretKey: string;
+  accessToken: string;
   archiveId: string;
   slug: string;
   title: string;
@@ -1503,42 +1506,75 @@ async function syncChildRootArchive({
   parentRepoFullName: string;
   parentRepoUrl: string;
 }) {
-  const child = createClient(projectUrl, secretKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  await runProjectQuery({
+    accessToken,
+    projectRef,
+    query: [
+      "insert into public.archives (",
+      "  id,",
+      "  owner_user_id,",
+      "  slug,",
+      "  title,",
+      "  description,",
+      "  image_url,",
+      "  canonical_url,",
+      "  repo_full_name,",
+      "  repo_url,",
+      "  supabase_project_id,",
+      "  supabase_project_ref,",
+      "  supabase_project_name,",
+      "  supabase_dashboard_url,",
+      "  source,",
+      "  type,",
+      "  is_root,",
+      "  runtime_mode,",
+      "  index_level,",
+      "  parent_index_id,",
+      "  parent_index_url,",
+      "  parent_index_level,",
+      "  parent_repo_full_name,",
+      "  parent_repo_url,",
+      "  finalized_at",
+      ")",
+      `values (${toSqlText(archiveId)}, null, ${toSqlText(slug)}, ${
+        toSqlText(title)
+      }, ${toSqlText(description)}, ${toSqlText(imageUrl)}, ${
+        toSqlText(siteUrl)
+      }, ${toSqlText(repoFullName)}, ${toSqlText(repoUrl)}, ${
+        toSqlText(projectId)
+      }, ${toSqlText(projectRef)}, ${toSqlText(projectName)}, ${
+        toSqlText(projectDashboardUrl)
+      }, 'index_create', 'index', true, 'scaffold', ${indexLevel}, ${
+        toSqlText(parentIndexId)
+      }, ${toSqlText(parentIndexUrl)}, ${parentIndexLevel}, ${
+        toSqlText(parentRepoFullName)
+      }, ${toSqlText(parentRepoUrl)}, null)`,
+      "on conflict (id) do update set",
+      "  slug = excluded.slug,",
+      "  title = excluded.title,",
+      "  description = excluded.description,",
+      "  image_url = excluded.image_url,",
+      "  canonical_url = excluded.canonical_url,",
+      "  repo_full_name = excluded.repo_full_name,",
+      "  repo_url = excluded.repo_url,",
+      "  supabase_project_id = excluded.supabase_project_id,",
+      "  supabase_project_ref = excluded.supabase_project_ref,",
+      "  supabase_project_name = excluded.supabase_project_name,",
+      "  supabase_dashboard_url = excluded.supabase_dashboard_url,",
+      "  source = excluded.source,",
+      "  type = excluded.type,",
+      "  is_root = excluded.is_root,",
+      "  runtime_mode = excluded.runtime_mode,",
+      "  index_level = excluded.index_level,",
+      "  parent_index_id = excluded.parent_index_id,",
+      "  parent_index_url = excluded.parent_index_url,",
+      "  parent_index_level = excluded.parent_index_level,",
+      "  parent_repo_full_name = excluded.parent_repo_full_name,",
+      "  parent_repo_url = excluded.parent_repo_url,",
+      "  finalized_at = excluded.finalized_at,",
+      "  updated_at = now();",
+    ].join("\n"),
   });
-
-  const { error } = await child.from("archives").upsert({
-    id: archiveId,
-    owner_user_id: null,
-    slug,
-    title,
-    description,
-    image_url: imageUrl,
-    canonical_url: siteUrl,
-    repo_full_name: repoFullName,
-    repo_url: repoUrl,
-    supabase_project_id: projectId,
-    supabase_project_ref: projectRef,
-    supabase_project_name: projectName,
-    supabase_dashboard_url: projectDashboardUrl,
-    source: "index_create",
-    type: "index",
-    is_root: true,
-    runtime_mode: "scaffold",
-    index_level: indexLevel,
-    parent_index_id: parentIndexId,
-    parent_index_url: parentIndexUrl,
-    parent_index_level: parentIndexLevel,
-    parent_repo_full_name: parentRepoFullName,
-    parent_repo_url: parentRepoUrl,
-    finalized_at: null,
-  });
-  if (error) {
-    throw new HttpError(
-      500,
-      error.message || "Failed to save child root archive metadata.",
-    );
-  }
 }
 
 async function saveParentIndexMetadata({
@@ -1917,8 +1953,7 @@ export const handler: Handler = async (event) => {
       });
 
       await syncChildRootArchive({
-        projectUrl,
-        secretKey,
+        accessToken: managementAccessToken,
         archiveId,
         slug: repoName,
         title,
