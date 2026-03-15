@@ -162,6 +162,8 @@ const escapeSqlLiteral = (value: string) => value.replace(/'/g, "''");
 const toSqlText = (value: string | null) =>
   value === null ? "null" : `'${escapeSqlLiteral(value)}'`;
 
+const isValidRepoFullName = (value: string) => /^[^/\s]+\/[^/\s]+$/.test(value);
+
 const resolveAbsoluteAssetUrl = ({
   siteUrl,
   assetPath,
@@ -1783,6 +1785,13 @@ export const handler: Handler = async (event) => {
     });
 
     try {
+      if (!isValidRepoFullName(parentRepoFullName)) {
+        throw new HttpError(
+          500,
+          "Solidary root source repository is not configured as owner/repo.",
+        );
+      }
+
       const resolvedGitHubAuth = await resolveGitHubTokenForUser({
         supabase,
         userId: ownerUserId,

@@ -53,6 +53,8 @@ type RawIndexAdminArchive = {
   parentIndexId?: string | null;
   parentIndexUrl?: string | null;
   parentIndexLevel?: number | null;
+  parentRepoFullName?: string | null;
+  parentRepoUrl?: string | null;
   type?: "site" | "index";
   standaloneAdminUrl?: string;
   solidaryAdminUrl?: string;
@@ -165,6 +167,9 @@ const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): In
         typeof archive?.parentIndexUrl === "string" ? archive.parentIndexUrl : null,
       parentIndexLevel:
         typeof archive?.parentIndexLevel === "number" ? archive.parentIndexLevel : null,
+      parentRepoFullName:
+        typeof archive?.parentRepoFullName === "string" ? archive.parentRepoFullName : null,
+      parentRepoUrl: typeof archive?.parentRepoUrl === "string" ? archive.parentRepoUrl : null,
       type: archive?.type === "site" || archive?.type === "index" ? archive.type : "index",
       standaloneAdminUrl:
         typeof archive?.standaloneAdminUrl === "string" ? archive.standaloneAdminUrl : "",
@@ -241,6 +246,17 @@ const mapFinalization = (
       : null,
   sourceRepoUrl:
     typeof rawFinalization?.sourceRepoUrl === "string" ? rawFinalization.sourceRepoUrl : null,
+  sourceRepoStatus:
+    rawFinalization?.sourceRepoStatus === "child_lineage" ||
+    rawFinalization?.sourceRepoStatus === "solidary_lineage" ||
+    rawFinalization?.sourceRepoStatus === "root_fallback" ||
+    rawFinalization?.sourceRepoStatus === "missing"
+      ? rawFinalization.sourceRepoStatus
+      : "missing",
+  sourceRepoMessage:
+    typeof rawFinalization?.sourceRepoMessage === "string"
+      ? rawFinalization.sourceRepoMessage
+      : null,
   targetStudioUrl:
     typeof rawFinalization?.targetStudioUrl === "string" ? rawFinalization.targetStudioUrl : "",
   targetExplorerUrl:

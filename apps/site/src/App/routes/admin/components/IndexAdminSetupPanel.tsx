@@ -1,5 +1,12 @@
 import type { IndexAdminArchiveState, IndexAdminSetup } from "../services/types";
 
+const FINALIZATION_SOURCE_STATUS_LABELS = {
+  child_lineage: "Stored on child index",
+  solidary_lineage: "Recovered from Solidary",
+  root_fallback: "Solidary root fallback",
+  missing: "Missing lineage"
+} as const;
+
 type IndexAdminSetupPanelProps = {
   archive: IndexAdminArchiveState;
   setup: IndexAdminSetup | null;
@@ -131,6 +138,20 @@ export default function IndexAdminSetupPanel({
                   )}
                 </dd>
               </div>
+              <div>
+                <dt>Source status</dt>
+                <dd>
+                  {finalization
+                    ? FINALIZATION_SOURCE_STATUS_LABELS[finalization.sourceRepoStatus]
+                    : "-"}
+                </dd>
+              </div>
+              {finalization?.sourceRepoMessage && (
+                <div>
+                  <dt>Source note</dt>
+                  <dd>{finalization.sourceRepoMessage}</dd>
+                </div>
+              )}
               {finalization?.error && (
                 <div>
                   <dt>Latest error</dt>

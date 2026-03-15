@@ -49,6 +49,8 @@ export type IndexAdminArchiveState = {
   parentIndexId: string | null;
   parentIndexUrl: string | null;
   parentIndexLevel: number | null;
+  parentRepoFullName: string | null;
+  parentRepoUrl: string | null;
   type: "site" | "index";
   standaloneAdminUrl: string;
   solidaryAdminUrl: string;
@@ -95,6 +97,8 @@ export type IndexAdminFinalizationState = {
   completedAt: string | null;
   sourceRepoFullName: string | null;
   sourceRepoUrl: string | null;
+  sourceRepoStatus: "child_lineage" | "solidary_lineage" | "root_fallback" | "missing";
+  sourceRepoMessage: string | null;
   targetStudioUrl: string;
   targetExplorerUrl: string;
   targetSearchUrl: string;

@@ -3,8 +3,10 @@ import JSZip from "npm:jszip@3.10.1";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { runHandler } from "../_shared/request-adapter.ts";
 import {
+  createChildProjectClient,
   type IndexArchiveRow,
   type IndexProjectCredentialsRow,
+  type ParentSourceRepoResolution,
   resolveParentSourceRepo,
 } from "../_shared/index-admin.ts";
 import {
@@ -82,6 +84,14 @@ type SourceBlobFile = {
   path: string;
   mode: "100644" | "100755";
   contentB64: string;
+};
+
+type ChildParentSourceArchiveRow = {
+  id: string;
+  parent_index_id: string | null;
+  parent_index_url: string | null;
+  parent_repo_full_name: string | null;
+  parent_repo_url: string | null;
 };
 
 class HttpError extends Error {
@@ -1112,6 +1122,98 @@ const readArchiveAndCredentials = async ({
   };
 };
 
+const readChildParentSourceArchive = async ({
+  archiveId,
+  credentials,
+}: {
+  archiveId: string;
+  credentials: IndexProjectCredentialsRow;
+}) => {
+  const child = createChildProjectClient(credentials);
+  const { data, error } = await child
+    .from("archives")
+    .select(
+      [
+        "id",
+        "parent_index_id",
+        "parent_index_url",
+        "parent_repo_full_name",
+        "parent_repo_url",
+      ].join(", "),
+    )
+    .eq("id", archiveId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("The child index is missing its archive metadata row.");
+  }
+
+  return data as unknown as ChildParentSourceArchiveRow;
+};
+
+const reconcileParentSourceRepoLineage = async ({
+  supabase,
+  archiveId,
+  archive,
+  credentials,
+  childArchive,
+  parentSource,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  archiveId: string;
+  archive: IndexArchiveRow;
+  credentials: IndexProjectCredentialsRow;
+  childArchive: ChildParentSourceArchiveRow;
+  parentSource: ParentSourceRepoResolution;
+}) => {
+  if (!parentSource.repoFullName || !parentSource.repoUrl) {
+    return archive;
+  }
+
+  const nextValues = {
+    parent_repo_full_name: parentSource.repoFullName,
+    parent_repo_url: parentSource.repoUrl,
+  };
+
+  if (
+    toTrimmedString(archive.parent_repo_full_name) !==
+      nextValues.parent_repo_full_name ||
+    toTrimmedString(archive.parent_repo_url) !== nextValues.parent_repo_url
+  ) {
+    const { error } = await supabase
+      .from("archives")
+      .update(nextValues)
+      .eq("id", archiveId);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  if (
+    toTrimmedString(childArchive.parent_repo_full_name) !==
+      nextValues.parent_repo_full_name ||
+    toTrimmedString(childArchive.parent_repo_url) !== nextValues.parent_repo_url
+  ) {
+    const child = createChildProjectClient(credentials);
+    const { error } = await child
+      .from("archives")
+      .update(nextValues)
+      .eq("id", archiveId)
+      .eq("is_root", true);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  return {
+    ...archive,
+    ...nextValues,
+  } satisfies IndexArchiveRow;
+};
+
 const updateArchiveModes = async ({
   archiveId,
   supabase,
@@ -1133,13 +1235,7 @@ const updateArchiveModes = async ({
     throw new Error(parentError.message);
   }
 
-  const child = createClient(
-    credentials.supabase_project_url,
-    decryptTokenValue(credentials.supabase_secret_key_encrypted),
-    {
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
+  const child = createChildProjectClient(credentials);
   const { error: childError } = await child
     .from("archives")
     .update({
@@ -1240,13 +1336,29 @@ export const handler: Handler = async (event) => {
         throw error;
       }
 
-      const parentSource = resolveParentSourceRepo(archive);
+      const childArchive = await readChildParentSourceArchive({
+        archiveId,
+        credentials,
+      });
+      const parentSource = resolveParentSourceRepo({
+        archive,
+        childArchive,
+      });
       if (!parentSource.repoFullName) {
         throw new HttpError(
           412,
-          "The parent source repository is not configured for this index.",
+          parentSource.message ??
+            "The parent source repository is not configured for this index.",
         );
       }
+      const syncedArchive = await reconcileParentSourceRepoLineage({
+        supabase,
+        archiveId,
+        archive,
+        credentials,
+        childArchive,
+        parentSource,
+      });
       const sourceRepo = splitRepoFullName(parentSource.repoFullName);
       const targetRepo = {
         owner: credentials.repo_owner,
@@ -1259,6 +1371,11 @@ export const handler: Handler = async (event) => {
         source_repo_url: parentSource.repoUrl,
         target_repo_full_name: credentials.repo_full_name,
         child_project_ref: credentials.supabase_project_ref,
+        payload: {
+          source_repo_full_name: parentSource.repoFullName,
+          source_repo_url: parentSource.repoUrl,
+          source_repo_resolution: parentSource.sourceKind,
+        },
       });
 
       const sourceRepoPayload = await getRepo({
@@ -1310,9 +1427,9 @@ export const handler: Handler = async (event) => {
             credentials.supabase_secret_key_encrypted,
           ),
           TOKEN_ENCRYPTION_KEY: TOKEN_ENCRYPTION_KEY,
-          SOLIDARY_APP_URL: toTrimmedString(archive.canonical_url),
+          SOLIDARY_APP_URL: toTrimmedString(syncedArchive.canonical_url),
           SOLIDARY_ROOT_INDEX_ID: archive.id,
-          SOLIDARY_ROOT_INDEX_URL: toTrimmedString(archive.canonical_url),
+          SOLIDARY_ROOT_INDEX_URL: toTrimmedString(syncedArchive.canonical_url),
           SOLIDARY_ROOT_INDEX_LEVEL: String(archive.index_level ?? 1),
           SOLIDARY_ROOT_REPO_FULL_NAME: credentials.repo_full_name,
           SOLIDARY_ROOT_REPO_URL: toTrimmedString(credentials.repo_url),
@@ -1344,6 +1461,7 @@ export const handler: Handler = async (event) => {
         payload: {
           source_repo_full_name: parentSource.repoFullName,
           source_repo_url: parentSource.repoUrl,
+          source_repo_resolution: parentSource.sourceKind,
           source_branch: sourceBranch,
           target_repo_full_name: credentials.repo_full_name,
           target_repo_url: credentials.repo_url,

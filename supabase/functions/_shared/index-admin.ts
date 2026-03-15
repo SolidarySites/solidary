@@ -4,6 +4,8 @@ import { decryptTokenValue } from "./token-crypto.ts";
 import type { HandlerEvent } from "./types.ts";
 import {
   getSolidaryAppUrl,
+  getSolidaryRootIndexId,
+  getSolidaryRootIndexUrl,
   getSolidaryRootRepoFullName,
   getSolidaryRootRepoUrl,
 } from "./solidary-root-index.ts";
@@ -162,6 +164,26 @@ export type IndexFinalizationJobRow = {
   completed_at: string | null;
 };
 
+export type ParentSourceRepoStatus =
+  | "child_lineage"
+  | "solidary_lineage"
+  | "root_fallback"
+  | "missing";
+
+type ParentSourceRepoInput = {
+  parent_index_id?: string | null;
+  parent_index_url?: string | null;
+  parent_repo_full_name?: string | null;
+  parent_repo_url?: string | null;
+};
+
+export type ParentSourceRepoResolution = {
+  repoFullName: string | null;
+  repoUrl: string | null;
+  sourceKind: ParentSourceRepoStatus;
+  message: string | null;
+};
+
 const roleRank: Record<IndexAdminRole, number> = {
   contributor: 0,
   editor: 1,
@@ -176,6 +198,42 @@ const asRecord = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+
+const normalizeComparableUrl = (value: string) =>
+  value.trim().replace(/\/+$/, "").toLowerCase();
+
+const normalizeRepoFullName = (value: unknown) => {
+  const trimmed = toTrimmedString(value);
+  return /^[^/\s]+\/[^/\s]+$/.test(trimmed) ? trimmed : "";
+};
+
+const toRepoUrl = (
+  repoFullName: string,
+  explicitUrl?: string | null,
+) => toTrimmedString(explicitUrl) || `https://github.com/${repoFullName}`;
+
+const isSolidaryRootParent = (
+  childArchive: ParentSourceRepoInput | null | undefined,
+  archive: ParentSourceRepoInput,
+) => {
+  const rootIndexId = getSolidaryRootIndexId();
+  const rootIndexUrl = normalizeComparableUrl(getSolidaryRootIndexUrl());
+  const candidateIds = [
+    toTrimmedString(childArchive?.parent_index_id),
+    toTrimmedString(archive.parent_index_id),
+  ].filter(Boolean);
+  if (candidateIds.includes(rootIndexId)) {
+    return true;
+  }
+
+  const candidateUrls = [
+    toTrimmedString(childArchive?.parent_index_url),
+    toTrimmedString(archive.parent_index_url),
+  ]
+    .filter(Boolean)
+    .map(normalizeComparableUrl);
+  return candidateUrls.includes(rootIndexUrl);
+};
 
 const createServiceSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -509,16 +567,67 @@ export const createChildProjectClient = (
   );
 };
 
-export const resolveParentSourceRepo = (archive: IndexArchiveRow) => {
-  const repoFullName = toTrimmedString(archive.parent_repo_full_name) ||
-    getSolidaryRootRepoFullName();
-  const repoUrl = toTrimmedString(archive.parent_repo_url) ||
-    (repoFullName ? `https://github.com/${repoFullName}` : "") ||
-    getSolidaryRootRepoUrl();
+export const resolveParentSourceRepo = ({
+  archive,
+  childArchive,
+}: {
+  archive: ParentSourceRepoInput;
+  childArchive?: ParentSourceRepoInput | null;
+}): ParentSourceRepoResolution => {
+  const childRepoFullName = normalizeRepoFullName(
+    childArchive?.parent_repo_full_name,
+  );
+  if (childRepoFullName) {
+    return {
+      repoFullName: childRepoFullName,
+      repoUrl: toRepoUrl(childRepoFullName, childArchive?.parent_repo_url),
+      sourceKind: "child_lineage",
+      message: null,
+    };
+  }
+
+  const solidaryRepoFullName = normalizeRepoFullName(
+    archive.parent_repo_full_name,
+  );
+  if (solidaryRepoFullName) {
+    return {
+      repoFullName: solidaryRepoFullName,
+      repoUrl: toRepoUrl(solidaryRepoFullName, archive.parent_repo_url),
+      sourceKind: "solidary_lineage",
+      message:
+        "Using the parent repo stored in Solidary. Finalization will backfill the child index lineage.",
+    };
+  }
+
+  if (isSolidaryRootParent(childArchive, archive)) {
+    const rootRepoFullName = normalizeRepoFullName(
+      getSolidaryRootRepoFullName(),
+    );
+    if (rootRepoFullName) {
+      return {
+        repoFullName: rootRepoFullName,
+        repoUrl: toRepoUrl(rootRepoFullName, getSolidaryRootRepoUrl()),
+        sourceKind: "root_fallback",
+        message:
+          "Using the Solidary root repo fallback. Finalization will backfill stored lineage before copying files.",
+      };
+    }
+
+    return {
+      repoFullName: null,
+      repoUrl: null,
+      sourceKind: "missing",
+      message:
+        "This first-generation index is missing both stored lineage and Solidary root repo configuration.",
+    };
+  }
 
   return {
-    repoFullName: repoFullName || null,
-    repoUrl: repoUrl || null,
+    repoFullName: null,
+    repoUrl: null,
+    sourceKind: "missing",
+    message:
+      "This index is missing parent repo lineage in both the child project and the parent archive record.",
   };
 };
 
@@ -1012,6 +1121,8 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
         context.archive.parent_index_url ?? null,
       parentIndexLevel: archive.parent_index_level ??
         context.archive.parent_index_level ?? null,
+      parentRepoFullName: archive.parent_repo_full_name ?? null,
+      parentRepoUrl: archive.parent_repo_url ?? null,
       type: archive.type ?? context.archive.type ?? "index",
       standaloneAdminUrl,
       solidaryAdminUrl:
@@ -1443,18 +1554,30 @@ export const updateIndexAdvancedSettings = async ({
 
 const buildFinalizationSetup = ({
   context,
+  state,
   latestJob,
 }: {
   context: IndexAdminContext;
+  state: Awaited<ReturnType<typeof readIndexAdminState>>;
   latestJob: IndexFinalizationJobRow | null;
 }) => {
-  const parentSource = resolveParentSourceRepo(context.archive);
+  const parentSource = resolveParentSourceRepo({
+    archive: context.archive,
+    childArchive: {
+      parent_index_id: state.archive.parentIndexId,
+      parent_index_url: state.archive.parentIndexUrl,
+      parent_repo_full_name: state.archive.parentRepoFullName,
+      parent_repo_url: state.archive.parentRepoUrl,
+    },
+  });
   const jobStatus = latestJob?.status ?? null;
   const isFinalized = context.archive.runtime_mode === "finalized";
   const isRunning = jobStatus === "queued" || jobStatus === "running";
 
   return {
-    available: context.actorRole === "owner" && !isFinalized,
+    available: context.actorRole === "owner" &&
+      !isFinalized &&
+      parentSource.sourceKind !== "missing",
     isFinalized,
     isRunning,
     status: isFinalized ? "finalized" : jobStatus ?? "idle",
@@ -1468,6 +1591,8 @@ const buildFinalizationSetup = ({
       : (latestJob?.completed_at ?? null),
     sourceRepoFullName: parentSource.repoFullName,
     sourceRepoUrl: parentSource.repoUrl,
+    sourceRepoStatus: parentSource.sourceKind,
+    sourceRepoMessage: parentSource.message,
     targetStudioUrl: context.archive.canonical_url
       ? `${context.archive.canonical_url.replace(/\/+$/, "")}/studio`
       : "",
@@ -1491,6 +1616,7 @@ export const buildStandaloneAdminSetup = ({
 }) => ({
   finalization: buildFinalizationSetup({
     context,
+    state,
     latestJob,
   }),
   liveUrl: state.archive.canonicalUrl,

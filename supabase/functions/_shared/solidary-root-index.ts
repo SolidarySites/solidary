@@ -1,7 +1,7 @@
 const DEFAULT_SOLIDARY_ROOT_INDEX_ID = "00000000-0000-4000-8000-000000000001";
 const DEFAULT_SOLIDARY_APP_URL = "https://solidary.netlify.app";
 const DEFAULT_SOLIDARY_ROOT_INDEX_LEVEL = 0;
-const DEFAULT_SOLIDARY_ROOT_REPO_FULL_NAME = "";
+const DEFAULT_SOLIDARY_ROOT_REPO_FULL_NAME = "SolidarySites/solidary";
 
 const normalizeUrl = (value: string) => {
   const trimmed = value.trim();
@@ -27,9 +27,7 @@ export const getSolidaryRootIndexLevel = () => {
     (Deno.env.get("SOLIDARY_ROOT_INDEX_LEVEL") ?? "").trim(),
     10,
   );
-  return Number.isFinite(parsed)
-    ? parsed
-    : DEFAULT_SOLIDARY_ROOT_INDEX_LEVEL;
+  return Number.isFinite(parsed) ? parsed : DEFAULT_SOLIDARY_ROOT_INDEX_LEVEL;
 };
 
 export const getDefaultChildIndexLevel = () => getSolidaryRootIndexLevel() + 1;

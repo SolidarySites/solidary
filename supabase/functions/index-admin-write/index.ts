@@ -8,6 +8,7 @@ import {
   readLatestIndexFinalizationJob,
   removeIndexCollaborator,
   resolveIndexAdminContext,
+  resolveParentSourceRepo,
   updateIndexAdvancedSettings,
   updateIndexConnectionStatus,
   updateIndexGeneralSettings,
@@ -156,6 +157,22 @@ export const handler: Handler = async (event) => {
       if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
         throw new Error("Missing SUPABASE_URL or internal worker key.");
       }
+      const currentState = await readIndexAdminState(context);
+      const parentSource = resolveParentSourceRepo({
+        archive: context.archive,
+        childArchive: {
+          parent_index_id: currentState.archive.parentIndexId,
+          parent_index_url: currentState.archive.parentIndexUrl,
+          parent_repo_full_name: currentState.archive.parentRepoFullName,
+          parent_repo_url: currentState.archive.parentRepoUrl,
+        },
+      });
+      if (!parentSource.repoFullName) {
+        throw new Error(
+          parentSource.message ??
+            "The parent source repository is not configured for this index.",
+        );
+      }
 
       const { data: jobData, error: jobError } = await context.supabase
         .from("index_finalization_jobs")
@@ -164,10 +181,13 @@ export const handler: Handler = async (event) => {
           owner_user_id: context.actorUserId,
           status: "queued",
           step: "Queued",
-          source_repo_full_name: context.archive.parent_repo_full_name,
-          source_repo_url: context.archive.parent_repo_url,
+          source_repo_full_name: parentSource.repoFullName,
+          source_repo_url: parentSource.repoUrl,
           target_repo_full_name: context.credentials.repo_full_name,
           child_project_ref: context.credentials.supabase_project_ref,
+          payload: {
+            source_repo_resolution: parentSource.sourceKind,
+          },
         })
         .select("id")
         .single();
