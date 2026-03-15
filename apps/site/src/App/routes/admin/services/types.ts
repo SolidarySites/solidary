@@ -73,6 +73,7 @@ export type IndexAdminConnection = {
 };
 
 export type IndexAdminSetup = {
+  finalization: IndexAdminFinalizationState;
   liveUrl: string;
   repoUrl: string | null;
   supabaseDashboardUrl: string | null;
@@ -81,6 +82,22 @@ export type IndexAdminSetup = {
   authProvidersDashboardUrl: string;
   nextSteps: string[];
   solidaryAdminUrl: string;
+};
+
+export type IndexAdminFinalizationState = {
+  available: boolean;
+  isFinalized: boolean;
+  isRunning: boolean;
+  status: "idle" | "queued" | "running" | "failed" | "finalized";
+  step: string | null;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  sourceRepoFullName: string | null;
+  sourceRepoUrl: string | null;
+  targetStudioUrl: string;
+  targetExplorerUrl: string;
+  targetSearchUrl: string;
 };
 
 export type IndexAdminState = {
@@ -124,4 +141,8 @@ export type IndexAdminCollaboratorPayload = {
 export type IndexAdminAdvancedPayload = {
   archiveId: string;
   domain: string | null;
+};
+
+export type IndexAdminFinalizePayload = {
+  archiveId: string;
 };

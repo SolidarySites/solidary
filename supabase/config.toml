@@ -89,6 +89,30 @@ verify_jwt = false
 [functions."ingest-site"]
 verify_jwt = false
 
+[functions."index-admin-list"]
+verify_jwt = false
+
+[functions."index-admin-read"]
+verify_jwt = false
+
+[functions."index-admin-search-collaborators"]
+verify_jwt = false
+
+[functions."index-admin-write"]
+verify_jwt = false
+
+[functions."index-create"]
+verify_jwt = false
+
+[functions."index-create-status"]
+verify_jwt = false
+
+[functions."index-create-worker-background"]
+verify_jwt = false
+
+[functions."index-finalize-worker-background"]
+verify_jwt = false
+
 [functions."sync-admin-role-from-github"]
 verify_jwt = false
 

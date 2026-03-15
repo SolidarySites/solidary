@@ -4,13 +4,22 @@ type IndexAdminSetupPanelProps = {
   archive: IndexAdminArchiveState;
   setup: IndexAdminSetup | null;
   highlight: boolean;
+  startingFinalization: boolean;
+  onFinalizeIndex: () => void;
 };
 
 export default function IndexAdminSetupPanel({
   archive,
   setup,
-  highlight
+  highlight,
+  startingFinalization,
+  onFinalizeIndex
 }: IndexAdminSetupPanelProps) {
+  const finalization = setup?.finalization;
+  const canFinalize = Boolean(finalization?.available) && !startingFinalization;
+  const isRunning = Boolean(finalization?.isRunning);
+  const isFinalized = Boolean(finalization?.isFinalized);
+
   return (
     <section className={`builder-section admin-setup-panel ${highlight ? "is-highlighted" : ""}`.trim()}>
       <div className="section-header">
@@ -91,6 +100,78 @@ export default function IndexAdminSetupPanel({
                 <li key={step}>{step}</li>
               ))}
             </ol>
+          </div>
+
+          <div className="admin-setup-card">
+            <h3>{isFinalized ? "Standalone app ready" : "Finalise Index"}</h3>
+            <p>
+              {isFinalized
+                ? "The child repo now runs its own Search, Explorer, Studio, and functions."
+                : "Copy the parent index app into this child repo once the standalone auth setup is working."}
+            </p>
+
+            <dl>
+              <div>
+                <dt>Status</dt>
+                <dd>{finalization?.status ?? "idle"}</dd>
+              </div>
+              <div>
+                <dt>Step</dt>
+                <dd>{finalization?.step || "-"}</dd>
+              </div>
+              <div>
+                <dt>Source repo</dt>
+                <dd>
+                  {finalization?.sourceRepoUrl ? (
+                    <a href={finalization.sourceRepoUrl} target="_blank" rel="noreferrer">
+                      {finalization.sourceRepoFullName || finalization.sourceRepoUrl}
+                    </a>
+                  ) : (
+                    finalization?.sourceRepoFullName || "-"
+                  )}
+                </dd>
+              </div>
+              {finalization?.error && (
+                <div>
+                  <dt>Latest error</dt>
+                  <dd>{finalization.error}</dd>
+                </div>
+              )}
+            </dl>
+
+            <div className="admin-finalization-actions">
+              {!isFinalized && (
+                <button
+                  type="button"
+                  className="site-card-action-link admin-finalization-button"
+                  onClick={onFinalizeIndex}
+                  disabled={!canFinalize || isRunning}
+                >
+                  {startingFinalization || isRunning ? "Finalising..." : "Finalise Index"}
+                </button>
+              )}
+
+              {isFinalized && finalization?.targetSearchUrl && (
+                <a href={finalization.targetSearchUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+                  Open Search
+                </a>
+              )}
+              {isFinalized && finalization?.targetExplorerUrl && (
+                <a
+                  href={finalization.targetExplorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="site-card-action-link"
+                >
+                  Open Explorer
+                </a>
+              )}
+              {isFinalized && finalization?.targetStudioUrl && (
+                <a href={finalization.targetStudioUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+                  Open Studio
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -9,6 +9,10 @@ import {
   renderLink
 } from "../shared.js";
 
+const FINALIZATION_POLL_INTERVAL_MS = 2500;
+const FINALIZATION_CONFIRMATION_MESSAGE =
+  "Finalise this index now? This copies the parent index app into the child repo and overwrites the managed app files.";
+
 const arrayBufferToBase64 = async (file) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let binary = "";
@@ -28,7 +32,9 @@ const state = {
   selectedCollaborator: null,
   collaboratorRole: "editor",
   notice: null,
-  noticeKind: "notice"
+  noticeKind: "notice",
+  finalizationStarting: false,
+  finalizationPollHandle: 0
 };
 
 const byId = (id) => document.getElementById(id);
@@ -48,6 +54,28 @@ const setNotice = (message, kind = "notice") => {
   card.dataset.kind = kind;
   text.textContent = message;
 };
+
+const applyPayload = (payload) => {
+  state.adminState = payload?.state || null;
+  state.setup = payload?.setup || null;
+};
+
+const clearFinalizationPoll = () => {
+  if (state.finalizationPollHandle) {
+    window.clearTimeout(state.finalizationPollHandle);
+    state.finalizationPollHandle = 0;
+  }
+};
+
+const readAdminState = async () =>
+  callParentFunction({
+    config: state.config,
+    functionName: "index-admin-read",
+    bridgeToken: state.bridgeToken,
+    body: {
+      archive_id: state.config.archiveId
+    }
+  });
 
 const renderHeroLinks = () => {
   const links = byId("admin-links");
@@ -104,10 +132,16 @@ const renderTabs = () => {
 const renderGuard = (message, allowAdminLink = true) => {
   const guard = byId("admin-guard");
   const shell = byId("admin-shell");
+  const finalizationCard = byId("admin-finalization");
   const text = byId("admin-guard-text");
   if (!guard || !shell || !text) return;
+  clearFinalizationPoll();
   guard.hidden = false;
   shell.hidden = true;
+  if (finalizationCard) {
+    finalizationCard.hidden = true;
+    finalizationCard.innerHTML = "";
+  }
   text.textContent = message;
 
   guard.querySelectorAll(".hero-actions").forEach((element) => element.remove());
@@ -122,6 +156,143 @@ const renderGuard = (message, allowAdminLink = true) => {
     });
     guard.append(actionRow);
   }
+};
+
+const renderFinalizationCard = () => {
+  const card = byId("admin-finalization");
+  const finalization = state.setup?.finalization;
+  if (!card) {
+    return;
+  }
+  if (!finalization) {
+    card.hidden = true;
+    card.innerHTML = "";
+    return;
+  }
+
+  const sourceRepoLabel = finalization.sourceRepoFullName || finalization.sourceRepoUrl || "-";
+  card.hidden = false;
+  card.innerHTML = `
+    <div class="details-head">
+      <h2>${finalization.isFinalized ? "Standalone app ready" : "Finalise Index"}</h2>
+      <p>
+        ${
+          finalization.isFinalized
+            ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
+            : "Once standalone auth is working, copy the parent index app into this child repo."
+        }
+      </p>
+    </div>
+    <dl class="details-list">
+      <div>
+        <dt>Status</dt>
+        <dd>${finalization.status || "idle"}</dd>
+      </div>
+      <div>
+        <dt>Step</dt>
+        <dd>${finalization.step || "-"}</dd>
+      </div>
+      <div>
+        <dt>Source repo</dt>
+        <dd>${
+          finalization.sourceRepoUrl
+            ? `<a href="${finalization.sourceRepoUrl}" target="_blank" rel="noreferrer">${sourceRepoLabel}</a>`
+            : sourceRepoLabel
+        }</dd>
+      </div>
+      <div>
+        <dt>Completed</dt>
+        <dd>${finalization.completedAt || "-"}</dd>
+      </div>
+      ${
+        finalization.error
+          ? `<div><dt>Latest error</dt><dd>${finalization.error}</dd></div>`
+          : ""
+      }
+    </dl>
+    <div class="hero-actions" id="admin-finalization-actions"></div>
+  `;
+
+  const actions = byId("admin-finalization-actions");
+  if (!actions) {
+    return;
+  }
+
+  if (!finalization.isFinalized) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "button-link primary-link";
+    button.textContent =
+      state.finalizationStarting || finalization.isRunning ? "Finalising..." : "Finalise Index";
+    button.disabled =
+      !finalization.available || finalization.isRunning || state.finalizationStarting;
+    button.addEventListener("click", async () => {
+      const confirmed = window.confirm(FINALIZATION_CONFIRMATION_MESSAGE);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        state.finalizationStarting = true;
+        renderFinalizationCard();
+        const payload = await callParentFunction({
+          config: state.config,
+          functionName: "index-admin-write",
+          bridgeToken: state.bridgeToken,
+          body: {
+            archive_id: state.config.archiveId,
+            action: "finalize_index"
+          }
+        });
+        applyPayload(payload);
+        setNotice(
+          "Index finalization started. This page will keep refreshing until the copy finishes."
+        );
+        renderAll();
+      } catch (error) {
+        setNotice(
+          error instanceof Error ? error.message : "Could not start index finalization.",
+          "error"
+        );
+      } finally {
+        state.finalizationStarting = false;
+        renderFinalizationCard();
+      }
+    });
+    actions.append(button);
+    return;
+  }
+
+  [
+    [finalization.targetSearchUrl, "Open Search"],
+    [finalization.targetExplorerUrl, "Open Explorer"],
+    [finalization.targetStudioUrl, "Open Studio"]
+  ].forEach(([href, label]) => {
+    renderLink(actions, {
+      href,
+      label
+    });
+  });
+};
+
+const scheduleFinalizationPoll = () => {
+  clearFinalizationPoll();
+  if (!state.setup?.finalization?.isRunning) {
+    return;
+  }
+
+  state.finalizationPollHandle = window.setTimeout(async () => {
+    try {
+      const payload = await readAdminState();
+      applyPayload(payload);
+      renderAll();
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : "Could not refresh finalization status.",
+        "error"
+      );
+    }
+  }, FINALIZATION_POLL_INTERVAL_MS);
 };
 
 const renderGeneral = (panel) => {
@@ -585,12 +756,17 @@ const renderPanel = () => {
 const renderAll = () => {
   if (!state.adminState) return;
   byId("admin-title").textContent = state.adminState.archive.title || "Standalone index admin";
+  byId("admin-lead").textContent = state.setup?.finalization?.isFinalized
+    ? "This index now runs its own app stack. Keep using this bridge-backed /admin until local auth is fully configured."
+    : "This admin uses a Solidary bridge token until the standalone index has its own local auth.";
   renderHeroLinks();
+  renderFinalizationCard();
   renderTabs();
   renderPanel();
   setNotice(state.notice, state.noticeKind);
   byId("admin-guard").hidden = true;
   byId("admin-shell").hidden = false;
+  scheduleFinalizationPoll();
 };
 
 const boot = async () => {
@@ -612,16 +788,8 @@ const boot = async () => {
       return;
     }
 
-    const payload = await callParentFunction({
-      config: state.config,
-      functionName: "index-admin-read",
-      bridgeToken: state.bridgeToken,
-      body: {
-        archive_id: state.config.archiveId
-      }
-    });
-    state.adminState = payload.state;
-    state.setup = payload.setup;
+    const payload = await readAdminState();
+    applyPayload(payload);
     renderAll();
   } catch (error) {
     renderGuard(

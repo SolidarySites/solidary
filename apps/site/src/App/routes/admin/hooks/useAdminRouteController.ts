@@ -13,6 +13,7 @@ import {
 } from "../../studio/routes/site-settings/services/settings-sections";
 import {
   fileToBase64,
+  finalizeIndexAdmin,
   listAccessibleIndexAdmins,
   readIndexAdmin,
   removeIndexAdminCollaborator,
@@ -103,6 +104,7 @@ export const useAdminRouteController = () => {
   const [updatingConnectionSiteId, setUpdatingConnectionSiteId] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
   const [savingAdvanced, setSavingAdvanced] = useState(false);
+  const [startingFinalization, setStartingFinalization] = useState(false);
 
   const queryRequestIdRef = useRef(0);
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
@@ -167,6 +169,26 @@ export const useAdminRouteController = () => {
     });
   }, [activeSection, indexes, requestedArchiveId, searchParams, setSearchParams]);
 
+  const applyResponse = (
+    response: IndexAdminReadResponse,
+    { resetFields = true }: { resetFields?: boolean } = {}
+  ) => {
+    setState(response.state);
+    setSetup(response.setup);
+    if (!resetFields) {
+      return;
+    }
+    applyStateToFields({
+      state: response.state,
+      setTitle,
+      setDescription,
+      setDomainInput,
+      setImageFile,
+      setSelectedSuggestion: setSelectedCollaboratorSuggestion,
+      setSuggestions: setCollaboratorSuggestions
+    });
+  };
+
   useEffect(() => {
     if (!selectedArchiveId) {
       setState(null);
@@ -182,17 +204,7 @@ export const useAdminRouteController = () => {
       try {
         const response = await readIndexAdmin(selectedArchiveId);
         if (cancelled) return;
-        setState(response.state);
-        setSetup(response.setup);
-        applyStateToFields({
-          state: response.state,
-          setTitle,
-          setDescription,
-          setDomainInput,
-          setImageFile,
-          setSelectedSuggestion: setSelectedCollaboratorSuggestion,
-          setSuggestions: setCollaboratorSuggestions
-        });
+        applyResponse(response);
         setNotice(createdMode ? "Index created. Finish the standalone OAuth setup below." : null);
         setNoticeKind(createdMode ? "notice" : null);
       } catch (error) {
@@ -213,6 +225,36 @@ export const useAdminRouteController = () => {
       cancelled = true;
     };
   }, [createdMode, selectedArchiveId]);
+
+  useEffect(() => {
+    if (!selectedArchiveId || !setup?.finalization.isRunning) {
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const response = await readIndexAdmin(selectedArchiveId);
+          if (cancelled) {
+            return;
+          }
+          applyResponse(response, { resetFields: false });
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+          setNotice(getFriendlyErrorMessage(error, "Could not refresh finalization status."));
+          setNoticeKind("error");
+        }
+      })();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectedArchiveId, setup?.finalization.isRunning]);
 
   useEffect(() => {
     const query = collaboratorQuery.trim();
@@ -267,20 +309,6 @@ export const useAdminRouteController = () => {
       })),
     []
   );
-
-  const applyResponse = (response: IndexAdminReadResponse) => {
-    setState(response.state);
-    setSetup(response.setup);
-    applyStateToFields({
-      state: response.state,
-      setTitle,
-      setDescription,
-      setDomainInput,
-      setImageFile,
-      setSelectedSuggestion: setSelectedCollaboratorSuggestion,
-      setSuggestions: setCollaboratorSuggestions
-    });
-  };
 
   const selectedIndex = indexes.find((entry) => entry.id === selectedArchiveId) ?? null;
 
@@ -405,6 +433,34 @@ export const useAdminRouteController = () => {
     }
   };
 
+  const handleFinalizeIndex = async () => {
+    if (!selectedArchiveId || !setup?.finalization.available) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Finalise this index now? This copies the parent index app into the child repo and overwrites the managed app files."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setStartingFinalization(true);
+    try {
+      const response = await finalizeIndexAdmin({
+        archiveId: selectedArchiveId
+      });
+      applyResponse(response, { resetFields: false });
+      setNotice("Index finalization started. This page will keep refreshing until the copy finishes.");
+      setNoticeKind("notice");
+    } catch (error) {
+      setNotice(getFriendlyErrorMessage(error, "Could not start index finalization."));
+      setNoticeKind("error");
+    } finally {
+      setStartingFinalization(false);
+    }
+  };
+
   return {
     notice,
     noticeKind,
@@ -431,6 +487,7 @@ export const useAdminRouteController = () => {
     domainInput,
     savingGeneral,
     savingAdvanced,
+    startingFinalization,
     settingsTopbarProps: {
       activeSection,
       sectionButtons,
@@ -480,6 +537,9 @@ export const useAdminRouteController = () => {
     },
     onResetDomain: () => {
       void handleSaveDomain(null);
+    },
+    onFinalizeIndex: () => {
+      void handleFinalizeIndex();
     }
   };
 };

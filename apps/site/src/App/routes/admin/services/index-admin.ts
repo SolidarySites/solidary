@@ -15,7 +15,9 @@ import type {
   IndexAdminAdvancedPayload,
   IndexAdminConnection,
   IndexAdminConnectionStatusPayload,
+  IndexAdminFinalizePayload,
   IndexAdminGeneralPayload,
+  IndexAdminFinalizationState,
   IndexAdminListItem,
   IndexAdminReadResponse,
   IndexAdminSearchResponse,
@@ -90,7 +92,11 @@ type RawIndexAdminState = {
   collaborators?: RawIndexAdminCollaborator[];
 };
 
-type RawIndexAdminSetup = Partial<IndexAdminSetup>;
+type RawIndexAdminFinalizationState = Partial<IndexAdminFinalizationState>;
+
+type RawIndexAdminSetup = Partial<IndexAdminSetup> & {
+  finalization?: RawIndexAdminFinalizationState | null;
+};
 
 const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): IndexAdminState => {
   const actor = rawState?.actor;
@@ -211,7 +217,42 @@ const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): In
   };
 };
 
+const mapFinalization = (
+  rawFinalization: RawIndexAdminFinalizationState | null | undefined
+): IndexAdminFinalizationState => ({
+  available: rawFinalization?.available === true,
+  isFinalized: rawFinalization?.isFinalized === true,
+  isRunning: rawFinalization?.isRunning === true,
+  status:
+    rawFinalization?.status === "queued" ||
+    rawFinalization?.status === "running" ||
+    rawFinalization?.status === "failed" ||
+    rawFinalization?.status === "finalized"
+      ? rawFinalization.status
+      : "idle",
+  step: typeof rawFinalization?.step === "string" ? rawFinalization.step : null,
+  error: typeof rawFinalization?.error === "string" ? rawFinalization.error : null,
+  startedAt: typeof rawFinalization?.startedAt === "string" ? rawFinalization.startedAt : null,
+  completedAt:
+    typeof rawFinalization?.completedAt === "string" ? rawFinalization.completedAt : null,
+  sourceRepoFullName:
+    typeof rawFinalization?.sourceRepoFullName === "string"
+      ? rawFinalization.sourceRepoFullName
+      : null,
+  sourceRepoUrl:
+    typeof rawFinalization?.sourceRepoUrl === "string" ? rawFinalization.sourceRepoUrl : null,
+  targetStudioUrl:
+    typeof rawFinalization?.targetStudioUrl === "string" ? rawFinalization.targetStudioUrl : "",
+  targetExplorerUrl:
+    typeof rawFinalization?.targetExplorerUrl === "string"
+      ? rawFinalization.targetExplorerUrl
+      : "",
+  targetSearchUrl:
+    typeof rawFinalization?.targetSearchUrl === "string" ? rawFinalization.targetSearchUrl : ""
+});
+
 const mapSetup = (rawSetup: RawIndexAdminSetup | null | undefined): IndexAdminSetup => ({
+  finalization: mapFinalization(rawSetup?.finalization),
   liveUrl: typeof rawSetup?.liveUrl === "string" ? rawSetup.liveUrl : "",
   repoUrl: typeof rawSetup?.repoUrl === "string" ? rawSetup.repoUrl : null,
   supabaseDashboardUrl:
@@ -346,6 +387,12 @@ export const saveIndexAdminAdvanced = async ({
     archive_id: archiveId,
     action: "update_advanced",
     domain
+  });
+
+export const finalizeIndexAdmin = async ({ archiveId }: IndexAdminFinalizePayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "finalize_index"
   });
 
 export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());

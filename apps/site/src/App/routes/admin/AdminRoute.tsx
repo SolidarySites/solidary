@@ -53,6 +53,8 @@ export default function AdminRoute() {
             archive={controller.state.archive}
             setup={controller.setup}
             highlight={controller.createdMode}
+            startingFinalization={controller.startingFinalization}
+            onFinalizeIndex={controller.onFinalizeIndex}
           />
         )}
 

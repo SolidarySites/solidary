@@ -2,7 +2,11 @@ import { Buffer } from "node:buffer";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { decryptTokenValue } from "./token-crypto.ts";
 import type { HandlerEvent } from "./types.ts";
-import { getSolidaryAppUrl } from "./solidary-root-index.ts";
+import {
+  getSolidaryAppUrl,
+  getSolidaryRootRepoFullName,
+  getSolidaryRootRepoUrl,
+} from "./solidary-root-index.ts";
 import {
   buildStandaloneAdminUrl,
   createIndexAdminBridgeToken,
@@ -24,6 +28,8 @@ export type IndexArchiveRow = {
   id: string;
   owner_user_id: string | null;
   type: "site" | "index" | null;
+  is_root: boolean | null;
+  runtime_mode: "scaffold" | "finalized" | null;
   slug: string | null;
   title: string | null;
   description: string | null;
@@ -39,9 +45,12 @@ export type IndexArchiveRow = {
   parent_index_id: string | null;
   parent_index_url: string | null;
   parent_index_level: number | null;
+  parent_repo_full_name: string | null;
+  parent_repo_url: string | null;
+  finalized_at: string | null;
 };
 
-type IndexProjectCredentialsRow = {
+export type IndexProjectCredentialsRow = {
   archive_id: string;
   owner_user_id: string;
   supabase_project_ref: string;
@@ -63,6 +72,8 @@ type IndexMembershipRow = {
 type ChildArchiveRow = {
   id: string;
   type: "site" | "index" | null;
+  is_root: boolean | null;
+  runtime_mode: "scaffold" | "finalized" | null;
   canonical_url: string | null;
   title: string | null;
   description: string | null;
@@ -71,6 +82,9 @@ type ChildArchiveRow = {
   parent_index_id: string | null;
   parent_index_url: string | null;
   parent_index_level: number | null;
+  parent_repo_full_name: string | null;
+  parent_repo_url: string | null;
+  finalized_at: string | null;
 };
 
 type ChildSiteRow = {
@@ -127,6 +141,25 @@ export type IndexAdminContext = {
   actorUserId: string;
   actorRole: IndexAdminRole;
   via: "session" | "bridge";
+};
+
+export type IndexFinalizationJobRow = {
+  id: string;
+  archive_id: string;
+  owner_user_id: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  step: string | null;
+  error: string | null;
+  source_repo_full_name: string | null;
+  source_repo_url: string | null;
+  source_branch: string | null;
+  target_repo_full_name: string | null;
+  child_project_ref: string | null;
+  payload: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 };
 
 const roleRank: Record<IndexAdminRole, number> = {
@@ -281,6 +314,8 @@ const readArchive = async ({
         "id",
         "owner_user_id",
         "type",
+        "is_root",
+        "runtime_mode",
         "slug",
         "title",
         "description",
@@ -296,6 +331,9 @@ const readArchive = async ({
         "parent_index_id",
         "parent_index_url",
         "parent_index_level",
+        "parent_repo_full_name",
+        "parent_repo_url",
+        "finalized_at",
       ].join(", "),
     )
     .eq("id", archiveId)
@@ -346,6 +384,47 @@ const readCredentials = async ({
   }
 
   return data as unknown as IndexProjectCredentialsRow;
+};
+
+export const readLatestIndexFinalizationJob = async ({
+  supabase,
+  archiveId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  archiveId: string;
+}) => {
+  const { data, error } = await supabase
+    .from("index_finalization_jobs")
+    .select(
+      [
+        "id",
+        "archive_id",
+        "owner_user_id",
+        "status",
+        "step",
+        "error",
+        "source_repo_full_name",
+        "source_repo_url",
+        "source_branch",
+        "target_repo_full_name",
+        "child_project_ref",
+        "payload",
+        "created_at",
+        "updated_at",
+        "started_at",
+        "completed_at",
+      ].join(", "),
+    )
+    .eq("archive_id", archiveId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? null) as unknown as IndexFinalizationJobRow | null;
 };
 
 export const resolveIndexAdminContext = async ({
@@ -428,6 +507,19 @@ export const createChildProjectClient = (
       auth: { persistSession: false, autoRefreshToken: false },
     },
   );
+};
+
+export const resolveParentSourceRepo = (archive: IndexArchiveRow) => {
+  const repoFullName = toTrimmedString(archive.parent_repo_full_name) ||
+    getSolidaryRootRepoFullName();
+  const repoUrl = toTrimmedString(archive.parent_repo_url) ||
+    (repoFullName ? `https://github.com/${repoFullName}` : "") ||
+    getSolidaryRootRepoUrl();
+
+  return {
+    repoFullName: repoFullName || null,
+    repoUrl: repoUrl || null,
+  };
 };
 
 const resolveRepoDefaultSiteUrl = (owner: string, repo: string) => {
@@ -786,6 +878,8 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
       [
         "id",
         "type",
+        "is_root",
+        "runtime_mode",
         "canonical_url",
         "title",
         "description",
@@ -794,6 +888,9 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
         "parent_index_id",
         "parent_index_url",
         "parent_index_level",
+        "parent_repo_full_name",
+        "parent_repo_url",
+        "finalized_at",
       ].join(", "),
     )
     .eq("id", context.archive.id)
@@ -1344,25 +1441,77 @@ export const updateIndexAdvancedSettings = async ({
   return nextSiteUrl;
 };
 
+const buildFinalizationSetup = ({
+  context,
+  latestJob,
+}: {
+  context: IndexAdminContext;
+  latestJob: IndexFinalizationJobRow | null;
+}) => {
+  const parentSource = resolveParentSourceRepo(context.archive);
+  const jobStatus = latestJob?.status ?? null;
+  const isFinalized = context.archive.runtime_mode === "finalized";
+  const isRunning = jobStatus === "queued" || jobStatus === "running";
+
+  return {
+    available: context.actorRole === "owner" && !isFinalized,
+    isFinalized,
+    isRunning,
+    status: isFinalized ? "finalized" : jobStatus ?? "idle",
+    step: isFinalized
+      ? "Standalone app finalized."
+      : toTrimmedString(latestJob?.step) || null,
+    error: jobStatus === "failed" ? toTrimmedString(latestJob?.error) : null,
+    startedAt: latestJob?.started_at ?? null,
+    completedAt: isFinalized
+      ? (context.archive.finalized_at ?? latestJob?.completed_at ?? null)
+      : (latestJob?.completed_at ?? null),
+    sourceRepoFullName: parentSource.repoFullName,
+    sourceRepoUrl: parentSource.repoUrl,
+    targetStudioUrl: context.archive.canonical_url
+      ? `${context.archive.canonical_url.replace(/\/+$/, "")}/studio`
+      : "",
+    targetExplorerUrl: context.archive.canonical_url
+      ? `${context.archive.canonical_url.replace(/\/+$/, "")}/explorer`
+      : "",
+    targetSearchUrl: context.archive.canonical_url
+      ? `${context.archive.canonical_url.replace(/\/+$/, "")}/search`
+      : "",
+  };
+};
+
 export const buildStandaloneAdminSetup = ({
   context,
   state,
+  latestJob,
 }: {
   context: IndexAdminContext;
   state: Awaited<ReturnType<typeof readIndexAdminState>>;
+  latestJob: IndexFinalizationJobRow | null;
 }) => ({
+  finalization: buildFinalizationSetup({
+    context,
+    latestJob,
+  }),
   liveUrl: state.archive.canonicalUrl,
   repoUrl: state.archive.repoUrl,
   supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
   standaloneAdminUrl: state.archive.standaloneAdminUrl,
   authCallbackUrl: state.archive.authCallbackUrl,
   authProvidersDashboardUrl: state.archive.authProvidersDashboardUrl,
-  nextSteps: [
-    "Create a GitHub OAuth application for the standalone index.",
-    "Enable GitHub in the new Supabase project's Auth providers.",
-    "Use the standalone index URL as the site URL and the Supabase auth callback URL in the GitHub app.",
-    "Until that is configured, use the bridge link below to access /admin.",
-  ],
+  nextSteps: context.archive.runtime_mode === "finalized"
+    ? [
+      "Open Search, Explorer, and Studio from the links below to verify the copied app is live.",
+      "Keep using the standalone /admin bridge link until you complete local auth and GitHub app setup on the child project.",
+      "If you want the finalized repo to spawn sites or indexes, make sure the child project's GitHub App and Supabase OAuth secrets are configured too.",
+    ]
+    : [
+      "Create a GitHub OAuth application for the standalone index.",
+      "Enable GitHub in the new Supabase project's Auth providers.",
+      "Use the standalone index URL as the site URL and the Supabase auth callback URL in the GitHub app.",
+      "When the standalone setup is ready, click Finalise Index to copy over Search, Explorer, Studio, functions, and repo files from the parent index.",
+      "Until that is configured, use the bridge link below to access /admin.",
+    ],
   solidaryAdminUrl:
     `${getSolidaryAppUrl()}/admin?archiveId=${context.archive.id}`,
 });

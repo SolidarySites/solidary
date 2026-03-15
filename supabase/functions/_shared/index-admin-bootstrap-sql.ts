@@ -11,6 +11,8 @@ export const createIndexAdminBootstrapSql = ({
   parentIndexId,
   parentIndexUrl,
   parentIndexLevel,
+  parentRepoFullName,
+  parentRepoUrl,
 }: {
   archiveId: string;
   slug: string;
@@ -22,6 +24,8 @@ export const createIndexAdminBootstrapSql = ({
   parentIndexId: string;
   parentIndexUrl: string;
   parentIndexLevel: number;
+  parentRepoFullName: string;
+  parentRepoUrl: string;
 }) => {
   const escapedArchiveId = escapeSqlLiteral(archiveId);
   const escapedSlug = escapeSqlLiteral(slug);
@@ -31,6 +35,8 @@ export const createIndexAdminBootstrapSql = ({
   const escapedImageUrl = escapeSqlLiteral(imageUrl);
   const escapedParentIndexId = escapeSqlLiteral(parentIndexId);
   const escapedParentIndexUrl = escapeSqlLiteral(parentIndexUrl);
+  const escapedParentRepoFullName = escapeSqlLiteral(parentRepoFullName);
+  const escapedParentRepoUrl = escapeSqlLiteral(parentRepoUrl);
 
   return [
     "alter table public.sites",
@@ -44,10 +50,15 @@ export const createIndexAdminBootstrapSql = ({
     "  add column if not exists description text,",
     "  add column if not exists image_url text,",
     "  add column if not exists type text not null default 'index',",
+    "  add column if not exists is_root boolean not null default false,",
+    "  add column if not exists runtime_mode text not null default 'scaffold',",
     "  add column if not exists index_level int,",
     "  add column if not exists parent_index_id uuid,",
     "  add column if not exists parent_index_url text,",
-    "  add column if not exists parent_index_level int;",
+    "  add column if not exists parent_index_level int,",
+    "  add column if not exists parent_repo_full_name text,",
+    "  add column if not exists parent_repo_url text,",
+    "  add column if not exists finalized_at timestamptz;",
     "",
     "alter table public.archives",
     "  drop constraint if exists archives_type_check;",
@@ -56,8 +67,17 @@ export const createIndexAdminBootstrapSql = ({
     "  add constraint archives_type_check",
     "  check (type in ('site', 'index'));",
     "",
+    "alter table public.archives",
+    "  drop constraint if exists archives_runtime_mode_check;",
+    "",
+    "alter table public.archives",
+    "  add constraint archives_runtime_mode_check",
+    "  check (runtime_mode in ('scaffold', 'finalized'));",
+    "",
     "create index if not exists archives_type_idx on public.archives (type);",
     "create index if not exists archives_parent_index_idx on public.archives (parent_index_id);",
+    "create index if not exists archives_is_root_idx on public.archives (is_root);",
+    "create index if not exists archives_runtime_mode_idx on public.archives (runtime_mode);",
     "",
     'drop policy if exists "archives_select_public_root_index" on public.archives;',
     "",
@@ -78,12 +98,17 @@ export const createIndexAdminBootstrapSql = ({
     "  image_url,",
     "  canonical_url,",
     "  type,",
+    "  is_root,",
+    "  runtime_mode,",
     "  index_level,",
     "  parent_index_id,",
     "  parent_index_url,",
-    "  parent_index_level",
+    "  parent_index_level,",
+    "  parent_repo_full_name,",
+    "  parent_repo_url,",
+    "  source",
     ")",
-    `values ('${escapedArchiveId}', null, '${escapedSlug}', '${escapedTitle}', '${escapedDescription}', '${escapedImageUrl}', '${escapedCanonicalUrl}', 'index', ${indexLevel}, '${escapedParentIndexId}', '${escapedParentIndexUrl}', ${parentIndexLevel})`,
+    `values ('${escapedArchiveId}', null, '${escapedSlug}', '${escapedTitle}', '${escapedDescription}', '${escapedImageUrl}', '${escapedCanonicalUrl}', 'index', true, 'scaffold', ${indexLevel}, '${escapedParentIndexId}', '${escapedParentIndexUrl}', ${parentIndexLevel}, '${escapedParentRepoFullName}', '${escapedParentRepoUrl}', 'index_create')`,
     "on conflict (id) do update set",
     "  slug = excluded.slug,",
     "  title = excluded.title,",
@@ -91,10 +116,15 @@ export const createIndexAdminBootstrapSql = ({
     "  image_url = excluded.image_url,",
     "  canonical_url = excluded.canonical_url,",
     "  type = excluded.type,",
+    "  is_root = excluded.is_root,",
+    "  runtime_mode = excluded.runtime_mode,",
     "  index_level = excluded.index_level,",
     "  parent_index_id = excluded.parent_index_id,",
     "  parent_index_url = excluded.parent_index_url,",
     "  parent_index_level = excluded.parent_index_level,",
+    "  parent_repo_full_name = excluded.parent_repo_full_name,",
+    "  parent_repo_url = excluded.parent_repo_url,",
+    "  source = excluded.source,",
     "  updated_at = now();",
   ].join("\n");
 };

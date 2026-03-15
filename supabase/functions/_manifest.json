@@ -36,6 +36,7 @@
     "index-create",
     "index-create-status",
     "index-create-worker-background",
+    "index-finalize-worker-background",
     "supabase-management-callback",
     "supabase-management-connect-start",
     "supabase-management-disconnect",

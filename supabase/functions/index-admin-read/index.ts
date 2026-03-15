@@ -5,6 +5,7 @@ import {
   parseBearerToken,
   parseBridgeTokenFromEvent,
   readIndexAdminState,
+  readLatestIndexFinalizationJob,
   resolveIndexAdminContext,
 } from "../_shared/index-admin.ts";
 
@@ -53,12 +54,17 @@ export const handler: Handler = async (event) => {
       bridgeToken: parseBridgeTokenFromEvent(event, body),
     });
     const state = await readIndexAdminState(context);
+    const latestJob = await readLatestIndexFinalizationJob({
+      supabase: context.supabase,
+      archiveId,
+    });
 
     return safeJson(200, {
       state,
       setup: buildStandaloneAdminSetup({
         context,
         state,
+        latestJob,
       }),
     });
   } catch (error) {

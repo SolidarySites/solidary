@@ -5,6 +5,7 @@ import {
   parseBearerToken,
   parseBridgeTokenFromEvent,
   readIndexAdminState,
+  readLatestIndexFinalizationJob,
   removeIndexCollaborator,
   resolveIndexAdminContext,
   updateIndexAdvancedSettings,
@@ -18,7 +19,13 @@ type WriteAction =
   | "set_connection_status"
   | "upsert_collaborator"
   | "remove_collaborator"
-  | "update_advanced";
+  | "update_advanced"
+  | "finalize_index";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const FINALIZE_WORKER_PATH = "/functions/v1/index-finalize-worker-background";
 
 const safeJson = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -39,7 +46,8 @@ const isWriteAction = (value: unknown): value is WriteAction =>
   value === "set_connection_status" ||
   value === "upsert_collaborator" ||
   value === "remove_collaborator" ||
-  value === "update_advanced";
+  value === "update_advanced" ||
+  value === "finalize_index";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -128,14 +136,83 @@ export const handler: Handler = async (event) => {
         context,
         domain: typeof body.domain === "string" ? body.domain.trim() : null,
       });
+    } else if (action === "finalize_index") {
+      if (context.actorRole !== "owner") {
+        throw new Error("Only the owner can finalize the index.");
+      }
+      const existingJob = await readLatestIndexFinalizationJob({
+        supabase: context.supabase,
+        archiveId,
+      });
+      if (
+        existingJob &&
+        (existingJob.status === "queued" || existingJob.status === "running")
+      ) {
+        throw new Error("Index finalization is already running.");
+      }
+      if (context.archive.runtime_mode === "finalized") {
+        throw new Error("This index has already been finalized.");
+      }
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        throw new Error("Missing SUPABASE_URL or internal worker key.");
+      }
+
+      const { data: jobData, error: jobError } = await context.supabase
+        .from("index_finalization_jobs")
+        .insert({
+          archive_id: archiveId,
+          owner_user_id: context.actorUserId,
+          status: "queued",
+          step: "Queued",
+          source_repo_full_name: context.archive.parent_repo_full_name,
+          source_repo_url: context.archive.parent_repo_url,
+          target_repo_full_name: context.credentials.repo_full_name,
+          child_project_ref: context.credentials.supabase_project_ref,
+        })
+        .select("id")
+        .single();
+      if (jobError || !jobData?.id) {
+        throw new Error(
+          jobError?.message ?? "Could not queue index finalization.",
+        );
+      }
+
+      const workerResponse = await fetch(
+        new URL(FINALIZE_WORKER_PATH, SUPABASE_URL).toString(),
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-provision-internal-key": SUPABASE_SERVICE_KEY,
+          },
+          body: JSON.stringify({
+            jobId: jobData.id,
+            archiveId,
+            ownerUserId: context.actorUserId,
+          }),
+        },
+      );
+      if (!workerResponse.ok) {
+        const payload = await workerResponse.json().catch(() => ({}));
+        throw new Error(
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Could not start index finalization worker.",
+        );
+      }
     }
 
     const state = await readIndexAdminState(context);
+    const latestJob = await readLatestIndexFinalizationJob({
+      supabase: context.supabase,
+      archiveId,
+    });
     return safeJson(200, {
       state,
       setup: buildStandaloneAdminSetup({
         context,
         state,
+        latestJob,
       }),
     });
   } catch (error) {

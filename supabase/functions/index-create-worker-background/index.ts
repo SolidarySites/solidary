@@ -21,6 +21,8 @@ import {
   getSolidaryAppUrl,
   getSolidaryRootIndexId,
   getSolidaryRootIndexLevel,
+  getSolidaryRootRepoFullName,
+  getSolidaryRootRepoUrl,
   getSolidaryRootIndexUrl,
 } from "../_shared/solidary-root-index.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
@@ -1390,6 +1392,8 @@ async function bootstrapProjectDatabase({
   parentIndexId,
   parentIndexUrl,
   parentIndexLevel,
+  parentRepoFullName,
+  parentRepoUrl,
 }: {
   accessToken: string;
   projectRef: string;
@@ -1403,6 +1407,8 @@ async function bootstrapProjectDatabase({
   parentIndexId: string;
   parentIndexUrl: string;
   parentIndexLevel: number;
+  parentRepoFullName: string;
+  parentRepoUrl: string;
 }) {
   const queries = [
     indexBootstrapSql,
@@ -1417,6 +1423,8 @@ async function bootstrapProjectDatabase({
       parentIndexId,
       parentIndexUrl,
       parentIndexLevel,
+      parentRepoFullName,
+      parentRepoUrl,
     }),
   ];
 
@@ -1439,6 +1447,87 @@ async function bootstrapProjectDatabase({
         throw error;
       }
     }
+  }
+}
+
+async function syncChildRootArchive({
+  projectUrl,
+  secretKey,
+  archiveId,
+  slug,
+  title,
+  description,
+  siteUrl,
+  imageUrl,
+  repoFullName,
+  repoUrl,
+  projectId,
+  projectRef,
+  projectName,
+  projectDashboardUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+  parentRepoFullName,
+  parentRepoUrl,
+}: {
+  projectUrl: string;
+  secretKey: string;
+  archiveId: string;
+  slug: string;
+  title: string;
+  description: string;
+  siteUrl: string;
+  imageUrl: string;
+  repoFullName: string;
+  repoUrl: string;
+  projectId: string | null;
+  projectRef: string;
+  projectName: string;
+  projectDashboardUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+  parentRepoFullName: string;
+  parentRepoUrl: string;
+}) {
+  const child = createClient(projectUrl, secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { error } = await child.from("archives").upsert({
+    id: archiveId,
+    owner_user_id: null,
+    slug,
+    title,
+    description,
+    image_url: imageUrl,
+    canonical_url: siteUrl,
+    repo_full_name: repoFullName,
+    repo_url: repoUrl,
+    supabase_project_id: projectId,
+    supabase_project_ref: projectRef,
+    supabase_project_name: projectName,
+    supabase_dashboard_url: projectDashboardUrl,
+    source: "index_create",
+    type: "index",
+    is_root: true,
+    runtime_mode: "scaffold",
+    index_level: indexLevel,
+    parent_index_id: parentIndexId,
+    parent_index_url: parentIndexUrl,
+    parent_index_level: parentIndexLevel,
+    parent_repo_full_name: parentRepoFullName,
+    parent_repo_url: parentRepoUrl,
+    finalized_at: null,
+  });
+  if (error) {
+    throw new HttpError(
+      500,
+      error.message || "Failed to save child root archive metadata.",
+    );
   }
 }
 
@@ -1466,6 +1555,8 @@ async function saveParentIndexMetadata({
   parentIndexId,
   parentIndexUrl,
   parentIndexLevel,
+  parentRepoFullName,
+  parentRepoUrl,
 }: {
   supabase: ReturnType<typeof createSupabaseAdmin>;
   archiveId: string;
@@ -1490,6 +1581,8 @@ async function saveParentIndexMetadata({
   parentIndexId: string;
   parentIndexUrl: string;
   parentIndexLevel: number;
+  parentRepoFullName: string;
+  parentRepoUrl: string;
 }) {
   const { error: archiveError } = await supabase.from("archives").upsert({
     id: archiveId,
@@ -1507,10 +1600,15 @@ async function saveParentIndexMetadata({
     supabase_dashboard_url: projectDashboardUrl,
     source: "index_create",
     type: "index",
+    is_root: false,
+    runtime_mode: "scaffold",
     index_level: indexLevel,
     parent_index_id: parentIndexId,
     parent_index_url: parentIndexUrl,
     parent_index_level: parentIndexLevel,
+    parent_repo_full_name: parentRepoFullName,
+    parent_repo_url: parentRepoUrl,
+    finalized_at: null,
   });
   if (archiveError) {
     throw new HttpError(
@@ -1627,6 +1725,8 @@ export const handler: Handler = async (event) => {
     const parentIndexId = getSolidaryRootIndexId();
     const parentIndexUrl = getSolidaryRootIndexUrl();
     const parentIndexLevel = getSolidaryRootIndexLevel();
+    const parentRepoFullName = getSolidaryRootRepoFullName();
+    const parentRepoUrl = getSolidaryRootRepoUrl();
     const indexLevel = getDefaultChildIndexLevel();
 
     await updateJob({
@@ -1802,6 +1902,31 @@ export const handler: Handler = async (event) => {
         parentIndexId,
         parentIndexUrl,
         parentIndexLevel,
+        parentRepoFullName,
+        parentRepoUrl,
+      });
+
+      await syncChildRootArchive({
+        projectUrl,
+        secretKey,
+        archiveId,
+        slug: repoName,
+        title,
+        description,
+        siteUrl,
+        imageUrl: defaultImageUrl,
+        repoFullName: `${owner}/${repo}`,
+        repoUrl: `https://github.com/${owner}/${repo}`,
+        projectId: resolvedProject.id ?? null,
+        projectRef,
+        projectName: resolvedProject.name ?? title,
+        projectDashboardUrl,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+        parentRepoFullName,
+        parentRepoUrl,
       });
 
       await updateJob({
@@ -1865,6 +1990,8 @@ export const handler: Handler = async (event) => {
       const archivePayload = {
         id: archiveId,
         type: "index",
+        is_root: false,
+        runtime_mode: "scaffold",
         title,
         slug: repoName,
         description,
@@ -1873,6 +2000,8 @@ export const handler: Handler = async (event) => {
         parent_index_id: parentIndexId,
         parent_index_url: parentIndexUrl,
         parent_index_level: parentIndexLevel,
+        parent_repo_full_name: parentRepoFullName || null,
+        parent_repo_url: parentRepoUrl || null,
         canonical_url: siteUrl,
         repo_full_name: repoPayload.full_name ?? `${owner}/${repo}`,
         repo_url: repoPayload.html_url ?? `https://github.com/${owner}/${repo}`,
@@ -1905,6 +2034,8 @@ export const handler: Handler = async (event) => {
         parentIndexId,
         parentIndexUrl,
         parentIndexLevel,
+        parentRepoFullName,
+        parentRepoUrl,
       });
 
       await updateJob({
