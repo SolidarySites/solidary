@@ -10,6 +10,7 @@ create table if not exists public.site_drafts (
   unique (owner_user_id, repo_full_name)
 );
 
+drop trigger if exists site_drafts_set_updated_at on public.site_drafts;
 create trigger site_drafts_set_updated_at
 before update on public.site_drafts
 for each row execute function public.set_updated_at();

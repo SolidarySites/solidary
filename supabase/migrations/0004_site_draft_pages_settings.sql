@@ -10,6 +10,7 @@ create table if not exists public.site_draft_pages (
 
 create index if not exists site_draft_pages_draft_idx on public.site_draft_pages (draft_id);
 
+drop trigger if exists site_draft_pages_set_updated_at on public.site_draft_pages;
 create trigger site_draft_pages_set_updated_at
 before update on public.site_draft_pages
 for each row execute function public.set_updated_at();
@@ -22,6 +23,7 @@ create table if not exists public.site_draft_settings (
   updated_at timestamptz not null default now()
 );
 
+drop trigger if exists site_draft_settings_set_updated_at on public.site_draft_settings;
 create trigger site_draft_settings_set_updated_at
 before update on public.site_draft_settings
 for each row execute function public.set_updated_at();

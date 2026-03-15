@@ -21,9 +21,9 @@ import {
   getSolidaryAppUrl,
   getSolidaryRootIndexId,
   getSolidaryRootIndexLevel,
+  getSolidaryRootIndexUrl,
   getSolidaryRootRepoFullName,
   getSolidaryRootRepoUrl,
-  getSolidaryRootIndexUrl,
 } from "../_shared/solidary-root-index.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
 
@@ -1366,7 +1366,7 @@ async function runProjectQuery({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query,
+        query: `begin;\n${query.trim()}\ncommit;`,
       }),
     },
   });
@@ -1411,40 +1411,50 @@ async function bootstrapProjectDatabase({
   parentRepoUrl: string;
 }) {
   const queries = [
-    indexBootstrapSql,
-    createIndexAdminBootstrapSql({
-      archiveId,
-      slug,
-      title,
-      description,
-      canonicalUrl,
-      imageUrl,
-      indexLevel,
-      parentIndexId,
-      parentIndexUrl,
-      parentIndexLevel,
-      parentRepoFullName,
-      parentRepoUrl,
-    }),
+    {
+      label: "base schema bootstrap",
+      query: indexBootstrapSql,
+    },
+    {
+      label: "index admin bootstrap",
+      query: createIndexAdminBootstrapSql({
+        archiveId,
+        slug,
+        title,
+        description,
+        canonicalUrl,
+        imageUrl,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+        parentRepoFullName,
+        parentRepoUrl,
+      }),
+    },
   ];
 
-  for (let attempt = 0; attempt < 16; attempt += 1) {
-    if (attempt > 0) {
-      await sleep(Math.min(8000, 1000 + attempt * 600));
-    }
+  for (const { query, label } of queries) {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      if (attempt > 0) {
+        await sleep(Math.min(8000, 1000 + attempt * 600));
+      }
 
-    try {
-      for (const query of queries) {
+      try {
         await runProjectQuery({
           accessToken,
           projectRef,
           query,
         });
-      }
-      return;
-    } catch (error) {
-      if (attempt === 15) {
-        throw error;
+        break;
+      } catch (error) {
+        if (attempt === 15) {
+          throw new Error(
+            error instanceof Error
+              ? `${label} failed: ${error.message}`
+              : `${label} failed.`,
+          );
+        }
       }
     }
   }

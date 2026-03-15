@@ -202,10 +202,12 @@ begin
 end;
 $$;
 
+drop trigger if exists sites_set_updated_at on public.sites;
 create trigger sites_set_updated_at
 before update on public.sites
 for each row execute function public.set_updated_at();
 
+drop trigger if exists archives_set_updated_at on public.archives;
 create trigger archives_set_updated_at
 before update on public.archives
 for each row execute function public.set_updated_at();

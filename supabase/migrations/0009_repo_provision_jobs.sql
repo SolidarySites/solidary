@@ -16,6 +16,7 @@ create table if not exists public.repo_provision_jobs (
 create index if not exists repo_provision_jobs_owner_created_idx
   on public.repo_provision_jobs (owner_user_id, created_at desc);
 
+drop trigger if exists repo_provision_jobs_set_updated_at on public.repo_provision_jobs;
 create trigger repo_provision_jobs_set_updated_at
 before update on public.repo_provision_jobs
 for each row execute function public.set_updated_at();
