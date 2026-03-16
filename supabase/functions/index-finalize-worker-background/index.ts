@@ -158,6 +158,28 @@ const splitScopes = (value: string) =>
     Boolean,
   );
 
+const fileB64ToUtf8 = (value: string) =>
+  Buffer.from(value, "base64").toString("utf8");
+
+const utf8ToFileB64 = (value: string) =>
+  Buffer.from(value, "utf8").toString("base64");
+
+const rewriteFunctionSourceForDeploy = ({
+  relPath,
+  contentB64,
+}: {
+  relPath: string;
+  contentB64: string;
+}) => {
+  if (!/\.(ts|tsx|js|jsx|mjs|mts|cts)$/i.test(relPath)) {
+    return contentB64;
+  }
+
+  const source = fileB64ToUtf8(contentB64);
+  const patched = source.replaceAll("../_shared/", "./_shared/");
+  return patched === source ? contentB64 : utf8ToFileB64(patched);
+};
+
 const createServiceSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error("Missing SUPABASE_URL or Supabase service key.");
@@ -749,9 +771,6 @@ const parseFunctionVerifyJwt = (configToml: string) => {
   return result;
 };
 
-const fileB64ToUtf8 = (contentB64: string) =>
-  Buffer.from(contentB64, "base64").toString("utf8");
-
 async function loadSourceRepoFiles({
   userToken,
   owner,
@@ -969,12 +988,19 @@ async function deployFunctionBundle({
 
   for (const file of sourceFiles) {
     if (file.path.startsWith(functionPrefix)) {
-      const relPath = file.path.slice("supabase/functions/".length);
-      zip.file(relPath, file.contentB64, {
-        base64: true,
-        unixPermissions: file.mode,
-      });
-      if (relPath === `${functionName}/index.ts`) {
+      const relPath = file.path.slice(functionPrefix.length);
+      zip.file(
+        relPath,
+        rewriteFunctionSourceForDeploy({
+          relPath,
+          contentB64: file.contentB64,
+        }),
+        {
+          base64: true,
+          unixPermissions: file.mode,
+        },
+      );
+      if (relPath === "index.ts") {
         hasEntrypoint = true;
       }
       continue;
@@ -1011,7 +1037,7 @@ async function deployFunctionBundle({
     "metadata",
     JSON.stringify({
       name: functionName,
-      entrypoint_path: `${functionName}/index.ts`,
+      entrypoint_path: "index.ts",
       verify_jwt: verifyJwt,
     }),
   );
