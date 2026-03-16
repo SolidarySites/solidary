@@ -35,6 +35,7 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 ]);
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
+const GITHUB_BLOB_READ_CONCURRENCY = 8;
 const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
 const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
@@ -372,8 +373,15 @@ async function getRecursiveTree({
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
   assertOk(res, data, `Failed reading tree ${treeSha} for ${owner}/${repo}.`);
-  const tree = Array.isArray((data as GhTreePayload).tree)
-    ? (data as GhTreePayload).tree ?? []
+  const treePayload = data as GhTreePayload;
+  if (treePayload.truncated === true) {
+    throw new HttpError(
+      412,
+      `The parent repository tree for ${owner}/${repo} is too large for the GitHub recursive tree API. Reduce the source repo size or switch to a smaller parent source repo before finalising this index.`,
+    );
+  }
+  const tree = Array.isArray(treePayload.tree)
+    ? treePayload.tree ?? []
     : [];
   return tree;
 }
@@ -736,11 +744,15 @@ async function loadSourceRepoFiles({
   owner,
   repo,
   branch,
+  onProgress,
 }: {
   userToken: string;
   owner: string;
   repo: string;
   branch: string;
+  onProgress?: (
+    progress: { completed: number; total: number },
+  ) => Promise<void>;
 }) {
   const headSha = await getBranchHeadSha({
     userToken,
@@ -761,29 +773,68 @@ async function loadSourceRepoFiles({
     treeSha,
   });
 
+  const blobEntries = treeEntries
+    .map((entry) => {
+      const path = toTrimmedString(entry.path);
+      const type = toTrimmedString(entry.type);
+      const mode = toTrimmedString(entry.mode);
+      const sha = toTrimmedString(entry.sha);
+      if (!path || type !== "blob" || !sha) {
+        return null;
+      }
+      if (shouldExcludeSourcePath(path)) {
+        return null;
+      }
+      return {
+        path,
+        mode: mode === "100755" ? "100755" as const : "100644" as const,
+        sha,
+      };
+    })
+    .filter((entry): entry is {
+      path: string;
+      mode: "100644" | "100755";
+      sha: string;
+    } => Boolean(entry));
+
   const files: SourceBlobFile[] = [];
-  for (const entry of treeEntries) {
-    const path = toTrimmedString(entry.path);
-    const type = toTrimmedString(entry.type);
-    const mode = toTrimmedString(entry.mode);
-    const sha = toTrimmedString(entry.sha);
-    if (!path || type !== "blob" || !sha) {
-      continue;
+  const total = blobEntries.length;
+  if (onProgress) {
+    await onProgress({ completed: 0, total });
+  }
+
+  let completed = 0;
+  for (
+    let offset = 0;
+    offset < blobEntries.length;
+    offset += GITHUB_BLOB_READ_CONCURRENCY
+  ) {
+    const batch = blobEntries.slice(offset, offset + GITHUB_BLOB_READ_CONCURRENCY);
+    const batchFiles = await Promise.all(
+      batch.map(async (entry) => {
+        const contentB64 = await getBlobBase64({
+          userToken,
+          owner,
+          repo,
+          blobSha: entry.sha,
+        });
+        return {
+          path: entry.path,
+          mode: entry.mode,
+          contentB64,
+        } satisfies SourceBlobFile;
+      }),
+    );
+    files.push(...batchFiles);
+    completed += batch.length;
+
+    if (
+      onProgress &&
+      (completed === total ||
+        completed % GITHUB_BLOB_PROGRESS_INTERVAL === 0)
+    ) {
+      await onProgress({ completed, total });
     }
-    if (shouldExcludeSourcePath(path)) {
-      continue;
-    }
-    const contentB64 = await getBlobBase64({
-      userToken,
-      owner,
-      repo,
-      blobSha: sha,
-    });
-    files.push({
-      path,
-      mode: mode === "100755" ? "100755" : "100644",
-      contentB64,
-    });
   }
 
   return files;
@@ -1293,6 +1344,36 @@ export const handler: Handler = async (event) => {
         owner: sourceRepo.owner,
         repo: sourceRepo.repo,
         branch: sourceBranch,
+        onProgress: async ({ completed, total }) => {
+          try {
+            await updateJob({
+              step: total
+                ? `Reading parent repository files (${completed}/${total})...`
+                : "Reading parent repository...",
+              source_branch: sourceBranch,
+              payload: {
+                source_repo_full_name: parentSource.repoFullName,
+                source_repo_url: parentSource.repoUrl,
+                source_repo_resolution: parentSource.sourceKind,
+                source_branch: sourceBranch,
+                target_repo_full_name: credentials.repo_full_name,
+                child_project_ref: credentials.supabase_project_ref,
+                total_source_files: total,
+                source_files_read: completed,
+              },
+            });
+          } catch (error) {
+            console.warn(
+              "[index-finalize-worker] failed to report read progress",
+              {
+                archiveId,
+                completed,
+                total,
+                message: error instanceof Error ? error.message : String(error),
+              },
+            );
+          }
+        },
       });
 
       const finalRepoFiles = buildPatchedRepoFiles({
