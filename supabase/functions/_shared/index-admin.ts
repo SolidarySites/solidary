@@ -24,6 +24,12 @@ const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
 const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 10;
+const INDEX_FUNCTIONS_WORKFLOW_FILE = "deploy-supabase-functions.yml";
+const INDEX_FUNCTIONS_WORKFLOW_BRANCH = "main";
+const INDEX_REQUIRED_REPO_SECRET_NAMES = [
+  "SUPABASE_ACCESS_TOKEN",
+  "SUPABASE_PROJECT_REF_PROD",
+] as const;
 
 export type IndexAdminRole = IndexAdminBridgeRole;
 
@@ -117,6 +123,26 @@ type AuthUserSummary = {
   githubLogin: string | null;
 };
 
+type GitHubActionsSecretPayload = {
+  name?: unknown;
+};
+
+type GitHubActionsSecretsListPayload = {
+  secrets?: unknown;
+};
+
+type GitHubActionsWorkflowRun = {
+  id?: unknown;
+  html_url?: unknown;
+  status?: unknown;
+  conclusion?: unknown;
+  path?: unknown;
+};
+
+type GitHubActionsWorkflowRunsPayload = {
+  workflow_runs?: unknown;
+};
+
 export type IndexCollaboratorRecord = AuthUserSummary & {
   role: IndexAdminRole;
 };
@@ -170,6 +196,22 @@ export type ParentSourceRepoStatus =
   | "solidary_lineage"
   | "root_fallback"
   | "missing";
+
+export type IndexFunctionsDeploymentStatus =
+  | "not_ready"
+  | "needs_secrets"
+  | "ready_to_run"
+  | "running"
+  | "failed"
+  | "deployed"
+  | "unknown";
+
+export type IndexRepoSecretRequirement = {
+  name: (typeof INDEX_REQUIRED_REPO_SECRET_NAMES)[number];
+  isConfigured: boolean;
+  value: string | null;
+  description: string;
+};
 
 type ParentSourceRepoInput = {
   parent_index_id?: string | null;
@@ -688,11 +730,170 @@ const githubHeaders = (token: string) => ({
   "Content-Type": "application/json",
 });
 
+const buildGitHubWorkflowUrl = ({
+  owner,
+  repo,
+  workflowFile,
+}: {
+  owner: string;
+  repo: string;
+  workflowFile: string;
+}) => `https://github.com/${owner}/${repo}/actions/workflows/${workflowFile}`;
+
 const githubErrorMessage = async (response: Response, fallback: string) => {
   const payload = (await response.json().catch(() => ({}))) as {
     message?: string;
   };
   return toTrimmedString(payload.message) || fallback;
+};
+
+const readGitHubRepoSecretNames = async ({
+  githubToken,
+  owner,
+  repo,
+}: {
+  githubToken: string;
+  owner: string;
+  repo: string;
+}) => {
+  const response = await fetch(
+    `${GITHUB_API}/repos/${owner}/${repo}/actions/secrets?per_page=100`,
+    {
+      headers: githubHeaders(githubToken),
+    },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  const payload = (await response.json().catch(
+    () => ({}),
+  )) as GitHubActionsSecretsListPayload;
+  if (!response.ok) {
+    throw new Error(
+      toTrimmedString((payload as Record<string, unknown>).message) ||
+        "Failed to read GitHub repo secrets.",
+    );
+  }
+
+  const names = new Set<string>();
+  const secrets = Array.isArray(payload.secrets) ? payload.secrets : [];
+  for (const entry of secrets) {
+    const secret = asRecord(entry) as GitHubActionsSecretPayload | null;
+    const name = toTrimmedString(secret?.name);
+    if (name) {
+      names.add(name);
+    }
+  }
+
+  return names;
+};
+
+const readLatestGitHubWorkflowRun = async ({
+  githubToken,
+  owner,
+  repo,
+  workflowFile,
+}: {
+  githubToken: string;
+  owner: string;
+  repo: string;
+  workflowFile: string;
+}) => {
+  const workflowRunsUrl = new URL(
+    `${GITHUB_API}/repos/${owner}/${repo}/actions/workflows/${
+      encodeURIComponent(workflowFile)
+    }/runs`,
+  );
+  workflowRunsUrl.searchParams.set("branch", INDEX_FUNCTIONS_WORKFLOW_BRANCH);
+  workflowRunsUrl.searchParams.set("per_page", "10");
+
+  const response = await fetch(workflowRunsUrl.toString(), {
+    headers: githubHeaders(githubToken),
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  const payload = (await response.json().catch(
+    () => ({}),
+  )) as GitHubActionsWorkflowRunsPayload;
+  if (!response.ok) {
+    throw new Error(
+      toTrimmedString((payload as Record<string, unknown>).message) ||
+        "Failed to read GitHub Actions workflow runs.",
+    );
+  }
+
+  const runs = Array.isArray(payload.workflow_runs)
+    ? payload.workflow_runs
+    : [];
+  const latest = runs.find((entry) => Boolean(asRecord(entry))) ?? null;
+  if (!latest) {
+    return null;
+  }
+
+  const record = asRecord(latest) as GitHubActionsWorkflowRun | null;
+  if (!record) {
+    return null;
+  }
+
+  return {
+    htmlUrl: toTrimmedString(record.html_url) || null,
+    status: toTrimmedString(record.status).toLowerCase() || null,
+    conclusion: toTrimmedString(record.conclusion).toLowerCase() || null,
+    path: toTrimmedString(record.path).toLowerCase() || null,
+  };
+};
+
+const buildRepoSecretRequirements = (
+  configuredSecretNames: Set<string> | null,
+  projectRef: string,
+): IndexRepoSecretRequirement[] => [
+  {
+    name: "SUPABASE_ACCESS_TOKEN",
+    isConfigured: configuredSecretNames?.has("SUPABASE_ACCESS_TOKEN") ?? false,
+    value: null,
+    description:
+      "Add a Supabase personal access token that starts with sbp_. This lets the child repo's GitHub Actions workflow run supabase functions deploy.",
+  },
+  {
+    name: "SUPABASE_PROJECT_REF_PROD",
+    isConfigured: configuredSecretNames?.has("SUPABASE_PROJECT_REF_PROD") ??
+      false,
+    value: projectRef,
+    description:
+      "Set this to the child Supabase project ref so the workflow deploys functions into the right project.",
+  },
+];
+
+const buildFunctionsDeployStatusMessage = ({
+  status,
+  missingSecretNames,
+  latestRunConclusion,
+}: {
+  status: IndexFunctionsDeploymentStatus;
+  missingSecretNames: string[];
+  latestRunConclusion: string | null;
+}) => {
+  switch (status) {
+    case "not_ready":
+      return "Finalize the repo before checking child function deployment.";
+    case "needs_secrets":
+      return `Add the missing GitHub repo secrets (${
+        missingSecretNames.join(", ")
+      }) and then rerun the child function deploy workflow.`;
+    case "ready_to_run":
+      return "The required GitHub repo secrets are configured. Run the child function deploy workflow to publish the copied Edge Functions.";
+    case "running":
+      return "The child function deploy workflow is running. Refresh this page after GitHub Actions completes.";
+    case "failed":
+      return latestRunConclusion
+        ? `The child function deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it.`
+        : "The child function deploy workflow failed. Open the run details, fix the issue, and rerun it.";
+    case "deployed":
+      return "The child function deploy workflow completed successfully.";
+    default:
+      return "Could not verify the child function deployment state from GitHub Actions.";
+  }
 };
 
 const readRepoFileSha = async ({
@@ -1596,7 +1797,89 @@ export const updateIndexAdvancedSettings = async ({
   return nextSiteUrl;
 };
 
-const buildFinalizationSetup = ({
+const buildFinalizedFunctionsDeploymentSetup = async ({
+  context,
+}: {
+  context: IndexAdminContext;
+}) => {
+  const workflowUrl = buildGitHubWorkflowUrl({
+    owner: context.credentials.repo_owner,
+    repo: context.credentials.repo_name,
+    workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+  });
+
+  try {
+    const githubToken = await resolveOwnerGitHubToken(context);
+    const [configuredSecretNames, latestRun] = await Promise.all([
+      readGitHubRepoSecretNames({
+        githubToken,
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+      }),
+      readLatestGitHubWorkflowRun({
+        githubToken,
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+        workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+      }),
+    ]);
+
+    const requiredRepoSecrets = buildRepoSecretRequirements(
+      configuredSecretNames,
+      context.credentials.supabase_project_ref,
+    );
+    const missingSecretNames = requiredRepoSecrets
+      .filter((entry) => !entry.isConfigured)
+      .map((entry) => entry.name);
+    const latestRunStatus = latestRun?.status ?? null;
+    const latestRunConclusion = latestRun?.conclusion ?? null;
+    const isLatestRunActive = latestRunStatus === "queued" ||
+      latestRunStatus === "in_progress" ||
+      latestRunStatus === "waiting" ||
+      latestRunStatus === "requested" ||
+      latestRunStatus === "pending";
+
+    let status: IndexFunctionsDeploymentStatus;
+    if (missingSecretNames.length) {
+      status = "needs_secrets";
+    } else if (isLatestRunActive) {
+      status = "running";
+    } else if (latestRunConclusion === "success") {
+      status = "deployed";
+    } else if (latestRunConclusion) {
+      status = "failed";
+    } else {
+      status = "ready_to_run";
+    }
+
+    return {
+      functionsDeployStatus: status,
+      functionsDeployMessage: buildFunctionsDeployStatusMessage({
+        status,
+        missingSecretNames,
+        latestRunConclusion,
+      }),
+      functionsDeployWorkflowUrl: workflowUrl,
+      functionsDeployRunUrl: latestRun?.htmlUrl ?? null,
+      requiredRepoSecrets,
+    };
+  } catch (error) {
+    return {
+      functionsDeployStatus: "unknown" as const,
+      functionsDeployMessage: error instanceof Error
+        ? error.message
+        : "Could not verify the child function deployment state from GitHub Actions.",
+      functionsDeployWorkflowUrl: workflowUrl,
+      functionsDeployRunUrl: null,
+      requiredRepoSecrets: buildRepoSecretRequirements(
+        null,
+        context.credentials.supabase_project_ref,
+      ),
+    };
+  }
+};
+
+const buildFinalizationSetup = async ({
   context,
   state,
   latestJob,
@@ -1618,6 +1901,26 @@ const buildFinalizationSetup = ({
   const jobStatus = effectiveJob?.status ?? null;
   const isFinalized = context.archive.runtime_mode === "finalized";
   const isRunning = jobStatus === "queued" || jobStatus === "running";
+  const functionsDeployment = isFinalized
+    ? await buildFinalizedFunctionsDeploymentSetup({ context })
+    : {
+      functionsDeployStatus: "not_ready" as const,
+      functionsDeployMessage: buildFunctionsDeployStatusMessage({
+        status: "not_ready",
+        missingSecretNames: [],
+        latestRunConclusion: null,
+      }),
+      functionsDeployWorkflowUrl: buildGitHubWorkflowUrl({
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+        workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+      }),
+      functionsDeployRunUrl: null,
+      requiredRepoSecrets: buildRepoSecretRequirements(
+        null,
+        context.credentials.supabase_project_ref,
+      ),
+    };
 
   return {
     available: context.actorRole === "owner" &&
@@ -1627,7 +1930,9 @@ const buildFinalizationSetup = ({
     isRunning,
     status: isFinalized ? "finalized" : jobStatus ?? "idle",
     step: isFinalized
-      ? "Standalone app finalized."
+      ? functionsDeployment.functionsDeployStatus === "deployed"
+        ? "Standalone app finalized and child functions deployed."
+        : "Repo finalized. Finish the child function deployment setup below."
       : toTrimmedString(effectiveJob?.step) || null,
     error: jobStatus === "failed" ? toTrimmedString(effectiveJob?.error) : null,
     startedAt: effectiveJob?.started_at ?? null,
@@ -1647,10 +1952,11 @@ const buildFinalizationSetup = ({
     targetSearchUrl: context.archive.canonical_url
       ? `${context.archive.canonical_url.replace(/\/+$/, "")}/search`
       : "",
+    ...functionsDeployment,
   };
 };
 
-export const buildStandaloneAdminSetup = ({
+export const buildStandaloneAdminSetup = async ({
   context,
   state,
   latestJob,
@@ -1658,31 +1964,44 @@ export const buildStandaloneAdminSetup = ({
   context: IndexAdminContext;
   state: Awaited<ReturnType<typeof readIndexAdminState>>;
   latestJob: IndexFinalizationJobRow | null;
-}) => ({
-  finalization: buildFinalizationSetup({
+}) => {
+  const finalization = await buildFinalizationSetup({
     context,
     state,
     latestJob,
-  }),
-  liveUrl: state.archive.canonicalUrl,
-  repoUrl: state.archive.repoUrl,
-  supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
-  standaloneAdminUrl: state.archive.standaloneAdminUrl,
-  authCallbackUrl: state.archive.authCallbackUrl,
-  authProvidersDashboardUrl: state.archive.authProvidersDashboardUrl,
-  nextSteps: context.archive.runtime_mode === "finalized"
-    ? [
-      "Open Search, Explorer, and Studio from the links below to verify the copied app is live.",
-      "Keep using the standalone /admin bridge link until you complete local auth and GitHub app setup on the child project.",
-      "If you want the finalized repo to spawn sites or indexes, make sure the child project's GitHub App and Supabase OAuth secrets are configured too.",
-    ]
+  });
+
+  const nextSteps = context.archive.runtime_mode === "finalized"
+    ? finalization.functionsDeployStatus === "deployed"
+      ? [
+        "Open Search, Explorer, and Studio from the links below to verify the copied app is live.",
+        "Keep using the standalone /admin bridge link until you complete local auth and GitHub app setup on the child project.",
+        "If you want the finalized repo to spawn sites or indexes, make sure the child project's GitHub App and Supabase OAuth secrets are configured too.",
+      ]
+      : [
+        "Add the required GitHub repo secrets shown below to the child repository.",
+        "Set SUPABASE_PROJECT_REF_PROD to the child project ref and create a Supabase personal access token for SUPABASE_ACCESS_TOKEN.",
+        "Open the child repo's Deploy Supabase Functions workflow and rerun it after the secrets are saved.",
+        "Keep using the standalone /admin bridge link until the child function deploy workflow succeeds.",
+      ]
     : [
       "Create a GitHub OAuth application for the standalone index.",
       "Enable GitHub in the new Supabase project's Auth providers.",
       "Use the standalone index URL as the site URL and the Supabase auth callback URL in the GitHub app.",
       "When the standalone setup is ready, click Finalise Index to copy over Search, Explorer, Studio, functions, and repo files from the parent index.",
       "Until that is configured, use the bridge link below to access /admin.",
-    ],
-  solidaryAdminUrl:
-    `${getSolidaryAppUrl()}/admin?archiveId=${context.archive.id}`,
-});
+    ];
+
+  return {
+    finalization,
+    liveUrl: state.archive.canonicalUrl,
+    repoUrl: state.archive.repoUrl,
+    supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
+    standaloneAdminUrl: state.archive.standaloneAdminUrl,
+    authCallbackUrl: state.archive.authCallbackUrl,
+    authProvidersDashboardUrl: state.archive.authProvidersDashboardUrl,
+    nextSteps,
+    solidaryAdminUrl:
+      `${getSolidaryAppUrl()}/admin?archiveId=${context.archive.id}`,
+  };
+};

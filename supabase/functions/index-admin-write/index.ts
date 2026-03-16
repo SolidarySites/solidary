@@ -245,13 +245,14 @@ export const handler: Handler = async (event) => {
       supabase: context.supabase,
       archiveId,
     });
+    const setup = await buildStandaloneAdminSetup({
+      context,
+      state,
+      latestJob,
+    });
     return safeJson(200, {
       state,
-      setup: buildStandaloneAdminSetup({
-        context,
-        state,
-        latestJob,
-      }),
+      setup,
     });
   } catch (error) {
     return safeJson(400, {

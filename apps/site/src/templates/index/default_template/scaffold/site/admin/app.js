@@ -18,6 +18,15 @@ const FINALIZATION_SOURCE_STATUS_LABELS = {
   root_fallback: "Solidary root fallback",
   missing: "Missing lineage"
 };
+const FUNCTIONS_DEPLOY_STATUS_LABELS = {
+  not_ready: "Not ready",
+  needs_secrets: "Needs repo secrets",
+  ready_to_run: "Ready to deploy",
+  running: "Workflow running",
+  failed: "Workflow failed",
+  deployed: "Functions deployed",
+  unknown: "Status unavailable"
+};
 
 const arrayBufferToBase64 = async (file) => {
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -177,17 +186,23 @@ const renderFinalizationCard = () => {
   }
 
   const sourceRepoLabel = finalization.sourceRepoFullName || finalization.sourceRepoUrl || "-";
+  const functionsReady = finalization.functionsDeployStatus === "deployed";
+  const showFunctionsSetup = finalization.isFinalized && !functionsReady;
+  const heading = !finalization.isFinalized
+    ? "Finalise Index"
+    : functionsReady
+      ? "Standalone app ready"
+      : "Finalize Index Setup";
+  const lead = !finalization.isFinalized
+    ? "Once standalone auth is working, copy the parent index app into this child repo."
+    : functionsReady
+      ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
+      : "The child repo has been copied. Add the required repo secrets and run the Deploy Supabase Functions workflow to make the copied runtime operational.";
   card.hidden = false;
   card.innerHTML = `
     <div class="details-head">
-      <h2>${finalization.isFinalized ? "Standalone app ready" : "Finalise Index"}</h2>
-      <p>
-        ${
-          finalization.isFinalized
-            ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
-            : "Once standalone auth is working, copy the parent index app into this child repo."
-        }
-      </p>
+      <h2>${heading}</h2>
+      <p>${lead}</p>
     </div>
     <dl class="details-list">
       <div>
@@ -197,6 +212,10 @@ const renderFinalizationCard = () => {
       <div>
         <dt>Step</dt>
         <dd>${finalization.step || "-"}</dd>
+      </div>
+      <div>
+        <dt>Functions deploy</dt>
+        <dd>${FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus] || "Not ready"}</dd>
       </div>
       <div>
         <dt>Source repo</dt>
@@ -217,6 +236,11 @@ const renderFinalizationCard = () => {
           ? `<div><dt>Source note</dt><dd>${finalization.sourceRepoMessage}</dd></div>`
           : ""
       }
+      ${
+        finalization.functionsDeployMessage
+          ? `<div><dt>Deploy note</dt><dd>${finalization.functionsDeployMessage}</dd></div>`
+          : ""
+      }
       <div>
         <dt>Completed</dt>
         <dd>${finalization.completedAt || "-"}</dd>
@@ -227,6 +251,25 @@ const renderFinalizationCard = () => {
           : ""
       }
     </dl>
+    ${
+      showFunctionsSetup
+        ? `<div class="details-card">
+            <h3>Required repo secrets</h3>
+            <dl class="details-list">
+              ${(finalization.requiredRepoSecrets || [])
+                .map(
+                  (secret) => `<div>
+                    <dt>${secret.name}</dt>
+                    <dd>${secret.isConfigured ? "Configured" : "Missing"}${
+                      secret.value ? ` — ${secret.value}` : ""
+                    }${secret.description ? ` — ${secret.description}` : ""}</dd>
+                  </div>`
+                )
+                .join("")}
+            </dl>
+          </div>`
+        : ""
+    }
     <div class="hero-actions" id="admin-finalization-actions"></div>
   `;
 
@@ -277,6 +320,19 @@ const renderFinalizationCard = () => {
       }
     });
     actions.append(button);
+    return;
+  }
+
+  if (showFunctionsSetup) {
+    renderLink(actions, {
+      href: finalization.functionsDeployWorkflowUrl,
+      label: "Open Deploy Functions workflow",
+      primary: true
+    });
+    renderLink(actions, {
+      href: finalization.functionsDeployRunUrl,
+      label: "Open latest workflow run"
+    });
     return;
   }
 
@@ -774,7 +830,9 @@ const renderAll = () => {
   if (!state.adminState) return;
   byId("admin-title").textContent = state.adminState.archive.title || "Standalone index admin";
   byId("admin-lead").textContent = state.setup?.finalization?.isFinalized
-    ? "This index now runs its own app stack. Keep using this bridge-backed /admin until local auth is fully configured."
+    ? state.setup?.finalization?.functionsDeployStatus === "deployed"
+      ? "This index now runs its own app stack. Keep using this bridge-backed /admin until local auth is fully configured."
+      : "This index repo has been finalized. Keep using this bridge-backed /admin until the child function deploy workflow succeeds."
     : "This admin uses a Solidary bridge token until the standalone index has its own local auth.";
   renderHeroLinks();
   renderFinalizationCard();

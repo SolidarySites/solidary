@@ -1,5 +1,4 @@
 import { Buffer } from "node:buffer";
-import JSZip from "npm:jszip@3.10.1";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { runHandler } from "../_shared/request-adapter.ts";
 import {
@@ -38,13 +37,12 @@ const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
 const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
-const REQUIRED_FINALIZATION_SUPABASE_SCOPES = ["edge_functions:write"] as const;
+const REQUIRED_FINALIZATION_SUPABASE_SCOPES = ["secrets:write"] as const;
 const SOURCE_TREE_EXCLUSIONS = [
   ".env",
   ".env.example",
   ".env.local",
   ".env.production",
-  ".github/workflows/",
   "apps/site/dist/",
   "site/.well-known/",
   "site/config/index.json",
@@ -76,7 +74,6 @@ type GhTreePayload = {
   truncated?: boolean;
 };
 type GhBlobPayload = { content?: string; encoding?: string; sha?: string };
-type ManagementFunctionPayload = Record<string, unknown>;
 
 type WorkerBody = {
   jobId?: string;
@@ -160,25 +157,6 @@ const splitScopes = (value: string) =>
 
 const fileB64ToUtf8 = (value: string) =>
   Buffer.from(value, "base64").toString("utf8");
-
-const utf8ToFileB64 = (value: string) =>
-  Buffer.from(value, "utf8").toString("base64");
-
-const rewriteFunctionSourceForDeploy = ({
-  relPath,
-  contentB64,
-}: {
-  relPath: string;
-  contentB64: string;
-}) => {
-  if (!/\.(ts|tsx|js|jsx|mjs|mts|cts)$/i.test(relPath)) {
-    return contentB64;
-  }
-
-  const source = fileB64ToUtf8(contentB64);
-  const patched = source.replaceAll("../_shared/", "./_shared/");
-  return patched === source ? contentB64 : utf8ToFileB64(patched);
-};
 
 const createServiceSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -749,52 +727,6 @@ jobs:
         uses: actions/deploy-pages@v4
 `;
 
-type FunctionDeployConfig = {
-  verifyJwt: boolean;
-  entrypointPath: string;
-};
-
-const DEFAULT_FUNCTION_DEPLOY_CONFIG: FunctionDeployConfig = {
-  verifyJwt: false,
-  entrypointPath: "index.ts",
-};
-
-const parseFunctionDeployConfig = (configToml: string) => {
-  const lines = configToml.split(/\r?\n/);
-  const result = new Map<string, FunctionDeployConfig>();
-  let current: string | null = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    const sectionMatch = line.match(/^\[functions\."([^"]+)"\]$/);
-    if (sectionMatch) {
-      current = sectionMatch[1];
-      if (!result.has(current)) {
-        result.set(current, DEFAULT_FUNCTION_DEPLOY_CONFIG);
-      }
-      continue;
-    }
-    if (!current) continue;
-    const verifyMatch = line.match(/^verify_jwt\s*=\s*(true|false)$/i);
-    if (verifyMatch) {
-      result.set(current, {
-        ...(result.get(current) ?? DEFAULT_FUNCTION_DEPLOY_CONFIG),
-        verifyJwt: verifyMatch[1].toLowerCase() === "true",
-      });
-      continue;
-    }
-    const entrypointMatch = line.match(/^entrypoint\s*=\s*"([^"]+)"$/i);
-    if (entrypointMatch) {
-      result.set(current, {
-        ...(result.get(current) ?? DEFAULT_FUNCTION_DEPLOY_CONFIG),
-        entrypointPath: entrypointMatch[1].trim() || "index.ts",
-      });
-    }
-  }
-
-  return result;
-};
-
 async function loadSourceRepoFiles({
   userToken,
   owner,
@@ -990,159 +922,6 @@ async function setProjectSecrets({
     500,
     getGhErrorMessage(payload, "Failed to create project secrets."),
   );
-}
-
-async function deployFunctionBundle({
-  accessToken,
-  projectRef,
-  functionName,
-  deployConfig,
-  sourceFiles,
-}: {
-  accessToken: string;
-  projectRef: string;
-  functionName: string;
-  deployConfig: FunctionDeployConfig;
-  sourceFiles: SourceBlobFile[];
-}) {
-  const zip = new JSZip();
-  const functionPrefix = `supabase/functions/${functionName}/`;
-  const sharedPrefix = "supabase/functions/_shared/";
-  const entrypointPath = deployConfig.entrypointPath.trim() || "index.ts";
-  let hasEntrypoint = false;
-
-  for (const file of sourceFiles) {
-    if (file.path.startsWith(functionPrefix)) {
-      const relPath = file.path.slice(functionPrefix.length);
-      zip.file(
-        relPath,
-        rewriteFunctionSourceForDeploy({
-          relPath,
-          contentB64: file.contentB64,
-        }),
-        {
-          base64: true,
-          unixPermissions: file.mode,
-        },
-      );
-      if (relPath === entrypointPath) {
-        hasEntrypoint = true;
-      }
-      continue;
-    }
-    if (file.path.startsWith(sharedPrefix)) {
-      const relPath = file.path.slice("supabase/functions/".length);
-      zip.file(relPath, file.contentB64, {
-        base64: true,
-        unixPermissions: file.mode,
-      });
-    }
-  }
-
-  if (!hasEntrypoint) {
-    return false;
-  }
-
-  const zipData = await zip.generateAsync({
-    type: "uint8array",
-    compression: "DEFLATE",
-    compressionOptions: {
-      level: 9,
-    },
-  });
-  const zipBlobPart = zipData as unknown as BlobPart;
-
-  const form = new FormData();
-  form.append(
-    "file",
-    new File([zipBlobPart], `${functionName}.zip`, {
-      type: "application/zip",
-    }),
-  );
-  form.append("entrypoint_path", entrypointPath);
-  form.append(
-    "verify_jwt",
-    deployConfig.verifyJwt ? "true" : "false",
-  );
-
-  const response = await fetch(
-    `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/functions/deploy?slug=${
-      encodeURIComponent(functionName)
-    }`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: form,
-    },
-  );
-  const payload = (await response.json().catch(() => ({}))) as
-    | ManagementFunctionPayload
-    | GhErrorPayload;
-  if (!response.ok) {
-    if (response.status === 403) {
-      throw new HttpError(
-        412,
-        "Reconnect your Supabase account with Edge Functions write access before finalising the index.",
-      );
-    }
-    throw new HttpError(
-      response.status,
-      getGhErrorMessage(
-        payload,
-        `Failed to deploy edge function ${functionName}.`,
-      ),
-    );
-  }
-
-  return true;
-}
-
-async function deployFunctionsFromSource({
-  accessToken,
-  projectRef,
-  sourceFiles,
-  onStep,
-}: {
-  accessToken: string;
-  projectRef: string;
-  sourceFiles: SourceBlobFile[];
-  onStep: (step: string) => Promise<void>;
-}) {
-  const configFile = sourceFiles.find((file) =>
-    file.path === "supabase/config.toml"
-  );
-  const deployConfigByFunction = parseFunctionDeployConfig(
-    configFile ? fileB64ToUtf8(configFile.contentB64) : "",
-  );
-
-  const functionNames = new Set<string>();
-  for (const file of sourceFiles) {
-    const match = file.path.match(/^supabase\/functions\/([^/]+)\/index\.ts$/);
-    if (match && match[1] !== "_shared") {
-      functionNames.add(match[1]);
-    }
-  }
-
-  const names = [...functionNames].sort((left, right) =>
-    left.localeCompare(right)
-  );
-  for (let index = 0; index < names.length; index += 1) {
-    const functionName = names[index];
-    await onStep(
-      `Deploying child edge functions (${index + 1}/${names.length})...`,
-    );
-    await deployFunctionBundle({
-      accessToken,
-      projectRef,
-      functionName,
-      deployConfig: deployConfigByFunction.get(functionName) ??
-        DEFAULT_FUNCTION_DEPLOY_CONFIG,
-      sourceFiles,
-    });
-  }
 }
 
 const readArchiveAndCredentials = async ({
@@ -1452,7 +1231,7 @@ export const handler: Handler = async (event) => {
       ) {
         throw new HttpError(
           412,
-          "Reconnect your Supabase account with Edge Functions write access before finalising the index.",
+          "Reconnect your Supabase account with Secrets write access before finalising the index.",
         );
       }
 
@@ -1595,15 +1374,6 @@ export const handler: Handler = async (event) => {
         },
       });
 
-      await deployFunctionsFromSource({
-        accessToken: managementAccessToken,
-        projectRef: credentials.supabase_project_ref,
-        sourceFiles,
-        onStep: async (step) => {
-          await updateJob({ step });
-        },
-      });
-
       await updateJob({
         step: "Marking index as finalized...",
       });
@@ -1615,7 +1385,8 @@ export const handler: Handler = async (event) => {
 
       await updateJob({
         status: "succeeded",
-        step: "Index finalization completed.",
+        step:
+          "Index finalization completed. Add child repo secrets and run the Deploy Supabase Functions workflow.",
         error: null,
         payload: {
           source_repo_full_name: parentSource.repoFullName,
@@ -1625,6 +1396,7 @@ export const handler: Handler = async (event) => {
           target_repo_full_name: credentials.repo_full_name,
           target_repo_url: credentials.repo_url,
           child_project_ref: credentials.supabase_project_ref,
+          functions_workflow_file: "deploy-supabase-functions.yml",
         },
         completed_at: new Date().toISOString(),
       });

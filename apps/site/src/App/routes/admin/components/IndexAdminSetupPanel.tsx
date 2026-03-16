@@ -7,6 +7,16 @@ const FINALIZATION_SOURCE_STATUS_LABELS = {
   missing: "Missing lineage"
 } as const;
 
+const FUNCTIONS_DEPLOY_STATUS_LABELS = {
+  not_ready: "Not ready",
+  needs_secrets: "Needs repo secrets",
+  ready_to_run: "Ready to deploy",
+  running: "Workflow running",
+  failed: "Workflow failed",
+  deployed: "Functions deployed",
+  unknown: "Status unavailable"
+} as const;
+
 type IndexAdminSetupPanelProps = {
   archive: IndexAdminArchiveState;
   setup: IndexAdminSetup | null;
@@ -26,6 +36,18 @@ export default function IndexAdminSetupPanel({
   const canFinalize = Boolean(finalization?.available) && !startingFinalization;
   const isRunning = Boolean(finalization?.isRunning);
   const isFinalized = Boolean(finalization?.isFinalized);
+  const functionsReady = finalization?.functionsDeployStatus === "deployed";
+  const showFunctionsSetup = isFinalized && !functionsReady;
+  const finalizationHeading = !isFinalized
+    ? "Finalise Index"
+    : functionsReady
+      ? "Standalone app ready"
+      : "Finalize Index Setup";
+  const finalizationLead = !isFinalized
+    ? "Copy the parent index app into this child repo once the standalone auth setup is working."
+    : functionsReady
+      ? "The child repo now runs its own Search, Explorer, Studio, and functions."
+      : "The child repo has been copied. Add the required repo secrets and run the Deploy Supabase Functions workflow to make the copied runtime operational.";
 
   return (
     <section className={`builder-section admin-setup-panel ${highlight ? "is-highlighted" : ""}`.trim()}>
@@ -110,12 +132,8 @@ export default function IndexAdminSetupPanel({
           </div>
 
           <div className="admin-setup-card">
-            <h3>{isFinalized ? "Standalone app ready" : "Finalise Index"}</h3>
-            <p>
-              {isFinalized
-                ? "The child repo now runs its own Search, Explorer, Studio, and functions."
-                : "Copy the parent index app into this child repo once the standalone auth setup is working."}
-            </p>
+            <h3>{finalizationHeading}</h3>
+            <p>{finalizationLead}</p>
 
             <dl>
               <div>
@@ -124,8 +142,16 @@ export default function IndexAdminSetupPanel({
               </div>
               <div>
                 <dt>Step</dt>
-                <dd>{finalization?.step || "-"}</dd>
-              </div>
+                  <dd>{finalization?.step || "-"}</dd>
+                </div>
+                <div>
+                  <dt>Functions deploy</dt>
+                  <dd>
+                    {finalization
+                      ? FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus]
+                      : "-"}
+                  </dd>
+                </div>
               <div>
                 <dt>Source repo</dt>
                 <dd>
@@ -152,6 +178,12 @@ export default function IndexAdminSetupPanel({
                   <dd>{finalization.sourceRepoMessage}</dd>
                 </div>
               )}
+              {finalization?.functionsDeployMessage && (
+                <div>
+                  <dt>Deploy note</dt>
+                  <dd>{finalization.functionsDeployMessage}</dd>
+                </div>
+              )}
               {finalization?.error && (
                 <div>
                   <dt>Latest error</dt>
@@ -159,6 +191,24 @@ export default function IndexAdminSetupPanel({
                 </div>
               )}
             </dl>
+
+            {showFunctionsSetup && (
+              <div className="admin-setup-card">
+                <h4>Required repo secrets</h4>
+                <dl>
+                  {finalization?.requiredRepoSecrets.map((secret) => (
+                    <div key={secret.name}>
+                      <dt>{secret.name}</dt>
+                      <dd>
+                        {secret.isConfigured ? "Configured" : "Missing"}
+                        {secret.value ? ` — ${secret.value}` : ""}
+                        {secret.description ? ` — ${secret.description}` : ""}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
 
             <div className="admin-finalization-actions">
               {!isFinalized && (
@@ -172,12 +222,33 @@ export default function IndexAdminSetupPanel({
                 </button>
               )}
 
-              {isFinalized && finalization?.targetSearchUrl && (
+              {showFunctionsSetup && finalization?.functionsDeployWorkflowUrl && (
+                <a
+                  href={finalization.functionsDeployWorkflowUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="site-card-action-link"
+                >
+                  Open Deploy Functions workflow
+                </a>
+              )}
+              {showFunctionsSetup && finalization?.functionsDeployRunUrl && (
+                <a
+                  href={finalization.functionsDeployRunUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="site-card-action-link"
+                >
+                  Open latest workflow run
+                </a>
+              )}
+
+              {functionsReady && finalization?.targetSearchUrl && (
                 <a href={finalization.targetSearchUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
                   Open Search
                 </a>
               )}
-              {isFinalized && finalization?.targetExplorerUrl && (
+              {functionsReady && finalization?.targetExplorerUrl && (
                 <a
                   href={finalization.targetExplorerUrl}
                   target="_blank"
@@ -187,7 +258,7 @@ export default function IndexAdminSetupPanel({
                   Open Explorer
                 </a>
               )}
-              {isFinalized && finalization?.targetStudioUrl && (
+              {functionsReady && finalization?.targetStudioUrl && (
                 <a href={finalization.targetStudioUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
                   Open Studio
                 </a>

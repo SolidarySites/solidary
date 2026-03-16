@@ -19,6 +19,7 @@ import type {
   IndexAdminGeneralPayload,
   IndexAdminFinalizationState,
   IndexAdminListItem,
+  IndexAdminRepoSecretRequirement,
   IndexAdminReadResponse,
   IndexAdminSearchResponse,
   IndexAdminSetup,
@@ -95,6 +96,8 @@ type RawIndexAdminState = {
 };
 
 type RawIndexAdminFinalizationState = Partial<IndexAdminFinalizationState>;
+
+type RawIndexAdminRepoSecretRequirement = Partial<IndexAdminRepoSecretRequirement>;
 
 type RawIndexAdminSetup = Partial<IndexAdminSetup> & {
   finalization?: RawIndexAdminFinalizationState | null;
@@ -264,7 +267,45 @@ const mapFinalization = (
       ? rawFinalization.targetExplorerUrl
       : "",
   targetSearchUrl:
-    typeof rawFinalization?.targetSearchUrl === "string" ? rawFinalization.targetSearchUrl : ""
+    typeof rawFinalization?.targetSearchUrl === "string" ? rawFinalization.targetSearchUrl : "",
+  functionsDeployStatus:
+    rawFinalization?.functionsDeployStatus === "needs_secrets" ||
+    rawFinalization?.functionsDeployStatus === "ready_to_run" ||
+    rawFinalization?.functionsDeployStatus === "running" ||
+    rawFinalization?.functionsDeployStatus === "failed" ||
+    rawFinalization?.functionsDeployStatus === "deployed" ||
+    rawFinalization?.functionsDeployStatus === "unknown"
+      ? rawFinalization.functionsDeployStatus
+      : "not_ready",
+  functionsDeployMessage:
+    typeof rawFinalization?.functionsDeployMessage === "string"
+      ? rawFinalization.functionsDeployMessage
+      : null,
+  functionsDeployWorkflowUrl:
+    typeof rawFinalization?.functionsDeployWorkflowUrl === "string"
+      ? rawFinalization.functionsDeployWorkflowUrl
+      : null,
+  functionsDeployRunUrl:
+    typeof rawFinalization?.functionsDeployRunUrl === "string"
+      ? rawFinalization.functionsDeployRunUrl
+      : null,
+  requiredRepoSecrets: Array.isArray(rawFinalization?.requiredRepoSecrets)
+    ? rawFinalization.requiredRepoSecrets
+        .map((entry) => entry as RawIndexAdminRepoSecretRequirement)
+        .filter(
+          (entry): entry is RawIndexAdminRepoSecretRequirement =>
+            entry.name === "SUPABASE_ACCESS_TOKEN" || entry.name === "SUPABASE_PROJECT_REF_PROD"
+        )
+        .map(
+          (entry) =>
+            ({
+              name: entry.name as IndexAdminRepoSecretRequirement["name"],
+              isConfigured: entry.isConfigured === true,
+              value: typeof entry.value === "string" ? entry.value : null,
+              description: typeof entry.description === "string" ? entry.description : ""
+            }) satisfies IndexAdminRepoSecretRequirement
+        )
+    : []
 });
 
 const mapSetup = (rawSetup: RawIndexAdminSetup | null | undefined): IndexAdminSetup => ({

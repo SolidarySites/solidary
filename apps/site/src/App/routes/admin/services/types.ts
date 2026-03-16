@@ -86,6 +86,13 @@ export type IndexAdminSetup = {
   solidaryAdminUrl: string;
 };
 
+export type IndexAdminRepoSecretRequirement = {
+  name: "SUPABASE_ACCESS_TOKEN" | "SUPABASE_PROJECT_REF_PROD";
+  isConfigured: boolean;
+  value: string | null;
+  description: string;
+};
+
 export type IndexAdminFinalizationState = {
   available: boolean;
   isFinalized: boolean;
@@ -102,6 +109,18 @@ export type IndexAdminFinalizationState = {
   targetStudioUrl: string;
   targetExplorerUrl: string;
   targetSearchUrl: string;
+  functionsDeployStatus:
+    | "not_ready"
+    | "needs_secrets"
+    | "ready_to_run"
+    | "running"
+    | "failed"
+    | "deployed"
+    | "unknown";
+  functionsDeployMessage: string | null;
+  functionsDeployWorkflowUrl: string | null;
+  functionsDeployRunUrl: string | null;
+  requiredRepoSecrets: IndexAdminRepoSecretRequirement[];
 };
 
 export type IndexAdminState = {
