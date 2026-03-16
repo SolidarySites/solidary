@@ -126,11 +126,17 @@ export type IndexAdminFunctionsDeploymentSetup = {
   canDispatch: boolean;
 };
 
+export type IndexFinalizationPhase = "prepare_manifest" | "materialize_blobs" | "commit_finalize";
+
 export type IndexAdminFinalizationState = {
   available: boolean;
   isFinalized: boolean;
   isRunning: boolean;
   status: "idle" | "queued" | "running" | "failed" | "finalized";
+  phase: IndexFinalizationPhase | null;
+  progressCurrent: number | null;
+  progressTotal: number | null;
+  canRetry: boolean;
   step: string | null;
   error: string | null;
   startedAt: string | null;

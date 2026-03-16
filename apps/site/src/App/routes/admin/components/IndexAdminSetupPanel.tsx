@@ -17,6 +17,12 @@ const FUNCTIONS_DEPLOY_STATUS_LABELS = {
   unknown: "Status unavailable"
 } as const;
 
+const FINALIZATION_PHASE_LABELS = {
+  prepare_manifest: "Preparing manifest",
+  materialize_blobs: "Writing files",
+  commit_finalize: "Finishing setup"
+} as const;
+
 type IndexAdminSetupPanelProps = {
   archive: IndexAdminArchiveState;
   setup: IndexAdminSetup | null;
@@ -254,8 +260,20 @@ export default function IndexAdminSetupPanel({
                 <dd>{finalization?.status ?? "idle"}</dd>
               </div>
               <div>
+                <dt>Phase</dt>
+                <dd>{finalization?.phase ? FINALIZATION_PHASE_LABELS[finalization.phase] : "-"}</dd>
+              </div>
+              <div>
                 <dt>Current step</dt>
                 <dd>{finalization?.step || "-"}</dd>
+              </div>
+              <div>
+                <dt>Progress</dt>
+                <dd>
+                  {finalization?.progressTotal
+                    ? `${finalization.progressCurrent ?? 0} / ${finalization.progressTotal}`
+                    : "-"}
+                </dd>
               </div>
               <div>
                 <dt>Source repo</dt>
@@ -301,7 +319,9 @@ export default function IndexAdminSetupPanel({
                 >
                   {startingFinalization || finalization?.isRunning
                     ? "Finalising..."
-                    : "Finish child setup"}
+                    : finalization?.canRetry
+                      ? "Retry child setup"
+                      : "Finish child setup"}
                 </button>
               )}
               {setup.repoUrl ? (

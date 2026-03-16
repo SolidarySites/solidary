@@ -11,6 +11,11 @@ import "./IndexCreateRoute.css";
 
 const SUPABASE_ACCOUNT_TOKENS_URL = "https://supabase.com/dashboard/account/tokens";
 const SUPABASE_DASHBOARD_URL = "https://supabase.com/dashboard";
+const FINALIZATION_PHASE_LABELS = {
+  prepare_manifest: "Preparing manifest",
+  materialize_blobs: "Writing files",
+  commit_finalize: "Finishing setup"
+} as const;
 
 type Controller = ReturnType<typeof useIndexCreateRouteController>;
 
@@ -63,6 +68,8 @@ const getStepSummary = ({
     case "finalization":
       return controller.setup?.finalization.isFinalized
         ? "Standalone app copied into the child repo."
+        : controller.setup?.finalization.progressTotal
+          ? `${controller.setup.finalization.progressCurrent ?? 0}/${controller.setup.finalization.progressTotal} files processed.`
         : controller.setup?.finalization.step || "Copy the standalone app into the child repo.";
     case "functions":
       return controller.setup?.functionsDeployment.status === "deployed"
@@ -85,6 +92,9 @@ const renderStepContent = ({
   const authSetup = controller.setup?.authSetup ?? null;
   const finalization = controller.setup?.finalization ?? null;
   const functionsDeployment = controller.setup?.functionsDeployment ?? null;
+  const finalizationProgressLabel = finalization?.progressTotal
+    ? `${finalization.progressCurrent ?? 0} / ${finalization.progressTotal}`
+    : "Waiting to start.";
 
   switch (stepKey) {
     case "github_app":
@@ -482,8 +492,18 @@ const renderStepContent = ({
               <span>{finalization?.status || "idle"}</span>
             </div>
             <div>
+              <strong>Phase</strong>
+              <span>
+                {finalization?.phase ? FINALIZATION_PHASE_LABELS[finalization.phase] : "Waiting to start."}
+              </span>
+            </div>
+            <div>
               <strong>Current step</strong>
               <span>{finalization?.step || "Waiting to start."}</span>
+            </div>
+            <div>
+              <strong>Progress</strong>
+              <span>{finalizationProgressLabel}</span>
             </div>
             <div>
               <strong>Source repo</strong>
@@ -512,20 +532,24 @@ const renderStepContent = ({
               type="button"
               className="primary"
               onClick={controller.onFinalizeIndex}
-              disabled={controller.startingFinalization || !finalization?.available}
+              disabled={controller.startingFinalization || finalization?.isRunning || !finalization?.available}
             >
               {controller.startingFinalization || finalization?.isRunning
                 ? "Finishing..."
-                : "Finish child setup"}
+                : finalization?.canRetry
+                  ? "Retry child setup"
+                  : "Finish child setup"}
             </button>
-            <button
-              type="button"
-              className="ghost"
-              onClick={controller.onRefreshSetup}
-              disabled={controller.setupLoading || controller.startingFinalization}
-            >
-              {controller.setupLoading ? "Checking..." : "Check status"}
-            </button>
+            {!finalization?.isRunning ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={controller.onRefreshSetup}
+                disabled={controller.setupLoading || controller.startingFinalization}
+              >
+                {controller.setupLoading ? "Checking..." : "Check status"}
+              </button>
+            ) : null}
           </div>
         </>
       );

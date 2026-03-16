@@ -22,6 +22,10 @@ const buildSetup = (overrides: Partial<IndexAdminSetup> = {}): IndexAdminSetup =
     isFinalized: false,
     isRunning: false,
     status: "idle",
+    phase: null,
+    progressCurrent: null,
+    progressTotal: null,
+    canRetry: false,
     step: null,
     error: null,
     startedAt: null,
@@ -143,6 +147,35 @@ describe("buildIndexCreateWizardSteps", () => {
           isRunning: true,
           status: "running",
           step: "Reading parent repository files (96/447)..."
+        }
+      },
+      isProvisioning: false
+    });
+
+    expect(steps.find((step) => step.key === "github_oauth")?.status).toBe("complete");
+    expect(steps.find((step) => step.key === "finalization")?.status).toBe("current");
+  });
+
+  it("keeps the wizard on finalization after a failed finalization run", () => {
+    const baseSetup = buildSetup();
+    const steps = buildIndexCreateWizardSteps({
+      prerequisites: buildPrerequisites(),
+      organizationConfirmed: false,
+      detailsConfirmed: false,
+      supabasePatConfirmed: true,
+      archiveId: "archive-1",
+      setup: {
+        ...baseSetup,
+        authSetup: {
+          ...baseSetup.authSetup,
+          localAuthReady: true
+        },
+        finalization: {
+          ...baseSetup.finalization,
+          available: true,
+          status: "failed",
+          canRetry: true,
+          error: "The previous finalization job stopped reporting progress. Retry finalization."
         }
       },
       isProvisioning: false

@@ -26,6 +26,10 @@ import {
   updateSupabaseProjectAuthConfig,
   updateSupabaseProjectGitHubAuthConfig,
 } from "./supabase-management-auth/index.ts";
+import {
+  parseIndexFinalizationPayload,
+  type IndexFinalizationPhase,
+} from "./index-finalization.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
@@ -33,7 +37,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
 const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
-const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 10;
+const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 2;
 const INDEX_FUNCTIONS_WORKFLOW_FILE = "deploy-supabase-functions.yml";
 const INDEX_FUNCTIONS_WORKFLOW_BRANCH = "main";
 const INDEX_AUTH_CONFIG_REQUIRED_SCOPES = ["auth:write"] as const;
@@ -252,6 +256,40 @@ export type IndexFunctionsDeploymentSetup = {
   runUrl: string | null;
   requiredSecrets: IndexRepoSecretRequirement[];
   canDispatch: boolean;
+};
+
+export type IndexFinalizationStatus =
+  | "idle"
+  | "queued"
+  | "running"
+  | "failed"
+  | "finalized";
+
+export type IndexFinalizationState = {
+  available: boolean;
+  isFinalized: boolean;
+  isRunning: boolean;
+  status: IndexFinalizationStatus;
+  phase: IndexFinalizationPhase | null;
+  progressCurrent: number | null;
+  progressTotal: number | null;
+  canRetry: boolean;
+  step: string | null;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  sourceRepoFullName: string | null;
+  sourceRepoUrl: string | null;
+  sourceRepoStatus: ParentSourceRepoStatus;
+  sourceRepoMessage: string | null;
+  targetStudioUrl: string;
+  targetExplorerUrl: string;
+  targetSearchUrl: string;
+  functionsDeployStatus: IndexFunctionsDeploymentStatus;
+  functionsDeployMessage: string | null;
+  functionsDeployWorkflowUrl: string | null;
+  functionsDeployRunUrl: string | null;
+  requiredRepoSecrets: IndexRepoSecretRequirement[];
 };
 
 type ParentSourceRepoInput = {
@@ -2366,9 +2404,23 @@ const buildFinalizationSetup = async ({
     },
   });
   const effectiveJob = getEffectiveIndexFinalizationJob(latestJob);
+  const jobPayload = parseIndexFinalizationPayload(effectiveJob?.payload);
   const jobStatus = effectiveJob?.status ?? null;
   const isFinalized = context.archive.runtime_mode === "finalized";
-  const isRunning = jobStatus === "queued" || jobStatus === "running";
+  const normalizedStatus: IndexFinalizationStatus = isFinalized
+    ? "finalized"
+    : jobStatus === "queued" || jobStatus === "running"
+      ? jobStatus
+      : jobStatus === "failed"
+        ? "failed"
+        : jobStatus === "succeeded"
+          ? "running"
+          : "idle";
+  const isRunning = normalizedStatus === "queued" || normalizedStatus === "running";
+  const progressTotal = jobPayload.totalFiles > 0 ? jobPayload.totalFiles : null;
+  const progressCurrent = progressTotal !== null
+    ? Math.min(jobPayload.processedFiles, progressTotal)
+    : null;
   const functionsDeployment = isFinalized
     ? await buildFinalizedFunctionsDeploymentSetup({ context })
     : buildNotReadyFunctionsDeploymentSetup({
@@ -2387,13 +2439,22 @@ const buildFinalizationSetup = async ({
         parentSource.sourceKind !== "missing",
       isFinalized,
       isRunning,
-      status: isFinalized ? "finalized" : jobStatus ?? "idle",
+      status: normalizedStatus,
+      phase: isFinalized ? "commit_finalize" : jobPayload.phase,
+      progressCurrent,
+      progressTotal,
+      canRetry: normalizedStatus === "failed" &&
+        context.actorRole === "owner" &&
+        !isFinalized &&
+        parentSource.sourceKind !== "missing",
       step: isFinalized
         ? functionsDeployment.status === "deployed"
           ? "Standalone app finalized and child functions deployed."
           : "Repo finalized. Finish the child function deployment setup below."
+        : jobStatus === "succeeded"
+          ? "Finishing child setup..."
         : toTrimmedString(effectiveJob?.step) || null,
-      error: jobStatus === "failed"
+      error: normalizedStatus === "failed"
         ? toTrimmedString(effectiveJob?.error)
         : null,
       startedAt: effectiveJob?.started_at ?? null,

@@ -249,6 +249,23 @@ const mapFinalization = (
     rawFinalization?.status === "finalized"
       ? rawFinalization.status
       : "idle",
+  phase:
+    rawFinalization?.phase === "prepare_manifest" ||
+    rawFinalization?.phase === "materialize_blobs" ||
+    rawFinalization?.phase === "commit_finalize"
+      ? rawFinalization.phase
+      : null,
+  progressCurrent:
+    typeof rawFinalization?.progressCurrent === "number" &&
+      Number.isFinite(rawFinalization.progressCurrent)
+      ? rawFinalization.progressCurrent
+      : null,
+  progressTotal:
+    typeof rawFinalization?.progressTotal === "number" &&
+      Number.isFinite(rawFinalization.progressTotal)
+      ? rawFinalization.progressTotal
+      : null,
+  canRetry: rawFinalization?.canRetry === true,
   step: typeof rawFinalization?.step === "string" ? rawFinalization.step : null,
   error: typeof rawFinalization?.error === "string" ? rawFinalization.error : null,
   startedAt: typeof rawFinalization?.startedAt === "string" ? rawFinalization.startedAt : null,

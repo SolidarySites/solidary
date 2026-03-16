@@ -1,14 +1,20 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
-import JSZip from "npm:jszip@3.10.1";
 import { runHandler } from "../_shared/request-adapter.ts";
 import {
   createChildProjectClient,
   type IndexArchiveRow,
+  type IndexFinalizationJobRow,
   type IndexProjectCredentialsRow,
   type ParentSourceRepoResolution,
   resolveParentSourceRepo,
 } from "../_shared/index-admin.ts";
+import {
+  parseIndexFinalizationPayload,
+  type IndexFinalizationPayloadState,
+  type IndexFinalizationPreparedTreeEntry,
+  type IndexFinalizationSourceManifestEntry,
+} from "../_shared/index-finalization.ts";
 import {
   resolveSupabaseManagementAccessForUser,
   SupabaseManagementReauthError,
@@ -16,6 +22,10 @@ import {
 } from "../_shared/supabase-management-auth/index.ts";
 import { decryptTokenValue } from "../_shared/token-crypto.ts";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
+import {
+  buildFinalizationStepLabel,
+  buildSourceManifestFromTreeEntries,
+} from "./helpers.ts";
 import type { Handler } from "../_shared/types.ts";
 
 const GITHUB_API = "https://api.github.com";
@@ -24,6 +34,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const TOKEN_ENCRYPTION_KEY = Deno.env.get("TOKEN_ENCRYPTION_KEY") ?? "";
+const FINALIZE_WORKER_PATH = "/functions/v1/index-finalize-worker-background";
+const FINALIZATION_BATCH_SIZE = 20;
+const GITHUB_BLOB_CONCURRENCY = 5;
 const RETRYABLE_GITHUB_STATUS = new Set([
   404,
   409,
@@ -36,68 +49,53 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 ]);
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
-const GITHUB_BLOB_READ_CONCURRENCY = 8;
-const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
-const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 const REQUIRED_FINALIZATION_SUPABASE_SCOPES = [
   "secrets:write",
   "auth:write",
 ] as const;
-const SOURCE_TREE_EXCLUSIONS = [
-  ".env",
-  ".env.example",
-  ".env.local",
-  ".env.production",
-  "apps/site/dist/",
-  "site/.well-known/",
-  "site/config/index.json",
-  "site/assets/index-image.jpg",
-  "supabase/migrations/",
-  "supabase/.temp/",
-  ".DS_Store",
-] as const;
 
-type GhErrorPayload = { message?: string; documentation_url?: string };
+type GhErrorPayload = {
+  message?: string;
+  documentation_url?: string;
+};
+
 type GhRepoPayload = {
   default_branch?: string;
-  full_name?: string;
-  html_url?: string;
-  name?: string;
-  owner?: { login?: string };
 };
-type GhBranchPayload = { commit?: { sha?: string } };
-type GhCommitPayload = { sha?: string; tree?: { sha?: string } };
+
+type GhBranchPayload = {
+  commit?: { sha?: string };
+};
+
+type GhCommitPayload = {
+  sha?: string;
+  tree?: { sha?: string };
+};
+
 type GhTreeEntry = {
   path?: string;
   mode?: string;
   type?: string;
   sha?: string;
 };
+
 type GhTreePayload = {
   sha?: string;
   tree?: GhTreeEntry[];
   truncated?: boolean;
 };
-type GhBlobPayload = { content?: string; encoding?: string; sha?: string };
+
+type GhBlobPayload = {
+  content?: string;
+  encoding?: string;
+  sha?: string;
+};
 
 type WorkerBody = {
   jobId?: string;
   archiveId?: string;
   ownerUserId?: string;
-};
-
-type SourceBlobFile = {
-  path: string;
-  mode: "100644" | "100755";
-  contentB64: string;
-};
-
-type SourceArchiveEntry = {
-  dir: boolean;
-  name: string;
-  unixPermissions?: number | string;
-  async: (type: "base64") => Promise<string>;
 };
 
 type ChildParentSourceArchiveRow = {
@@ -106,6 +104,23 @@ type ChildParentSourceArchiveRow = {
   parent_index_url: string | null;
   parent_repo_full_name: string | null;
   parent_repo_url: string | null;
+};
+
+type FinalizationExecutionContext = {
+  archive: IndexArchiveRow;
+  syncedArchive: IndexArchiveRow;
+  credentials: IndexProjectCredentialsRow;
+  parentSource: ParentSourceRepoResolution;
+  sourceRepo: {
+    owner: string;
+    repo: string;
+  };
+  targetRepo: {
+    owner: string;
+    repo: string;
+  };
+  githubToken: string;
+  managementAccessToken: string | null;
 };
 
 class HttpError extends Error {
@@ -158,15 +173,8 @@ const parseBody = (rawBody: string | null): WorkerBody => {
 const toTrimmedString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
-const asRecord = (value: unknown) =>
-  value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-
 const splitScopes = (value: string) =>
-  value.split(/[\s,]+/g).map((entry) => entry.trim().toLowerCase()).filter(
-    Boolean,
-  );
+  value.split(/[\s,]+/g).map((entry) => entry.trim().toLowerCase()).filter(Boolean);
 
 const fileB64ToUtf8 = (value: string) =>
   Buffer.from(value, "base64").toString("utf8");
@@ -194,21 +202,11 @@ const getGhErrorMessage = (payload: unknown, fallback: string) => {
   return `${fallback} (${message || docs})`;
 };
 
-const assertOk = (res: Response, payload: unknown, fallbackMessage: string) => {
-  if (!res.ok) {
-    throw new HttpError(
-      res.status,
-      getGhErrorMessage(payload, fallbackMessage),
-    );
+const assertOk = (response: Response, payload: unknown, fallbackMessage: string) => {
+  if (!response.ok) {
+    throw new HttpError(response.status, getGhErrorMessage(payload, fallbackMessage));
   }
 };
-
-const shouldExcludeSourcePath = (path: string) =>
-  SOURCE_TREE_EXCLUSIONS.some((entry) =>
-    entry.endsWith("/")
-      ? path === entry.slice(0, -1) || path.startsWith(entry)
-      : path === entry || path.endsWith(`/${entry}`)
-  );
 
 const githubHeaders = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -221,7 +219,7 @@ async function ghUser<T>(
   url: string,
   init: RequestInit = {},
 ) {
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     ...init,
     headers: {
       ...githubHeaders(userToken),
@@ -229,8 +227,8 @@ async function ghUser<T>(
     },
   });
 
-  const data = (await res.json().catch(() => ({}))) as T;
-  return { res, data };
+  const payload = (await response.json().catch(() => ({}))) as T;
+  return { response, payload };
 }
 
 async function ghUserWithRetry<T>({
@@ -248,8 +246,8 @@ async function ghUserWithRetry<T>({
 }) {
   let last:
     | {
-      res: Response;
-      data: T;
+      response: Response;
+      payload: T;
     }
     | undefined;
 
@@ -261,15 +259,15 @@ async function ghUserWithRetry<T>({
 
     const current = await ghUser<T>(userToken, url, init);
     last = current;
-    if (current.res.ok) {
-      return current;
-    }
-    if (!shouldRetry(current.res.status, current.data)) {
+    if (current.response.ok || !shouldRetry(current.response.status, current.payload)) {
       return current;
     }
   }
 
-  return last as { res: Response; data: T };
+  return last as {
+    response: Response;
+    payload: T;
+  };
 }
 
 async function getRepo({
@@ -281,14 +279,14 @@ async function getRepo({
   owner: string;
   repo: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhRepoPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<GhRepoPayload | GhErrorPayload>({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(res, data, "Failed reading repository.");
-  return data as GhRepoPayload;
+  assertOk(response, payload, "Failed reading repository.");
+  return payload as GhRepoPayload;
 }
 
 async function getBranchHeadSha({
@@ -302,19 +300,15 @@ async function getBranchHeadSha({
   repo: string;
   branch: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhBranchPayload | GhErrorPayload>(
-    {
-      userToken,
-      url: `${GITHUB_API}/repos/${owner}/${repo}/branches/${
-        encodeURIComponent(branch)
-      }`,
-      delaysMs: BRANCH_READY_RETRY_DELAYS_MS,
-      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
-    },
-  );
-  assertOk(res, data, `Failed to read ${branch} branch for ${owner}/${repo}.`);
-  const sha = typeof (data as GhBranchPayload)?.commit?.sha === "string"
-    ? (data as GhBranchPayload).commit?.sha
+  const { response, payload } = await ghUserWithRetry<GhBranchPayload | GhErrorPayload>({
+    userToken,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`,
+    delaysMs: BRANCH_READY_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
+  });
+  assertOk(response, payload, `Failed to read ${branch} branch for ${owner}/${repo}.`);
+  const sha = typeof (payload as GhBranchPayload)?.commit?.sha === "string"
+    ? (payload as GhBranchPayload).commit?.sha
     : "";
   if (!sha) {
     throw new HttpError(
@@ -336,22 +330,16 @@ async function getCommitTreeSha({
   repo: string;
   commitSha: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhCommitPayload | GhErrorPayload>(
-    {
-      userToken,
-      url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits/${commitSha}`,
-      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
-    },
-  );
-  assertOk(
-    res,
-    data,
-    `Failed reading commit ${commitSha} for ${owner}/${repo}.`,
-  );
+  const { response, payload } = await ghUserWithRetry<GhCommitPayload | GhErrorPayload>({
+    userToken,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits/${commitSha}`,
+    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
+  });
+  assertOk(response, payload, `Failed reading commit ${commitSha} for ${owner}/${repo}.`);
 
-  const treeSha = typeof (data as GhCommitPayload)?.tree?.sha === "string"
-    ? (data as GhCommitPayload).tree?.sha
+  const treeSha = typeof (payload as GhCommitPayload)?.tree?.sha === "string"
+    ? (payload as GhCommitPayload).tree?.sha
     : "";
   if (!treeSha) {
     throw new HttpError(
@@ -373,25 +361,21 @@ async function getRecursiveTree({
   repo: string;
   treeSha: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhTreePayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<GhTreePayload | GhErrorPayload>({
     userToken,
-    url:
-      `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(res, data, `Failed reading tree ${treeSha} for ${owner}/${repo}.`);
-  const treePayload = data as GhTreePayload;
+  assertOk(response, payload, `Failed reading tree ${treeSha} for ${owner}/${repo}.`);
+  const treePayload = payload as GhTreePayload;
   if (treePayload.truncated === true) {
     throw new HttpError(
       412,
       `The parent repository tree for ${owner}/${repo} is too large for the GitHub recursive tree API. Reduce the source repo size or switch to a smaller parent source repo before finalising this index.`,
     );
   }
-  const tree = Array.isArray(treePayload.tree)
-    ? treePayload.tree ?? []
-    : [];
-  return tree;
+  return Array.isArray(treePayload.tree) ? treePayload.tree : [];
 }
 
 async function getBlobBase64({
@@ -405,31 +389,27 @@ async function getBlobBase64({
   repo: string;
   blobSha: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs/${blobSha}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(res, data, `Failed reading blob ${blobSha} from ${owner}/${repo}.`);
-  const blobPayload = data as GhBlobPayload;
-  const encoding = typeof blobPayload.encoding === "string"
-    ? blobPayload.encoding
-    : "";
-  const rawContent: string = typeof blobPayload.content === "string"
-    ? blobPayload.content
-    : "";
+  assertOk(response, payload, `Failed reading blob ${blobSha} from ${owner}/${repo}.`);
+
+  const blobPayload = payload as GhBlobPayload;
+  const encoding = typeof blobPayload.encoding === "string" ? blobPayload.encoding : "";
+  const rawContent = typeof blobPayload.content === "string" ? blobPayload.content : "";
   if (blobSha === EMPTY_GIT_BLOB_SHA) {
     return "";
   }
-  const content = rawContent.trim() ? rawContent : "";
-  if (encoding !== "base64" || !content) {
+  if (encoding !== "base64" || !rawContent.trim()) {
     throw new HttpError(
       500,
       `Blob ${blobSha} from ${owner}/${repo} did not return base64 content.`,
     );
   }
-  return content.replace(/\n/g, "");
+  return rawContent.replace(/\n/g, "");
 }
 
 async function createBlob({
@@ -443,7 +423,7 @@ async function createBlob({
   repo: string;
   contentB64: string;
 }) {
-  const { res, data } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs`,
     init: {
@@ -457,9 +437,9 @@ async function createBlob({
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(res, data, "Failed creating GitHub blob.");
-  const sha = typeof (data as GhBlobPayload).sha === "string"
-    ? (data as GhBlobPayload).sha
+  assertOk(response, payload, "Failed creating GitHub blob.");
+  const sha = typeof (payload as GhBlobPayload).sha === "string"
+    ? (payload as GhBlobPayload).sha
     : "";
   if (!sha) {
     throw new HttpError(500, "GitHub did not return a blob SHA.");
@@ -467,24 +447,20 @@ async function createBlob({
   return sha;
 }
 
-async function createCommitFromFiles({
+async function createCommitFromTreeEntries({
   userToken,
   owner,
   repo,
   branch,
-  files,
+  treeEntries,
   message,
-  onProgress,
 }: {
   userToken: string;
   owner: string;
   repo: string;
   branch: string;
-  files: SourceBlobFile[];
+  treeEntries: IndexFinalizationPreparedTreeEntry[];
   message: string;
-  onProgress?: (
-    progress: { completed: number; total: number },
-  ) => Promise<void>;
 }) {
   const parentCommitSha = await getBranchHeadSha({
     userToken,
@@ -499,52 +475,7 @@ async function createCommitFromFiles({
     commitSha: parentCommitSha,
   });
 
-  const tree: Array<{
-    path: string;
-    mode: "100644" | "100755";
-    type: "blob";
-    sha: string;
-  }> = [];
-
-  let completed = 0;
-  for (
-    let offset = 0;
-    offset < files.length;
-    offset += GITHUB_BLOB_WRITE_CONCURRENCY
-  ) {
-    const batch = files.slice(offset, offset + GITHUB_BLOB_WRITE_CONCURRENCY);
-    const batchTree = await Promise.all(
-      batch.map(async (file) => {
-        const blobSha = await createBlob({
-          userToken,
-          owner,
-          repo,
-          contentB64: file.contentB64,
-        });
-        return {
-          path: file.path,
-          mode: file.mode,
-          type: "blob" as const,
-          sha: blobSha,
-        };
-      }),
-    );
-    tree.push(...batchTree);
-    completed += batch.length;
-
-    if (
-      onProgress &&
-      (completed === files.length ||
-        completed % GITHUB_BLOB_PROGRESS_INTERVAL === 0)
-    ) {
-      await onProgress({
-        completed,
-        total: files.length,
-      });
-    }
-  }
-
-  const { res: treeRes, data: treeData } = await ghUserWithRetry<
+  const { response: treeResponse, payload: treePayload } = await ghUserWithRetry<
     GhTreePayload | GhErrorPayload
   >({
     userToken,
@@ -554,21 +485,26 @@ async function createCommitFromFiles({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         base_tree: baseTreeSha,
-        tree,
+        tree: treeEntries.map((entry) => ({
+          path: entry.path,
+          mode: entry.mode,
+          type: "blob",
+          sha: entry.sha,
+        })),
       }),
     },
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(treeRes, treeData, "Failed creating repository tree.");
-  const treeSha = typeof (treeData as GhTreePayload).sha === "string"
-    ? (treeData as GhTreePayload).sha
+  assertOk(treeResponse, treePayload, "Failed creating repository tree.");
+  const treeSha = typeof (treePayload as GhTreePayload).sha === "string"
+    ? (treePayload as GhTreePayload).sha
     : "";
   if (!treeSha) {
     throw new HttpError(500, "GitHub did not return a tree SHA.");
   }
 
-  const { res: commitRes, data: commitData } = await ghUserWithRetry<
+  const { response: commitResponse, payload: commitPayload } = await ghUserWithRetry<
     GhCommitPayload | GhErrorPayload
   >({
     userToken,
@@ -585,20 +521,18 @@ async function createCommitFromFiles({
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(commitRes, commitData, "Failed creating repository commit.");
+  assertOk(commitResponse, commitPayload, "Failed creating repository commit.");
 
-  const commitSha = typeof (commitData as GhCommitPayload).sha === "string"
-    ? (commitData as GhCommitPayload).sha
+  const commitSha = typeof (commitPayload as GhCommitPayload).sha === "string"
+    ? (commitPayload as GhCommitPayload).sha
     : "";
   if (!commitSha) {
     throw new HttpError(500, "GitHub did not return a commit SHA.");
   }
 
-  const { res: refRes, data: refData } = await ghUserWithRetry<GhErrorPayload>({
+  const { response: refResponse, payload: refPayload } = await ghUserWithRetry<GhErrorPayload>({
     userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${
-      encodeURIComponent(branch)
-    }`,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
     init: {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -610,7 +544,7 @@ async function createCommitFromFiles({
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(refRes, refData, `Failed updating ${branch} branch.`);
+  assertOk(refResponse, refPayload, `Failed updating ${branch} branch.`);
 }
 
 async function managementRequest<T>({
@@ -622,17 +556,14 @@ async function managementRequest<T>({
   path: string;
   init?: RequestInit;
 }) {
-  const response = await fetch(
-    new URL(path, SUPABASE_MANAGEMENT_API).toString(),
-    {
-      ...init,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        ...(init?.headers ?? {}),
-      },
+  const response = await fetch(new URL(path, SUPABASE_MANAGEMENT_API).toString(), {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      ...(init?.headers ?? {}),
     },
-  );
+  });
 
   const payload = (await response.json().catch(() => ({}))) as T;
   return { response, payload };
@@ -658,6 +589,7 @@ const applyVitePagesPatch = (source: string) => {
   if (source.includes('base: "./"')) {
     return source;
   }
+
   const replaced = source.replace(
     /export default defineConfig\(\{\s*/m,
     'export default defineConfig({\n  base: "./",\n  ',
@@ -747,149 +679,28 @@ jobs:
         uses: actions/deploy-pages@v4
 `;
 
-async function loadSourceRepoFiles({
-  userToken,
-  owner,
-  repo,
-  branch,
-  onProgress,
-}: {
-  userToken: string;
-  owner: string;
-  repo: string;
-  branch: string;
-  onProgress?: (
-    progress: { completed: number; total: number },
-  ) => Promise<void>;
-}) {
-  const archiveResponse = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/zipball/${encodeURIComponent(branch)}`,
-    {
-      headers: githubHeaders(userToken),
-    },
-  );
-  if (!archiveResponse.ok) {
-    const payload = (await archiveResponse.json().catch(() => ({}))) as GhErrorPayload;
-    assertOk(
-      archiveResponse,
-      payload,
-      `Failed downloading ${owner}/${repo} source archive.`,
-    );
+const splitRepoFullName = (repoFullName: string) => {
+  const [owner, repo] = repoFullName.split("/");
+  if (!owner || !repo) {
+    throw new Error(`Invalid repo_full_name: ${repoFullName}`);
   }
-
-  const zip = await JSZip.loadAsync(await archiveResponse.arrayBuffer());
-  const archiveEntries = Object.values(zip.files) as SourceArchiveEntry[];
-  const fileEntries = archiveEntries
-    .filter((entry) => !entry.dir)
-    .map((entry) => {
-      const normalizedPath = entry.name.replace(/^[^/]+\//, "");
-      if (!normalizedPath || shouldExcludeSourcePath(normalizedPath)) {
-        return null;
-      }
-
-      const rawPermissions = typeof entry.unixPermissions === "number"
-        ? entry.unixPermissions
-        : typeof entry.unixPermissions === "string"
-          ? Number.parseInt(entry.unixPermissions, 8)
-          : 0;
-
-      return {
-        entry,
-        path: normalizedPath,
-        mode: rawPermissions & 0o111 ? "100755" as const : "100644" as const,
-      };
-    })
-    .filter((entry): entry is {
-      entry: SourceArchiveEntry;
-      path: string;
-      mode: "100644" | "100755";
-    } => Boolean(entry));
-
-  const files: SourceBlobFile[] = [];
-  const total = fileEntries.length;
-  if (onProgress) {
-    await onProgress({ completed: 0, total });
-  }
-
-  let completed = 0;
-  for (
-    let offset = 0;
-    offset < fileEntries.length;
-    offset += GITHUB_BLOB_READ_CONCURRENCY
-  ) {
-    const batch = fileEntries.slice(offset, offset + GITHUB_BLOB_READ_CONCURRENCY);
-    const batchFiles = await Promise.all(
-      batch.map(async (entry) => {
-        const contentB64 = await entry.entry.async("base64");
-        return {
-          path: entry.path,
-          mode: entry.mode,
-          contentB64,
-        } satisfies SourceBlobFile;
-      }),
-    );
-    files.push(...batchFiles);
-    completed += batch.length;
-
-    if (
-      onProgress &&
-      (completed === total ||
-        completed % GITHUB_BLOB_PROGRESS_INTERVAL === 0)
-    ) {
-      await onProgress({ completed, total });
-    }
-  }
-
-  return files;
-}
-
-const upsertFile = (
-  filesByPath: Map<string, SourceBlobFile>,
-  file: SourceBlobFile,
-) => {
-  filesByPath.set(file.path, file);
+  return { owner, repo };
 };
 
-const buildPatchedRepoFiles = ({
-  sourceFiles,
+const isReservedSupabaseSecretName = (name: string) =>
+  name.trim().toUpperCase().startsWith("SUPABASE_");
+
+const createGeneratedManifestEntries = ({
   projectRef,
   projectUrl,
   publishableKey,
 }: {
-  sourceFiles: SourceBlobFile[];
   projectRef: string;
   projectUrl: string;
   publishableKey: string;
-}) => {
-  const filesByPath = new Map(
-    sourceFiles.map((file) => [file.path, file] as const),
-  );
-
-  const viteConfig = filesByPath.get("apps/site/vite.config.ts");
-  if (viteConfig) {
-    upsertFile(filesByPath, {
-      path: viteConfig.path,
-      mode: viteConfig.mode,
-      contentB64: Buffer.from(
-        applyVitePagesPatch(fileB64ToUtf8(viteConfig.contentB64)),
-        "utf8",
-      ).toString("base64"),
-    });
-  }
-
-  const appTsx = filesByPath.get("apps/site/src/App/App.tsx");
-  if (appTsx) {
-    upsertFile(filesByPath, {
-      path: appTsx.path,
-      mode: appTsx.mode,
-      contentB64: Buffer.from(
-        applyRouterBasenamePatch(fileB64ToUtf8(appTsx.contentB64)),
-        "utf8",
-      ).toString("base64"),
-    });
-  }
-
-  upsertFile(filesByPath, {
+}): IndexFinalizationSourceManifestEntry[] => [
+  {
+    kind: "generated",
     path: ".env.production",
     mode: "100644",
     contentB64: Buffer.from(
@@ -900,32 +711,38 @@ const buildPatchedRepoFiles = ({
       }),
       "utf8",
     ).toString("base64"),
-  });
-
-  upsertFile(filesByPath, {
+  },
+  {
+    kind: "generated",
     path: ".github/workflows/deploy.yml",
     mode: "100644",
     contentB64: Buffer.from(createDeployWorkflow(), "utf8").toString("base64"),
-  });
+  },
+];
 
-  return [...filesByPath.values()].sort((left, right) =>
-    left.path.localeCompare(right.path)
-  );
-};
-
-const splitRepoFullName = (repoFullName: string) => {
-  const [owner, repo] = repoFullName.split("/");
-  if (!owner || !repo) {
-    throw new Error(`Invalid repo_full_name: ${repoFullName}`);
+const patchSourceContentB64 = ({
+  path,
+  contentB64,
+}: {
+  path: string;
+  contentB64: string;
+}) => {
+  if (path === "apps/site/vite.config.ts") {
+    return Buffer.from(
+      applyVitePagesPatch(fileB64ToUtf8(contentB64)),
+      "utf8",
+    ).toString("base64");
   }
-  return {
-    owner,
-    repo,
-  };
-};
 
-const isReservedSupabaseSecretName = (name: string) =>
-  name.trim().toUpperCase().startsWith("SUPABASE_");
+  if (path === "apps/site/src/App/App.tsx") {
+    return Buffer.from(
+      applyRouterBasenamePatch(fileB64ToUtf8(contentB64)),
+      "utf8",
+    ).toString("base64");
+  }
+
+  return contentB64;
+};
 
 async function setProjectSecrets({
   accessToken,
@@ -937,49 +754,31 @@ async function setProjectSecrets({
   secrets: Record<string, string>;
 }) {
   const filteredSecrets = Object.entries(secrets)
-    .filter(([name, value]) =>
-      value.trim() && !isReservedSupabaseSecretName(name)
-    )
+    .filter(([name, value]) => value.trim() && !isReservedSupabaseSecretName(name))
     .map(([name, value]) => ({
       name,
       value,
     }));
 
-  const skippedSecrets = Object.keys(secrets).filter((name) =>
-    isReservedSupabaseSecretName(name)
-  );
-  if (skippedSecrets.length) {
-    console.log("[index-finalize-worker] skipped reserved secrets", {
-      projectRef,
-      skippedSecrets,
-    });
-  }
-
   if (!filteredSecrets.length) {
     return;
   }
 
-  const response = await fetch(
-    `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/secrets`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(filteredSecrets),
+  const response = await fetch(`${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/secrets`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify(filteredSecrets),
+  });
   if (response.ok) {
     return;
   }
 
   const payload = await response.json().catch(() => ({}));
-  throw new HttpError(
-    500,
-    getGhErrorMessage(payload, "Failed to create project secrets."),
-  );
+  throw new HttpError(500, getGhErrorMessage(payload, "Failed to create project secrets."));
 }
 
 const readArchiveAndCredentials = async ({
@@ -1084,6 +883,7 @@ const readChildParentSourceArchive = async ({
       ].join(", "),
     )
     .eq("id", archiveId)
+    .eq("is_root", true)
     .maybeSingle();
 
   if (error) {
@@ -1121,8 +921,7 @@ const reconcileParentSourceRepoLineage = async ({
   };
 
   if (
-    toTrimmedString(archive.parent_repo_full_name) !==
-      nextValues.parent_repo_full_name ||
+    toTrimmedString(archive.parent_repo_full_name) !== nextValues.parent_repo_full_name ||
     toTrimmedString(archive.parent_repo_url) !== nextValues.parent_repo_url
   ) {
     const { error } = await supabase
@@ -1135,8 +934,7 @@ const reconcileParentSourceRepoLineage = async ({
   }
 
   if (
-    toTrimmedString(childArchive.parent_repo_full_name) !==
-      nextValues.parent_repo_full_name ||
+    toTrimmedString(childArchive.parent_repo_full_name) !== nextValues.parent_repo_full_name ||
     toTrimmedString(childArchive.parent_repo_url) !== nextValues.parent_repo_url
   ) {
     const child = createChildProjectClient(credentials);
@@ -1191,6 +989,882 @@ const updateArchiveModes = async ({
   }
 };
 
+const verifyRequiredSupabaseScopes = async (
+  accessToken: string,
+  grantedScope: string,
+) => {
+  const grantedScopes = splitScopes(grantedScope);
+  if (
+    grantedScopes.length &&
+    !REQUIRED_FINALIZATION_SUPABASE_SCOPES.every((scope) =>
+      grantedScopes.includes(scope)
+    )
+  ) {
+    throw new SupabaseManagementReauthError(
+      "Reconnect your Supabase account with Secrets write and Auth write access before finalising the index.",
+    );
+  }
+
+  const { response, payload } = await managementRequest<{
+    secrets?: Array<{ name?: string }>;
+  }>({
+    accessToken,
+    path: `/v1/projects/secrets?project_ref=${encodeURIComponent("probe")}`,
+  });
+
+  if (response.status === 200 || response.status === 400) {
+    return;
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new SupabaseManagementReauthError(
+      "Reconnect your Supabase account with Edge Functions secrets access before finalising this index.",
+    );
+  }
+
+  throw new Error(
+    getGhErrorMessage(
+      payload,
+      "Could not verify Supabase Edge Functions secret access.",
+    ),
+  );
+};
+
+const encodePayloadState = (payloadState: IndexFinalizationPayloadState) => ({
+  phase: payloadState.phase ?? undefined,
+  source_branch: payloadState.sourceBranch ?? undefined,
+  source_manifest: payloadState.sourceManifest,
+  cursor: payloadState.cursor,
+  final_tree_entries: payloadState.finalTreeEntries,
+  total_files: payloadState.totalFiles,
+  processed_files: payloadState.processedFiles,
+  source_repo_resolution: payloadState.sourceRepoResolution ?? undefined,
+  target_repo_full_name: payloadState.targetRepoFullName ?? undefined,
+  child_project_ref: payloadState.childProjectRef ?? undefined,
+});
+
+const defaultPayloadState = (): IndexFinalizationPayloadState => ({
+  phase: null,
+  sourceBranch: null,
+  sourceManifest: [],
+  cursor: 0,
+  finalTreeEntries: [],
+  totalFiles: 0,
+  processedFiles: 0,
+  sourceRepoResolution: null,
+  targetRepoFullName: null,
+  childProjectRef: null,
+});
+
+const readJob = async ({
+  supabase,
+  jobId,
+  archiveId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+}) => {
+  const { data, error } = await supabase
+    .from("index_finalization_jobs")
+    .select(
+      [
+        "id",
+        "archive_id",
+        "owner_user_id",
+        "status",
+        "step",
+        "error",
+        "source_repo_full_name",
+        "source_repo_url",
+        "source_branch",
+        "target_repo_full_name",
+        "child_project_ref",
+        "payload",
+        "created_at",
+        "updated_at",
+        "started_at",
+        "completed_at",
+      ].join(", "),
+    )
+    .eq("id", jobId)
+    .eq("archive_id", archiveId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("Index finalization job not found.");
+  }
+
+  return data as unknown as IndexFinalizationJobRow;
+};
+
+const updateJob = async ({
+  supabase,
+  jobId,
+  archiveId,
+  values,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  values: Record<string, unknown>;
+}) => {
+  const { error } = await supabase
+    .from("index_finalization_jobs")
+    .update(values)
+    .eq("id", jobId)
+    .eq("archive_id", archiveId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
+
+const failJob = async ({
+  supabase,
+  jobId,
+  archiveId,
+  payloadState,
+  phase,
+  error,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  payloadState: IndexFinalizationPayloadState;
+  phase: IndexFinalizationPayloadState["phase"];
+  error: string;
+}) => {
+  const nextPayload = {
+    ...payloadState,
+    phase,
+  };
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "failed",
+      step: "Index finalization failed.",
+      error,
+      payload: encodePayloadState(nextPayload),
+      completed_at: new Date().toISOString(),
+    },
+  });
+};
+
+const dispatchWorker = async ({
+  jobId,
+  archiveId,
+  ownerUserId,
+}: {
+  jobId: string;
+  archiveId: string;
+  ownerUserId: string;
+}) => {
+  const response = await fetch(new URL(FINALIZE_WORKER_PATH, SUPABASE_URL).toString(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-provision-internal-key": SUPABASE_SERVICE_KEY,
+    },
+    body: JSON.stringify({
+      jobId,
+      archiveId,
+      ownerUserId,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof payload?.error === "string"
+        ? payload.error
+        : "Could not dispatch the next finalization worker phase.",
+    );
+  }
+};
+
+const scheduleWorkerDispatch = ({
+  supabase,
+  jobId,
+  archiveId,
+  ownerUserId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  ownerUserId: string;
+}) => {
+  waitUntil((async () => {
+    let payloadState = defaultPayloadState();
+
+    try {
+      const currentJob = await readJob({
+        supabase,
+        jobId,
+        archiveId,
+      }).catch(() => null);
+      if (currentJob?.payload) {
+        payloadState = parseIndexFinalizationPayload(currentJob.payload);
+      }
+      if (currentJob?.status === "failed" || currentJob?.status === "succeeded") {
+        return;
+      }
+
+      await dispatchWorker({
+        jobId,
+        archiveId,
+        ownerUserId,
+      });
+    } catch (error) {
+      try {
+        const latestJob = await readJob({
+          supabase,
+          jobId,
+          archiveId,
+        }).catch(() => null);
+        if (latestJob?.payload) {
+          payloadState = parseIndexFinalizationPayload(latestJob.payload);
+        }
+        if (latestJob?.status === "failed" || latestJob?.status === "succeeded") {
+          return;
+        }
+
+        await failJob({
+          supabase,
+          jobId,
+          archiveId,
+          payloadState,
+          phase: payloadState.phase,
+          error: error instanceof Error
+            ? error.message
+            : "Could not dispatch the next finalization worker phase.",
+        });
+      } catch (persistError) {
+        console.error("[index-finalize-worker] could not persist dispatch failure", {
+          archiveId,
+          jobId,
+          message: persistError instanceof Error ? persistError.message : String(persistError),
+        });
+      }
+    }
+  })());
+};
+
+const mapWithConcurrency = async <T, R>(
+  items: T[],
+  concurrency: number,
+  task: (item: T, index: number) => Promise<R>,
+) => {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+      while (true) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        if (currentIndex >= items.length) {
+          return;
+        }
+
+        results[currentIndex] = await task(items[currentIndex], currentIndex);
+      }
+    }),
+  );
+
+  return results;
+};
+
+const materializeManifestEntry = async ({
+  entry,
+  githubToken,
+  sourceRepo,
+  targetRepo,
+}: {
+  entry: IndexFinalizationSourceManifestEntry;
+  githubToken: string;
+  sourceRepo: {
+    owner: string;
+    repo: string;
+  };
+  targetRepo: {
+    owner: string;
+    repo: string;
+  };
+}) => {
+  const rawContentB64 = entry.kind === "generated"
+    ? entry.contentB64
+    : await getBlobBase64({
+      userToken: githubToken,
+      owner: sourceRepo.owner,
+      repo: sourceRepo.repo,
+      blobSha: entry.sourceSha,
+    });
+
+  const contentB64 = entry.kind === "generated"
+    ? rawContentB64
+    : patchSourceContentB64({
+      path: entry.path,
+      contentB64: rawContentB64,
+    });
+
+  const sha = await createBlob({
+    userToken: githubToken,
+    owner: targetRepo.owner,
+    repo: targetRepo.repo,
+    contentB64,
+  });
+
+  return {
+    path: entry.path,
+    mode: entry.mode,
+    sha,
+  } satisfies IndexFinalizationPreparedTreeEntry;
+};
+
+const loadFinalizationContext = async ({
+  supabase,
+  archiveId,
+  ownerUserId,
+  requireManagementAccess,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  archiveId: string;
+  ownerUserId: string;
+  requireManagementAccess: boolean;
+}): Promise<FinalizationExecutionContext> => {
+  const { archive, credentials } = await readArchiveAndCredentials({
+    supabase,
+    archiveId,
+  });
+  if (archive.owner_user_id !== ownerUserId) {
+    throw new HttpError(403, "Only the index owner can finalise this child repo.");
+  }
+
+  const childArchive = await readChildParentSourceArchive({
+    archiveId,
+    credentials,
+  });
+  const parentSource = resolveParentSourceRepo({
+    archive,
+    childArchive: {
+      parent_index_id: childArchive.parent_index_id,
+      parent_index_url: childArchive.parent_index_url,
+      parent_repo_full_name: childArchive.parent_repo_full_name,
+      parent_repo_url: childArchive.parent_repo_url,
+    },
+  });
+  if (!parentSource.repoFullName || !parentSource.repoUrl) {
+    throw new HttpError(
+      412,
+      parentSource.message ??
+        "The parent source repository is not configured for this index.",
+    );
+  }
+
+  const resolvedGitHubAuth = await resolveGitHubTokenForUser({
+    supabase,
+    userId: ownerUserId,
+  });
+  const githubToken = toTrimmedString(resolvedGitHubAuth?.token);
+  if (!githubToken) {
+    throw new HttpError(
+      412,
+      "Reconnect GitHub from Profile before finalising the index.",
+    );
+  }
+
+  let managementAccessToken: string | null = null;
+  if (requireManagementAccess) {
+    let managementScope = "";
+    try {
+      const resolvedManagementAccess = await resolveSupabaseManagementAccessForUser({
+        supabase,
+        userId: ownerUserId,
+      });
+      managementAccessToken = resolvedManagementAccess.accessToken;
+      managementScope = resolvedManagementAccess.scope;
+    } catch (error) {
+      if (error instanceof SupabaseManagementReauthError) {
+        throw new HttpError(
+          412,
+          "Reconnect your Supabase account before finalising the index.",
+        );
+      }
+      throw error;
+    }
+
+    await verifyRequiredSupabaseScopes(managementAccessToken, managementScope);
+  }
+
+  const syncedArchive = await reconcileParentSourceRepoLineage({
+    supabase,
+    archiveId,
+    archive,
+    credentials,
+    childArchive,
+    parentSource,
+  });
+
+  return {
+    archive,
+    syncedArchive,
+    credentials,
+    parentSource,
+    sourceRepo: splitRepoFullName(parentSource.repoFullName),
+    targetRepo: {
+      owner: credentials.repo_owner,
+      repo: credentials.repo_name,
+    },
+    githubToken,
+    managementAccessToken,
+  };
+};
+
+const runPrepareManifestPhase = async ({
+  supabase,
+  jobId,
+  archiveId,
+  ownerUserId,
+  payloadState,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  ownerUserId: string;
+  payloadState: IndexFinalizationPayloadState;
+}) => {
+  const context = await loadFinalizationContext({
+    supabase,
+    archiveId,
+    ownerUserId,
+    requireManagementAccess: false,
+  });
+
+  const sourceRepoPayload = await getRepo({
+    userToken: context.githubToken,
+    owner: context.sourceRepo.owner,
+    repo: context.sourceRepo.repo,
+  });
+  const sourceBranch = toTrimmedString(sourceRepoPayload.default_branch) || "main";
+  const sourceHeadSha = await getBranchHeadSha({
+    userToken: context.githubToken,
+    owner: context.sourceRepo.owner,
+    repo: context.sourceRepo.repo,
+    branch: sourceBranch,
+  });
+  const sourceTreeSha = await getCommitTreeSha({
+    userToken: context.githubToken,
+    owner: context.sourceRepo.owner,
+    repo: context.sourceRepo.repo,
+    commitSha: sourceHeadSha,
+  });
+  const sourceTree = await getRecursiveTree({
+    userToken: context.githubToken,
+    owner: context.sourceRepo.owner,
+    repo: context.sourceRepo.repo,
+    treeSha: sourceTreeSha,
+  });
+
+  const publishableKey = toTrimmedString(context.credentials.supabase_publishable_key);
+  if (!publishableKey) {
+    throw new HttpError(
+      500,
+      "The child project publishable key is missing from index_project_credentials.",
+    );
+  }
+
+  const sourceManifest = buildSourceManifestFromTreeEntries({
+    treeEntries: sourceTree,
+    generatedEntries: createGeneratedManifestEntries({
+      projectRef: context.credentials.supabase_project_ref,
+      projectUrl: context.credentials.supabase_project_url,
+      publishableKey,
+    }),
+  });
+
+  const nextPayload: IndexFinalizationPayloadState = {
+    ...payloadState,
+    phase: "materialize_blobs",
+    sourceBranch,
+    sourceManifest,
+    cursor: 0,
+    finalTreeEntries: [],
+    totalFiles: sourceManifest.length,
+    processedFiles: 0,
+    sourceRepoResolution: context.parentSource.sourceKind,
+    targetRepoFullName: context.credentials.repo_full_name,
+    childProjectRef: context.credentials.supabase_project_ref,
+  };
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: buildFinalizationStepLabel({
+        phase: "materialize_blobs",
+        processedFiles: 0,
+        totalFiles: nextPayload.totalFiles,
+      }),
+      error: null,
+      source_repo_full_name: context.parentSource.repoFullName,
+      source_repo_url: context.parentSource.repoUrl,
+      source_branch: sourceBranch,
+      target_repo_full_name: context.credentials.repo_full_name,
+      child_project_ref: context.credentials.supabase_project_ref,
+      payload: encodePayloadState(nextPayload),
+    },
+  });
+
+  scheduleWorkerDispatch({
+    supabase,
+    jobId,
+    archiveId,
+    ownerUserId,
+  });
+};
+
+const runMaterializeBlobsPhase = async ({
+  supabase,
+  jobId,
+  archiveId,
+  ownerUserId,
+  payloadState,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  ownerUserId: string;
+  payloadState: IndexFinalizationPayloadState;
+}) => {
+  if (!payloadState.sourceManifest.length || !payloadState.totalFiles) {
+    throw new HttpError(
+      412,
+      "The finalization manifest is missing. Retry child setup to rebuild it.",
+    );
+  }
+
+  const context = await loadFinalizationContext({
+    supabase,
+    archiveId,
+    ownerUserId,
+    requireManagementAccess: false,
+  });
+
+  const currentCursor = Math.min(payloadState.cursor, payloadState.sourceManifest.length);
+  const batch = payloadState.sourceManifest.slice(
+    currentCursor,
+    currentCursor + FINALIZATION_BATCH_SIZE,
+  );
+
+  if (!batch.length) {
+    const nextPayload: IndexFinalizationPayloadState = {
+      ...payloadState,
+      phase: "commit_finalize",
+      cursor: payloadState.totalFiles,
+      processedFiles: payloadState.totalFiles,
+    };
+    await updateJob({
+      supabase,
+      jobId,
+      archiveId,
+      values: {
+        status: "running",
+        step: buildFinalizationStepLabel({
+          phase: "commit_finalize",
+          processedFiles: nextPayload.processedFiles,
+          totalFiles: nextPayload.totalFiles,
+        }),
+        payload: encodePayloadState(nextPayload),
+      },
+    });
+    scheduleWorkerDispatch({
+      supabase,
+      jobId,
+      archiveId,
+      ownerUserId,
+    });
+    return;
+  }
+
+  const batchTreeEntries = await mapWithConcurrency(
+    batch,
+    GITHUB_BLOB_CONCURRENCY,
+    (entry) =>
+      materializeManifestEntry({
+        entry,
+        githubToken: context.githubToken,
+        sourceRepo: context.sourceRepo,
+        targetRepo: context.targetRepo,
+      }),
+  );
+
+  const processedFiles = Math.min(
+    currentCursor + batch.length,
+    payloadState.totalFiles,
+  );
+  const nextPayload: IndexFinalizationPayloadState = {
+    ...payloadState,
+    phase: processedFiles >= payloadState.totalFiles
+      ? "commit_finalize"
+      : "materialize_blobs",
+    cursor: processedFiles,
+    finalTreeEntries: [...payloadState.finalTreeEntries, ...batchTreeEntries],
+    processedFiles,
+  };
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: buildFinalizationStepLabel({
+        phase: nextPayload.phase === "commit_finalize"
+          ? "commit_finalize"
+          : "materialize_blobs",
+        processedFiles: nextPayload.processedFiles,
+        totalFiles: nextPayload.totalFiles,
+      }),
+      payload: encodePayloadState(nextPayload),
+    },
+  });
+
+  scheduleWorkerDispatch({
+    supabase,
+    jobId,
+    archiveId,
+    ownerUserId,
+  });
+};
+
+const runCommitFinalizePhase = async ({
+  supabase,
+  jobId,
+  archiveId,
+  payloadState,
+  ownerUserId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  payloadState: IndexFinalizationPayloadState;
+  ownerUserId: string;
+}) => {
+  if (
+    !payloadState.finalTreeEntries.length ||
+    payloadState.finalTreeEntries.length !== payloadState.totalFiles
+  ) {
+    throw new HttpError(
+      412,
+      "The finalization tree is incomplete. Retry child setup to rebuild the child repository commit.",
+    );
+  }
+
+  const context = await loadFinalizationContext({
+    supabase,
+    archiveId,
+    ownerUserId,
+    requireManagementAccess: true,
+  });
+
+  const targetRepoPayload = await getRepo({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+  });
+  const targetBranch = toTrimmedString(targetRepoPayload.default_branch) || "main";
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: "Creating final repository commit...",
+      payload: encodePayloadState({
+        ...payloadState,
+        phase: "commit_finalize",
+      }),
+    },
+  });
+
+  await createCommitFromTreeEntries({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+    branch: targetBranch,
+    treeEntries: payloadState.finalTreeEntries,
+    message: `Finalize index from ${context.parentSource.repoFullName}`,
+  });
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: "Configuring child project secrets...",
+    },
+  });
+
+  await setProjectSecrets({
+    accessToken: context.managementAccessToken ?? "",
+    projectRef: context.credentials.supabase_project_ref,
+    secrets: {
+      CREATE_SITE_SUPABASE_API_KEY: decryptTokenValue(
+        context.credentials.supabase_secret_key_encrypted,
+      ),
+      DELETE_REPO_SUPABASE_SECRET_KEY: decryptTokenValue(
+        context.credentials.supabase_secret_key_encrypted,
+      ),
+      TOKEN_ENCRYPTION_KEY,
+      SOLIDARY_APP_URL: toTrimmedString(context.syncedArchive.canonical_url),
+      SOLIDARY_ROOT_INDEX_ID: archiveId,
+      SOLIDARY_ROOT_INDEX_URL: toTrimmedString(context.syncedArchive.canonical_url),
+      SOLIDARY_ROOT_INDEX_LEVEL: String(context.archive.index_level ?? 1),
+      SOLIDARY_ROOT_REPO_FULL_NAME: context.credentials.repo_full_name,
+      SOLIDARY_ROOT_REPO_URL: toTrimmedString(context.credentials.repo_url),
+    },
+  });
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: "Configuring child auth URLs...",
+    },
+  });
+
+  await updateSupabaseProjectAuthConfig({
+    accessToken: context.managementAccessToken ?? "",
+    projectRef: context.credentials.supabase_project_ref,
+    siteUrl: toTrimmedString(context.syncedArchive.canonical_url),
+  });
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      step: "Marking index as finalized...",
+    },
+  });
+
+  await updateArchiveModes({
+    archiveId,
+    supabase,
+    credentials: context.credentials,
+  });
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "succeeded",
+      step:
+        "Index finalization completed. Continue to deploy child functions.",
+      error: null,
+      payload: encodePayloadState({
+        ...payloadState,
+        phase: "commit_finalize",
+        cursor: payloadState.totalFiles,
+        processedFiles: payloadState.totalFiles,
+      }),
+      completed_at: new Date().toISOString(),
+    },
+  });
+};
+
+const executeFinalizationPhase = async ({
+  supabase,
+  jobId,
+  archiveId,
+  ownerUserId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  jobId: string;
+  archiveId: string;
+  ownerUserId: string;
+}) => {
+  const currentJob = await readJob({
+    supabase,
+    jobId,
+    archiveId,
+  });
+  if (currentJob.status === "failed" || currentJob.status === "succeeded") {
+    return;
+  }
+
+  const initialPayload = currentJob.payload
+    ? parseIndexFinalizationPayload(currentJob.payload)
+    : defaultPayloadState();
+  const payloadState: IndexFinalizationPayloadState = {
+    ...initialPayload,
+    phase: initialPayload.phase ?? "prepare_manifest",
+  };
+  const currentPhase = payloadState.phase ?? "prepare_manifest";
+
+  await updateJob({
+    supabase,
+    jobId,
+    archiveId,
+    values: {
+      status: "running",
+      error: null,
+      started_at: currentJob.started_at ?? new Date().toISOString(),
+      completed_at: null,
+      step: buildFinalizationStepLabel({
+        phase: currentPhase,
+        processedFiles: payloadState.processedFiles,
+        totalFiles: payloadState.totalFiles,
+      }),
+      payload: encodePayloadState(payloadState),
+    },
+  });
+
+  if (currentPhase === "prepare_manifest") {
+    await runPrepareManifestPhase({
+      supabase,
+      jobId,
+      archiveId,
+      ownerUserId,
+      payloadState,
+    });
+    return;
+  }
+
+  if (currentPhase === "materialize_blobs") {
+    await runMaterializeBlobsPhase({
+      supabase,
+      jobId,
+      archiveId,
+      ownerUserId,
+      payloadState,
+    });
+    return;
+  }
+
+  await runCommitFinalizePhase({
+    supabase,
+    jobId,
+    archiveId,
+    ownerUserId,
+    payloadState,
+  });
+};
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -1219,298 +1893,61 @@ export const handler: Handler = async (event) => {
   }
 
   const supabase = createServiceSupabase();
-  const updateJob = async (
-    patch: Record<string, unknown>,
-  ) => {
-    const { error } = await supabase
-      .from("index_finalization_jobs")
-      .update(patch)
-      .eq("id", jobId)
-      .eq("archive_id", archiveId);
-    if (error) {
-      throw new Error(error.message);
-    }
-  };
+  let payloadState = defaultPayloadState();
 
-  waitUntil((async () => {
-    await updateJob({
-      status: "running",
-      step: "Preparing finalization...",
-      error: null,
-      started_at: new Date().toISOString(),
+  try {
+    const currentJob = await readJob({
+      supabase,
+      jobId,
+      archiveId,
+    });
+    payloadState = currentJob.payload
+      ? parseIndexFinalizationPayload(currentJob.payload)
+      : defaultPayloadState();
+
+    await executeFinalizationPhase({
+      supabase,
+      jobId,
+      archiveId,
+      ownerUserId,
     });
 
+    return safeJson(200, {
+      ok: true,
+      job_id: jobId,
+    });
+  } catch (error) {
     try {
-      const [{ archive, credentials }, resolvedGitHubAuth] = await Promise.all([
-        readArchiveAndCredentials({
-          supabase,
-          archiveId,
-        }),
-        resolveGitHubTokenForUser({
-          supabase,
-          userId: ownerUserId,
-        }),
-      ]);
-
-      const githubToken = toTrimmedString(resolvedGitHubAuth?.token);
-      if (!githubToken) {
-        throw new HttpError(
-          412,
-          "Reconnect GitHub from Profile before finalising the index.",
-        );
-      }
-
-      let managementAccessToken = "";
-      let managementScope = "";
-      try {
-        const resolvedManagementAccess =
-          await resolveSupabaseManagementAccessForUser({
-            supabase,
-            userId: ownerUserId,
-          });
-        managementAccessToken = resolvedManagementAccess.accessToken;
-        managementScope = resolvedManagementAccess.scope;
-      } catch (error) {
-        if (error instanceof SupabaseManagementReauthError) {
-          throw new HttpError(
-            412,
-            "Reconnect your Supabase account before finalising the index.",
-          );
-        }
-        throw error;
-      }
-
-      const grantedManagementScopes = splitScopes(managementScope);
-      if (
-        grantedManagementScopes.length &&
-        !REQUIRED_FINALIZATION_SUPABASE_SCOPES.every((scope) =>
-          grantedManagementScopes.includes(scope)
-        )
-      ) {
-        throw new HttpError(
-          412,
-          "Reconnect your Supabase account with Secrets write and Auth write access before finalising the index.",
-        );
-      }
-
-      const childArchive = await readChildParentSourceArchive({
-        archiveId,
-        credentials,
-      });
-      const parentSource = resolveParentSourceRepo({
-        archive,
-        childArchive,
-      });
-      if (!parentSource.repoFullName) {
-        throw new HttpError(
-          412,
-          parentSource.message ??
-            "The parent source repository is not configured for this index.",
-        );
-      }
-      const syncedArchive = await reconcileParentSourceRepoLineage({
+      const latestJob = await readJob({
         supabase,
+        jobId,
         archiveId,
-        archive,
-        credentials,
-        childArchive,
-        parentSource,
-      });
-      const sourceRepo = splitRepoFullName(parentSource.repoFullName);
-      const targetRepo = {
-        owner: credentials.repo_owner,
-        repo: credentials.repo_name,
-      };
+      }).catch(() => null);
+      if (latestJob?.payload) {
+        payloadState = parseIndexFinalizationPayload(latestJob.payload);
+      }
 
-      await updateJob({
-        step: "Reading parent repository...",
-        source_repo_full_name: parentSource.repoFullName,
-        source_repo_url: parentSource.repoUrl,
-        target_repo_full_name: credentials.repo_full_name,
-        child_project_ref: credentials.supabase_project_ref,
-        payload: {
-          source_repo_full_name: parentSource.repoFullName,
-          source_repo_url: parentSource.repoUrl,
-          source_repo_resolution: parentSource.sourceKind,
-        },
-      });
-
-      const sourceRepoPayload = await getRepo({
-        userToken: githubToken,
-        owner: sourceRepo.owner,
-        repo: sourceRepo.repo,
-      });
-      const sourceBranch = toTrimmedString(sourceRepoPayload.default_branch) ||
-        "main";
-      const sourceFiles = await loadSourceRepoFiles({
-        userToken: githubToken,
-        owner: sourceRepo.owner,
-        repo: sourceRepo.repo,
-        branch: sourceBranch,
-        onProgress: async ({ completed, total }) => {
-          try {
-            await updateJob({
-              step: total
-                ? `Reading parent repository files (${completed}/${total})...`
-                : "Reading parent repository...",
-              source_branch: sourceBranch,
-              payload: {
-                source_repo_full_name: parentSource.repoFullName,
-                source_repo_url: parentSource.repoUrl,
-                source_repo_resolution: parentSource.sourceKind,
-                source_branch: sourceBranch,
-                target_repo_full_name: credentials.repo_full_name,
-                child_project_ref: credentials.supabase_project_ref,
-                total_source_files: total,
-                source_files_read: completed,
-              },
-            });
-          } catch (error) {
-            console.warn(
-              "[index-finalize-worker] failed to report read progress",
-              {
-                archiveId,
-                completed,
-                total,
-                message: error instanceof Error ? error.message : String(error),
-              },
-            );
-          }
-        },
-      });
-
-      const finalRepoFiles = buildPatchedRepoFiles({
-        sourceFiles,
-        projectRef: credentials.supabase_project_ref,
-        projectUrl: credentials.supabase_project_url,
-        publishableKey: toTrimmedString(credentials.supabase_publishable_key),
-      });
-      const totalFinalRepoFiles = finalRepoFiles.length;
-
-      await updateJob({
-        step:
-          `Writing finalized repository files (0/${totalFinalRepoFiles})...`,
-        source_branch: sourceBranch,
-        payload: {
-          source_repo_full_name: parentSource.repoFullName,
-          source_repo_url: parentSource.repoUrl,
-          source_repo_resolution: parentSource.sourceKind,
-          source_branch: sourceBranch,
-          target_repo_full_name: credentials.repo_full_name,
-          child_project_ref: credentials.supabase_project_ref,
-          total_repo_files: totalFinalRepoFiles,
-          repo_files_written: 0,
-        },
-      });
-      await createCommitFromFiles({
-        userToken: githubToken,
-        owner: targetRepo.owner,
-        repo: targetRepo.repo,
-        branch: "main",
-        files: finalRepoFiles,
-        message: `Finalize index from ${parentSource.repoFullName}`,
-        onProgress: async ({ completed, total }) => {
-          try {
-            await updateJob({
-              step:
-                `Writing finalized repository files (${completed}/${total})...`,
-              payload: {
-                source_repo_full_name: parentSource.repoFullName,
-                source_repo_url: parentSource.repoUrl,
-                source_repo_resolution: parentSource.sourceKind,
-                source_branch: sourceBranch,
-                target_repo_full_name: credentials.repo_full_name,
-                child_project_ref: credentials.supabase_project_ref,
-                total_repo_files: total,
-                repo_files_written: completed,
-              },
-            });
-          } catch (error) {
-            console.warn(
-              "[index-finalize-worker] failed to report write progress",
-              {
-                archiveId,
-                completed,
-                total,
-                message: error instanceof Error ? error.message : String(error),
-              },
-            );
-          }
-        },
-      });
-
-      await updateJob({
-        step: "Configuring child project secrets...",
-      });
-      await setProjectSecrets({
-        accessToken: managementAccessToken,
-        projectRef: credentials.supabase_project_ref,
-        secrets: {
-          CREATE_SITE_SUPABASE_API_KEY: decryptTokenValue(
-            credentials.supabase_secret_key_encrypted,
-          ),
-          DELETE_REPO_SUPABASE_SECRET_KEY: decryptTokenValue(
-            credentials.supabase_secret_key_encrypted,
-          ),
-          TOKEN_ENCRYPTION_KEY: TOKEN_ENCRYPTION_KEY,
-          SOLIDARY_APP_URL: toTrimmedString(syncedArchive.canonical_url),
-          SOLIDARY_ROOT_INDEX_ID: archive.id,
-          SOLIDARY_ROOT_INDEX_URL: toTrimmedString(syncedArchive.canonical_url),
-          SOLIDARY_ROOT_INDEX_LEVEL: String(archive.index_level ?? 1),
-          SOLIDARY_ROOT_REPO_FULL_NAME: credentials.repo_full_name,
-          SOLIDARY_ROOT_REPO_URL: toTrimmedString(credentials.repo_url),
-        },
-      });
-
-      await updateJob({
-        step: "Configuring child auth URLs...",
-      });
-      await updateSupabaseProjectAuthConfig({
-        accessToken: managementAccessToken,
-        projectRef: credentials.supabase_project_ref,
-        siteUrl: toTrimmedString(syncedArchive.canonical_url),
-      });
-
-      await updateJob({
-        step: "Marking index as finalized...",
-      });
-      await updateArchiveModes({
-        archiveId,
+      await failJob({
         supabase,
-        credentials,
-      });
-
-      await updateJob({
-        status: "succeeded",
-        step:
-          "Index finalization completed. Add child repo secrets and run the Deploy Supabase Functions workflow.",
-        error: null,
-        payload: {
-          source_repo_full_name: parentSource.repoFullName,
-          source_repo_url: parentSource.repoUrl,
-          source_repo_resolution: parentSource.sourceKind,
-          source_branch: sourceBranch,
-          target_repo_full_name: credentials.repo_full_name,
-          target_repo_url: credentials.repo_url,
-          child_project_ref: credentials.supabase_project_ref,
-          functions_workflow_file: "deploy-supabase-functions.yml",
-        },
-        completed_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      await updateJob({
-        status: "failed",
-        step: "Index finalization failed.",
+        jobId,
+        archiveId,
+        payloadState,
+        phase: payloadState.phase,
         error: error instanceof Error ? error.message : "Finalization failed.",
-        completed_at: new Date().toISOString(),
+      });
+    } catch (persistError) {
+      console.error("[index-finalize-worker] could not persist failure", {
+        archiveId,
+        jobId,
+        message: persistError instanceof Error ? persistError.message : String(persistError),
       });
     }
-  })());
 
-  return safeJson(202, {
-    ok: true,
-    job_id: jobId,
-  });
+    return safeJson(error instanceof HttpError ? error.statusCode : 500, {
+      error: error instanceof Error ? error.message : "Finalization failed.",
+      job_id: jobId,
+    });
+  }
 };
 
 Deno.serve((request) => runHandler(request, handler));
