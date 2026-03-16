@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
+import JSZip from "npm:jszip@3.10.1";
 import { runHandler } from "../_shared/request-adapter.ts";
 import {
   createChildProjectClient,
@@ -90,6 +91,13 @@ type SourceBlobFile = {
   path: string;
   mode: "100644" | "100755";
   contentB64: string;
+};
+
+type SourceArchiveEntry = {
+  dir: boolean;
+  name: string;
+  unixPermissions?: number | string;
+  async: (type: "base64") => Promise<string>;
 };
 
 type ChildParentSourceArchiveRow = {
@@ -754,51 +762,51 @@ async function loadSourceRepoFiles({
     progress: { completed: number; total: number },
   ) => Promise<void>;
 }) {
-  const headSha = await getBranchHeadSha({
-    userToken,
-    owner,
-    repo,
-    branch,
-  });
-  const treeSha = await getCommitTreeSha({
-    userToken,
-    owner,
-    repo,
-    commitSha: headSha,
-  });
-  const treeEntries = await getRecursiveTree({
-    userToken,
-    owner,
-    repo,
-    treeSha,
-  });
+  const archiveResponse = await fetch(
+    `${GITHUB_API}/repos/${owner}/${repo}/zipball/${encodeURIComponent(branch)}`,
+    {
+      headers: githubHeaders(userToken),
+    },
+  );
+  if (!archiveResponse.ok) {
+    const payload = (await archiveResponse.json().catch(() => ({}))) as GhErrorPayload;
+    assertOk(
+      archiveResponse,
+      payload,
+      `Failed downloading ${owner}/${repo} source archive.`,
+    );
+  }
 
-  const blobEntries = treeEntries
+  const zip = await JSZip.loadAsync(await archiveResponse.arrayBuffer());
+  const archiveEntries = Object.values(zip.files) as SourceArchiveEntry[];
+  const fileEntries = archiveEntries
+    .filter((entry) => !entry.dir)
     .map((entry) => {
-      const path = toTrimmedString(entry.path);
-      const type = toTrimmedString(entry.type);
-      const mode = toTrimmedString(entry.mode);
-      const sha = toTrimmedString(entry.sha);
-      if (!path || type !== "blob" || !sha) {
+      const normalizedPath = entry.name.replace(/^[^/]+\//, "");
+      if (!normalizedPath || shouldExcludeSourcePath(normalizedPath)) {
         return null;
       }
-      if (shouldExcludeSourcePath(path)) {
-        return null;
-      }
+
+      const rawPermissions = typeof entry.unixPermissions === "number"
+        ? entry.unixPermissions
+        : typeof entry.unixPermissions === "string"
+          ? Number.parseInt(entry.unixPermissions, 8)
+          : 0;
+
       return {
-        path,
-        mode: mode === "100755" ? "100755" as const : "100644" as const,
-        sha,
+        entry,
+        path: normalizedPath,
+        mode: rawPermissions & 0o111 ? "100755" as const : "100644" as const,
       };
     })
     .filter((entry): entry is {
+      entry: SourceArchiveEntry;
       path: string;
       mode: "100644" | "100755";
-      sha: string;
     } => Boolean(entry));
 
   const files: SourceBlobFile[] = [];
-  const total = blobEntries.length;
+  const total = fileEntries.length;
   if (onProgress) {
     await onProgress({ completed: 0, total });
   }
@@ -806,18 +814,13 @@ async function loadSourceRepoFiles({
   let completed = 0;
   for (
     let offset = 0;
-    offset < blobEntries.length;
+    offset < fileEntries.length;
     offset += GITHUB_BLOB_READ_CONCURRENCY
   ) {
-    const batch = blobEntries.slice(offset, offset + GITHUB_BLOB_READ_CONCURRENCY);
+    const batch = fileEntries.slice(offset, offset + GITHUB_BLOB_READ_CONCURRENCY);
     const batchFiles = await Promise.all(
       batch.map(async (entry) => {
-        const contentB64 = await getBlobBase64({
-          userToken,
-          owner,
-          repo,
-          blobSha: entry.sha,
-        });
+        const contentB64 = await entry.entry.async("base64");
         return {
           path: entry.path,
           mode: entry.mode,
