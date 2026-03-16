@@ -12,6 +12,8 @@ import {
   type StudioSettingsSection
 } from "../../studio/routes/site-settings/services/settings-sections";
 import {
+  configureIndexAdminStandaloneAuth,
+  deployIndexAdminChildFunctions,
   fileToBase64,
   finalizeIndexAdmin,
   listAccessibleIndexAdmins,
@@ -105,6 +107,12 @@ export const useAdminRouteController = () => {
   const [domainInput, setDomainInput] = useState("");
   const [savingAdvanced, setSavingAdvanced] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [configuringStandaloneAuth, setConfiguringStandaloneAuth] = useState(false);
+  const [deployingFunctions, setDeployingFunctions] = useState(false);
+  const [githubClientId, setGithubClientId] = useState("");
+  const [githubClientSecret, setGithubClientSecret] = useState("");
+  const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
 
   const queryRequestIdRef = useRef(0);
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
@@ -227,13 +235,17 @@ export const useAdminRouteController = () => {
   }, [createdMode, selectedArchiveId]);
 
   useEffect(() => {
-    if (!selectedArchiveId || !setup?.finalization.isRunning) {
+    if (
+      !selectedArchiveId ||
+      (!setup?.finalization.isRunning && setup?.functionsDeployment.status !== "running")
+    ) {
       return;
     }
 
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       void (async () => {
+        setSetupLoading(true);
         try {
           const response = await readIndexAdmin(selectedArchiveId);
           if (cancelled) {
@@ -246,6 +258,10 @@ export const useAdminRouteController = () => {
           }
           setNotice(getFriendlyErrorMessage(error, "Could not refresh finalization status."));
           setNoticeKind("error");
+        } finally {
+          if (!cancelled) {
+            setSetupLoading(false);
+          }
         }
       })();
     }, 2500);
@@ -254,7 +270,7 @@ export const useAdminRouteController = () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [selectedArchiveId, setup?.finalization.isRunning]);
+  }, [selectedArchiveId, setup?.finalization.isRunning, setup?.functionsDeployment.status]);
 
   useEffect(() => {
     const query = collaboratorQuery.trim();
@@ -461,6 +477,88 @@ export const useAdminRouteController = () => {
     }
   };
 
+  const handleRefreshSetup = async () => {
+    if (!selectedArchiveId) {
+      return;
+    }
+
+    setSetupLoading(true);
+    try {
+      const response = await readIndexAdmin(selectedArchiveId);
+      applyResponse(response, { resetFields: false });
+    } catch (error) {
+      setNotice(getFriendlyErrorMessage(error, "Could not refresh setup status."));
+      setNoticeKind("error");
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleConfigureStandaloneAuth = async () => {
+    if (!selectedArchiveId) {
+      return;
+    }
+
+    setConfiguringStandaloneAuth(true);
+    try {
+      const response = await configureIndexAdminStandaloneAuth({
+        archiveId: selectedArchiveId,
+        githubClientId,
+        githubClientSecret
+      });
+      applyResponse(response, { resetFields: false });
+      setGithubClientSecret("");
+      setNotice("GitHub sign-in configured for the child project.");
+      setNoticeKind("notice");
+    } catch (error) {
+      setNotice(getFriendlyErrorMessage(error, "Could not configure child GitHub auth."));
+      setNoticeKind("error");
+    } finally {
+      setConfiguringStandaloneAuth(false);
+    }
+  };
+
+  const handleDeployFunctions = async () => {
+    if (!selectedArchiveId) {
+      return;
+    }
+
+    setDeployingFunctions(true);
+    try {
+      const response = await deployIndexAdminChildFunctions({
+        archiveId: selectedArchiveId,
+        supabasePersonalAccessToken
+      });
+      applyResponse(response, { resetFields: false });
+      setSupabasePersonalAccessToken("");
+      setNotice("Child function deployment started.");
+      setNoticeKind("notice");
+    } catch (error) {
+      setNotice(getFriendlyErrorMessage(error, "Could not deploy child functions."));
+      setNoticeKind("error");
+    } finally {
+      setDeployingFunctions(false);
+    }
+  };
+
+  const handleCopyValue = async (value: string, successMessage: string) => {
+    const trimmedValue = value.trim();
+    if (!trimmedValue || typeof navigator === "undefined" || !navigator.clipboard) {
+      setNotice("Clipboard access is not available in this browser.");
+      setNoticeKind("error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(trimmedValue);
+      setNotice(successMessage);
+      setNoticeKind("notice");
+    } catch {
+      setNotice("Could not copy that value.");
+      setNoticeKind("error");
+    }
+  };
+
   return {
     notice,
     noticeKind,
@@ -488,6 +586,12 @@ export const useAdminRouteController = () => {
     savingGeneral,
     savingAdvanced,
     startingFinalization,
+    setupLoading,
+    configuringStandaloneAuth,
+    deployingFunctions,
+    githubClientId,
+    githubClientSecret,
+    supabasePersonalAccessToken,
     settingsTopbarProps: {
       activeSection,
       sectionButtons,
@@ -540,6 +644,21 @@ export const useAdminRouteController = () => {
     },
     onFinalizeIndex: () => {
       void handleFinalizeIndex();
+    },
+    onRefreshSetup: () => {
+      void handleRefreshSetup();
+    },
+    onGithubClientIdChange: setGithubClientId,
+    onGithubClientSecretChange: setGithubClientSecret,
+    onConfigureStandaloneAuth: () => {
+      void handleConfigureStandaloneAuth();
+    },
+    onSupabasePersonalAccessTokenChange: setSupabasePersonalAccessToken,
+    onDeployFunctions: () => {
+      void handleDeployFunctions();
+    },
+    onCopyValue: (value: string, successMessage: string) => {
+      void handleCopyValue(value, successMessage);
     }
   };
 };

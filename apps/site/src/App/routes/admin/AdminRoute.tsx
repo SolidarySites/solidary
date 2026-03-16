@@ -54,7 +54,20 @@ export default function AdminRoute() {
             setup={controller.setup}
             highlight={controller.createdMode}
             startingFinalization={controller.startingFinalization}
+            configuringStandaloneAuth={controller.configuringStandaloneAuth}
+            deployingFunctions={controller.deployingFunctions}
+            setupLoading={controller.setupLoading}
+            githubClientId={controller.githubClientId}
+            githubClientSecret={controller.githubClientSecret}
+            supabasePersonalAccessToken={controller.supabasePersonalAccessToken}
+            onGithubClientIdChange={controller.onGithubClientIdChange}
+            onGithubClientSecretChange={controller.onGithubClientSecretChange}
+            onSupabasePersonalAccessTokenChange={controller.onSupabasePersonalAccessTokenChange}
+            onConfigureStandaloneAuth={controller.onConfigureStandaloneAuth}
             onFinalizeIndex={controller.onFinalizeIndex}
+            onDeployFunctions={controller.onDeployFunctions}
+            onRefreshSetup={controller.onRefreshSetup}
+            onCopyValue={controller.onCopyValue}
           />
         )}
 

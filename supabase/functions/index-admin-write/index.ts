@@ -2,6 +2,8 @@ import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
 import {
   buildStandaloneAdminSetup,
+  configureIndexStandaloneAuth,
+  deployIndexChildFunctions,
   isIndexFinalizationJobStale,
   parseBearerToken,
   parseBridgeTokenFromEvent,
@@ -22,7 +24,9 @@ type WriteAction =
   | "upsert_collaborator"
   | "remove_collaborator"
   | "update_advanced"
-  | "finalize_index";
+  | "finalize_index"
+  | "configure_standalone_auth"
+  | "deploy_child_functions";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
@@ -49,7 +53,9 @@ const isWriteAction = (value: unknown): value is WriteAction =>
   value === "upsert_collaborator" ||
   value === "remove_collaborator" ||
   value === "update_advanced" ||
-  value === "finalize_index";
+  value === "finalize_index" ||
+  value === "configure_standalone_auth" ||
+  value === "deploy_child_functions";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -137,6 +143,16 @@ export const handler: Handler = async (event) => {
       await updateIndexAdvancedSettings({
         context,
         domain: typeof body.domain === "string" ? body.domain.trim() : null,
+      });
+    } else if (action === "configure_standalone_auth") {
+      await configureIndexStandaloneAuth({
+        context,
+        githubClientId: typeof body.github_client_id === "string"
+          ? body.github_client_id
+          : "",
+        githubClientSecret: typeof body.github_client_secret === "string"
+          ? body.github_client_secret
+          : "",
       });
     } else if (action === "finalize_index") {
       if (context.actorRole !== "owner") {
@@ -238,6 +254,14 @@ export const handler: Handler = async (event) => {
             : "Could not start index finalization worker.",
         );
       }
+    } else if (action === "deploy_child_functions") {
+      await deployIndexChildFunctions({
+        context,
+        supabasePersonalAccessToken:
+          typeof body.supabase_personal_access_token === "string"
+            ? body.supabase_personal_access_token
+            : "",
+      });
     }
 
     const state = await readIndexAdminState(context);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { encryptTokenValue } from "../token-crypto.ts";
 import {
+  buildSupabaseManagementUriAllowList,
   parseSupabaseManagementTokenPayload,
   resolveSupabaseManagementAccessForConnection,
   SupabaseManagementReauthError
@@ -76,4 +77,14 @@ Deno.test("parseSupabaseManagementTokenPayload surfaces provider errors", async 
     },
     /Authorization code expired\./
   );
+});
+
+Deno.test("buildSupabaseManagementUriAllowList includes normalized site variants", () => {
+  const allowList = buildSupabaseManagementUriAllowList("https://archive.example.com/root/");
+
+  assert.deepEqual(allowList, [
+    "https://archive.example.com/root",
+    "https://archive.example.com/root/",
+    "https://archive.example.com/root/**"
+  ]);
 });

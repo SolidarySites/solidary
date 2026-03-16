@@ -13,11 +13,15 @@ import {
 } from "../../studio/routes/site-builder/services/collaborators";
 import type {
   IndexAdminAdvancedPayload,
+  IndexAdminAuthSetup,
   IndexAdminConnection,
   IndexAdminConnectionStatusPayload,
+  IndexAdminConfigureStandaloneAuthPayload,
+  IndexAdminDeployFunctionsPayload,
   IndexAdminFinalizePayload,
   IndexAdminGeneralPayload,
   IndexAdminFinalizationState,
+  IndexAdminFunctionsDeploymentSetup,
   IndexAdminListItem,
   IndexAdminRepoSecretRequirement,
   IndexAdminReadResponse,
@@ -99,8 +103,15 @@ type RawIndexAdminFinalizationState = Partial<IndexAdminFinalizationState>;
 
 type RawIndexAdminRepoSecretRequirement = Partial<IndexAdminRepoSecretRequirement>;
 
+type RawIndexAdminAuthSetup = Partial<IndexAdminAuthSetup>;
+
+type RawIndexAdminFunctionsDeploymentSetup =
+  Partial<IndexAdminFunctionsDeploymentSetup>;
+
 type RawIndexAdminSetup = Partial<IndexAdminSetup> & {
+  authSetup?: RawIndexAdminAuthSetup | null;
   finalization?: RawIndexAdminFinalizationState | null;
+  functionsDeployment?: RawIndexAdminFunctionsDeploymentSetup | null;
 };
 
 const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): IndexAdminState => {
@@ -308,8 +319,72 @@ const mapFinalization = (
     : []
 });
 
+const mapAuthSetup = (
+  rawAuthSetup: RawIndexAdminAuthSetup | null | undefined
+): IndexAdminAuthSetup => ({
+  siteUrl: typeof rawAuthSetup?.siteUrl === "string" ? rawAuthSetup.siteUrl : "",
+  callbackUrl: typeof rawAuthSetup?.callbackUrl === "string" ? rawAuthSetup.callbackUrl : "",
+  providerSettingsUrl:
+    typeof rawAuthSetup?.providerSettingsUrl === "string" ? rawAuthSetup.providerSettingsUrl : "",
+  githubOauthAppUrl:
+    typeof rawAuthSetup?.githubOauthAppUrl === "string" ? rawAuthSetup.githubOauthAppUrl : "",
+  githubOauthAppName:
+    typeof rawAuthSetup?.githubOauthAppName === "string" ? rawAuthSetup.githubOauthAppName : "",
+  githubProviderEnabled: rawAuthSetup?.githubProviderEnabled === true,
+  githubClientIdConfigured: rawAuthSetup?.githubClientIdConfigured === true,
+  githubClientIdMatches: rawAuthSetup?.githubClientIdMatches === true,
+  siteUrlMatches: rawAuthSetup?.siteUrlMatches === true,
+  uriAllowListMatches: rawAuthSetup?.uriAllowListMatches === true,
+  localAuthReady: rawAuthSetup?.localAuthReady === true,
+  message: typeof rawAuthSetup?.message === "string" ? rawAuthSetup.message : null
+});
+
+const mapFunctionsDeployment = (
+  rawFunctionsDeployment: RawIndexAdminFunctionsDeploymentSetup | null | undefined
+): IndexAdminFunctionsDeploymentSetup => ({
+  status:
+    rawFunctionsDeployment?.status === "needs_secrets" ||
+    rawFunctionsDeployment?.status === "ready_to_run" ||
+    rawFunctionsDeployment?.status === "running" ||
+    rawFunctionsDeployment?.status === "failed" ||
+    rawFunctionsDeployment?.status === "deployed" ||
+    rawFunctionsDeployment?.status === "unknown"
+      ? rawFunctionsDeployment.status
+      : "not_ready",
+  message:
+    typeof rawFunctionsDeployment?.message === "string"
+      ? rawFunctionsDeployment.message
+      : null,
+  workflowUrl:
+    typeof rawFunctionsDeployment?.workflowUrl === "string"
+      ? rawFunctionsDeployment.workflowUrl
+      : null,
+  runUrl:
+    typeof rawFunctionsDeployment?.runUrl === "string" ? rawFunctionsDeployment.runUrl : null,
+  requiredSecrets: Array.isArray(rawFunctionsDeployment?.requiredSecrets)
+    ? rawFunctionsDeployment.requiredSecrets
+        .map((entry) => entry as RawIndexAdminRepoSecretRequirement)
+        .filter(
+          (entry): entry is RawIndexAdminRepoSecretRequirement =>
+            entry.name === "SUPABASE_ACCESS_TOKEN" || entry.name === "SUPABASE_PROJECT_REF_PROD"
+        )
+        .map(
+          (entry) =>
+            ({
+              name: entry.name as IndexAdminRepoSecretRequirement["name"],
+              isConfigured: entry.isConfigured === true,
+              value: typeof entry.value === "string" ? entry.value : null,
+              description: typeof entry.description === "string" ? entry.description : ""
+            }) satisfies IndexAdminRepoSecretRequirement
+        )
+    : [],
+  canDispatch: rawFunctionsDeployment?.canDispatch === true
+});
+
 const mapSetup = (rawSetup: RawIndexAdminSetup | null | undefined): IndexAdminSetup => ({
+  authSetup: mapAuthSetup(rawSetup?.authSetup),
   finalization: mapFinalization(rawSetup?.finalization),
+  functionsDeployment: mapFunctionsDeployment(rawSetup?.functionsDeployment),
   liveUrl: typeof rawSetup?.liveUrl === "string" ? rawSetup.liveUrl : "",
   repoUrl: typeof rawSetup?.repoUrl === "string" ? rawSetup.repoUrl : null,
   supabaseDashboardUrl:
@@ -450,6 +525,28 @@ export const finalizeIndexAdmin = async ({ archiveId }: IndexAdminFinalizePayloa
   writeIndexAdmin({
     archive_id: archiveId,
     action: "finalize_index"
+  });
+
+export const configureIndexAdminStandaloneAuth = async ({
+  archiveId,
+  githubClientId,
+  githubClientSecret
+}: IndexAdminConfigureStandaloneAuthPayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "configure_standalone_auth",
+    github_client_id: githubClientId,
+    github_client_secret: githubClientSecret
+  });
+
+export const deployIndexAdminChildFunctions = async ({
+  archiveId,
+  supabasePersonalAccessToken
+}: IndexAdminDeployFunctionsPayload) =>
+  writeIndexAdmin({
+    archive_id: archiveId,
+    action: "deploy_child_functions",
+    supabase_personal_access_token: supabasePersonalAccessToken
   });
 
 export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());

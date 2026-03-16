@@ -18,6 +18,8 @@ import {
   clearCachedGithubProviderCredentialsForUser,
   getGitHubAuthStatusForCurrentUser,
   getFreshGithubAuthSnapshot,
+  parseGitHubAppConnectResultFromSearch,
+  parseGitHubAppConnectResultMessagePayload,
   requireFreshGithubAuth,
   syncGithubAuthSnapshotFromSession,
   syncGithubProviderTokenToServer
@@ -198,5 +200,31 @@ describe("getGitHubAuthStatusForCurrentUser", () => {
     expect(status.githubAppRepositorySelection).toBe("selected");
     expect(status.githubAppSelectedRepositories).toEqual(["owner/repo-one", "owner/repo-two"]);
     expect(status.githubAppSelectedRepositoriesTruncated).toBe(true);
+  });
+});
+
+describe("GitHub App connect result helpers", () => {
+  it("reads popup message payloads", () => {
+    expect(
+      parseGitHubAppConnectResultMessagePayload({
+        type: "solidary:github-app-connect-result",
+        status: "connected",
+        message: "GitHub App connected."
+      })
+    ).toEqual({
+      status: "connected",
+      message: "GitHub App connected."
+    });
+  });
+
+  it("reads callback query params", () => {
+    expect(
+      parseGitHubAppConnectResultFromSearch(
+        "?github_app=error&github_app_message=Install%20required"
+      )
+    ).toEqual({
+      status: "error",
+      message: "Install required"
+    });
   });
 });

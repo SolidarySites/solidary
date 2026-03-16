@@ -115,6 +115,17 @@
   overflow-wrap: anywhere;
 }
 
+.admin-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.admin-inline-copy-button {
+  align-self: start;
+}
+
 .admin-finalization-button {
   border: 0;
   display: inline-flex;
@@ -133,6 +144,17 @@
   padding-left: 1.1rem;
   display: grid;
   gap: 0.45rem;
+}
+
+.admin-required-secrets {
+  padding-top: 1rem;
+  border-top: 1px solid var(--site-color-border-soft);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-required-secrets h4 {
+  margin: 0;
 }
 
 .admin-general-readonly-grid {
@@ -171,6 +193,10 @@
 
   .admin-setup-grid,
   .admin-general-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-copy-row {
     grid-template-columns: 1fr;
   }
 }

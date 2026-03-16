@@ -67,6 +67,11 @@ export type ConnectGitHubAppRequest = {
   navigationWindow?: Window | null;
 };
 
+export type GitHubAppConnectResultStatus = "connected" | "error";
+
+export const GITHUB_APP_CONNECT_RESULT_MESSAGE_TYPE =
+  "solidary:github-app-connect-result";
+
 type InternalGithubAuthSnapshot = FreshGithubAuthSnapshot & {
   providerRefreshToken: string;
 };
@@ -88,6 +93,50 @@ const normalizeGitHubProviderToken = (value: string | null | undefined) =>
     .trim()
     .replace(/^Bearer\s+/i, "")
     .replace(/[\s\r\n\t]+/g, "");
+
+export const parseGitHubAppConnectResultStatus = (
+  value: string
+): GitHubAppConnectResultStatus => (value === "connected" ? "connected" : "error");
+
+export const parseGitHubAppConnectResultMessagePayload = (
+  value: unknown
+): { status: GitHubAppConnectResultStatus; message: string } | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const type = (value as { type?: unknown }).type;
+  if (type !== GITHUB_APP_CONNECT_RESULT_MESSAGE_TYPE) {
+    return null;
+  }
+
+  const rawStatus = (value as { status?: unknown }).status;
+  if (typeof rawStatus !== "string") {
+    return null;
+  }
+
+  return {
+    status: parseGitHubAppConnectResultStatus(rawStatus.trim()),
+    message: typeof (value as { message?: unknown }).message === "string"
+      ? ((value as { message?: string }).message?.trim() ?? "")
+      : ""
+  };
+};
+
+export const parseGitHubAppConnectResultFromSearch = (
+  search: string
+): { status: GitHubAppConnectResultStatus; message: string } | null => {
+  const params = new URLSearchParams(search);
+  const rawStatus = params.get("github_app")?.trim() ?? "";
+  if (!rawStatus) {
+    return null;
+  }
+
+  return {
+    status: parseGitHubAppConnectResultStatus(rawStatus),
+    message: params.get("github_app_message")?.trim() ?? ""
+  };
+};
 
 const getSessionProviderToken = (session: Session | null): string => {
   if (!session) return "";

@@ -101,6 +101,20 @@ export type SupabaseManagementConnectionStatus = {
   projectsTruncated: boolean;
 };
 
+type SupabaseProjectAuthConfigPayload = {
+  site_url?: unknown;
+  uri_allow_list?: unknown;
+  external_github_enabled?: unknown;
+  external_github_client_id?: unknown;
+};
+
+export type SupabaseProjectAuthConfig = {
+  siteUrl: string;
+  uriAllowList: string[];
+  githubProviderEnabled: boolean;
+  githubClientId: string | null;
+};
+
 export type UpsertSupabaseManagementConnectionInput = {
   userId: string;
   accessToken: string;
@@ -159,12 +173,40 @@ const normalizeSupabaseManagementSiteUrl = (value: string) => {
     : `${parsed.origin}${parsed.pathname}`;
 };
 
-const buildSupabaseManagementUriAllowList = (siteUrl: string) => {
+export const buildSupabaseManagementUriAllowList = (siteUrl: string) => {
   const normalized = normalizeSupabaseManagementSiteUrl(siteUrl);
   const allowList = new Set<string>([normalized, `${normalized}/`]);
   allowList.add(`${normalized}/**`);
   return [...allowList];
 };
+
+const normalizeUriAllowList = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => normalizeTrimmedString(entry))
+      .filter(Boolean);
+  }
+
+  const raw = normalizeTrimmedString(value);
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+};
+
+const normalizeSupabaseProjectAuthConfig = (
+  payload: SupabaseProjectAuthConfigPayload | null,
+): SupabaseProjectAuthConfig => ({
+  siteUrl: normalizeTrimmedString(payload?.site_url),
+  uriAllowList: normalizeUriAllowList(payload?.uri_allow_list),
+  githubProviderEnabled: payload?.external_github_enabled === true,
+  githubClientId: normalizeTrimmedString(payload?.external_github_client_id) ||
+    null,
+});
 
 const getSupabaseManagementApiErrorMessage = (
   payload: SupabaseManagementApiErrorPayload | null,
@@ -804,6 +846,68 @@ export const resolveSupabaseManagementAccessForUser = async ({
   };
 };
 
+const requestSupabaseProjectAuthConfig = async ({
+  accessToken,
+  projectRef,
+  method = "GET",
+  body,
+}: {
+  accessToken: string;
+  projectRef: string;
+  method?: "GET" | "PATCH";
+  body?: Record<string, unknown>;
+}) => {
+  const normalizedProjectRef = normalizeTrimmedString(projectRef);
+  if (!normalizedProjectRef) {
+    throw new Error("Supabase project ref is required.");
+  }
+
+  const response = await fetch(
+    `${SUPABASE_MANAGEMENT_API}/v1/projects/${normalizedProjectRef}/config/auth`,
+    {
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${normalizeTrimmedString(accessToken)}`,
+        "content-type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | SupabaseManagementApiErrorPayload
+    | SupabaseProjectAuthConfigPayload
+    | null;
+  if (!response.ok) {
+    throw new Error(
+      getSupabaseManagementApiErrorMessage(
+        payload as SupabaseManagementApiErrorPayload | null,
+        method === "PATCH"
+          ? "Failed to update Supabase Auth configuration."
+          : "Failed to read Supabase Auth configuration.",
+      ),
+    );
+  }
+
+  return normalizeSupabaseProjectAuthConfig(
+    payload as SupabaseProjectAuthConfigPayload | null,
+  );
+};
+
+export const readSupabaseProjectAuthConfig = async ({
+  accessToken,
+  projectRef,
+}: {
+  accessToken: string;
+  projectRef: string;
+}) =>
+  requestSupabaseProjectAuthConfig({
+    accessToken,
+    projectRef,
+    method: "GET",
+  });
+
 export const updateSupabaseProjectAuthConfig = async ({
   accessToken,
   projectRef,
@@ -813,42 +917,62 @@ export const updateSupabaseProjectAuthConfig = async ({
   projectRef: string;
   siteUrl: string;
 }) => {
-  const normalizedProjectRef = normalizeTrimmedString(projectRef);
-  if (!normalizedProjectRef) {
-    throw new Error("Supabase project ref is required.");
-  }
-
   const normalizedSiteUrl = normalizeSupabaseManagementSiteUrl(siteUrl);
   const uriAllowList = buildSupabaseManagementUriAllowList(normalizedSiteUrl);
-  const response = await fetch(
-    `${SUPABASE_MANAGEMENT_API}/v1/projects/${normalizedProjectRef}/config/auth`,
-    {
-      method: "PATCH",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${normalizeTrimmedString(accessToken)}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        site_url: normalizedSiteUrl,
-        uri_allow_list: uriAllowList.join(","),
-      }),
+  await requestSupabaseProjectAuthConfig({
+    accessToken,
+    projectRef,
+    method: "PATCH",
+    body: {
+      site_url: normalizedSiteUrl,
+      uri_allow_list: uriAllowList.join(","),
     },
-  );
-
-  const payload = (await response.json().catch(() => null)) as
-    | SupabaseManagementApiErrorPayload
-    | null;
-  if (!response.ok) {
-    throw new Error(
-      getSupabaseManagementApiErrorMessage(
-        payload,
-        "Failed to update Supabase Auth URL configuration.",
-      ),
-    );
-  }
+  });
 
   return {
+    siteUrl: normalizedSiteUrl,
+    uriAllowList,
+  };
+};
+
+export const updateSupabaseProjectGitHubAuthConfig = async ({
+  accessToken,
+  projectRef,
+  siteUrl,
+  githubClientId,
+  githubClientSecret,
+}: {
+  accessToken: string;
+  projectRef: string;
+  siteUrl: string;
+  githubClientId: string;
+  githubClientSecret: string;
+}) => {
+  const normalizedSiteUrl = normalizeSupabaseManagementSiteUrl(siteUrl);
+  const uriAllowList = buildSupabaseManagementUriAllowList(normalizedSiteUrl);
+  const normalizedGithubClientId = normalizeTrimmedString(githubClientId);
+  const normalizedGithubClientSecret = normalizeTrimmedString(
+    githubClientSecret,
+  );
+  if (!normalizedGithubClientId || !normalizedGithubClientSecret) {
+    throw new Error("GitHub client id and client secret are required.");
+  }
+
+  const nextConfig = await requestSupabaseProjectAuthConfig({
+    accessToken,
+    projectRef,
+    method: "PATCH",
+    body: {
+      site_url: normalizedSiteUrl,
+      uri_allow_list: uriAllowList.join(","),
+      external_github_enabled: true,
+      external_github_client_id: normalizedGithubClientId,
+      external_github_secret: normalizedGithubClientSecret,
+    },
+  });
+
+  return {
+    ...nextConfig,
     siteUrl: normalizedSiteUrl,
     uriAllowList,
   };

@@ -75,7 +75,9 @@ export type IndexAdminConnection = {
 };
 
 export type IndexAdminSetup = {
+  authSetup: IndexAdminAuthSetup;
   finalization: IndexAdminFinalizationState;
+  functionsDeployment: IndexAdminFunctionsDeploymentSetup;
   liveUrl: string;
   repoUrl: string | null;
   supabaseDashboardUrl: string | null;
@@ -91,6 +93,37 @@ export type IndexAdminRepoSecretRequirement = {
   isConfigured: boolean;
   value: string | null;
   description: string;
+};
+
+export type IndexAdminAuthSetup = {
+  siteUrl: string;
+  callbackUrl: string;
+  providerSettingsUrl: string;
+  githubOauthAppUrl: string;
+  githubOauthAppName: string;
+  githubProviderEnabled: boolean;
+  githubClientIdConfigured: boolean;
+  githubClientIdMatches: boolean;
+  siteUrlMatches: boolean;
+  uriAllowListMatches: boolean;
+  localAuthReady: boolean;
+  message: string | null;
+};
+
+export type IndexAdminFunctionsDeploymentSetup = {
+  status:
+    | "not_ready"
+    | "needs_secrets"
+    | "ready_to_run"
+    | "running"
+    | "failed"
+    | "deployed"
+    | "unknown";
+  message: string | null;
+  workflowUrl: string | null;
+  runUrl: string | null;
+  requiredSecrets: IndexAdminRepoSecretRequirement[];
+  canDispatch: boolean;
 };
 
 export type IndexAdminFinalizationState = {
@@ -168,4 +201,15 @@ export type IndexAdminAdvancedPayload = {
 
 export type IndexAdminFinalizePayload = {
   archiveId: string;
+};
+
+export type IndexAdminConfigureStandaloneAuthPayload = {
+  archiveId: string;
+  githubClientId: string;
+  githubClientSecret: string;
+};
+
+export type IndexAdminDeployFunctionsPayload = {
+  archiveId: string;
+  supabasePersonalAccessToken: string;
 };
