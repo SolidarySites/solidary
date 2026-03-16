@@ -16,6 +16,7 @@ const REQUESTED_MANAGEMENT_SCOPES = [
   "projects:read",
   "projects:write",
   "database:write",
+  "auth:write",
   "edge_functions:write",
   "secrets:read",
   "secrets:write",
@@ -124,6 +125,12 @@ type ResolvedSupabaseManagementAccess = {
   accessToken: string;
 };
 
+type SupabaseManagementApiErrorPayload = {
+  error?: unknown;
+  message?: unknown;
+  msg?: unknown;
+};
+
 export class SupabaseManagementReauthError extends Error {
   constructor(message = "Reconnect your Supabase account to continue.") {
     super(message);
@@ -137,6 +144,36 @@ const normalizeTrimmedString = (value: unknown) => {
 
 const normalizeScopeString = (value: string | null | undefined) => {
   return splitSupabaseManagementScopes(value).join(" ");
+};
+
+const normalizeSupabaseManagementSiteUrl = (value: string) => {
+  const parsed = new URL(value.trim());
+  parsed.search = "";
+  parsed.hash = "";
+
+  const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+  parsed.pathname = normalizedPath || "/";
+
+  return parsed.pathname === "/"
+    ? parsed.origin
+    : `${parsed.origin}${parsed.pathname}`;
+};
+
+const buildSupabaseManagementUriAllowList = (siteUrl: string) => {
+  const normalized = normalizeSupabaseManagementSiteUrl(siteUrl);
+  const allowList = new Set<string>([normalized, `${normalized}/`]);
+  allowList.add(`${normalized}/**`);
+  return [...allowList];
+};
+
+const getSupabaseManagementApiErrorMessage = (
+  payload: SupabaseManagementApiErrorPayload | null,
+  fallback: string,
+) => {
+  const error = normalizeTrimmedString(payload?.error);
+  const message = normalizeTrimmedString(payload?.message);
+  const msg = normalizeTrimmedString(payload?.msg);
+  return error || message || msg || fallback;
 };
 
 export const splitSupabaseManagementScopes = (
@@ -764,5 +801,55 @@ export const resolveSupabaseManagementAccessForUser = async ({
   return {
     accessToken: access.accessToken,
     scope: access.connection.scope ?? "",
+  };
+};
+
+export const updateSupabaseProjectAuthConfig = async ({
+  accessToken,
+  projectRef,
+  siteUrl,
+}: {
+  accessToken: string;
+  projectRef: string;
+  siteUrl: string;
+}) => {
+  const normalizedProjectRef = normalizeTrimmedString(projectRef);
+  if (!normalizedProjectRef) {
+    throw new Error("Supabase project ref is required.");
+  }
+
+  const normalizedSiteUrl = normalizeSupabaseManagementSiteUrl(siteUrl);
+  const uriAllowList = buildSupabaseManagementUriAllowList(normalizedSiteUrl);
+  const response = await fetch(
+    `${SUPABASE_MANAGEMENT_API}/v1/projects/${normalizedProjectRef}/config/auth`,
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${normalizeTrimmedString(accessToken)}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        site_url: normalizedSiteUrl,
+        uri_allow_list: uriAllowList.join(","),
+      }),
+    },
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | SupabaseManagementApiErrorPayload
+    | null;
+  if (!response.ok) {
+    throw new Error(
+      getSupabaseManagementApiErrorMessage(
+        payload,
+        "Failed to update Supabase Auth URL configuration.",
+      ),
+    );
+  }
+
+  return {
+    siteUrl: normalizedSiteUrl,
+    uriAllowList,
   };
 };

@@ -16,6 +16,12 @@ import {
   parseIndexAdminBridgeToken,
 } from "./index-admin-bridge.ts";
 import { resolveGitHubTokenForUser } from "./github-auth-broker.ts";
+import {
+  resolveSupabaseManagementAccessForUser,
+  splitSupabaseManagementScopes,
+  SupabaseManagementReauthError,
+  updateSupabaseProjectAuthConfig,
+} from "./supabase-management-auth/index.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
@@ -26,6 +32,7 @@ const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
 const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 10;
 const INDEX_FUNCTIONS_WORKFLOW_FILE = "deploy-supabase-functions.yml";
 const INDEX_FUNCTIONS_WORKFLOW_BRANCH = "main";
+const INDEX_AUTH_CONFIG_REQUIRED_SCOPES = ["auth:write"] as const;
 const INDEX_REQUIRED_REPO_SECRET_NAMES = [
   "SUPABASE_ACCESS_TOKEN",
   "SUPABASE_PROJECT_REF_PROD",
@@ -853,7 +860,7 @@ const buildRepoSecretRequirements = (
     isConfigured: configuredSecretNames?.has("SUPABASE_ACCESS_TOKEN") ?? false,
     value: null,
     description:
-      "Add a Supabase personal access token that starts with sbp_. This lets the child repo's GitHub Actions workflow run supabase functions deploy.",
+      "Add a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_... here. The CLI token still starts with sbp_ and lets the child repo's GitHub Actions workflow run supabase functions deploy.",
   },
   {
     name: "SUPABASE_PROJECT_REF_PROD",
@@ -887,8 +894,8 @@ const buildFunctionsDeployStatusMessage = ({
       return "The child function deploy workflow is running. Refresh this page after GitHub Actions completes.";
     case "failed":
       return latestRunConclusion
-        ? `The child function deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it.`
-        : "The child function deploy workflow failed. Open the run details, fix the issue, and rerun it.";
+        ? `The child function deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....`
+        : "The child function deploy workflow failed. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....";
     case "deployed":
       return "The child function deploy workflow completed successfully.";
     default:
@@ -1444,6 +1451,39 @@ const resolveOwnerGitHubToken = async (context: IndexAdminContext) => {
   return token;
 };
 
+const resolveSupabaseManagementAuthConfigAccessToken = async (
+  context: IndexAdminContext,
+) => {
+  let resolvedAccess: { accessToken: string; scope: string };
+  try {
+    resolvedAccess = await resolveSupabaseManagementAccessForUser({
+      supabase: context.supabase,
+      userId: context.actorUserId,
+    });
+  } catch (error) {
+    if (error instanceof SupabaseManagementReauthError) {
+      throw new Error(
+        "Reconnect your Supabase account from Profile before updating standalone auth URLs.",
+      );
+    }
+    throw error;
+  }
+
+  const grantedScopes = splitSupabaseManagementScopes(resolvedAccess.scope);
+  if (
+    grantedScopes.length &&
+    !INDEX_AUTH_CONFIG_REQUIRED_SCOPES.every((scope) =>
+      grantedScopes.includes(scope)
+    )
+  ) {
+    throw new Error(
+      "Reconnect your Supabase account with Auth write access before updating standalone auth URLs.",
+    );
+  }
+
+  return resolvedAccess.accessToken;
+};
+
 export const updateIndexGeneralSettings = async ({
   context,
   title,
@@ -1739,6 +1779,13 @@ export const updateIndexAdvancedSettings = async ({
       context.credentials.repo_owner,
       context.credentials.repo_name,
     );
+  const managementAccessToken =
+    await resolveSupabaseManagementAuthConfigAccessToken(context);
+  await updateSupabaseProjectAuthConfig({
+    accessToken: managementAccessToken,
+    projectRef: context.credentials.supabase_project_ref,
+    siteUrl: nextSiteUrl,
+  });
   const currentState = await readIndexAdminState(context);
   const imageUrl = currentState.archive.imageUrl
     ? buildAbsoluteAssetUrl({
@@ -1980,7 +2027,7 @@ export const buildStandaloneAdminSetup = async ({
       ]
       : [
         "Add the required GitHub repo secrets shown below to the child repository.",
-        "Set SUPABASE_PROJECT_REF_PROD to the child project ref and create a Supabase personal access token for SUPABASE_ACCESS_TOKEN.",
+        "Set SUPABASE_PROJECT_REF_PROD to the child project ref and set SUPABASE_ACCESS_TOKEN to a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_....",
         "Open the child repo's Deploy Supabase Functions workflow and rerun it after the secrets are saved.",
         "Keep using the standalone /admin bridge link until the child function deploy workflow succeeds.",
       ]

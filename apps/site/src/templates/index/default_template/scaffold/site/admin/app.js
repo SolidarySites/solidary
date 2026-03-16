@@ -6,7 +6,7 @@ import {
   normalizeDomainInput,
   readStoredBridgeToken,
   rememberBridgeToken,
-  renderLink
+  renderLink,
 } from "../shared.js";
 
 const FINALIZATION_POLL_INTERVAL_MS = 2500;
@@ -16,7 +16,7 @@ const FINALIZATION_SOURCE_STATUS_LABELS = {
   child_lineage: "Stored on child index",
   solidary_lineage: "Recovered from Solidary",
   root_fallback: "Solidary root fallback",
-  missing: "Missing lineage"
+  missing: "Missing lineage",
 };
 const FUNCTIONS_DEPLOY_STATUS_LABELS = {
   not_ready: "Not ready",
@@ -25,7 +25,7 @@ const FUNCTIONS_DEPLOY_STATUS_LABELS = {
   running: "Workflow running",
   failed: "Workflow failed",
   deployed: "Functions deployed",
-  unknown: "Status unavailable"
+  unknown: "Status unavailable",
 };
 
 const arrayBufferToBase64 = async (file) => {
@@ -49,7 +49,7 @@ const state = {
   notice: null,
   noticeKind: "notice",
   finalizationStarting: false,
-  finalizationPollHandle: 0
+  finalizationPollHandle: 0,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -88,8 +88,8 @@ const readAdminState = async () =>
     functionName: "index-admin-read",
     bridgeToken: state.bridgeToken,
     body: {
-      archive_id: state.config.archiveId
-    }
+      archive_id: state.config.archiveId,
+    },
   });
 
 const renderHeroLinks = () => {
@@ -99,27 +99,31 @@ const renderHeroLinks = () => {
   renderLink(links, {
     href: state.setup.liveUrl,
     label: "Open live index",
-    primary: true
+    primary: true,
   });
   renderLink(links, {
     href: state.setup.repoUrl,
-    label: "GitHub repo"
+    label: "GitHub repo",
   });
   renderLink(links, {
     href: state.setup.supabaseDashboardUrl,
-    label: "Supabase project"
+    label: "Supabase project",
   });
   renderLink(links, {
     href: state.setup.solidaryAdminUrl,
-    label: "Open Solidary /admin"
+    label: "Open Solidary /admin",
   });
 };
 
 const getOwner = () =>
-  (state.adminState?.collaborators || []).find((entry) => entry.role === "owner") || null;
+  (state.adminState?.collaborators || []).find((entry) =>
+    entry.role === "owner"
+  ) || null;
 
 const getNonOwnerCollaborators = () =>
-  (state.adminState?.collaborators || []).filter((entry) => entry.role !== "owner");
+  (state.adminState?.collaborators || []).filter((entry) =>
+    entry.role !== "owner"
+  );
 
 const renderTabs = () => {
   const tabs = byId("admin-tabs");
@@ -129,11 +133,13 @@ const renderTabs = () => {
     ["general", "General"],
     ["connections", "Connections"],
     ["collaborators", "Collaborators"],
-    ["advanced", "Advanced"]
+    ["advanced", "Advanced"],
   ].forEach(([value, label]) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `admin-tab-button ${state.activeSection === value ? "is-active" : ""}`.trim();
+    button.className = `admin-tab-button ${
+      state.activeSection === value ? "is-active" : ""
+    }`.trim();
     button.textContent = label;
     button.addEventListener("click", () => {
       state.activeSection = value;
@@ -159,15 +165,18 @@ const renderGuard = (message, allowAdminLink = true) => {
   }
   text.textContent = message;
 
-  guard.querySelectorAll(".hero-actions").forEach((element) => element.remove());
+  guard.querySelectorAll(".hero-actions").forEach((element) =>
+    element.remove()
+  );
 
   if (allowAdminLink && state.config) {
     const actionRow = document.createElement("div");
     actionRow.className = "hero-actions";
     renderLink(actionRow, {
-      href: `${state.config.solidaryAppUrl}/admin?archiveId=${state.config.archiveId}`,
+      href:
+        `${state.config.solidaryAppUrl}/admin?archiveId=${state.config.archiveId}`,
       label: "Open Solidary /admin",
-      primary: true
+      primary: true,
     });
     guard.append(actionRow);
   }
@@ -185,19 +194,20 @@ const renderFinalizationCard = () => {
     return;
   }
 
-  const sourceRepoLabel = finalization.sourceRepoFullName || finalization.sourceRepoUrl || "-";
+  const sourceRepoLabel = finalization.sourceRepoFullName ||
+    finalization.sourceRepoUrl || "-";
   const functionsReady = finalization.functionsDeployStatus === "deployed";
   const showFunctionsSetup = finalization.isFinalized && !functionsReady;
   const heading = !finalization.isFinalized
     ? "Finalise Index"
     : functionsReady
-      ? "Standalone app ready"
-      : "Finalize Index Setup";
+    ? "Standalone app ready"
+    : "Finalize Index Setup";
   const lead = !finalization.isFinalized
     ? "Once standalone auth is working, copy the parent index app into this child repo."
     : functionsReady
-      ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
-      : "The child repo has been copied. Add the required repo secrets and run the Deploy Supabase Functions workflow to make the copied runtime operational.";
+    ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
+    : "The child repo has been copied. Add the required repo secrets and run the Deploy Supabase Functions workflow to make the copied runtime operational.";
   card.hidden = false;
   card.innerHTML = `
     <div class="details-head">
@@ -215,61 +225,81 @@ const renderFinalizationCard = () => {
       </div>
       <div>
         <dt>Functions deploy</dt>
-        <dd>${FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus] || "Not ready"}</dd>
+        <dd>${
+    FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus] ||
+    "Not ready"
+  }</dd>
       </div>
       <div>
         <dt>Source repo</dt>
         <dd>${
-          finalization.sourceRepoUrl
-            ? `<a href="${finalization.sourceRepoUrl}" target="_blank" rel="noreferrer">${sourceRepoLabel}</a>`
-            : sourceRepoLabel
-        }</dd>
+    finalization.sourceRepoUrl
+      ? `<a href="${finalization.sourceRepoUrl}" target="_blank" rel="noreferrer">${sourceRepoLabel}</a>`
+      : sourceRepoLabel
+  }</dd>
       </div>
       <div>
         <dt>Source status</dt>
         <dd>${
-          FINALIZATION_SOURCE_STATUS_LABELS[finalization.sourceRepoStatus] || "Missing lineage"
-        }</dd>
+    FINALIZATION_SOURCE_STATUS_LABELS[finalization.sourceRepoStatus] ||
+    "Missing lineage"
+  }</dd>
       </div>
       ${
-        finalization.sourceRepoMessage
-          ? `<div><dt>Source note</dt><dd>${finalization.sourceRepoMessage}</dd></div>`
-          : ""
-      }
+    finalization.sourceRepoMessage
+      ? `<div><dt>Source note</dt><dd>${finalization.sourceRepoMessage}</dd></div>`
+      : ""
+  }
       ${
-        finalization.functionsDeployMessage
-          ? `<div><dt>Deploy note</dt><dd>${finalization.functionsDeployMessage}</dd></div>`
-          : ""
-      }
+    finalization.functionsDeployMessage
+      ? `<div><dt>Deploy note</dt><dd>${finalization.functionsDeployMessage}</dd></div>`
+      : ""
+  }
       <div>
         <dt>Completed</dt>
         <dd>${finalization.completedAt || "-"}</dd>
       </div>
       ${
-        finalization.error
-          ? `<div><dt>Latest error</dt><dd>${finalization.error}</dd></div>`
-          : ""
-      }
+    finalization.error
+      ? `<div><dt>Latest error</dt><dd>${finalization.error}</dd></div>`
+      : ""
+  }
     </dl>
     ${
-      showFunctionsSetup
-        ? `<div class="details-card">
+    showFunctionsSetup
+      ? `<div class="details-card">
             <h3>Required repo secrets</h3>
             <dl class="details-list">
-              ${(finalization.requiredRepoSecrets || [])
-                .map(
-                  (secret) => `<div>
+              ${
+        (finalization.requiredRepoSecrets || [])
+          .map(
+            (secret) =>
+              `<div>
                     <dt>${secret.name}</dt>
                     <dd>${secret.isConfigured ? "Configured" : "Missing"}${
-                      secret.value ? ` — ${secret.value}` : ""
-                    }${secret.description ? ` — ${secret.description}` : ""}</dd>
-                  </div>`
-                )
-                .join("")}
+                secret.value ? ` — ${secret.value}` : ""
+              }${secret.description ? ` — ${secret.description}` : ""}</dd>
+                  </div>`,
+          )
+          .join("")
+      }
             </dl>
           </div>`
-        : ""
-    }
+      : ""
+  }
+    ${
+    finalization.isFinalized && Array.isArray(state.setup?.nextSteps) &&
+      state.setup.nextSteps.length
+      ? `<div class="details-card">
+            <h3>Next steps</h3>
+            <ol class="details-steps">
+              ${
+        state.setup.nextSteps.map((step) => `<li>${step}</li>`).join("")
+      }
+            </ol>
+          </div>`
+      : ""
+  }
     <div class="hero-actions" id="admin-finalization-actions"></div>
   `;
 
@@ -282,10 +312,11 @@ const renderFinalizationCard = () => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "button-link primary-link";
-    button.textContent =
-      state.finalizationStarting || finalization.isRunning ? "Finalising..." : "Finalise Index";
-    button.disabled =
-      !finalization.available || finalization.isRunning || state.finalizationStarting;
+    button.textContent = state.finalizationStarting || finalization.isRunning
+      ? "Finalising..."
+      : "Finalise Index";
+    button.disabled = !finalization.available || finalization.isRunning ||
+      state.finalizationStarting;
     button.addEventListener("click", async () => {
       const confirmed = window.confirm(FINALIZATION_CONFIRMATION_MESSAGE);
       if (!confirmed) {
@@ -301,18 +332,20 @@ const renderFinalizationCard = () => {
           bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
-            action: "finalize_index"
-          }
+            action: "finalize_index",
+          },
         });
         applyPayload(payload);
         setNotice(
-          "Index finalization started. This page will keep refreshing until the copy finishes."
+          "Index finalization started. This page will keep refreshing until the copy finishes.",
         );
         renderAll();
       } catch (error) {
         setNotice(
-          error instanceof Error ? error.message : "Could not start index finalization.",
-          "error"
+          error instanceof Error
+            ? error.message
+            : "Could not start index finalization.",
+          "error",
         );
       } finally {
         state.finalizationStarting = false;
@@ -327,11 +360,11 @@ const renderFinalizationCard = () => {
     renderLink(actions, {
       href: finalization.functionsDeployWorkflowUrl,
       label: "Open Deploy Functions workflow",
-      primary: true
+      primary: true,
     });
     renderLink(actions, {
       href: finalization.functionsDeployRunUrl,
-      label: "Open latest workflow run"
+      label: "Open latest workflow run",
     });
     return;
   }
@@ -339,11 +372,11 @@ const renderFinalizationCard = () => {
   [
     [finalization.targetSearchUrl, "Open Search"],
     [finalization.targetExplorerUrl, "Open Explorer"],
-    [finalization.targetStudioUrl, "Open Studio"]
+    [finalization.targetStudioUrl, "Open Studio"],
   ].forEach(([href, label]) => {
     renderLink(actions, {
       href,
-      label
+      label,
     });
   });
 };
@@ -361,8 +394,10 @@ const scheduleFinalizationPoll = () => {
       renderAll();
     } catch (error) {
       setNotice(
-        error instanceof Error ? error.message : "Could not refresh finalization status.",
-        "error"
+        error instanceof Error
+          ? error.message
+          : "Could not refresh finalization status.",
+        "error",
       );
     }
   }, FINALIZATION_POLL_INTERVAL_MS);
@@ -379,11 +414,15 @@ const renderGeneral = (panel) => {
       </div>
       <label>
         Index title
-        <input id="general-title" value="${archive.title || ""}" ${canEdit ? "" : "disabled"} />
+        <input id="general-title" value="${archive.title || ""}" ${
+    canEdit ? "" : "disabled"
+  } />
       </label>
       <label>
         Description
-        <textarea id="general-description" rows="4" ${canEdit ? "" : "disabled"}>${archive.description || ""}</textarea>
+        <textarea id="general-description" rows="4" ${
+    canEdit ? "" : "disabled"
+  }>${archive.description || ""}</textarea>
       </label>
       <label>
         Live URL
@@ -391,10 +430,14 @@ const renderGeneral = (panel) => {
       </label>
       <label>
         Index image (JPEG)
-        <input id="general-image" type="file" accept="image/jpeg" ${canEdit ? "" : "disabled"} />
+        <input id="general-image" type="file" accept="image/jpeg" ${
+    canEdit ? "" : "disabled"
+  } />
       </label>
       <div class="hero-actions">
-        <button class="primary-link button-link" id="general-save" ${canEdit ? "" : "disabled"}>Save</button>
+        <button class="primary-link button-link" id="general-save" ${
+    canEdit ? "" : "disabled"
+  }>Save</button>
       </div>
     </section>
   `;
@@ -418,15 +461,22 @@ const renderGeneral = (panel) => {
             action: "update_general",
             title,
             description,
-            image_content_b64: file ? await arrayBufferToBase64(file) : undefined
-          }
+            image_content_b64: file
+              ? await arrayBufferToBase64(file)
+              : undefined,
+          },
         });
         state.adminState = payload.state;
         state.setup = payload.setup;
         setNotice("General settings saved.");
         renderAll();
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not save general settings.", "error");
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not save general settings.",
+          "error",
+        );
       }
     });
   }
@@ -467,15 +517,19 @@ const renderConnections = (panel) => {
       <dl class="connected-site-meta">
         <div><dt>Status</dt><dd>${connection.status}</dd></div>
         <div><dt>Site URL</dt><dd>${connection.canonicalUrl || "-"}</dd></div>
-        <div><dt>Parent index URL</dt><dd>${connection.parentIndexUrl || "-"}</dd></div>
+        <div><dt>Parent index URL</dt><dd>${
+      connection.parentIndexUrl || "-"
+    }</dd></div>
       </dl>
       <div class="hero-actions">
         ${
-          connection.canonicalUrl
-            ? `<a href="${connection.canonicalUrl}" target="_blank" rel="noreferrer">Visit site</a>`
-            : ""
-        }
-        <button class="button-link" data-site-id="${connection.siteId}" ${canManage ? "" : "disabled"}>
+      connection.canonicalUrl
+        ? `<a href="${connection.canonicalUrl}" target="_blank" rel="noreferrer">Visit site</a>`
+        : ""
+    }
+        <button class="button-link" data-site-id="${connection.siteId}" ${
+      canManage ? "" : "disabled"
+    }>
           ${connection.status === "tracked" ? "Disconnect" : "Reconnect"}
         </button>
       </div>
@@ -493,15 +547,20 @@ const renderConnections = (panel) => {
               archive_id: state.config.archiveId,
               action: "set_connection_status",
               site_id: connection.siteId,
-              status: connection.status === "tracked" ? "delisted" : "tracked"
-            }
+              status: connection.status === "tracked" ? "delisted" : "tracked",
+            },
           });
           state.adminState = payload.state;
           state.setup = payload.setup;
           setNotice("Connection state updated.");
           renderAll();
         } catch (error) {
-          setNotice(error instanceof Error ? error.message : "Could not update connection.", "error");
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Could not update connection.",
+            "error",
+          );
         }
       });
     }
@@ -545,19 +604,21 @@ const renderCollaborators = (panel) => {
         <p>Grant Solidary bridge access before the standalone index has local auth.</p>
       </div>
       ${
-        owner
-          ? `<article class="connected-site-card">
+    owner
+      ? `<article class="connected-site-card">
               <h3>${owner.displayName}</h3>
-              <p>${owner.githubLogin ? `@${owner.githubLogin}` : owner.email}</p>
+              <p>${
+        owner.githubLogin ? `@${owner.githubLogin}` : owner.email
+      }</p>
               <span class="eyebrow">Owner</span>
             </article>`
-          : ""
-      }
+      : ""
+  }
       <label>
         Solidary user
         <input id="collaborator-query" placeholder="Search by name, username, or email" ${
-          canManage ? "" : "disabled"
-        } />
+    canManage ? "" : "disabled"
+  } />
       </label>
       <div id="collaborator-suggestions" class="connected-site-list"></div>
       <label>
@@ -569,7 +630,9 @@ const renderCollaborators = (panel) => {
         </select>
       </label>
       <div class="hero-actions">
-        <button class="primary-link button-link" id="collaborator-add" ${canManage ? "" : "disabled"}>
+        <button class="primary-link button-link" id="collaborator-add" ${
+    canManage ? "" : "disabled"
+  }>
           Add collaborator
         </button>
       </div>
@@ -600,13 +663,20 @@ const renderCollaborators = (panel) => {
             bridgeToken: state.bridgeToken,
             body: {
               archive_id: state.config.archiveId,
-              query
-            }
+              query,
+            },
           });
-          state.collaboratorSuggestions = Array.isArray(payload.results) ? payload.results : [];
+          state.collaboratorSuggestions = Array.isArray(payload.results)
+            ? payload.results
+            : [];
           renderCollaboratorSuggestions(suggestions);
         } catch (error) {
-          setNotice(error instanceof Error ? error.message : "Could not search collaborators.", "error");
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Could not search collaborators.",
+            "error",
+          );
         }
       }, 220);
     });
@@ -634,8 +704,8 @@ const renderCollaborators = (panel) => {
             archive_id: state.config.archiveId,
             action: "upsert_collaborator",
             collaborator_user_id: state.selectedCollaborator.userId,
-            role: state.collaboratorRole
-          }
+            role: state.collaboratorRole,
+          },
         });
         state.adminState = payload.state;
         state.setup = payload.setup;
@@ -644,7 +714,12 @@ const renderCollaborators = (panel) => {
         setNotice("Collaborator updated.");
         renderAll();
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not update collaborator.", "error");
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not update collaborator.",
+          "error",
+        );
       }
     });
   }
@@ -658,20 +733,32 @@ const renderCollaborators = (panel) => {
     card.className = "connected-site-card";
     card.innerHTML = `
       <h3>${entry.displayName}</h3>
-      <p>${entry.githubLogin ? `@${entry.githubLogin}` : entry.email || entry.userId}</p>
+      <p>${
+      entry.githubLogin ? `@${entry.githubLogin}` : entry.email || entry.userId
+    }</p>
       <div class="hero-actions">
         <select data-role-user="${entry.userId}" ${canManage ? "" : "disabled"}>
-          <option value="contributor" ${entry.role === "contributor" ? "selected" : ""}>Contributor</option>
-          <option value="editor" ${entry.role === "editor" ? "selected" : ""}>Editor</option>
-          <option value="admin" ${entry.role === "admin" ? "selected" : ""}>Admin</option>
+          <option value="contributor" ${
+      entry.role === "contributor" ? "selected" : ""
+    }>Contributor</option>
+          <option value="editor" ${
+      entry.role === "editor" ? "selected" : ""
+    }>Editor</option>
+          <option value="admin" ${
+      entry.role === "admin" ? "selected" : ""
+    }>Admin</option>
         </select>
-        <button class="button-link" data-remove-user="${entry.userId}" ${canManage ? "" : "disabled"}>
+        <button class="button-link" data-remove-user="${entry.userId}" ${
+      canManage ? "" : "disabled"
+    }>
           Remove
         </button>
       </div>
     `;
 
-    const roleControl = card.querySelector(`[data-role-user="${entry.userId}"]`);
+    const roleControl = card.querySelector(
+      `[data-role-user="${entry.userId}"]`,
+    );
     if (roleControl) {
       roleControl.addEventListener("change", async () => {
         try {
@@ -683,20 +770,27 @@ const renderCollaborators = (panel) => {
               archive_id: state.config.archiveId,
               action: "upsert_collaborator",
               collaborator_user_id: entry.userId,
-              role: roleControl.value
-            }
+              role: roleControl.value,
+            },
           });
           state.adminState = payload.state;
           state.setup = payload.setup;
           setNotice("Collaborator role updated.");
           renderAll();
         } catch (error) {
-          setNotice(error instanceof Error ? error.message : "Could not update collaborator role.", "error");
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Could not update collaborator role.",
+            "error",
+          );
         }
       });
     }
 
-    const removeButton = card.querySelector(`[data-remove-user="${entry.userId}"]`);
+    const removeButton = card.querySelector(
+      `[data-remove-user="${entry.userId}"]`,
+    );
     if (removeButton) {
       removeButton.addEventListener("click", async () => {
         try {
@@ -707,15 +801,20 @@ const renderCollaborators = (panel) => {
             body: {
               archive_id: state.config.archiveId,
               action: "remove_collaborator",
-              collaborator_user_id: entry.userId
-            }
+              collaborator_user_id: entry.userId,
+            },
           });
           state.adminState = payload.state;
           state.setup = payload.setup;
           setNotice("Collaborator removed.");
           renderAll();
         } catch (error) {
-          setNotice(error instanceof Error ? error.message : "Could not remove collaborator.", "error");
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "Could not remove collaborator.",
+            "error",
+          );
         }
       });
     }
@@ -735,20 +834,32 @@ const renderAdvanced = (panel) => {
       </div>
       <label>
         Custom domain
-        <input id="advanced-domain" value="${archive.canonicalUrl || ""}" ${canManage ? "" : "disabled"} />
+        <input id="advanced-domain" value="${archive.canonicalUrl || ""}" ${
+    canManage ? "" : "disabled"
+  } />
       </label>
       <div class="hero-actions">
-        <button class="primary-link button-link" id="advanced-save" ${canManage ? "" : "disabled"}>
+        <button class="primary-link button-link" id="advanced-save" ${
+    canManage ? "" : "disabled"
+  }>
           Connect domain
         </button>
-        <button class="button-link" id="advanced-reset" ${canManage ? "" : "disabled"}>
+        <button class="button-link" id="advanced-reset" ${
+    canManage ? "" : "disabled"
+  }>
           Reset to GitHub Pages
         </button>
       </div>
       <dl class="connected-site-meta">
-        <div><dt>Site URL</dt><dd>${state.setup?.liveUrl || archive.canonicalUrl || "-"}</dd></div>
-        <div><dt>Auth callback URL</dt><dd>${state.setup?.authCallbackUrl || "-"}</dd></div>
-        <div><dt>Provider settings</dt><dd>${state.setup?.authProvidersDashboardUrl || "-"}</dd></div>
+        <div><dt>Site URL</dt><dd>${
+    state.setup?.liveUrl || archive.canonicalUrl || "-"
+  }</dd></div>
+        <div><dt>Auth callback URL</dt><dd>${
+    state.setup?.authCallbackUrl || "-"
+  }</dd></div>
+        <div><dt>Provider settings</dt><dd>${
+    state.setup?.authProvidersDashboardUrl || "-"
+  }</dd></div>
       </dl>
     </section>
   `;
@@ -757,9 +868,13 @@ const renderAdvanced = (panel) => {
   if (saveButton) {
     saveButton.addEventListener("click", async () => {
       try {
-        const domain = normalizeDomainInput(byId("advanced-domain")?.value || "");
+        const domain = normalizeDomainInput(
+          byId("advanced-domain")?.value || "",
+        );
         if (!domain) {
-          throw new Error("Enter a domain first, or use reset to go back to GitHub Pages.");
+          throw new Error(
+            "Enter a domain first, or use reset to go back to GitHub Pages.",
+          );
         }
         const payload = await callParentFunction({
           config: state.config,
@@ -768,15 +883,20 @@ const renderAdvanced = (panel) => {
           body: {
             archive_id: state.config.archiveId,
             action: "update_advanced",
-            domain
-          }
+            domain,
+          },
         });
         state.adminState = payload.state;
         state.setup = payload.setup;
         setNotice("Custom domain updated.");
         renderAll();
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not update custom domain.", "error");
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not update custom domain.",
+          "error",
+        );
       }
     });
   }
@@ -792,15 +912,20 @@ const renderAdvanced = (panel) => {
           body: {
             archive_id: state.config.archiveId,
             action: "update_advanced",
-            domain: null
-          }
+            domain: null,
+          },
         });
         state.adminState = payload.state;
         state.setup = payload.setup;
         setNotice("Reset back to the GitHub Pages URL.");
         renderAll();
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not reset the custom domain.", "error");
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not reset the custom domain.",
+          "error",
+        );
       }
     });
   }
@@ -828,7 +953,8 @@ const renderPanel = () => {
 
 const renderAll = () => {
   if (!state.adminState) return;
-  byId("admin-title").textContent = state.adminState.archive.title || "Standalone index admin";
+  byId("admin-title").textContent = state.adminState.archive.title ||
+    "Standalone index admin";
   byId("admin-lead").textContent = state.setup?.finalization?.isFinalized
     ? state.setup?.finalization?.functionsDeployStatus === "deployed"
       ? "This index now runs its own app stack. Keep using this bridge-backed /admin until local auth is fully configured."
@@ -847,18 +973,18 @@ const renderAll = () => {
 const boot = async () => {
   try {
     state.config = await loadConfig("../config/index.json");
-    state.bridgeToken =
-      extractBridgeTokenFromUrl() || readStoredBridgeToken(state.config.archiveId) || "";
+    state.bridgeToken = extractBridgeTokenFromUrl() ||
+      readStoredBridgeToken(state.config.archiveId) || "";
     if (state.bridgeToken) {
       rememberBridgeToken({
         archiveId: state.config.archiveId,
-        token: state.bridgeToken
+        token: state.bridgeToken,
       });
     }
 
     if (!state.bridgeToken) {
       renderGuard(
-        "This standalone /admin needs a bridge token. Open it from Solidary /admin until the standalone index has its own local auth."
+        "This standalone /admin needs a bridge token. Open it from Solidary /admin until the standalone index has its own local auth.",
       );
       return;
     }
@@ -870,11 +996,13 @@ const boot = async () => {
     renderGuard(
       error instanceof Error
         ? error.message
-        : "Could not load the standalone admin bridge."
+        : "Could not load the standalone admin bridge.",
     );
     setNotice(
-      error instanceof Error ? error.message : "Could not load the standalone admin bridge.",
-      "error"
+      error instanceof Error
+        ? error.message
+        : "Could not load the standalone admin bridge.",
+      "error",
     );
   }
 };

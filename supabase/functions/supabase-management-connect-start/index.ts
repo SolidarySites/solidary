@@ -28,6 +28,7 @@ const SUPABASE_MANAGEMENT_OAUTH_SCOPES = [
   "projects:read",
   "projects:write",
   "database:write",
+  "auth:write",
   "edge_functions:write",
   "secrets:read",
   "secrets:write",

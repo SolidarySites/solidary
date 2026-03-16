@@ -11,6 +11,29 @@ const migrationsDir = path.join(rootDir, "supabase", "migrations");
 const outputPath = path.join(rootDir, "supabase", "functions", "_shared", "index-bootstrap-sql.ts");
 const MAX_BOOTSTRAP_MIGRATION_PREFIX = 37;
 
+if (!fs.existsSync(migrationsDir)) {
+  if (fs.existsSync(outputPath)) {
+    console.log(
+      [
+        "Skipping index bootstrap SQL generation.",
+        "supabase/migrations is not present in this repo, so the existing",
+        path.relative(rootDir, outputPath),
+        "file will be kept.",
+      ].join(" "),
+    );
+    process.exit(0);
+  }
+
+  console.error(
+    [
+      "Cannot generate index bootstrap SQL because supabase/migrations is missing",
+      "and no existing generated bootstrap file was found at",
+      path.relative(rootDir, outputPath) + ".",
+    ].join(" "),
+  );
+  process.exit(1);
+}
+
 const migrationFiles = fs
   .readdirSync(migrationsDir)
   .filter((entry) => entry.endsWith(".sql"))

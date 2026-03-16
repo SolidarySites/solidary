@@ -11,6 +11,7 @@ import {
 import {
   resolveSupabaseManagementAccessForUser,
   SupabaseManagementReauthError,
+  updateSupabaseProjectAuthConfig,
 } from "../_shared/supabase-management-auth/index.ts";
 import { decryptTokenValue } from "../_shared/token-crypto.ts";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
@@ -37,7 +38,10 @@ const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_BLOB_WRITE_CONCURRENCY = 8;
 const GITHUB_BLOB_PROGRESS_INTERVAL = 24;
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
-const REQUIRED_FINALIZATION_SUPABASE_SCOPES = ["secrets:write"] as const;
+const REQUIRED_FINALIZATION_SUPABASE_SCOPES = [
+  "secrets:write",
+  "auth:write",
+] as const;
 const SOURCE_TREE_EXCLUSIONS = [
   ".env",
   ".env.example",
@@ -1231,7 +1235,7 @@ export const handler: Handler = async (event) => {
       ) {
         throw new HttpError(
           412,
-          "Reconnect your Supabase account with Secrets write access before finalising the index.",
+          "Reconnect your Supabase account with Secrets write and Auth write access before finalising the index.",
         );
       }
 
@@ -1372,6 +1376,15 @@ export const handler: Handler = async (event) => {
           SOLIDARY_ROOT_REPO_FULL_NAME: credentials.repo_full_name,
           SOLIDARY_ROOT_REPO_URL: toTrimmedString(credentials.repo_url),
         },
+      });
+
+      await updateJob({
+        step: "Configuring child auth URLs...",
+      });
+      await updateSupabaseProjectAuthConfig({
+        accessToken: managementAccessToken,
+        projectRef: credentials.supabase_project_ref,
+        siteUrl: toTrimmedString(syncedArchive.canonical_url),
       });
 
       await updateJob({
