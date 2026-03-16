@@ -255,7 +255,14 @@ export const useIndexCreateRouteController = () => {
   }, []);
 
   const refreshSetup = useCallback(
-    async (requestedArchiveId = archiveId) => {
+    async (
+      requestedArchiveId = archiveId,
+      {
+        supabasePersonalAccessToken: nextSupabasePersonalAccessToken
+      }: {
+        supabasePersonalAccessToken?: string;
+      } = {}
+    ) => {
       const normalizedArchiveId = requestedArchiveId.trim();
       if (!normalizedArchiveId) {
         setSetup(null);
@@ -265,7 +272,7 @@ export const useIndexCreateRouteController = () => {
       setSetupLoading(true);
       try {
         const response = await readIndexAdmin(normalizedArchiveId, {
-          supabasePersonalAccessToken
+          supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
         });
         setSetup(response.setup);
         return response;
@@ -278,7 +285,7 @@ export const useIndexCreateRouteController = () => {
         setSetupLoading(false);
       }
     },
-    [archiveId, supabasePersonalAccessToken]
+    [archiveId]
   );
 
   useEffect(() => {
@@ -749,8 +756,8 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
     setStartingFinalization(true);
     try {
-      await finalizeIndexAdmin({ archiveId });
-      await refreshSetup(archiveId);
+      const response = await finalizeIndexAdmin({ archiveId });
+      setSetup(response.setup);
       setNotice("Child setup started. Solidary is copying the standalone app now.");
       setNoticeKind("notice");
     } catch (error) {
@@ -770,12 +777,12 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
     setDeployingFunctions(true);
     try {
-      await deployIndexAdminChildFunctions({
+      const response = await deployIndexAdminChildFunctions({
         archiveId,
         supabasePersonalAccessToken
       });
+      setSetup(response.setup);
       setSupabasePersonalAccessToken("");
-      await refreshSetup(archiveId);
       setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
       setNoticeKind("notice");
     } catch (error) {
@@ -843,7 +850,10 @@ export const useIndexCreateRouteController = () => {
       void refreshStatuses();
     },
     onRefreshSetup: () => {
-      void refreshSetup();
+      void refreshSetup(archiveId, {
+        supabasePersonalAccessToken:
+          activeStepKey === "github_oauth" ? supabasePersonalAccessToken : undefined
+      });
     },
     onConnectGitHubApp: () => {
       void handleConnectGitHubApp();

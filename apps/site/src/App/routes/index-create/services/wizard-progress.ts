@@ -94,7 +94,14 @@ export const buildIndexCreateWizardSteps = ({
   ) {
     completed.add("supabase_pat");
   }
-  if (hasArchive && completed.has("supabase_pat") && setup?.authSetup.localAuthReady) {
+  if (
+    hasArchive &&
+    completed.has("supabase_pat") &&
+    (setup?.authSetup.localAuthReady ||
+      setup?.finalization.isRunning ||
+      setup?.finalization.isFinalized ||
+      setup?.functionsDeployment.status === "deployed")
+  ) {
     completed.add("github_oauth");
   }
   if (hasArchive && setup?.finalization.isFinalized) {

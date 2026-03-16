@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { NoticeKind } from "../../../types/notice";
 import type {
@@ -75,6 +75,24 @@ const applyStateToFields = ({
   setSuggestions([]);
 };
 
+const buildIndexListItemFromState = (state: IndexAdminState): IndexAdminListItem => ({
+  id: state.archive.id,
+  slug: state.archive.slug,
+  title: state.archive.title,
+  description: state.archive.description,
+  imageUrl: state.archive.imageUrl,
+  canonicalUrl: state.archive.canonicalUrl,
+  repoFullName: state.archive.repoFullName,
+  repoUrl: state.archive.repoUrl,
+  supabaseProjectRef: state.archive.supabaseProjectRef,
+  supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
+  indexLevel: state.archive.indexLevel,
+  parentIndexId: state.archive.parentIndexId,
+  parentIndexUrl: state.archive.parentIndexUrl,
+  parentIndexLevel: state.archive.parentIndexLevel,
+  accessRole: state.actor.role
+});
+
 export const useAdminRouteController = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [notice, setNotice] = useState<string | null>(null);
@@ -117,15 +135,35 @@ export const useAdminRouteController = () => {
   const queryRequestIdRef = useRef(0);
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
   const requestedArchiveId = searchParams.get("archiveId")?.trim() ?? "";
+  const bridgeToken = searchParams.get("bridge")?.trim() ?? "";
+  const isBridgeMode = Boolean(bridgeToken);
   const createdMode = searchParams.get("created") === "1";
 
   const selectedArchiveId = useMemo(() => {
+    if (isBridgeMode) {
+      if (requestedArchiveId && indexes.some((entry) => entry.id === requestedArchiveId)) {
+        return requestedArchiveId;
+      }
+      return state?.archive.id || indexes[0]?.id || "";
+    }
     if (!indexes.length) return "";
     if (requestedArchiveId && indexes.some((entry) => entry.id === requestedArchiveId)) {
       return requestedArchiveId;
     }
     return indexes[0]?.id ?? "";
-  }, [indexes, requestedArchiveId]);
+  }, [indexes, isBridgeMode, requestedArchiveId, state?.archive.id]);
+
+  const buildReadOptions = useCallback(
+    ({
+      supabasePersonalAccessToken: nextSupabasePersonalAccessToken
+    }: {
+      supabasePersonalAccessToken?: string;
+    } = {}) => ({
+      bridgeToken: isBridgeMode ? bridgeToken : undefined,
+      supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
+    }),
+    [bridgeToken, isBridgeMode]
+  );
 
   useEffect(() => {
     if (!imageFile) {
@@ -139,6 +177,10 @@ export const useAdminRouteController = () => {
   }, [imageFile, state?.archive.imageUrl]);
 
   useEffect(() => {
+    if (isBridgeMode) {
+      return;
+    }
+
     let cancelled = false;
     setIndexesLoading(true);
 
@@ -162,7 +204,7 @@ export const useAdminRouteController = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isBridgeMode]);
 
   useEffect(() => {
     if (!indexes.length) return;
@@ -183,6 +225,10 @@ export const useAdminRouteController = () => {
   ) => {
     setState(response.state);
     setSetup(response.setup);
+    if (isBridgeMode) {
+      setIndexes([buildIndexListItemFromState(response.state)]);
+      setIndexesLoading(false);
+    }
     if (!resetFields) {
       return;
     }
@@ -198,7 +244,7 @@ export const useAdminRouteController = () => {
   };
 
   useEffect(() => {
-    if (!selectedArchiveId) {
+    if (!selectedArchiveId && !isBridgeMode) {
       setState(null);
       setSetup(null);
       return;
@@ -210,9 +256,7 @@ export const useAdminRouteController = () => {
 
     void (async () => {
       try {
-        const response = await readIndexAdmin(selectedArchiveId, {
-          supabasePersonalAccessToken
-        });
+        const response = await readIndexAdmin(selectedArchiveId, buildReadOptions());
         if (cancelled) return;
         applyResponse(response);
         setNotice(createdMode ? "Index created. Finish the standalone OAuth setup below." : null);
@@ -225,6 +269,9 @@ export const useAdminRouteController = () => {
         setNoticeKind("error");
       } finally {
         if (!cancelled) {
+          if (isBridgeMode) {
+            setIndexesLoading(false);
+          }
           setStateLoading(false);
           setCollaboratorsLoading(false);
         }
@@ -234,7 +281,7 @@ export const useAdminRouteController = () => {
     return () => {
       cancelled = true;
     };
-  }, [createdMode, selectedArchiveId]);
+  }, [buildReadOptions, createdMode, isBridgeMode, selectedArchiveId]);
 
   useEffect(() => {
     if (
@@ -249,9 +296,7 @@ export const useAdminRouteController = () => {
       void (async () => {
         setSetupLoading(true);
         try {
-          const response = await readIndexAdmin(selectedArchiveId, {
-            supabasePersonalAccessToken
-          });
+          const response = await readIndexAdmin(selectedArchiveId, buildReadOptions());
           if (cancelled) {
             return;
           }
@@ -278,7 +323,7 @@ export const useAdminRouteController = () => {
     selectedArchiveId,
     setup?.finalization.isRunning,
     setup?.functionsDeployment.status,
-    supabasePersonalAccessToken
+    buildReadOptions
   ]);
 
   useEffect(() => {
@@ -296,7 +341,8 @@ export const useAdminRouteController = () => {
         try {
           const response = await searchIndexAdminCollaborators({
             archiveId: selectedArchiveId,
-            query
+            query,
+            bridgeToken: isBridgeMode ? bridgeToken : undefined
           });
           if (queryRequestIdRef.current !== requestId) {
             return;
@@ -320,7 +366,7 @@ export const useAdminRouteController = () => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [collaboratorQuery, selectedArchiveId, state?.actor.canManageCollaborators]);
+  }, [bridgeToken, collaboratorQuery, isBridgeMode, selectedArchiveId, state?.actor.canManageCollaborators]);
 
   const sectionButtons = useMemo(
     () =>
@@ -346,6 +392,8 @@ export const useAdminRouteController = () => {
         title: title.trim(),
         description: description.trim(),
         imageContentB64: imageFile ? await fileToBase64(imageFile) : undefined
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setNotice("General settings saved.");
@@ -366,6 +414,8 @@ export const useAdminRouteController = () => {
         archiveId: selectedArchiveId,
         siteId,
         status
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setNotice(status === "tracked" ? "Site reconnected to the index." : "Site disconnected from the index.");
@@ -386,6 +436,8 @@ export const useAdminRouteController = () => {
         archiveId: selectedArchiveId,
         collaboratorUserId: selectedCollaboratorSuggestion.userId,
         role: collaboratorRole
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setCollaboratorQuery("");
@@ -408,6 +460,8 @@ export const useAdminRouteController = () => {
         archiveId: selectedArchiveId,
         collaboratorUserId: userId,
         role
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setNotice("Collaborator role updated.");
@@ -427,6 +481,8 @@ export const useAdminRouteController = () => {
       const response = await removeIndexAdminCollaborator({
         archiveId: selectedArchiveId,
         collaboratorUserId: userId
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setNotice("Collaborator removed.");
@@ -446,6 +502,8 @@ export const useAdminRouteController = () => {
       const response = await saveIndexAdminAdvanced({
         archiveId: selectedArchiveId,
         domain
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
       setNotice(domain ? "Custom domain updated." : "Reset back to GitHub Pages.");
@@ -474,6 +532,8 @@ export const useAdminRouteController = () => {
     try {
       const response = await finalizeIndexAdmin({
         archiveId: selectedArchiveId
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response, { resetFields: false });
       setNotice("Index finalization started. This page will keep refreshing until the copy finishes.");
@@ -491,11 +551,22 @@ export const useAdminRouteController = () => {
       return;
     }
 
+    const shouldUseSupabasePersonalAccessToken =
+      !setup?.authSetup.localAuthReady &&
+      !setup?.finalization.isRunning &&
+      setup?.functionsDeployment.status !== "running" &&
+      Boolean(supabasePersonalAccessToken.trim());
+
     setSetupLoading(true);
     try {
-      const response = await readIndexAdmin(selectedArchiveId, {
-        supabasePersonalAccessToken
-      });
+      const response = await readIndexAdmin(
+        selectedArchiveId,
+        buildReadOptions({
+          supabasePersonalAccessToken: shouldUseSupabasePersonalAccessToken
+            ? supabasePersonalAccessToken
+            : undefined
+        })
+      );
       applyResponse(response, { resetFields: false });
     } catch (error) {
       setNotice(getFriendlyErrorMessage(error, "Could not refresh setup status."));
@@ -517,6 +588,8 @@ export const useAdminRouteController = () => {
         githubClientId,
         githubClientSecret,
         supabasePersonalAccessToken
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response, { resetFields: false });
       setGithubClientSecret("");
@@ -540,6 +613,8 @@ export const useAdminRouteController = () => {
       const response = await deployIndexAdminChildFunctions({
         archiveId: selectedArchiveId,
         supabasePersonalAccessToken
+      }, {
+        bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response, { resetFields: false });
       setSupabasePersonalAccessToken("");
@@ -604,6 +679,7 @@ export const useAdminRouteController = () => {
     githubClientId,
     githubClientSecret,
     supabasePersonalAccessToken,
+    bridgeMode: isBridgeMode,
     settingsTopbarProps: {
       activeSection,
       sectionButtons,

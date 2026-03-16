@@ -86,7 +86,7 @@ export default function AdminRoute() {
               </div>
             )}
 
-            {!controller.indexesLoading && !controller.indexes.length && (
+            {!controller.indexesLoading && !controller.indexes.length && !controller.bridgeMode && (
               <div className="builder-section">
                 <div className="section-header">
                   <h2>No indexes yet</h2>

@@ -1,5 +1,6 @@
 import { runHandler } from "../_shared/request-adapter.ts";
 import type { Handler } from "../_shared/types.ts";
+import { parseIndexAdminBridgeToken } from "../_shared/index-admin-bridge.ts";
 import {
   buildStandaloneAdminSetup,
   parseBearerToken,
@@ -37,9 +38,14 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = parseBody(event.body);
-    const archiveId = typeof body.archive_id === "string"
+    const bridgeToken = parseBridgeTokenFromEvent(event, body);
+    const archiveIdFromBody = typeof body.archive_id === "string"
       ? body.archive_id.trim()
       : "";
+    const archiveIdFromBridge = bridgeToken
+      ? parseIndexAdminBridgeToken(bridgeToken).archiveId
+      : "";
+    const archiveId = archiveIdFromBody || archiveIdFromBridge;
     if (!archiveId) {
       return safeJson(400, { error: "Missing archive_id." });
     }
@@ -52,7 +58,7 @@ export const handler: Handler = async (event) => {
         parseBearerToken(
           event.headers.authorization ?? event.headers.Authorization,
         ),
-      bridgeToken: parseBridgeTokenFromEvent(event, body),
+      bridgeToken,
     });
     const state = await readIndexAdminState(context);
     const latestJob = await readLatestIndexFinalizationJob({

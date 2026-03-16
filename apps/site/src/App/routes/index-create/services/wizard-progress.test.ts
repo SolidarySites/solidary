@@ -127,4 +127,28 @@ describe("buildIndexCreateWizardSteps", () => {
     expect(steps.find((step) => step.key === "functions")?.status).toBe("complete");
     expect(steps.find((step) => step.key === "launch")?.status).toBe("current");
   });
+
+  it("keeps the wizard on finalization once finalization is running", () => {
+    const baseSetup = buildSetup();
+    const steps = buildIndexCreateWizardSteps({
+      prerequisites: buildPrerequisites(),
+      organizationConfirmed: false,
+      detailsConfirmed: false,
+      supabasePatConfirmed: true,
+      archiveId: "archive-1",
+      setup: {
+        ...baseSetup,
+        finalization: {
+          ...baseSetup.finalization,
+          isRunning: true,
+          status: "running",
+          step: "Reading parent repository files (96/447)..."
+        }
+      },
+      isProvisioning: false
+    });
+
+    expect(steps.find((step) => step.key === "github_oauth")?.status).toBe("complete");
+    expect(steps.find((step) => step.key === "finalization")?.status).toBe("current");
+  });
 });

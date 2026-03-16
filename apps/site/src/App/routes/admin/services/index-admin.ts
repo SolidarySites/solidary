@@ -411,6 +411,15 @@ const mapReadResponse = (payload: {
   setup: mapSetup(payload.setup)
 });
 
+type IndexAdminRequestOptions = {
+  bridgeToken?: string;
+  supabasePersonalAccessToken?: string;
+};
+
+type IndexAdminWriteOptions = {
+  bridgeToken?: string;
+};
+
 export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]> => {
   const payload = await githubRequest<{ items?: IndexAdminListItem[] }>("index-admin-list", {});
   return Array.isArray(payload.items) ? payload.items : [];
@@ -418,12 +427,13 @@ export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]>
 
 export const readIndexAdmin = async (
   archiveId: string,
-  options: { supabasePersonalAccessToken?: string } = {}
+  options: IndexAdminRequestOptions = {}
 ): Promise<IndexAdminReadResponse> => {
   const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
     "index-admin-read",
     {
-      archive_id: archiveId,
+      archive_id: archiveId.trim() || undefined,
+      bridge_token: options.bridgeToken?.trim() || undefined,
       supabase_personal_access_token: options.supabasePersonalAccessToken?.trim() || undefined
     }
   );
@@ -432,16 +442,19 @@ export const readIndexAdmin = async (
 
 export const searchIndexAdminCollaborators = async ({
   archiveId,
-  query
+  query,
+  bridgeToken
 }: {
   archiveId: string;
   query: string;
+  bridgeToken?: string;
 }): Promise<IndexAdminSearchResponse> => {
   const payload = await githubRequest<{ results?: CollaboratorSearchRpcRow[] }>(
     "index-admin-search-collaborators",
     {
       archive_id: archiveId,
-      query
+      query,
+      bridge_token: bridgeToken?.trim() || undefined
     }
   );
 
@@ -451,11 +464,15 @@ export const searchIndexAdminCollaborators = async ({
 };
 
 const writeIndexAdmin = async (
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  options: IndexAdminWriteOptions = {}
 ): Promise<IndexAdminWriteResponse> => {
   const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
     "index-admin-write",
-    body
+    {
+      ...body,
+      bridge_token: options.bridgeToken?.trim() || undefined
+    }
   );
   return mapReadResponse(payload);
 };
@@ -465,26 +482,26 @@ export const saveIndexAdminGeneral = async ({
   title,
   description,
   imageContentB64
-}: IndexAdminGeneralPayload) =>
+}: IndexAdminGeneralPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "update_general",
     title,
     description,
     image_content_b64: imageContentB64
-  });
+  }, options);
 
 export const saveIndexAdminConnectionStatus = async ({
   archiveId,
   siteId,
   status
-}: IndexAdminConnectionStatusPayload) =>
+}: IndexAdminConnectionStatusPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "set_connection_status",
     site_id: siteId,
     status
-  });
+  }, options);
 
 export const saveIndexAdminCollaborator = async ({
   archiveId,
@@ -494,13 +511,13 @@ export const saveIndexAdminCollaborator = async ({
   archiveId: string;
   collaboratorUserId: string;
   role: CollaboratorRole;
-}) =>
+}, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "upsert_collaborator",
     collaborator_user_id: collaboratorUserId,
     role
-  });
+  }, options);
 
 export const removeIndexAdminCollaborator = async ({
   archiveId,
@@ -508,52 +525,55 @@ export const removeIndexAdminCollaborator = async ({
 }: {
   archiveId: string;
   collaboratorUserId: string;
-}) =>
+}, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "remove_collaborator",
     collaborator_user_id: collaboratorUserId
-  });
+  }, options);
 
 export const saveIndexAdminAdvanced = async ({
   archiveId,
   domain
-}: IndexAdminAdvancedPayload) =>
+}: IndexAdminAdvancedPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "update_advanced",
     domain
-  });
+  }, options);
 
-export const finalizeIndexAdmin = async ({ archiveId }: IndexAdminFinalizePayload) =>
+export const finalizeIndexAdmin = async (
+  { archiveId }: IndexAdminFinalizePayload,
+  options: IndexAdminWriteOptions = {}
+) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "finalize_index"
-  });
+  }, options);
 
 export const configureIndexAdminStandaloneAuth = async ({
   archiveId,
   githubClientId,
   githubClientSecret,
   supabasePersonalAccessToken
-}: IndexAdminConfigureStandaloneAuthPayload) =>
+}: IndexAdminConfigureStandaloneAuthPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "configure_standalone_auth",
     github_client_id: githubClientId,
     github_client_secret: githubClientSecret,
     supabase_personal_access_token: supabasePersonalAccessToken?.trim() || undefined
-  });
+  }, options);
 
 export const deployIndexAdminChildFunctions = async ({
   archiveId,
   supabasePersonalAccessToken
-}: IndexAdminDeployFunctionsPayload) =>
+}: IndexAdminDeployFunctionsPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "deploy_child_functions",
     supabase_personal_access_token: supabasePersonalAccessToken
-  });
+  }, options);
 
 export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());
 
