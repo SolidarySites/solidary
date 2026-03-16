@@ -749,9 +749,19 @@ jobs:
         uses: actions/deploy-pages@v4
 `;
 
-const parseFunctionVerifyJwt = (configToml: string) => {
+type FunctionDeployConfig = {
+  verifyJwt: boolean;
+  entrypointPath: string;
+};
+
+const DEFAULT_FUNCTION_DEPLOY_CONFIG: FunctionDeployConfig = {
+  verifyJwt: false,
+  entrypointPath: "index.ts",
+};
+
+const parseFunctionDeployConfig = (configToml: string) => {
   const lines = configToml.split(/\r?\n/);
-  const result = new Map<string, boolean>();
+  const result = new Map<string, FunctionDeployConfig>();
   let current: string | null = null;
 
   for (const rawLine of lines) {
@@ -759,12 +769,26 @@ const parseFunctionVerifyJwt = (configToml: string) => {
     const sectionMatch = line.match(/^\[functions\."([^"]+)"\]$/);
     if (sectionMatch) {
       current = sectionMatch[1];
+      if (!result.has(current)) {
+        result.set(current, DEFAULT_FUNCTION_DEPLOY_CONFIG);
+      }
       continue;
     }
     if (!current) continue;
     const verifyMatch = line.match(/^verify_jwt\s*=\s*(true|false)$/i);
     if (verifyMatch) {
-      result.set(current, verifyMatch[1].toLowerCase() === "true");
+      result.set(current, {
+        ...(result.get(current) ?? DEFAULT_FUNCTION_DEPLOY_CONFIG),
+        verifyJwt: verifyMatch[1].toLowerCase() === "true",
+      });
+      continue;
+    }
+    const entrypointMatch = line.match(/^entrypoint\s*=\s*"([^"]+)"$/i);
+    if (entrypointMatch) {
+      result.set(current, {
+        ...(result.get(current) ?? DEFAULT_FUNCTION_DEPLOY_CONFIG),
+        entrypointPath: entrypointMatch[1].trim() || "index.ts",
+      });
     }
   }
 
@@ -972,18 +996,19 @@ async function deployFunctionBundle({
   accessToken,
   projectRef,
   functionName,
-  verifyJwt,
+  deployConfig,
   sourceFiles,
 }: {
   accessToken: string;
   projectRef: string;
   functionName: string;
-  verifyJwt: boolean;
+  deployConfig: FunctionDeployConfig;
   sourceFiles: SourceBlobFile[];
 }) {
   const zip = new JSZip();
   const functionPrefix = `supabase/functions/${functionName}/`;
   const sharedPrefix = "supabase/functions/_shared/";
+  const entrypointPath = deployConfig.entrypointPath.trim() || "index.ts";
   let hasEntrypoint = false;
 
   for (const file of sourceFiles) {
@@ -1000,7 +1025,7 @@ async function deployFunctionBundle({
           unixPermissions: file.mode,
         },
       );
-      if (relPath === "index.ts") {
+      if (relPath === entrypointPath) {
         hasEntrypoint = true;
       }
       continue;
@@ -1030,23 +1055,24 @@ async function deployFunctionBundle({
   const form = new FormData();
   form.append(
     "file",
-    new Blob([zipBlobPart], { type: "application/zip" }),
-    `${functionName}.zip`,
-  );
-  form.append(
-    "metadata",
-    JSON.stringify({
-      name: functionName,
-      entrypoint_path: "index.ts",
-      verify_jwt: verifyJwt,
+    new File([zipBlobPart], `${functionName}.zip`, {
+      type: "application/zip",
     }),
+  );
+  form.append("entrypoint_path", entrypointPath);
+  form.append(
+    "verify_jwt",
+    deployConfig.verifyJwt ? "true" : "false",
   );
 
   const response = await fetch(
-    `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/functions/deploy`,
+    `${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/functions/deploy?slug=${
+      encodeURIComponent(functionName)
+    }`,
     {
       method: "POST",
       headers: {
+        Accept: "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
       body: form,
@@ -1088,7 +1114,7 @@ async function deployFunctionsFromSource({
   const configFile = sourceFiles.find((file) =>
     file.path === "supabase/config.toml"
   );
-  const verifyJwtByFunction = parseFunctionVerifyJwt(
+  const deployConfigByFunction = parseFunctionDeployConfig(
     configFile ? fileB64ToUtf8(configFile.contentB64) : "",
   );
 
@@ -1112,7 +1138,8 @@ async function deployFunctionsFromSource({
       accessToken,
       projectRef,
       functionName,
-      verifyJwt: verifyJwtByFunction.get(functionName) ?? true,
+      deployConfig: deployConfigByFunction.get(functionName) ??
+        DEFAULT_FUNCTION_DEPLOY_CONFIG,
       sourceFiles,
     });
   }
