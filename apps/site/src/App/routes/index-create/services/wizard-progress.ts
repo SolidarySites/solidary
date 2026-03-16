@@ -7,6 +7,7 @@ export type IndexCreateWizardStepKey =
   | "organization"
   | "details"
   | "provision"
+  | "supabase_pat"
   | "github_oauth"
   | "finalization"
   | "functions"
@@ -26,6 +27,7 @@ const STEP_TITLES: Record<IndexCreateWizardStepKey, string> = {
   organization: "Choose Supabase organization",
   details: "Name your index",
   provision: "Create your index",
+  supabase_pat: "Create Supabase personal access token",
   github_oauth: "Create GitHub sign-in app",
   finalization: "Finish child setup",
   functions: "Deploy child functions",
@@ -38,6 +40,7 @@ const stepOrder: IndexCreateWizardStepKey[] = [
   "organization",
   "details",
   "provision",
+  "supabase_pat",
   "github_oauth",
   "finalization",
   "functions",
@@ -48,6 +51,7 @@ export const buildIndexCreateWizardSteps = ({
   prerequisites,
   organizationConfirmed,
   detailsConfirmed,
+  supabasePatConfirmed,
   archiveId,
   setup,
   isProvisioning
@@ -55,6 +59,7 @@ export const buildIndexCreateWizardSteps = ({
   prerequisites: IndexCreatePrerequisites;
   organizationConfirmed: boolean;
   detailsConfirmed: boolean;
+  supabasePatConfirmed: boolean;
   archiveId: string;
   setup: IndexAdminSetup | null;
   isProvisioning: boolean;
@@ -80,7 +85,16 @@ export const buildIndexCreateWizardSteps = ({
   if (hasArchive) {
     completed.add("provision");
   }
-  if (hasArchive && setup?.authSetup.localAuthReady) {
+  if (
+    hasArchive &&
+    (supabasePatConfirmed ||
+      setup?.authSetup.localAuthReady ||
+      setup?.finalization.isFinalized ||
+      setup?.functionsDeployment.status === "deployed")
+  ) {
+    completed.add("supabase_pat");
+  }
+  if (hasArchive && completed.has("supabase_pat") && setup?.authSetup.localAuthReady) {
     completed.add("github_oauth");
   }
   if (hasArchive && setup?.finalization.isFinalized) {

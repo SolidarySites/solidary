@@ -210,7 +210,9 @@ export const useAdminRouteController = () => {
 
     void (async () => {
       try {
-        const response = await readIndexAdmin(selectedArchiveId);
+        const response = await readIndexAdmin(selectedArchiveId, {
+          supabasePersonalAccessToken
+        });
         if (cancelled) return;
         applyResponse(response);
         setNotice(createdMode ? "Index created. Finish the standalone OAuth setup below." : null);
@@ -247,7 +249,9 @@ export const useAdminRouteController = () => {
       void (async () => {
         setSetupLoading(true);
         try {
-          const response = await readIndexAdmin(selectedArchiveId);
+          const response = await readIndexAdmin(selectedArchiveId, {
+            supabasePersonalAccessToken
+          });
           if (cancelled) {
             return;
           }
@@ -270,7 +274,12 @@ export const useAdminRouteController = () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [selectedArchiveId, setup?.finalization.isRunning, setup?.functionsDeployment.status]);
+  }, [
+    selectedArchiveId,
+    setup?.finalization.isRunning,
+    setup?.functionsDeployment.status,
+    supabasePersonalAccessToken
+  ]);
 
   useEffect(() => {
     const query = collaboratorQuery.trim();
@@ -484,7 +493,9 @@ export const useAdminRouteController = () => {
 
     setSetupLoading(true);
     try {
-      const response = await readIndexAdmin(selectedArchiveId);
+      const response = await readIndexAdmin(selectedArchiveId, {
+        supabasePersonalAccessToken
+      });
       applyResponse(response, { resetFields: false });
     } catch (error) {
       setNotice(getFriendlyErrorMessage(error, "Could not refresh setup status."));

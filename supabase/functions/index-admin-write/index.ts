@@ -68,6 +68,10 @@ export const handler: Handler = async (event) => {
       ? body.archive_id.trim()
       : "";
     const action = isWriteAction(body.action) ? body.action : null;
+    const suppliedSupabasePersonalAccessToken =
+      typeof body.supabase_personal_access_token === "string"
+        ? body.supabase_personal_access_token
+        : "";
     if (!archiveId || !action) {
       return safeJson(400, { error: "Missing archive_id or action." });
     }
@@ -153,10 +157,7 @@ export const handler: Handler = async (event) => {
         githubClientSecret: typeof body.github_client_secret === "string"
           ? body.github_client_secret
           : "",
-        supabasePersonalAccessToken:
-          typeof body.supabase_personal_access_token === "string"
-            ? body.supabase_personal_access_token
-            : "",
+        supabasePersonalAccessToken: suppliedSupabasePersonalAccessToken,
       });
     } else if (action === "finalize_index") {
       if (context.actorRole !== "owner") {
@@ -261,10 +262,7 @@ export const handler: Handler = async (event) => {
     } else if (action === "deploy_child_functions") {
       await deployIndexChildFunctions({
         context,
-        supabasePersonalAccessToken:
-          typeof body.supabase_personal_access_token === "string"
-            ? body.supabase_personal_access_token
-            : "",
+        supabasePersonalAccessToken: suppliedSupabasePersonalAccessToken,
       });
     }
 
@@ -277,6 +275,10 @@ export const handler: Handler = async (event) => {
       context,
       state,
       latestJob,
+      managementAccessTokenOverride:
+        action === "configure_standalone_auth"
+          ? suppliedSupabasePersonalAccessToken
+          : "",
     });
     return safeJson(200, {
       state,

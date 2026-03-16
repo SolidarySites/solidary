@@ -416,11 +416,15 @@ export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]>
   return Array.isArray(payload.items) ? payload.items : [];
 };
 
-export const readIndexAdmin = async (archiveId: string): Promise<IndexAdminReadResponse> => {
+export const readIndexAdmin = async (
+  archiveId: string,
+  options: { supabasePersonalAccessToken?: string } = {}
+): Promise<IndexAdminReadResponse> => {
   const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
     "index-admin-read",
     {
-      archive_id: archiveId
+      archive_id: archiveId,
+      supabase_personal_access_token: options.supabasePersonalAccessToken?.trim() || undefined
     }
   );
   return mapReadResponse(payload);

@@ -13,6 +13,7 @@ type ReadBody = {
   archive_id?: string;
   bridge_token?: string;
   supabase_access_token?: string;
+  supabase_personal_access_token?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -62,6 +63,10 @@ export const handler: Handler = async (event) => {
       context,
       state,
       latestJob,
+      managementAccessTokenOverride:
+        typeof body.supabase_personal_access_token === "string"
+          ? body.supabase_personal_access_token
+          : "",
     });
 
     return safeJson(200, {

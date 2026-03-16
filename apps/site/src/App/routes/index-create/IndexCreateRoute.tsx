@@ -52,6 +52,10 @@ const getStepSummary = ({
       return controller.archiveId
         ? "Child repo and Supabase project created."
         : "Solidary will create the repo, project, and base configuration.";
+    case "supabase_pat":
+      return controller.supabasePatConfirmed || controller.setup?.authSetup.localAuthReady
+        ? "Supabase Personal Access Token added for the remaining setup steps."
+        : "Create a Supabase Personal Access Token before continuing.";
     case "github_oauth":
       return controller.setup?.authSetup.localAuthReady
         ? "GitHub sign-in is configured for the child project."
@@ -368,19 +372,6 @@ const renderStepContent = ({
                 autoComplete="new-password"
               />
             </label>
-            <label>
-              Supabase personal access token
-              <input
-                type="password"
-                value={controller.supabaseAuthConfigPersonalAccessToken}
-                onChange={(event) =>
-                  controller.onSupabaseAuthConfigPersonalAccessTokenChange(event.target.value)}
-                autoComplete="new-password"
-              />
-              <span className="index-create-field-hint">
-                Optional. Only use this if Supabase blocks the automatic Auth update.
-              </span>
-            </label>
           </div>
           {authSetup?.message ? <p className="index-create-step-note">{authSetup.message}</p> : null}
           <div className="form-actions">
@@ -404,14 +395,6 @@ const renderStepContent = ({
                 Open provider settings
               </a>
             ) : null}
-            <a
-              href={SUPABASE_ACCOUNT_TOKENS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="site-card-action-link"
-            >
-              Open Supabase token page
-            </a>
             <button
               type="button"
               className="primary"
@@ -431,6 +414,53 @@ const renderStepContent = ({
               disabled={controller.setupLoading || controller.configuringStandaloneAuth}
             >
               {controller.setupLoading ? "Checking..." : "Check setup"}
+            </button>
+          </div>
+        </>
+      );
+    case "supabase_pat":
+      return (
+        <>
+          <p className="index-create-step-lead">
+            This token is required for the rest of the setup. Solidary uses it now for Auth setup
+            and later stores it as the child repo&apos;s deployment secret for GitHub Actions.
+          </p>
+          <ol className="index-create-step-instructions">
+            <li>Open the Supabase token page.</li>
+            <li>Create a Personal Access Token for your account.</li>
+            <li>Paste it here, then click Continue.</li>
+          </ol>
+          <div className="form-grid">
+            <label>
+              Supabase personal access token
+              <input
+                type="password"
+                value={controller.supabasePersonalAccessToken}
+                onChange={(event) => controller.onSupabasePersonalAccessTokenChange(event.target.value)}
+                autoComplete="new-password"
+              />
+              <span className="index-create-field-hint">
+                Recommended: use a long-lived token. This repo uses it again for future function
+                deployments.
+              </span>
+            </label>
+          </div>
+          <div className="form-actions">
+            <a
+              href={SUPABASE_ACCOUNT_TOKENS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="site-card-action-link"
+            >
+              Open token page
+            </a>
+            <button
+              type="button"
+              className="primary"
+              onClick={controller.onContinueSupabasePersonalAccessToken}
+              disabled={!controller.supabasePersonalAccessToken.trim()}
+            >
+              Continue
             </button>
           </div>
         </>
@@ -507,8 +537,8 @@ const renderStepContent = ({
             you paste a Supabase personal access token.
           </p>
           <ol className="index-create-step-instructions">
-            <li>Open your Supabase account token page and create a personal access token.</li>
-            <li>Paste it here once. Solidary uses it immediately and does not store it.</li>
+            <li>Use the same token from the earlier PAT step.</li>
+            <li>If this page was refreshed, open the token page and paste the token again.</li>
             <li>Click Deploy child functions, then use Check to confirm the workflow result.</li>
           </ol>
           <div className="index-create-status-grid">

@@ -171,9 +171,8 @@ export const useIndexCreateRouteController = () => {
 
   const [githubClientId, setGithubClientId] = useState("");
   const [githubClientSecret, setGithubClientSecret] = useState("");
-  const [supabaseAuthConfigPersonalAccessToken, setSupabaseAuthConfigPersonalAccessToken] =
-    useState("");
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
+  const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
 
   const repoCheckRequestIdRef = useRef(0);
 
@@ -205,11 +204,20 @@ export const useIndexCreateRouteController = () => {
         prerequisites,
         organizationConfirmed,
         detailsConfirmed,
+        supabasePatConfirmed,
         archiveId,
         setup,
         isProvisioning
       }),
-    [archiveId, detailsConfirmed, isProvisioning, organizationConfirmed, prerequisites, setup]
+    [
+      archiveId,
+      detailsConfirmed,
+      isProvisioning,
+      organizationConfirmed,
+      prerequisites,
+      setup,
+      supabasePatConfirmed
+    ]
   );
 
   const activeStepKey = steps.find((step) => step.status === "current")?.key ?? "github_app";
@@ -256,7 +264,9 @@ export const useIndexCreateRouteController = () => {
 
       setSetupLoading(true);
       try {
-        const response = await readIndexAdmin(normalizedArchiveId);
+        const response = await readIndexAdmin(normalizedArchiveId, {
+          supabasePersonalAccessToken
+        });
         setSetup(response.setup);
         return response;
       } catch (error) {
@@ -268,7 +278,7 @@ export const useIndexCreateRouteController = () => {
         setSetupLoading(false);
       }
     },
-    [archiveId]
+    [archiveId, supabasePersonalAccessToken]
   );
 
   useEffect(() => {
@@ -614,6 +624,19 @@ export const useIndexCreateRouteController = () => {
     setOrganizationConfirmed(true);
   };
 
+  const handleContinueSupabasePersonalAccessToken = () => {
+    setNotice(null);
+    setNoticeKind(null);
+
+    if (!supabasePersonalAccessToken.trim()) {
+      setNotice("Create a Supabase Personal Access Token before continuing.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setSupabasePatConfirmed(true);
+  };
+
   const handleCreateIndex = async () => {
     setNotice(null);
     setNoticeKind(null);
@@ -697,15 +720,14 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
     setConfiguringStandaloneAuth(true);
     try {
-      await configureIndexAdminStandaloneAuth({
+      const response = await configureIndexAdminStandaloneAuth({
         archiveId,
         githubClientId,
         githubClientSecret,
-        supabasePersonalAccessToken: supabaseAuthConfigPersonalAccessToken
+        supabasePersonalAccessToken
       });
+      setSetup(response.setup);
       setGithubClientSecret("");
-      setSupabaseAuthConfigPersonalAccessToken("");
-      await refreshSetup(archiveId);
       setNotice("GitHub sign-in configured for the child project.");
       setNoticeKind("notice");
     } catch (error) {
@@ -808,6 +830,7 @@ export const useIndexCreateRouteController = () => {
     selectedOrganizationId,
     organizationConfirmed,
     detailsConfirmed,
+    supabasePatConfirmed,
     detailsCanContinue,
     computedSlug,
     isProvisioning,
@@ -815,7 +838,6 @@ export const useIndexCreateRouteController = () => {
     setup,
     githubClientId,
     githubClientSecret,
-    supabaseAuthConfigPersonalAccessToken,
     supabasePersonalAccessToken,
     onRefreshStatuses: () => {
       void refreshStatuses();
@@ -853,6 +875,7 @@ export const useIndexCreateRouteController = () => {
       setDetailsConfirmed(false);
     },
     onContinueOrganization: handleContinueOrganization,
+    onContinueSupabasePersonalAccessToken: handleContinueSupabasePersonalAccessToken,
     onContinueDetails: () => {
       void handleContinueDetails();
     },
@@ -864,8 +887,10 @@ export const useIndexCreateRouteController = () => {
     onConfigureStandaloneAuth: () => {
       void handleConfigureStandaloneAuth();
     },
-    onSupabaseAuthConfigPersonalAccessTokenChange: setSupabaseAuthConfigPersonalAccessToken,
-    onSupabasePersonalAccessTokenChange: setSupabasePersonalAccessToken,
+    onSupabasePersonalAccessTokenChange: (value: string) => {
+      setSupabasePersonalAccessToken(value);
+      setSupabasePatConfirmed(false);
+    },
     onDeployFunctions: () => {
       void handleDeployFunctions();
     },

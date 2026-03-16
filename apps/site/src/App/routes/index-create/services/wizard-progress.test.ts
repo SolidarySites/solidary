@@ -72,6 +72,7 @@ describe("buildIndexCreateWizardSteps", () => {
       prerequisites: buildPrerequisites(),
       organizationConfirmed: true,
       detailsConfirmed: false,
+      supabasePatConfirmed: false,
       archiveId: "",
       setup: null,
       isProvisioning: false
@@ -88,13 +89,14 @@ describe("buildIndexCreateWizardSteps", () => {
       prerequisites: buildPrerequisites(),
       organizationConfirmed: false,
       detailsConfirmed: false,
+      supabasePatConfirmed: false,
       archiveId: "archive-1",
       setup: buildSetup(),
       isProvisioning: false
     });
 
     expect(steps.find((step) => step.key === "provision")?.status).toBe("complete");
-    expect(steps.find((step) => step.key === "github_oauth")?.status).toBe("current");
+    expect(steps.find((step) => step.key === "supabase_pat")?.status).toBe("current");
   });
 
   it("unlocks launch after auth, finalization, and deployment are complete", () => {
@@ -102,6 +104,7 @@ describe("buildIndexCreateWizardSteps", () => {
       prerequisites: buildPrerequisites(),
       organizationConfirmed: false,
       detailsConfirmed: false,
+      supabasePatConfirmed: true,
       archiveId: "archive-1",
       setup: buildSetup({
         authSetup: {

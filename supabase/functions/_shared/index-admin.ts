@@ -2172,9 +2172,11 @@ export const deployIndexChildFunctions = async ({
 const buildAuthSetup = async ({
   context,
   state,
+  managementAccessTokenOverride,
 }: {
   context: IndexAdminContext;
   state: Awaited<ReturnType<typeof readIndexAdminState>>;
+  managementAccessTokenOverride?: string | null;
 }): Promise<IndexAuthSetup> => {
   const siteUrl = state.archive.canonicalUrl ||
     resolveRepoDefaultSiteUrl(
@@ -2193,7 +2195,7 @@ const buildAuthSetup = async ({
   let verificationError: string | null = null;
 
   try {
-    const managementAccessToken =
+    const managementAccessToken = toTrimmedString(managementAccessTokenOverride) ||
       await resolveSupabaseManagementAuthConfigAccessToken(context);
     authConfig = await readSupabaseProjectAuthConfig({
       accessToken: managementAccessToken,
@@ -2425,14 +2427,17 @@ export const buildStandaloneAdminSetup = async ({
   context,
   state,
   latestJob,
+  managementAccessTokenOverride,
 }: {
   context: IndexAdminContext;
   state: Awaited<ReturnType<typeof readIndexAdminState>>;
   latestJob: IndexFinalizationJobRow | null;
+  managementAccessTokenOverride?: string | null;
 }) => {
   const authSetup = await buildAuthSetup({
     context,
     state,
+    managementAccessTokenOverride,
   });
   const { finalization, functionsDeployment } = await buildFinalizationSetup({
     context,
