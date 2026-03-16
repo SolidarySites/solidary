@@ -368,6 +368,19 @@ const renderStepContent = ({
                 autoComplete="new-password"
               />
             </label>
+            <label>
+              Supabase personal access token
+              <input
+                type="password"
+                value={controller.supabaseAuthConfigPersonalAccessToken}
+                onChange={(event) =>
+                  controller.onSupabaseAuthConfigPersonalAccessTokenChange(event.target.value)}
+                autoComplete="new-password"
+              />
+              <span className="index-create-field-hint">
+                Optional. Only use this if Supabase blocks the automatic Auth update.
+              </span>
+            </label>
           </div>
           {authSetup?.message ? <p className="index-create-step-note">{authSetup.message}</p> : null}
           <div className="form-actions">
@@ -391,6 +404,14 @@ const renderStepContent = ({
                 Open provider settings
               </a>
             ) : null}
+            <a
+              href={SUPABASE_ACCOUNT_TOKENS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="site-card-action-link"
+            >
+              Open Supabase token page
+            </a>
             <button
               type="button"
               className="primary"

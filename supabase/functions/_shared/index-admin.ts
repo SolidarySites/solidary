@@ -2058,14 +2058,19 @@ export const configureIndexStandaloneAuth = async ({
   context,
   githubClientId,
   githubClientSecret,
+  supabasePersonalAccessToken,
 }: {
   context: IndexAdminContext;
   githubClientId: string;
   githubClientSecret: string;
+  supabasePersonalAccessToken?: string;
 }) => {
   assertIndexAdminRole(context.actorRole, "owner");
   const normalizedGithubClientId = toTrimmedString(githubClientId);
   const normalizedGithubClientSecret = toTrimmedString(githubClientSecret);
+  const normalizedSupabasePersonalAccessToken = toTrimmedString(
+    supabasePersonalAccessToken,
+  );
   if (!normalizedGithubClientId || !normalizedGithubClientSecret) {
     throw new Error("GitHub client id and client secret are required.");
   }
@@ -2076,15 +2081,30 @@ export const configureIndexStandaloneAuth = async ({
       context.credentials.repo_owner,
       context.credentials.repo_name,
     );
-  const managementAccessToken =
+  const managementAccessToken = normalizedSupabasePersonalAccessToken ||
     await resolveSupabaseManagementAuthConfigAccessToken(context);
-  await updateSupabaseProjectGitHubAuthConfig({
-    accessToken: managementAccessToken,
-    projectRef: context.credentials.supabase_project_ref,
-    siteUrl,
-    githubClientId: normalizedGithubClientId,
-    githubClientSecret: normalizedGithubClientSecret,
-  });
+
+  try {
+    await updateSupabaseProjectGitHubAuthConfig({
+      accessToken: managementAccessToken,
+      projectRef: context.credentials.supabase_project_ref,
+      siteUrl,
+      githubClientId: normalizedGithubClientId,
+      githubClientSecret: normalizedGithubClientSecret,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /forbidden resource/i.test(error.message)
+    ) {
+      throw new Error(
+        normalizedSupabasePersonalAccessToken
+          ? "Supabase rejected this Personal Access Token for the child project's Auth settings. Generate a new token from Dashboard -> Account -> Access Tokens and confirm you have Owner or Admin access to the selected organization."
+          : "Supabase blocked the automatic Auth update for this project. Paste a Supabase Personal Access Token from Dashboard -> Account -> Access Tokens and try again.",
+      );
+    }
+    throw error;
+  }
 };
 
 const isGitHubWorkflowRunActive = (status: string | null) =>

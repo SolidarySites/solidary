@@ -230,6 +230,11 @@
   color: inherit;
 }
 
+.index-create-field-hint {
+  color: rgba(31, 34, 28, 0.68);
+  font-size: 0.82rem;
+}
+
 @media (max-width: 900px) {
   .index-create-hero,
   .index-create-details-grid,

@@ -153,6 +153,10 @@ export const handler: Handler = async (event) => {
         githubClientSecret: typeof body.github_client_secret === "string"
           ? body.github_client_secret
           : "",
+        supabasePersonalAccessToken:
+          typeof body.supabase_personal_access_token === "string"
+            ? body.supabase_personal_access_token
+            : "",
       });
     } else if (action === "finalize_index") {
       if (context.actorRole !== "owner") {

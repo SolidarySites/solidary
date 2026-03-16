@@ -171,6 +171,8 @@ export const useIndexCreateRouteController = () => {
 
   const [githubClientId, setGithubClientId] = useState("");
   const [githubClientSecret, setGithubClientSecret] = useState("");
+  const [supabaseAuthConfigPersonalAccessToken, setSupabaseAuthConfigPersonalAccessToken] =
+    useState("");
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
 
   const repoCheckRequestIdRef = useRef(0);
@@ -698,9 +700,11 @@ export const useIndexCreateRouteController = () => {
       await configureIndexAdminStandaloneAuth({
         archiveId,
         githubClientId,
-        githubClientSecret
+        githubClientSecret,
+        supabasePersonalAccessToken: supabaseAuthConfigPersonalAccessToken
       });
       setGithubClientSecret("");
+      setSupabaseAuthConfigPersonalAccessToken("");
       await refreshSetup(archiveId);
       setNotice("GitHub sign-in configured for the child project.");
       setNoticeKind("notice");
@@ -811,6 +815,7 @@ export const useIndexCreateRouteController = () => {
     setup,
     githubClientId,
     githubClientSecret,
+    supabaseAuthConfigPersonalAccessToken,
     supabasePersonalAccessToken,
     onRefreshStatuses: () => {
       void refreshStatuses();
@@ -859,6 +864,7 @@ export const useIndexCreateRouteController = () => {
     onConfigureStandaloneAuth: () => {
       void handleConfigureStandaloneAuth();
     },
+    onSupabaseAuthConfigPersonalAccessTokenChange: setSupabaseAuthConfigPersonalAccessToken,
     onSupabasePersonalAccessTokenChange: setSupabasePersonalAccessToken,
     onDeployFunctions: () => {
       void handleDeployFunctions();

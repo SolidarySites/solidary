@@ -126,6 +126,11 @@
   align-self: start;
 }
 
+.admin-field-hint {
+  color: rgba(31, 34, 28, 0.68);
+  font-size: 0.82rem;
+}
+
 .admin-finalization-button {
   border: 0;
   display: inline-flex;

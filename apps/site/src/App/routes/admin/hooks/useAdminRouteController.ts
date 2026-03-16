@@ -504,7 +504,8 @@ export const useAdminRouteController = () => {
       const response = await configureIndexAdminStandaloneAuth({
         archiveId: selectedArchiveId,
         githubClientId,
-        githubClientSecret
+        githubClientSecret,
+        supabasePersonalAccessToken
       });
       applyResponse(response, { resetFields: false });
       setGithubClientSecret("");

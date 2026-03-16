@@ -530,13 +530,15 @@ export const finalizeIndexAdmin = async ({ archiveId }: IndexAdminFinalizePayloa
 export const configureIndexAdminStandaloneAuth = async ({
   archiveId,
   githubClientId,
-  githubClientSecret
+  githubClientSecret,
+  supabasePersonalAccessToken
 }: IndexAdminConfigureStandaloneAuthPayload) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "configure_standalone_auth",
     github_client_id: githubClientId,
-    github_client_secret: githubClientSecret
+    github_client_secret: githubClientSecret,
+    supabase_personal_access_token: supabasePersonalAccessToken?.trim() || undefined
   });
 
 export const deployIndexAdminChildFunctions = async ({

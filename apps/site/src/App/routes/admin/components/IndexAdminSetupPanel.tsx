@@ -191,6 +191,19 @@ export default function IndexAdminSetupPanel({
               />
             </label>
 
+            <label>
+              Supabase personal access token
+              <input
+                type="password"
+                value={supabasePersonalAccessToken}
+                onChange={(event) => onSupabasePersonalAccessTokenChange(event.target.value)}
+                autoComplete="new-password"
+              />
+              <span className="admin-field-hint">
+                Optional fallback if Supabase blocks the automatic Auth update.
+              </span>
+            </label>
+
             <div className="admin-finalization-actions">
               {authSetup?.githubOauthAppUrl ? (
                 <a
@@ -212,6 +225,14 @@ export default function IndexAdminSetupPanel({
                   Open provider settings
                 </a>
               ) : null}
+              <a
+                href="https://supabase.com/dashboard/account/tokens"
+                target="_blank"
+                rel="noreferrer"
+                className="site-card-action-link"
+              >
+                Open token page
+              </a>
               <button
                 type="button"
                 className="site-card-action-link admin-finalization-button"

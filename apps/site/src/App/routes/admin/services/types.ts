@@ -207,6 +207,7 @@ export type IndexAdminConfigureStandaloneAuthPayload = {
   archiveId: string;
   githubClientId: string;
   githubClientSecret: string;
+  supabasePersonalAccessToken?: string;
 };
 
 export type IndexAdminDeployFunctionsPayload = {
