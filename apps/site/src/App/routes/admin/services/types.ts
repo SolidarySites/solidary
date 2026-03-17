@@ -219,4 +219,5 @@ export type IndexAdminConfigureStandaloneAuthPayload = {
 export type IndexAdminDeployFunctionsPayload = {
   archiveId: string;
   supabasePersonalAccessToken: string;
+  dispatchWorkflow?: boolean;
 };

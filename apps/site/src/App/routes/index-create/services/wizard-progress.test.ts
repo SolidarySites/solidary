@@ -103,6 +103,41 @@ describe("buildIndexCreateWizardSteps", () => {
     expect(steps.find((step) => step.key === "supabase_pat")?.status).toBe("current");
   });
 
+  it("keeps the PAT step complete after refresh when deploy secrets are already configured", () => {
+    const baseSetup = buildSetup();
+    const steps = buildIndexCreateWizardSteps({
+      prerequisites: buildPrerequisites(),
+      organizationConfirmed: false,
+      detailsConfirmed: false,
+      supabasePatConfirmed: false,
+      archiveId: "archive-1",
+      setup: {
+        ...baseSetup,
+        functionsDeployment: {
+          ...baseSetup.functionsDeployment,
+          requiredSecrets: [
+            {
+              name: "SUPABASE_ACCESS_TOKEN",
+              isConfigured: true,
+              value: null,
+              description: ""
+            },
+            {
+              name: "SUPABASE_PROJECT_REF_PROD",
+              isConfigured: true,
+              value: "project-ref",
+              description: ""
+            }
+          ]
+        }
+      },
+      isProvisioning: false
+    });
+
+    expect(steps.find((step) => step.key === "supabase_pat")?.status).toBe("complete");
+    expect(steps.find((step) => step.key === "github_oauth")?.status).toBe("current");
+  });
+
   it("unlocks launch after auth, finalization, and deployment are complete", () => {
     const steps = buildIndexCreateWizardSteps({
       prerequisites: buildPrerequisites(),

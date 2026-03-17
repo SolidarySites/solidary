@@ -584,12 +584,14 @@ export const configureIndexAdminStandaloneAuth = async ({
 
 export const deployIndexAdminChildFunctions = async ({
   archiveId,
-  supabasePersonalAccessToken
+  supabasePersonalAccessToken,
+  dispatchWorkflow = true
 }: IndexAdminDeployFunctionsPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "deploy_child_functions",
-    supabase_personal_access_token: supabasePersonalAccessToken
+    supabase_personal_access_token: supabasePersonalAccessToken,
+    dispatch_workflow: dispatchWorkflow
   }, options);
 
 export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());

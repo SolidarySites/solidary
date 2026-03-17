@@ -166,6 +166,7 @@ export const useIndexCreateRouteController = () => {
   const [setupLoading, setSetupLoading] = useState(false);
   const [setup, setSetup] = useState<IndexAdminSetup | null>(null);
   const [configuringStandaloneAuth, setConfiguringStandaloneAuth] = useState(false);
+  const [savingFunctionAccess, setSavingFunctionAccess] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
   const [deployingFunctions, setDeployingFunctions] = useState(false);
 
@@ -175,6 +176,7 @@ export const useIndexCreateRouteController = () => {
   const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
 
   const repoCheckRequestIdRef = useRef(0);
+  const autoDeployArchiveIdRef = useRef<string | null>(null);
 
   const organizations = useMemo<IndexCreateOrganizationOption[]>(
     () => supabaseStatus?.organizations ?? [],
@@ -631,7 +633,7 @@ export const useIndexCreateRouteController = () => {
     setOrganizationConfirmed(true);
   };
 
-  const handleContinueSupabasePersonalAccessToken = () => {
+  const handleContinueSupabasePersonalAccessToken = async () => {
     setNotice(null);
     setNoticeKind(null);
 
@@ -641,7 +643,33 @@ export const useIndexCreateRouteController = () => {
       return;
     }
 
-    setSupabasePatConfirmed(true);
+    if (!archiveId) {
+      setNotice("Create the index before saving the deployment token.");
+      setNoticeKind("error");
+      return;
+    }
+
+    setSavingFunctionAccess(true);
+    try {
+      const response = await deployIndexAdminChildFunctions({
+        archiveId,
+        supabasePersonalAccessToken,
+        dispatchWorkflow: false
+      });
+      setSetup(response.setup);
+      setSupabasePatConfirmed(true);
+      setNotice("Deployment token saved for the child repo.");
+      setNoticeKind("notice");
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not save the child repo deployment token."
+      );
+      setNoticeKind("error");
+    } finally {
+      setSavingFunctionAccess(false);
+    }
   };
 
   const handleCreateIndex = async () => {
@@ -793,6 +821,62 @@ export const useIndexCreateRouteController = () => {
     }
   };
 
+  useEffect(() => {
+    if (!archiveId || !setup?.finalization.isFinalized) {
+      autoDeployArchiveIdRef.current = null;
+      return;
+    }
+    if (setup.functionsDeployment.status !== "ready_to_run" || deployingFunctions) {
+      return;
+    }
+    if (autoDeployArchiveIdRef.current === archiveId) {
+      return;
+    }
+
+    autoDeployArchiveIdRef.current = archiveId;
+    let cancelled = false;
+
+    void (async () => {
+      setNotice("Child repo is finalized. Starting the function deployment.");
+      setNoticeKind("notice");
+      setDeployingFunctions(true);
+      try {
+        const response = await deployIndexAdminChildFunctions({
+          archiveId,
+          supabasePersonalAccessToken: ""
+        });
+        if (cancelled) {
+          return;
+        }
+        setSetup(response.setup);
+        setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
+        setNoticeKind("notice");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        autoDeployArchiveIdRef.current = null;
+        setNotice(
+          error instanceof Error ? error.message : "Could not deploy child functions."
+        );
+        setNoticeKind("error");
+      } finally {
+        if (!cancelled) {
+          setDeployingFunctions(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    archiveId,
+    deployingFunctions,
+    setup?.finalization.isFinalized,
+    setup?.functionsDeployment.status
+  ]);
+
   const handleCopyValue = async (value: string, successMessage: string) => {
     if (!value.trim() || typeof navigator === "undefined" || !navigator.clipboard) {
       setNotice("Clipboard access is not available in this browser.");
@@ -821,6 +905,7 @@ export const useIndexCreateRouteController = () => {
     githubConnectBusy,
     supabaseConnectBusy,
     configuringStandaloneAuth,
+    savingFunctionAccess,
     startingFinalization,
     deployingFunctions,
     githubConnected,

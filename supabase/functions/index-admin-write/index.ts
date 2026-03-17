@@ -263,6 +263,7 @@ export const handler: Handler = async (event) => {
       await deployIndexChildFunctions({
         context,
         supabasePersonalAccessToken: suppliedSupabasePersonalAccessToken,
+        dispatchWorkflow: body.dispatch_workflow !== false,
       });
     }
 

@@ -66,6 +66,9 @@ export const buildIndexCreateWizardSteps = ({
 }): IndexCreateWizardStep[] => {
   const completed = new Set<IndexCreateWizardStepKey>();
   const hasArchive = Boolean(archiveId.trim());
+  const functionSecretsReady =
+    (setup?.functionsDeployment.requiredSecrets.length ?? 0) > 0 &&
+    setup?.functionsDeployment.requiredSecrets.every((secret) => secret.isConfigured);
 
   if (hasArchive || prerequisites.githubReady) {
     completed.add("github_app");
@@ -88,6 +91,7 @@ export const buildIndexCreateWizardSteps = ({
   if (
     hasArchive &&
     (supabasePatConfirmed ||
+      functionSecretsReady ||
       setup?.authSetup.localAuthReady ||
       setup?.finalization.isFinalized ||
       setup?.functionsDeployment.status === "deployed")

@@ -100,7 +100,10 @@ export default function IndexAdminSetupPanel({
     !configuringStandaloneAuth && githubClientId.trim().length > 0 && githubClientSecret.trim().length > 0;
   const canDeployFunctions =
     !deployingFunctions &&
-    supabasePersonalAccessToken.trim().length > 0 &&
+    (
+      supabasePersonalAccessToken.trim().length > 0 ||
+      functionsDeployment?.requiredSecrets.every((secret) => secret.isConfigured)
+    ) &&
     functionsDeployment?.status !== "running";
 
   return (
@@ -334,7 +337,7 @@ export default function IndexAdminSetupPanel({
 
           <div className="admin-setup-card">
             <h3>Deploy child functions</h3>
-            <p>Paste a Supabase personal access token once and Solidary writes the workflow secrets for you.</p>
+            <p>Paste a Supabase personal access token once to save the workflow secrets. After that, retries can run without re-entering it.</p>
 
             <dl>
               <div>

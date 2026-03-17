@@ -16,7 +16,10 @@ import {
   type IndexAdminBridgeRole,
   parseIndexAdminBridgeToken,
 } from "./index-admin-bridge.ts";
-import { resolveGitHubTokenForUser } from "./github-auth-broker.ts";
+import {
+  resolveGitHubTokenForUser,
+  resolveGitHubTokenForUserByMode,
+} from "./github-auth-broker.ts";
 import {
   buildSupabaseManagementUriAllowList,
   readSupabaseProjectAuthConfig,
@@ -1699,6 +1702,27 @@ const resolveOwnerGitHubToken = async (context: IndexAdminContext) => {
   return token;
 };
 
+const resolveOwnerGitHubActionsToken = async (context: IndexAdminContext) => {
+  const ownerUserId = toTrimmedString(context.archive.owner_user_id);
+  if (!ownerUserId) {
+    throw new Error("Index owner GitHub identity is not available.");
+  }
+
+  const resolved = await resolveGitHubTokenForUserByMode({
+    supabase: context.supabase,
+    userId: ownerUserId,
+    authMode: "solidary",
+  });
+  const token = toTrimmedString(resolved?.token);
+  if (!token) {
+    throw new Error(
+      "Sign in with GitHub from Profile before configuring child function deployment.",
+    );
+  }
+
+  return token;
+};
+
 const resolveSupabaseManagementAuthConfigAccessToken = async (
   context: IndexAdminContext,
 ) => {
@@ -2155,22 +2179,60 @@ const isGitHubWorkflowRunActive = (status: string | null) =>
 export const deployIndexChildFunctions = async ({
   context,
   supabasePersonalAccessToken,
+  dispatchWorkflow = true,
 }: {
   context: IndexAdminContext;
   supabasePersonalAccessToken: string;
+  dispatchWorkflow?: boolean;
 }) => {
   assertIndexAdminRole(context.actorRole, "owner");
   const normalizedSupabasePersonalAccessToken = toTrimmedString(
     supabasePersonalAccessToken,
   );
-  if (!normalizedSupabasePersonalAccessToken) {
-    throw new Error("Supabase personal access token is required.");
-  }
-  if (context.archive.runtime_mode !== "finalized") {
+  if (dispatchWorkflow && context.archive.runtime_mode !== "finalized") {
     throw new Error("Finalize the index before deploying child functions.");
   }
 
-  const githubToken = await resolveOwnerGitHubToken(context);
+  const githubToken = await resolveOwnerGitHubActionsToken(context);
+  const configuredSecretNames = await readGitHubRepoSecretNames({
+    githubToken,
+    owner: context.credentials.repo_owner,
+    repo: context.credentials.repo_name,
+  });
+  const missingSecretNames = buildRepoSecretRequirements(
+    configuredSecretNames,
+    context.credentials.supabase_project_ref,
+  )
+    .filter((entry) => !entry.isConfigured)
+    .map((entry) => entry.name);
+
+  if (normalizedSupabasePersonalAccessToken) {
+    await Promise.all([
+      upsertGitHubRepoSecret({
+        githubToken,
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+        secretName: "SUPABASE_ACCESS_TOKEN",
+        secretValue: normalizedSupabasePersonalAccessToken,
+      }),
+      upsertGitHubRepoSecret({
+        githubToken,
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+        secretName: "SUPABASE_PROJECT_REF_PROD",
+        secretValue: context.credentials.supabase_project_ref,
+      }),
+    ]);
+  } else if (missingSecretNames.length) {
+    throw new Error(
+      "Supabase personal access token is required to configure the child repo deployment secrets.",
+    );
+  }
+
+  if (!dispatchWorkflow) {
+    return;
+  }
+
   const latestRun = await readLatestGitHubWorkflowRun({
     githubToken,
     owner: context.credentials.repo_owner,
@@ -2180,23 +2242,6 @@ export const deployIndexChildFunctions = async ({
   if (isGitHubWorkflowRunActive(latestRun?.status ?? null)) {
     throw new Error("The child function deployment is already running.");
   }
-
-  await Promise.all([
-    upsertGitHubRepoSecret({
-      githubToken,
-      owner: context.credentials.repo_owner,
-      repo: context.credentials.repo_name,
-      secretName: "SUPABASE_ACCESS_TOKEN",
-      secretValue: normalizedSupabasePersonalAccessToken,
-    }),
-    upsertGitHubRepoSecret({
-      githubToken,
-      owner: context.credentials.repo_owner,
-      repo: context.credentials.repo_name,
-      secretName: "SUPABASE_PROJECT_REF_PROD",
-      secretValue: context.credentials.supabase_project_ref,
-    }),
-  ]);
 
   await dispatchGitHubWorkflowRun({
     githubToken,
@@ -2285,9 +2330,11 @@ const buildAuthSetup = async ({
 };
 
 const buildNotReadyFunctionsDeploymentSetup = ({
+  configuredSecretNames,
   projectRef,
   workflowUrl,
 }: {
+  configuredSecretNames: Set<string> | null;
   projectRef: string;
   workflowUrl: string;
 }): IndexFunctionsDeploymentSetup => ({
@@ -2300,11 +2347,24 @@ const buildNotReadyFunctionsDeploymentSetup = ({
   workflowUrl,
   runUrl: null,
   requiredSecrets: buildRepoSecretRequirements(
-    null,
+    configuredSecretNames,
     projectRef,
   ),
   canDispatch: false,
 });
+
+const readConfiguredFunctionsDeploymentSecretNames = async ({
+  context,
+}: {
+  context: IndexAdminContext;
+}) => {
+  const githubToken = await resolveOwnerGitHubActionsToken(context);
+  return await readGitHubRepoSecretNames({
+    githubToken,
+    owner: context.credentials.repo_owner,
+    repo: context.credentials.repo_name,
+  });
+};
 
 const buildFinalizedFunctionsDeploymentSetup = async ({
   context,
@@ -2318,7 +2378,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
   });
 
   try {
-    const githubToken = await resolveOwnerGitHubToken(context);
+    const githubToken = await resolveOwnerGitHubActionsToken(context);
     const [configuredSecretNames, latestRun] = await Promise.all([
       readGitHubRepoSecretNames({
         githubToken,
@@ -2421,9 +2481,13 @@ const buildFinalizationSetup = async ({
   const progressCurrent = progressTotal !== null
     ? Math.min(jobPayload.processedFiles, progressTotal)
     : null;
+  const configuredFunctionSecretNames = await readConfiguredFunctionsDeploymentSecretNames({
+    context,
+  }).catch(() => null);
   const functionsDeployment = isFinalized
     ? await buildFinalizedFunctionsDeploymentSetup({ context })
     : buildNotReadyFunctionsDeploymentSetup({
+      configuredSecretNames: configuredFunctionSecretNames,
       projectRef: context.credentials.supabase_project_ref,
       workflowUrl: buildGitHubWorkflowUrl({
         owner: context.credentials.repo_owner,

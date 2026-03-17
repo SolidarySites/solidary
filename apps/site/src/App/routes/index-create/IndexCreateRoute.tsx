@@ -468,9 +468,11 @@ const renderStepContent = ({
               type="button"
               className="primary"
               onClick={controller.onContinueSupabasePersonalAccessToken}
-              disabled={!controller.supabasePersonalAccessToken.trim()}
+              disabled={
+                controller.savingFunctionAccess || !controller.supabasePersonalAccessToken.trim()
+              }
             >
-              Continue
+              {controller.savingFunctionAccess ? "Saving..." : "Continue"}
             </button>
           </div>
         </>
@@ -557,13 +559,12 @@ const renderStepContent = ({
       return (
         <>
           <p className="index-create-step-lead">
-            Solidary can add the required GitHub Actions secrets and start the child deployment once
-            you paste a Supabase personal access token.
+            Solidary uses the deployment token you already provided to run the child function
+            deployment workflow automatically after finalization.
           </p>
           <ol className="index-create-step-instructions">
-            <li>Use the same token from the earlier PAT step.</li>
-            <li>If this page was refreshed, open the token page and paste the token again.</li>
-            <li>Click Deploy child functions, then use Check to confirm the workflow result.</li>
+            <li>Wait here while Solidary checks the child workflow.</li>
+            <li>If deployment fails, use Retry deployment once and then Check deployment.</li>
           </ol>
           <div className="index-create-status-grid">
             <div>
@@ -583,26 +584,7 @@ const renderStepContent = ({
           {functionsDeployment?.message ? (
             <p className="index-create-step-note">{functionsDeployment.message}</p>
           ) : null}
-          <div className="form-grid">
-            <label>
-              Supabase personal access token
-              <input
-                type="password"
-                value={controller.supabasePersonalAccessToken}
-                onChange={(event) => controller.onSupabasePersonalAccessTokenChange(event.target.value)}
-                autoComplete="new-password"
-              />
-            </label>
-          </div>
           <div className="form-actions">
-            <a
-              href={SUPABASE_ACCOUNT_TOKENS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="site-card-action-link"
-            >
-              Open token page
-            </a>
             {functionsDeployment?.workflowUrl ? (
               <a
                 href={functionsDeployment.workflowUrl}
@@ -623,18 +605,21 @@ const renderStepContent = ({
                 Open latest run
               </a>
             ) : null}
-            <button
-              type="button"
-              className="primary"
-              onClick={controller.onDeployFunctions}
-              disabled={
-                controller.deployingFunctions ||
-                !controller.supabasePersonalAccessToken.trim() ||
-                functionsDeployment?.status === "running"
-              }
-            >
-              {controller.deployingFunctions ? "Deploying..." : "Deploy child functions"}
-            </button>
+            {functionsDeployment?.status === "ready_to_run" ||
+            functionsDeployment?.status === "failed" ? (
+              <button
+                type="button"
+                className="primary"
+                onClick={controller.onDeployFunctions}
+                disabled={controller.deployingFunctions}
+              >
+                {controller.deployingFunctions
+                  ? "Deploying..."
+                  : functionsDeployment?.status === "failed"
+                    ? "Retry deployment"
+                    : "Deploy child functions"}
+              </button>
+            ) : null}
             <button
               type="button"
               className="ghost"
