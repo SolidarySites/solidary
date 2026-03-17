@@ -95,6 +95,19 @@ const openCenteredPopup = ({
   return window.open("about:blank", "_blank");
 };
 
+const extractBridgeTokenFromStandaloneAdminUrl = (value: string | null | undefined) => {
+  const rawValue = value?.trim() ?? "";
+  if (!rawValue) {
+    return "";
+  }
+
+  try {
+    return new URL(rawValue).searchParams.get("bridge")?.trim() ?? "";
+  } catch {
+    return "";
+  }
+};
+
 const buildPrerequisites = ({
   githubConnected,
   supabaseStatus,
@@ -165,6 +178,7 @@ export const useIndexCreateRouteController = () => {
   const [provisionStep, setProvisionStep] = useState(INITIAL_PROVISION_STEP);
   const [setupLoading, setSetupLoading] = useState(false);
   const [setup, setSetup] = useState<IndexAdminSetup | null>(null);
+  const [bridgeToken, setBridgeToken] = useState("");
   const [configuringStandaloneAuth, setConfiguringStandaloneAuth] = useState(false);
   const [savingFunctionAccess, setSavingFunctionAccess] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
@@ -274,9 +288,11 @@ export const useIndexCreateRouteController = () => {
       setSetupLoading(true);
       try {
         const response = await readIndexAdmin(normalizedArchiveId, {
+          bridgeToken: bridgeToken || undefined,
           supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
         });
         setSetup(response.setup);
+        setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
         return response;
       } catch (error) {
         setSetup(null);
@@ -287,7 +303,7 @@ export const useIndexCreateRouteController = () => {
         setSetupLoading(false);
       }
     },
-    [archiveId]
+    [archiveId, bridgeToken]
   );
 
   useEffect(() => {
@@ -297,6 +313,7 @@ export const useIndexCreateRouteController = () => {
   useEffect(() => {
     if (!archiveId) {
       setSetup(null);
+      setBridgeToken("");
       return;
     }
 
@@ -655,8 +672,11 @@ export const useIndexCreateRouteController = () => {
         archiveId,
         supabasePersonalAccessToken,
         dispatchWorkflow: false
+      }, {
+        bridgeToken: bridgeToken || undefined
       });
       setSetup(response.setup);
+      setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
       setSupabasePatConfirmed(true);
       setNotice("Deployment token saved for the child repo.");
       setNoticeKind("notice");
@@ -760,8 +780,11 @@ export const useIndexCreateRouteController = () => {
         githubClientId,
         githubClientSecret,
         supabasePersonalAccessToken
+      }, {
+        bridgeToken: bridgeToken || undefined
       });
       setSetup(response.setup);
+      setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
       setGithubClientSecret("");
       setNotice("GitHub sign-in configured for the child project.");
       setNoticeKind("notice");
@@ -784,8 +807,11 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
     setStartingFinalization(true);
     try {
-      const response = await finalizeIndexAdmin({ archiveId });
+      const response = await finalizeIndexAdmin({ archiveId }, {
+        bridgeToken: bridgeToken || undefined
+      });
       setSetup(response.setup);
+      setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
       setNotice("Child setup started. Solidary is copying the standalone app now.");
       setNoticeKind("notice");
     } catch (error) {
@@ -808,8 +834,11 @@ export const useIndexCreateRouteController = () => {
       const response = await deployIndexAdminChildFunctions({
         archiveId,
         supabasePersonalAccessToken
+      }, {
+        bridgeToken: bridgeToken || undefined
       });
       setSetup(response.setup);
+      setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
       setSupabasePersonalAccessToken("");
       setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
       setNoticeKind("notice");
@@ -844,11 +873,14 @@ export const useIndexCreateRouteController = () => {
         const response = await deployIndexAdminChildFunctions({
           archiveId,
           supabasePersonalAccessToken: ""
+        }, {
+          bridgeToken: bridgeToken || undefined
         });
         if (cancelled) {
           return;
         }
         setSetup(response.setup);
+        setBridgeToken(extractBridgeTokenFromStandaloneAdminUrl(response.setup.standaloneAdminUrl));
         setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
         setNoticeKind("notice");
       } catch (error) {
@@ -872,6 +904,7 @@ export const useIndexCreateRouteController = () => {
     };
   }, [
     archiveId,
+    bridgeToken,
     deployingFunctions,
     setup?.finalization.isFinalized,
     setup?.functionsDeployment.status
@@ -996,6 +1029,13 @@ export const useIndexCreateRouteController = () => {
       void handleCopyValue(value, successMessage);
     },
     onBackToStudio: () => navigate("/studio"),
-    onOpenAdvancedAdmin: () => navigate(`/admin?archiveId=${archiveId}`)
+    onOpenAdvancedAdmin: () => {
+      const params = new URLSearchParams();
+      params.set("archiveId", archiveId);
+      if (bridgeToken) {
+        params.set("bridge", bridgeToken);
+      }
+      navigate(`/admin?${params.toString()}`);
+    }
   };
 };
