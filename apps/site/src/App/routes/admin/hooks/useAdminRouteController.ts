@@ -292,7 +292,13 @@ export const useAdminRouteController = () => {
     }
 
     let cancelled = false;
-    const timeoutId = window.setTimeout(() => {
+    let refreshInFlight = false;
+    const intervalId = window.setInterval(() => {
+      if (cancelled || refreshInFlight) {
+        return;
+      }
+
+      refreshInFlight = true;
       void (async () => {
         setSetupLoading(true);
         try {
@@ -308,6 +314,7 @@ export const useAdminRouteController = () => {
           setNotice(getFriendlyErrorMessage(error, "Could not refresh finalization status."));
           setNoticeKind("error");
         } finally {
+          refreshInFlight = false;
           if (!cancelled) {
             setSetupLoading(false);
           }
@@ -317,7 +324,7 @@ export const useAdminRouteController = () => {
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
     };
   }, [
     selectedArchiveId,

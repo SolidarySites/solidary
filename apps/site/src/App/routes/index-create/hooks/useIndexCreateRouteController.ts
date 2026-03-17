@@ -343,11 +343,23 @@ export const useIndexCreateRouteController = () => {
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      void refreshSetup(archiveId);
+    let cancelled = false;
+    let refreshInFlight = false;
+    const intervalId = window.setInterval(() => {
+      if (cancelled || refreshInFlight) {
+        return;
+      }
+
+      refreshInFlight = true;
+      void refreshSetup(archiveId).finally(() => {
+        refreshInFlight = false;
+      });
     }, 2500);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
   }, [archiveId, refreshSetup, setup?.finalization.isRunning, setup?.functionsDeployment.status]);
 
   useEffect(() => {

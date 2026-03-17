@@ -17,6 +17,7 @@ import {
   type ConnectGitHubAppRequest,
   type ConnectGitHubAppResult
 } from "../services/github-auth";
+import { resolveAuthReturnPath } from "../services/redirect-paths";
 import { AuthContext } from "../context/AuthContext";
 
 type AuthProviderProps = {
@@ -175,20 +176,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const signInWithGitHub = useCallback(async (returnToPath?: string) => {
-    const defaultReturnToPath =
-      typeof window === "undefined"
-        ? "/"
-        : window.location.pathname === "/*"
-          ? "/"
-          : window.location.pathname;
-    const normalizedReturnToPath =
-      typeof returnToPath === "string" && returnToPath.trim().startsWith("/")
-        ? returnToPath.trim()
-        : defaultReturnToPath;
     const redirectTo =
       typeof window === "undefined"
         ? undefined
-        : `${window.location.origin}${normalizedReturnToPath}`;
+        : `${window.location.origin}${resolveAuthReturnPath({
+            hostname: window.location.hostname,
+            currentPathname: window.location.pathname,
+            requestedReturnToPath: returnToPath
+          })}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
