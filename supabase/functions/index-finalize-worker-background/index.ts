@@ -15,12 +15,6 @@ import {
   type IndexFinalizationPreparedTreeEntry,
   type IndexFinalizationSourceManifestEntry,
 } from "../_shared/index-finalization.ts";
-import {
-  resolveSupabaseManagementAccessForUser,
-  SupabaseManagementReauthError,
-  updateSupabaseProjectAuthConfig,
-} from "../_shared/supabase-management-auth/index.ts";
-import { decryptTokenValue } from "../_shared/token-crypto.ts";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import {
   buildFinalizationStepLabel,
@@ -29,11 +23,9 @@ import {
 import type { Handler } from "../_shared/types.ts";
 
 const GITHUB_API = "https://api.github.com";
-const SUPABASE_MANAGEMENT_API = "https://api.supabase.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
-const TOKEN_ENCRYPTION_KEY = Deno.env.get("TOKEN_ENCRYPTION_KEY") ?? "";
 const FINALIZE_WORKER_PATH = "/functions/v1/index-finalize-worker-background";
 const FINALIZATION_BATCH_SIZE = 20;
 const GITHUB_BLOB_CONCURRENCY = 5;
@@ -50,10 +42,6 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
-const REQUIRED_FINALIZATION_SUPABASE_SCOPES = [
-  "secrets:write",
-  "auth:write",
-] as const;
 
 type GhErrorPayload = {
   message?: string;
@@ -108,7 +96,6 @@ type ChildParentSourceArchiveRow = {
 
 type FinalizationExecutionContext = {
   archive: IndexArchiveRow;
-  syncedArchive: IndexArchiveRow;
   credentials: IndexProjectCredentialsRow;
   parentSource: ParentSourceRepoResolution;
   sourceRepo: {
@@ -120,7 +107,6 @@ type FinalizationExecutionContext = {
     repo: string;
   };
   githubToken: string;
-  managementAccessToken: string | null;
 };
 
 class HttpError extends Error {
@@ -172,9 +158,6 @@ const parseBody = (rawBody: string | null): WorkerBody => {
 
 const toTrimmedString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
-
-const splitScopes = (value: string) =>
-  value.split(/[\s,]+/g).map((entry) => entry.trim().toLowerCase()).filter(Boolean);
 
 const fileB64ToUtf8 = (value: string) =>
   Buffer.from(value, "base64").toString("utf8");
@@ -547,28 +530,6 @@ async function createCommitFromTreeEntries({
   assertOk(refResponse, refPayload, `Failed updating ${branch} branch.`);
 }
 
-async function managementRequest<T>({
-  accessToken,
-  path,
-  init,
-}: {
-  accessToken: string;
-  path: string;
-  init?: RequestInit;
-}) {
-  const response = await fetch(new URL(path, SUPABASE_MANAGEMENT_API).toString(), {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  const payload = (await response.json().catch(() => ({}))) as T;
-  return { response, payload };
-}
-
 const createEnvFile = ({
   projectRef,
   projectUrl,
@@ -687,9 +648,6 @@ const splitRepoFullName = (repoFullName: string) => {
   return { owner, repo };
 };
 
-const isReservedSupabaseSecretName = (name: string) =>
-  name.trim().toUpperCase().startsWith("SUPABASE_");
-
 const createGeneratedManifestEntries = ({
   projectRef,
   projectUrl,
@@ -743,43 +701,6 @@ const patchSourceContentB64 = ({
 
   return contentB64;
 };
-
-async function setProjectSecrets({
-  accessToken,
-  projectRef,
-  secrets,
-}: {
-  accessToken: string;
-  projectRef: string;
-  secrets: Record<string, string>;
-}) {
-  const filteredSecrets = Object.entries(secrets)
-    .filter(([name, value]) => value.trim() && !isReservedSupabaseSecretName(name))
-    .map(([name, value]) => ({
-      name,
-      value,
-    }));
-
-  if (!filteredSecrets.length) {
-    return;
-  }
-
-  const response = await fetch(`${SUPABASE_MANAGEMENT_API}/v1/projects/${projectRef}/secrets`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(filteredSecrets),
-  });
-  if (response.ok) {
-    return;
-  }
-
-  const payload = await response.json().catch(() => ({}));
-  throw new HttpError(500, getGhErrorMessage(payload, "Failed to create project secrets."));
-}
 
 const readArchiveAndCredentials = async ({
   supabase,
@@ -987,46 +908,6 @@ const updateArchiveModes = async ({
   if (childError) {
     throw new Error(childError.message);
   }
-};
-
-const verifyRequiredSupabaseScopes = async (
-  accessToken: string,
-  grantedScope: string,
-) => {
-  const grantedScopes = splitScopes(grantedScope);
-  if (
-    grantedScopes.length &&
-    !REQUIRED_FINALIZATION_SUPABASE_SCOPES.every((scope) =>
-      grantedScopes.includes(scope)
-    )
-  ) {
-    throw new SupabaseManagementReauthError(
-      "Reconnect your Supabase account with Secrets write and Auth write access before finalising the index.",
-    );
-  }
-
-  const { response, payload } = await managementRequest<{
-    secrets?: Array<{ name?: string }>;
-  }>({
-    accessToken,
-    path: `/v1/projects/secrets?project_ref=${encodeURIComponent("probe")}`,
-  });
-
-  if (response.status === 200 || response.status === 400) {
-    return;
-  }
-  if (response.status === 401 || response.status === 403) {
-    throw new SupabaseManagementReauthError(
-      "Reconnect your Supabase account with Edge Functions secrets access before finalising this index.",
-    );
-  }
-
-  throw new Error(
-    getGhErrorMessage(
-      payload,
-      "Could not verify Supabase Edge Functions secret access.",
-    ),
-  );
 };
 
 const encodePayloadState = (payloadState: IndexFinalizationPayloadState) => ({
@@ -1331,12 +1212,10 @@ const loadFinalizationContext = async ({
   supabase,
   archiveId,
   ownerUserId,
-  requireManagementAccess,
 }: {
   supabase: ReturnType<typeof createServiceSupabase>;
   archiveId: string;
   ownerUserId: string;
-  requireManagementAccess: boolean;
 }): Promise<FinalizationExecutionContext> => {
   const { archive, credentials } = await readArchiveAndCredentials({
     supabase,
@@ -1379,30 +1258,7 @@ const loadFinalizationContext = async ({
     );
   }
 
-  let managementAccessToken: string | null = null;
-  if (requireManagementAccess) {
-    let managementScope = "";
-    try {
-      const resolvedManagementAccess = await resolveSupabaseManagementAccessForUser({
-        supabase,
-        userId: ownerUserId,
-      });
-      managementAccessToken = resolvedManagementAccess.accessToken;
-      managementScope = resolvedManagementAccess.scope;
-    } catch (error) {
-      if (error instanceof SupabaseManagementReauthError) {
-        throw new HttpError(
-          412,
-          "Reconnect your Supabase account before finalising the index.",
-        );
-      }
-      throw error;
-    }
-
-    await verifyRequiredSupabaseScopes(managementAccessToken, managementScope);
-  }
-
-  const syncedArchive = await reconcileParentSourceRepoLineage({
+  await reconcileParentSourceRepoLineage({
     supabase,
     archiveId,
     archive,
@@ -1413,7 +1269,6 @@ const loadFinalizationContext = async ({
 
   return {
     archive,
-    syncedArchive,
     credentials,
     parentSource,
     sourceRepo: splitRepoFullName(parentSource.repoFullName),
@@ -1422,7 +1277,6 @@ const loadFinalizationContext = async ({
       repo: credentials.repo_name,
     },
     githubToken,
-    managementAccessToken,
   };
 };
 
@@ -1443,7 +1297,6 @@ const runPrepareManifestPhase = async ({
     supabase,
     archiveId,
     ownerUserId,
-    requireManagementAccess: false,
   });
 
   const sourceRepoPayload = await getRepo({
@@ -1555,7 +1408,6 @@ const runMaterializeBlobsPhase = async ({
     supabase,
     archiveId,
     ownerUserId,
-    requireManagementAccess: false,
   });
 
   const currentCursor = Math.min(payloadState.cursor, payloadState.sourceManifest.length);
@@ -1672,7 +1524,6 @@ const runCommitFinalizePhase = async ({
     supabase,
     archiveId,
     ownerUserId,
-    requireManagementAccess: true,
   });
 
   const targetRepoPayload = await getRepo({
@@ -1703,52 +1554,6 @@ const runCommitFinalizePhase = async ({
     branch: targetBranch,
     treeEntries: payloadState.finalTreeEntries,
     message: `Finalize index from ${context.parentSource.repoFullName}`,
-  });
-
-  await updateJob({
-    supabase,
-    jobId,
-    archiveId,
-    values: {
-      status: "running",
-      step: "Configuring child project secrets...",
-    },
-  });
-
-  await setProjectSecrets({
-    accessToken: context.managementAccessToken ?? "",
-    projectRef: context.credentials.supabase_project_ref,
-    secrets: {
-      CREATE_SITE_SUPABASE_API_KEY: decryptTokenValue(
-        context.credentials.supabase_secret_key_encrypted,
-      ),
-      DELETE_REPO_SUPABASE_SECRET_KEY: decryptTokenValue(
-        context.credentials.supabase_secret_key_encrypted,
-      ),
-      TOKEN_ENCRYPTION_KEY,
-      SOLIDARY_APP_URL: toTrimmedString(context.syncedArchive.canonical_url),
-      SOLIDARY_ROOT_INDEX_ID: archiveId,
-      SOLIDARY_ROOT_INDEX_URL: toTrimmedString(context.syncedArchive.canonical_url),
-      SOLIDARY_ROOT_INDEX_LEVEL: String(context.archive.index_level ?? 1),
-      SOLIDARY_ROOT_REPO_FULL_NAME: context.credentials.repo_full_name,
-      SOLIDARY_ROOT_REPO_URL: toTrimmedString(context.credentials.repo_url),
-    },
-  });
-
-  await updateJob({
-    supabase,
-    jobId,
-    archiveId,
-    values: {
-      status: "running",
-      step: "Configuring child auth URLs...",
-    },
-  });
-
-  await updateSupabaseProjectAuthConfig({
-    accessToken: context.managementAccessToken ?? "",
-    projectRef: context.credentials.supabase_project_ref,
-    siteUrl: toTrimmedString(context.syncedArchive.canonical_url),
   });
 
   await updateJob({
