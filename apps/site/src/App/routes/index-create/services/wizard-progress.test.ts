@@ -48,6 +48,7 @@ const buildSetup = (overrides: Partial<IndexAdminSetup> = {}): IndexAdminSetup =
     message: null,
     workflowUrl: null,
     runUrl: null,
+    latestRun: null,
     requiredSecrets: [],
     canDispatch: false
   },
@@ -126,6 +127,12 @@ describe("buildIndexCreateWizardSteps", () => {
               name: "SUPABASE_PROJECT_REF_PROD",
               isConfigured: true,
               value: "project-ref",
+              description: ""
+            },
+            {
+              name: "ADMIN_PASSWORD",
+              isConfigured: true,
+              value: null,
               description: ""
             }
           ]

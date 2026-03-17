@@ -260,6 +260,19 @@ const renderStepContent = ({
             </label>
 
             <label>
+              Admin password
+              <input
+                type="password"
+                value={controller.adminPassword}
+                onChange={(event) => controller.onAdminPasswordChange(event.target.value)}
+                autoComplete="new-password"
+              />
+              <span className="index-create-field-hint">
+                This unlocks the child index&apos;s self-hosted <code>/admin</code> after setup.
+              </span>
+            </label>
+
+            <label>
               Index image
               <input
                 type="file"
@@ -564,7 +577,7 @@ const renderStepContent = ({
           </p>
           <ol className="index-create-step-instructions">
             <li>Wait here while Solidary checks the child workflow.</li>
-            <li>If deployment fails, use Retry deployment once and then Check deployment.</li>
+            <li>This page updates automatically while GitHub Actions runs.</li>
           </ol>
           <div className="index-create-status-grid">
             <div>
@@ -583,6 +596,41 @@ const renderStepContent = ({
           </div>
           {functionsDeployment?.message ? (
             <p className="index-create-step-note">{functionsDeployment.message}</p>
+          ) : null}
+          {functionsDeployment?.latestRun ? (
+            <div className="index-create-status-grid">
+              <div>
+                <strong>Run status</strong>
+                <span>
+                  {functionsDeployment.latestRun.status || "unknown"}
+                  {functionsDeployment.latestRun.conclusion
+                    ? ` / ${functionsDeployment.latestRun.conclusion}`
+                    : ""}
+                </span>
+              </div>
+              <div>
+                <strong>Last update</strong>
+                <span>{functionsDeployment.latestRun.updatedAt || "Unknown"}</span>
+              </div>
+              {functionsDeployment.latestRun.jobs.map((job) => (
+                <div key={job.name}>
+                  <strong>{job.name}</strong>
+                  <span>
+                    {job.status || "unknown"}
+                    {job.conclusion ? ` / ${job.conclusion}` : ""}
+                    {job.steps.length
+                      ? ` - ${job.steps
+                          .map((step) =>
+                            `${step.name}: ${step.status || "unknown"}${
+                              step.conclusion ? ` (${step.conclusion})` : ""
+                            }`
+                          )
+                          .join(" | ")}`
+                      : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
           ) : null}
           <div className="form-actions">
             {functionsDeployment?.workflowUrl ? (
@@ -620,14 +668,16 @@ const renderStepContent = ({
                     : "Deploy child functions"}
               </button>
             ) : null}
-            <button
-              type="button"
-              className="ghost"
-              onClick={controller.onRefreshSetup}
-              disabled={controller.setupLoading || controller.deployingFunctions}
-            >
-              {controller.setupLoading ? "Checking..." : "Check deployment"}
-            </button>
+            {functionsDeployment?.status !== "running" ? (
+              <button
+                type="button"
+                className="ghost"
+                onClick={controller.onRefreshSetup}
+                disabled={controller.setupLoading || controller.deployingFunctions}
+              >
+                {controller.setupLoading ? "Checking..." : "Check deployment"}
+              </button>
+            ) : null}
           </div>
         </>
       );

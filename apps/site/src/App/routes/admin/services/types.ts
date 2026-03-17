@@ -89,7 +89,7 @@ export type IndexAdminSetup = {
 };
 
 export type IndexAdminRepoSecretRequirement = {
-  name: "SUPABASE_ACCESS_TOKEN" | "SUPABASE_PROJECT_REF_PROD";
+  name: "SUPABASE_ACCESS_TOKEN" | "SUPABASE_PROJECT_REF_PROD" | "ADMIN_PASSWORD";
   isConfigured: boolean;
   value: string | null;
   description: string;
@@ -122,8 +122,30 @@ export type IndexAdminFunctionsDeploymentSetup = {
   message: string | null;
   workflowUrl: string | null;
   runUrl: string | null;
+  latestRun: IndexAdminFunctionsDeploymentRun | null;
   requiredSecrets: IndexAdminRepoSecretRequirement[];
   canDispatch: boolean;
+};
+
+export type IndexAdminFunctionsDeploymentRunStep = {
+  name: string;
+  status: string | null;
+  conclusion: string | null;
+};
+
+export type IndexAdminFunctionsDeploymentRunJob = {
+  name: string;
+  status: string | null;
+  conclusion: string | null;
+  steps: IndexAdminFunctionsDeploymentRunStep[];
+};
+
+export type IndexAdminFunctionsDeploymentRun = {
+  status: string | null;
+  conclusion: string | null;
+  startedAt: string | null;
+  updatedAt: string | null;
+  jobs: IndexAdminFunctionsDeploymentRunJob[];
 };
 
 export type IndexFinalizationPhase = "prepare_manifest" | "materialize_blobs" | "commit_finalize";
@@ -219,5 +241,6 @@ export type IndexAdminConfigureStandaloneAuthPayload = {
 export type IndexAdminDeployFunctionsPayload = {
   archiveId: string;
   supabasePersonalAccessToken: string;
+  adminPassword?: string;
   dispatchWorkflow?: boolean;
 };

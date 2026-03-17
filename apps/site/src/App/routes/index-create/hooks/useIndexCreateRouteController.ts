@@ -186,11 +186,13 @@ export const useIndexCreateRouteController = () => {
 
   const [githubClientId, setGithubClientId] = useState("");
   const [githubClientSecret, setGithubClientSecret] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
   const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
 
   const repoCheckRequestIdRef = useRef(0);
   const autoDeployArchiveIdRef = useRef<string | null>(null);
+  const previousFunctionsStatusRef = useRef<string | null>(null);
 
   const organizations = useMemo<IndexCreateOrganizationOption[]>(
     () => supabaseStatus?.organizations ?? [],
@@ -210,6 +212,7 @@ export const useIndexCreateRouteController = () => {
   const detailsCanContinue =
     Boolean(title.trim()) &&
     Boolean(description.trim()) &&
+    Boolean(adminPassword.trim()) &&
     Boolean(computedSlug) &&
     !repoCheckInFlight &&
     !repoConflict;
@@ -322,11 +325,34 @@ export const useIndexCreateRouteController = () => {
     if (!archiveId) {
       setSetup(null);
       setBridgeToken("");
+      previousFunctionsStatusRef.current = null;
       return;
     }
 
     void refreshSetup(archiveId);
   }, [archiveId, refreshSetup]);
+
+  useEffect(() => {
+    const nextStatus = setup?.functionsDeployment.status ?? null;
+    const previousStatus = previousFunctionsStatusRef.current;
+
+    if (!archiveId) {
+      previousFunctionsStatusRef.current = null;
+      return;
+    }
+
+    if (nextStatus && previousStatus && nextStatus !== previousStatus) {
+      if (previousStatus === "running" && nextStatus === "deployed") {
+        setNotice("Child functions deployed. The standalone index is ready.");
+        setNoticeKind("notice");
+      } else if (previousStatus === "running" && nextStatus === "failed") {
+        setNotice("Child function deployment failed. Review the latest workflow output below.");
+        setNoticeKind("error");
+      }
+    }
+
+    previousFunctionsStatusRef.current = nextStatus;
+  }, [archiveId, setup?.functionsDeployment.status]);
 
   useEffect(() => {
     if (archiveId || selectedOrganizationId || organizations.length !== 1) {
@@ -632,7 +658,7 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
 
     if (!title.trim() || !description.trim()) {
-      setNotice("Add a title and description before continuing.");
+      setNotice("Add a title, description, and admin password before continuing.");
       setNoticeKind("error");
       return;
     }
@@ -691,6 +717,7 @@ export const useIndexCreateRouteController = () => {
       const response = await deployIndexAdminChildFunctions({
         archiveId,
         supabasePersonalAccessToken,
+        adminPassword,
         dispatchWorkflow: false
       }, {
         bridgeToken: bridgeToken || undefined
@@ -853,7 +880,8 @@ export const useIndexCreateRouteController = () => {
     try {
       const response = await deployIndexAdminChildFunctions({
         archiveId,
-        supabasePersonalAccessToken
+        supabasePersonalAccessToken,
+        adminPassword
       }, {
         bridgeToken: bridgeToken || undefined
       });
@@ -892,7 +920,8 @@ export const useIndexCreateRouteController = () => {
       try {
         const response = await deployIndexAdminChildFunctions({
           archiveId,
-          supabasePersonalAccessToken: ""
+          supabasePersonalAccessToken: "",
+          adminPassword
         }, {
           bridgeToken: bridgeToken || undefined
         });
@@ -985,6 +1014,7 @@ export const useIndexCreateRouteController = () => {
     githubClientId,
     githubClientSecret,
     supabasePersonalAccessToken,
+    adminPassword,
     onRefreshStatuses: () => {
       void refreshStatuses();
     },
@@ -1013,6 +1043,10 @@ export const useIndexCreateRouteController = () => {
     onDescriptionChange: (value: string) => {
       setDetailsConfirmed(false);
       setDescription(clampSiteDescription(value));
+    },
+    onAdminPasswordChange: (value: string) => {
+      setDetailsConfirmed(false);
+      setAdminPassword(value);
     },
     onImageChange: (value: File | null) => {
       setDetailsConfirmed(false);

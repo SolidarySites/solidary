@@ -1,7 +1,6 @@
 import {
   clearChildren,
   loadConfig,
-  readStoredBridgeToken,
   renderLink,
   selectFromTable,
   setHref,
@@ -192,14 +191,9 @@ const boot = async () => {
       "Open project"
     );
 
-    const rememberedBridgeToken = readStoredBridgeToken(config.archiveId);
     const adminLink = document.getElementById("admin-link");
     if (adminLink) {
-      if (rememberedBridgeToken) {
-        adminLink.href = `./admin/?bridge=${encodeURIComponent(rememberedBridgeToken)}`;
-      } else {
-        adminLink.href = "./admin/";
-      }
+      adminLink.href = "./admin/";
     }
 
     const heroActions = document.getElementById("hero-actions");
@@ -211,9 +205,7 @@ const boot = async () => {
         primary: true
       });
       renderLink(heroActions, {
-        href: rememberedBridgeToken
-          ? `./admin/?bridge=${encodeURIComponent(rememberedBridgeToken)}`
-          : "./admin/",
+        href: "./admin/",
         label: "Open /admin"
       });
       renderLink(heroActions, {

@@ -1,11 +1,15 @@
 import {
+  callLocalFunction,
   callParentFunction,
   clearChildren,
+  clearStoredLocalAdminToken,
   extractBridgeTokenFromUrl,
   loadConfig,
   normalizeDomainInput,
   readStoredBridgeToken,
+  readStoredLocalAdminToken,
   rememberBridgeToken,
+  rememberLocalAdminToken,
   renderLink,
 } from "../shared.js";
 
@@ -40,6 +44,7 @@ const arrayBufferToBase64 = async (file) => {
 const state = {
   config: null,
   bridgeToken: "",
+  adminMode: "bridge",
   adminState: null,
   setup: null,
   activeSection: "general",
@@ -50,6 +55,7 @@ const state = {
   noticeKind: "notice",
   finalizationStarting: false,
   finalizationPollHandle: 0,
+  localAdminAvailable: false,
 };
 
 const byId = (id) => document.getElementById(id);
@@ -82,15 +88,83 @@ const clearFinalizationPoll = () => {
   }
 };
 
+const callAdminFunction = async ({ functionName, body, bridgeToken = state.bridgeToken }) =>
+  state.adminMode === "local"
+    ? callLocalFunction({
+      config: state.config,
+      functionName,
+      bridgeToken,
+      body,
+    })
+    : callParentFunction({
+      config: state.config,
+      functionName,
+      bridgeToken,
+      body,
+    });
+
 const readAdminState = async () =>
-  callParentFunction({
-    config: state.config,
+  callAdminFunction({
     functionName: "index-admin-read",
-    bridgeToken: state.bridgeToken,
     body: {
       archive_id: state.config.archiveId,
     },
   });
+
+const probeLocalAdminAvailability = async () => {
+  try {
+    await callLocalFunction({
+      config: state.config,
+      functionName: "index-admin-password-login",
+      body: {
+        archive_id: state.config.archiveId,
+        password: "",
+      },
+    });
+    return {
+      available: true,
+      message: "Enter the local admin password to continue.",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      /Enter the admin password/i.test(message) ||
+      /Incorrect admin password/i.test(message) ||
+      /Local admin password is not configured/i.test(message)
+    ) {
+      return {
+        available: true,
+        message: message || "Enter the local admin password to continue.",
+      };
+    }
+    return {
+      available: false,
+      message: "",
+    };
+  }
+};
+
+const unlockLocalAdmin = async (password) => {
+  const payload = await callLocalFunction({
+    config: state.config,
+    functionName: "index-admin-password-login",
+    body: {
+      archive_id: state.config.archiveId,
+      password,
+    },
+  });
+  const token = typeof payload?.token === "string" ? payload.token : "";
+  if (!token) {
+    throw new Error("Local admin login did not return a token.");
+  }
+  rememberLocalAdminToken({
+    archiveId: state.config.archiveId,
+    token,
+  });
+  state.bridgeToken = token;
+  state.adminMode = "local";
+  return token;
+};
 
 const renderHeroLinks = () => {
   const links = byId("admin-links");
@@ -125,6 +199,53 @@ const getNonOwnerCollaborators = () =>
     entry.role !== "owner"
   );
 
+const buildWorkflowRunSummaryMarkup = (latestRun) => {
+  if (!latestRun) {
+    return "";
+  }
+
+  return `
+    <div class="details-card">
+      <h3>Latest workflow run</h3>
+      <dl class="details-list">
+        <div>
+          <dt>Run status</dt>
+          <dd>${latestRun.status || "unknown"}${
+    latestRun.conclusion ? ` / ${latestRun.conclusion}` : ""
+  }</dd>
+        </div>
+        <div>
+          <dt>Last update</dt>
+          <dd>${latestRun.updatedAt || "-"}</dd>
+        </div>
+        ${(latestRun.jobs || [])
+    .map(
+      (job) => `<div>
+              <dt>${job.name}</dt>
+              <dd>${job.status || "unknown"}${
+        job.conclusion ? ` / ${job.conclusion}` : ""
+      }${
+        job.steps?.length
+          ? ` - ${
+            job.steps
+              .map(
+                (step) =>
+                  `${step.name}: ${step.status || "unknown"}${
+                    step.conclusion ? ` (${step.conclusion})` : ""
+                  }`,
+              )
+              .join(" | ")
+          }`
+          : ""
+      }</dd>
+            </div>`,
+    )
+    .join("")}
+      </dl>
+    </div>
+  `;
+};
+
 const renderTabs = () => {
   const tabs = byId("admin-tabs");
   clearChildren(tabs);
@@ -150,7 +271,11 @@ const renderTabs = () => {
   });
 };
 
-const renderGuard = (message, allowAdminLink = true) => {
+const renderGuard = ({
+  message,
+  allowAdminLink = true,
+  showLocalPasswordForm = false,
+}) => {
   const guard = byId("admin-guard");
   const shell = byId("admin-shell");
   const finalizationCard = byId("admin-finalization");
@@ -180,6 +305,42 @@ const renderGuard = (message, allowAdminLink = true) => {
     });
     guard.append(actionRow);
   }
+
+  if (showLocalPasswordForm) {
+    const form = document.createElement("form");
+    form.className = "admin-section";
+    form.innerHTML = `
+      <label>
+        Admin password
+        <input id="local-admin-password" type="password" autocomplete="current-password" />
+      </label>
+      <div class="hero-actions">
+        <button type="submit" class="primary-link button-link">Unlock /admin</button>
+      </div>
+    `;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = byId("local-admin-password")?.value?.trim() || "";
+      if (!password) {
+        setNotice("Enter the admin password to continue.", "error");
+        return;
+      }
+
+      try {
+        await unlockLocalAdmin(password);
+        const payload = await readAdminState();
+        applyPayload(payload);
+        setNotice("Local admin unlocked.");
+        renderAll();
+      } catch (error) {
+        setNotice(
+          error instanceof Error ? error.message : "Could not unlock local admin.",
+          "error",
+        );
+      }
+    });
+    guard.append(form);
+  }
 };
 
 const renderFinalizationCard = () => {
@@ -198,6 +359,9 @@ const renderFinalizationCard = () => {
     finalization.sourceRepoUrl || "-";
   const functionsReady = finalization.functionsDeployStatus === "deployed";
   const showFunctionsSetup = finalization.isFinalized && !functionsReady;
+  const latestWorkflowRunMarkup = buildWorkflowRunSummaryMarkup(
+    state.setup?.functionsDeployment?.latestRun,
+  );
   const heading = !finalization.isFinalized
     ? "Finalise Index"
     : functionsReady
@@ -287,6 +451,7 @@ const renderFinalizationCard = () => {
           </div>`
       : ""
   }
+    ${latestWorkflowRunMarkup}
     ${
     finalization.isFinalized && Array.isArray(state.setup?.nextSteps) &&
       state.setup.nextSteps.length
@@ -326,10 +491,8 @@ const renderFinalizationCard = () => {
       try {
         state.finalizationStarting = true;
         renderFinalizationCard();
-        const payload = await callParentFunction({
-          config: state.config,
+        const payload = await callAdminFunction({
           functionName: "index-admin-write",
-          bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
             action: "finalize_index",
@@ -383,7 +546,10 @@ const renderFinalizationCard = () => {
 
 const scheduleFinalizationPoll = () => {
   clearFinalizationPoll();
-  if (!state.setup?.finalization?.isRunning) {
+  if (
+    !state.setup?.finalization?.isRunning &&
+    state.setup?.functionsDeployment?.status !== "running"
+  ) {
     return;
   }
 
@@ -452,10 +618,8 @@ const renderGeneral = (panel) => {
         if (!title || !description) {
           throw new Error("Title and description are required.");
         }
-        const payload = await callParentFunction({
-          config: state.config,
+        const payload = await callAdminFunction({
           functionName: "index-admin-write",
-          bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
             action: "update_general",
@@ -539,10 +703,8 @@ const renderConnections = (panel) => {
     if (actionButton) {
       actionButton.addEventListener("click", async () => {
         try {
-          const payload = await callParentFunction({
-            config: state.config,
+          const payload = await callAdminFunction({
             functionName: "index-admin-write",
-            bridgeToken: state.bridgeToken,
             body: {
               archive_id: state.config.archiveId,
               action: "set_connection_status",
@@ -657,10 +819,8 @@ const renderCollaborators = (panel) => {
       }
       timeoutId = window.setTimeout(async () => {
         try {
-          const payload = await callParentFunction({
-            config: state.config,
+          const payload = await callAdminFunction({
             functionName: "index-admin-search-collaborators",
-            bridgeToken: state.bridgeToken,
             body: {
               archive_id: state.config.archiveId,
               query,
@@ -696,10 +856,8 @@ const renderCollaborators = (panel) => {
         if (!state.selectedCollaborator) {
           throw new Error("Select a Solidary user first.");
         }
-        const payload = await callParentFunction({
-          config: state.config,
+        const payload = await callAdminFunction({
           functionName: "index-admin-write",
-          bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
             action: "upsert_collaborator",
@@ -762,10 +920,8 @@ const renderCollaborators = (panel) => {
     if (roleControl) {
       roleControl.addEventListener("change", async () => {
         try {
-          const payload = await callParentFunction({
-            config: state.config,
+          const payload = await callAdminFunction({
             functionName: "index-admin-write",
-            bridgeToken: state.bridgeToken,
             body: {
               archive_id: state.config.archiveId,
               action: "upsert_collaborator",
@@ -794,10 +950,8 @@ const renderCollaborators = (panel) => {
     if (removeButton) {
       removeButton.addEventListener("click", async () => {
         try {
-          const payload = await callParentFunction({
-            config: state.config,
+          const payload = await callAdminFunction({
             functionName: "index-admin-write",
-            bridgeToken: state.bridgeToken,
             body: {
               archive_id: state.config.archiveId,
               action: "remove_collaborator",
@@ -876,10 +1030,8 @@ const renderAdvanced = (panel) => {
             "Enter a domain first, or use reset to go back to GitHub Pages.",
           );
         }
-        const payload = await callParentFunction({
-          config: state.config,
+        const payload = await callAdminFunction({
           functionName: "index-admin-write",
-          bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
             action: "update_advanced",
@@ -905,10 +1057,8 @@ const renderAdvanced = (panel) => {
   if (resetButton) {
     resetButton.addEventListener("click", async () => {
       try {
-        const payload = await callParentFunction({
-          config: state.config,
+        const payload = await callAdminFunction({
           functionName: "index-admin-write",
-          bridgeToken: state.bridgeToken,
           body: {
             archive_id: state.config.archiveId,
             action: "update_advanced",
@@ -955,11 +1105,9 @@ const renderAll = () => {
   if (!state.adminState) return;
   byId("admin-title").textContent = state.adminState.archive.title ||
     "Standalone index admin";
-  byId("admin-lead").textContent = state.setup?.finalization?.isFinalized
-    ? state.setup?.finalization?.functionsDeployStatus === "deployed"
-      ? "This index now runs its own app stack. Keep using this bridge-backed /admin until local auth is fully configured."
-      : "This index repo has been finalized. Keep using this bridge-backed /admin until the child function deploy workflow succeeds."
-    : "This admin uses a Solidary bridge token until the standalone index has its own local auth.";
+  byId("admin-lead").textContent = state.adminMode === "local"
+    ? "This admin is running against the child index's own Supabase project."
+    : "This admin is temporarily using a Solidary bridge token until the child project can unlock /admin locally.";
   renderHeroLinks();
   renderFinalizationCard();
   renderTabs();
@@ -973,19 +1121,51 @@ const renderAll = () => {
 const boot = async () => {
   try {
     state.config = await loadConfig("../config/index.json");
-    state.bridgeToken = extractBridgeTokenFromUrl() ||
-      readStoredBridgeToken(state.config.archiveId) || "";
-    if (state.bridgeToken) {
+    const bridgeTokenFromUrl = extractBridgeTokenFromUrl();
+    const storedBridgeToken = readStoredBridgeToken(state.config.archiveId);
+    const storedLocalAdminToken = readStoredLocalAdminToken(state.config.archiveId);
+
+    if (bridgeTokenFromUrl) {
       rememberBridgeToken({
         archiveId: state.config.archiveId,
-        token: state.bridgeToken,
+        token: bridgeTokenFromUrl,
       });
     }
 
-    if (!state.bridgeToken) {
-      renderGuard(
-        "This standalone /admin needs a bridge token. Open it from Solidary /admin until the standalone index has its own local auth.",
+    if (storedLocalAdminToken) {
+      try {
+        state.adminMode = "local";
+        state.bridgeToken = storedLocalAdminToken;
+        const payload = await readAdminState();
+        applyPayload(payload);
+        renderAll();
+        return;
+      } catch {
+        clearStoredLocalAdminToken(state.config.archiveId);
+      }
+    }
+
+    const localAdminAvailability = await probeLocalAdminAvailability();
+    state.localAdminAvailable = localAdminAvailability.available;
+    if (state.localAdminAvailable) {
+      const localAdminConfigured = !/not configured/i.test(
+        localAdminAvailability.message || "",
       );
+      renderGuard({
+        message: localAdminAvailability.message,
+        allowAdminLink: !localAdminConfigured,
+        showLocalPasswordForm: localAdminConfigured,
+      });
+      return;
+    }
+
+    state.adminMode = "bridge";
+    state.bridgeToken = bridgeTokenFromUrl || storedBridgeToken || "";
+    if (!state.bridgeToken) {
+      renderGuard({
+        message:
+          "This standalone /admin is not ready for local password login yet. Finish the child function deployment or open Solidary /admin.",
+      });
       return;
     }
 
@@ -993,15 +1173,17 @@ const boot = async () => {
     applyPayload(payload);
     renderAll();
   } catch (error) {
-    renderGuard(
-      error instanceof Error
+    renderGuard({
+      message: error instanceof Error
         ? error.message
-        : "Could not load the standalone admin bridge.",
-    );
+        : "Could not load standalone admin.",
+      allowAdminLink: state.adminMode !== "local",
+      showLocalPasswordForm: state.localAdminAvailable,
+    });
     setNotice(
       error instanceof Error
         ? error.message
-        : "Could not load the standalone admin bridge.",
+        : "Could not load standalone admin.",
       "error",
     );
   }

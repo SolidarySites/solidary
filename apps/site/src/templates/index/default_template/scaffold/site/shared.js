@@ -88,13 +88,13 @@ export const selectFromTable = async ({
   });
 };
 
-export const callParentFunction = async ({
-  config,
+export const callSupabaseFunction = async ({
+  supabaseUrl,
   functionName,
   body,
   bridgeToken
 }) => {
-  const url = `${config.solidarySupabaseUrl}/functions/v1/${functionName}`;
+  const url = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/${functionName}`;
   const headers = {
     "content-type": "application/json"
   };
@@ -108,6 +108,32 @@ export const callParentFunction = async ({
   });
 };
 
+export const callParentFunction = async ({
+  config,
+  functionName,
+  body,
+  bridgeToken
+}) =>
+  callSupabaseFunction({
+    supabaseUrl: config.solidarySupabaseUrl,
+    functionName,
+    body,
+    bridgeToken
+  });
+
+export const callLocalFunction = async ({
+  config,
+  functionName,
+  body,
+  bridgeToken
+}) =>
+  callSupabaseFunction({
+    supabaseUrl: config.projectUrl,
+    functionName,
+    body,
+    bridgeToken
+  });
+
 export const normalizeDomainInput = (value) =>
   (value || "")
     .trim()
@@ -117,6 +143,7 @@ export const normalizeDomainInput = (value) =>
     .toLowerCase();
 
 export const getBridgeStorageKey = (archiveId) => `solidary-index-admin-bridge:${archiveId}`;
+export const getLocalAdminStorageKey = (archiveId) => `solidary-index-admin-local:${archiveId}`;
 
 export const rememberBridgeToken = ({ archiveId, token }) => {
   if (!archiveId || !token) return;
@@ -126,6 +153,21 @@ export const rememberBridgeToken = ({ archiveId, token }) => {
 export const readStoredBridgeToken = (archiveId) => {
   if (!archiveId) return "";
   return window.sessionStorage.getItem(getBridgeStorageKey(archiveId)) || "";
+};
+
+export const rememberLocalAdminToken = ({ archiveId, token }) => {
+  if (!archiveId || !token) return;
+  window.sessionStorage.setItem(getLocalAdminStorageKey(archiveId), token);
+};
+
+export const readStoredLocalAdminToken = (archiveId) => {
+  if (!archiveId) return "";
+  return window.sessionStorage.getItem(getLocalAdminStorageKey(archiveId)) || "";
+};
+
+export const clearStoredLocalAdminToken = (archiveId) => {
+  if (!archiveId) return;
+  window.sessionStorage.removeItem(getLocalAdminStorageKey(archiveId));
 };
 
 export const extractBridgeTokenFromUrl = () => {

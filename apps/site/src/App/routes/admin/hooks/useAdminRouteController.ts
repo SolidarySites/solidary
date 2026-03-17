@@ -130,9 +130,11 @@ export const useAdminRouteController = () => {
   const [deployingFunctions, setDeployingFunctions] = useState(false);
   const [githubClientId, setGithubClientId] = useState("");
   const [githubClientSecret, setGithubClientSecret] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
 
   const queryRequestIdRef = useRef(0);
+  const previousFunctionsStatusRef = useRef<string | null>(null);
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
   const requestedArchiveId = searchParams.get("archiveId")?.trim() ?? "";
   const bridgeToken = searchParams.get("bridge")?.trim() ?? "";
@@ -247,6 +249,7 @@ export const useAdminRouteController = () => {
     if (!selectedArchiveId && !isBridgeMode) {
       setState(null);
       setSetup(null);
+      previousFunctionsStatusRef.current = null;
       return;
     }
 
@@ -282,6 +285,28 @@ export const useAdminRouteController = () => {
       cancelled = true;
     };
   }, [buildReadOptions, createdMode, isBridgeMode, selectedArchiveId]);
+
+  useEffect(() => {
+    const nextStatus = setup?.functionsDeployment.status ?? null;
+    const previousStatus = previousFunctionsStatusRef.current;
+
+    if (!selectedArchiveId) {
+      previousFunctionsStatusRef.current = null;
+      return;
+    }
+
+    if (nextStatus && previousStatus && nextStatus !== previousStatus) {
+      if (previousStatus === "running" && nextStatus === "deployed") {
+        setNotice("Child functions deployed. The standalone index is ready.");
+        setNoticeKind("notice");
+      } else if (previousStatus === "running" && nextStatus === "failed") {
+        setNotice("Child function deployment failed. Review the latest workflow output below.");
+        setNoticeKind("error");
+      }
+    }
+
+    previousFunctionsStatusRef.current = nextStatus;
+  }, [selectedArchiveId, setup?.functionsDeployment.status]);
 
   useEffect(() => {
     if (
@@ -619,7 +644,8 @@ export const useAdminRouteController = () => {
     try {
       const response = await deployIndexAdminChildFunctions({
         archiveId: selectedArchiveId,
-        supabasePersonalAccessToken
+        supabasePersonalAccessToken,
+        adminPassword
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
@@ -685,6 +711,7 @@ export const useAdminRouteController = () => {
     deployingFunctions,
     githubClientId,
     githubClientSecret,
+    adminPassword,
     supabasePersonalAccessToken,
     bridgeMode: isBridgeMode,
     settingsTopbarProps: {
@@ -745,6 +772,7 @@ export const useAdminRouteController = () => {
     },
     onGithubClientIdChange: setGithubClientId,
     onGithubClientSecretChange: setGithubClientSecret,
+    onAdminPasswordChange: setAdminPassword,
     onConfigureStandaloneAuth: () => {
       void handleConfigureStandaloneAuth();
     },

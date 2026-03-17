@@ -263,6 +263,9 @@ export const handler: Handler = async (event) => {
       await deployIndexChildFunctions({
         context,
         supabasePersonalAccessToken: suppliedSupabasePersonalAccessToken,
+        adminPassword: typeof body.admin_password === "string"
+          ? body.admin_password
+          : "",
         dispatchWorkflow: body.dispatch_workflow !== false,
       });
     }

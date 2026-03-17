@@ -18,6 +18,7 @@ import type {
   IndexAdminConnectionStatusPayload,
   IndexAdminConfigureStandaloneAuthPayload,
   IndexAdminDeployFunctionsPayload,
+  IndexAdminFunctionsDeploymentRun,
   IndexAdminFinalizePayload,
   IndexAdminGeneralPayload,
   IndexAdminFinalizationState,
@@ -108,10 +109,14 @@ type RawIndexAdminAuthSetup = Partial<IndexAdminAuthSetup>;
 type RawIndexAdminFunctionsDeploymentSetup =
   Partial<IndexAdminFunctionsDeploymentSetup>;
 
+type RawIndexAdminFunctionsDeploymentRun = Partial<IndexAdminFunctionsDeploymentRun>;
+
 type RawIndexAdminSetup = Partial<IndexAdminSetup> & {
   authSetup?: RawIndexAdminAuthSetup | null;
   finalization?: RawIndexAdminFinalizationState | null;
-  functionsDeployment?: RawIndexAdminFunctionsDeploymentSetup | null;
+  functionsDeployment?: (RawIndexAdminFunctionsDeploymentSetup & {
+    latestRun?: RawIndexAdminFunctionsDeploymentRun | null;
+  }) | null;
 };
 
 const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): IndexAdminState => {
@@ -322,7 +327,9 @@ const mapFinalization = (
         .map((entry) => entry as RawIndexAdminRepoSecretRequirement)
         .filter(
           (entry): entry is RawIndexAdminRepoSecretRequirement =>
-            entry.name === "SUPABASE_ACCESS_TOKEN" || entry.name === "SUPABASE_PROJECT_REF_PROD"
+            entry.name === "SUPABASE_ACCESS_TOKEN" ||
+            entry.name === "SUPABASE_PROJECT_REF_PROD" ||
+            entry.name === "ADMIN_PASSWORD"
         )
         .map(
           (entry) =>
@@ -378,12 +385,74 @@ const mapFunctionsDeployment = (
       : null,
   runUrl:
     typeof rawFunctionsDeployment?.runUrl === "string" ? rawFunctionsDeployment.runUrl : null,
+  latestRun:
+    rawFunctionsDeployment &&
+      typeof (rawFunctionsDeployment as { latestRun?: unknown }).latestRun === "object" &&
+      (rawFunctionsDeployment as { latestRun?: unknown }).latestRun !== null
+      ? {
+        status:
+          typeof ((rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+            .latestRun?.status) === "string"
+            ? (rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+              .latestRun?.status ?? null
+            : null,
+        conclusion:
+          typeof ((rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+            .latestRun?.conclusion) === "string"
+            ? (rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+              .latestRun?.conclusion ?? null
+            : null,
+        startedAt:
+          typeof ((rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+            .latestRun?.startedAt) === "string"
+            ? (rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+              .latestRun?.startedAt ?? null
+            : null,
+        updatedAt:
+          typeof ((rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+            .latestRun?.updatedAt) === "string"
+            ? (rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+              .latestRun?.updatedAt ?? null
+            : null,
+        jobs: Array.isArray(
+          (rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun }).latestRun
+            ?.jobs
+        )
+          ? ((rawFunctionsDeployment as { latestRun?: RawIndexAdminFunctionsDeploymentRun })
+              .latestRun?.jobs ?? [])
+              .filter(
+                (job): job is NonNullable<IndexAdminFunctionsDeploymentRun["jobs"]>[number] =>
+                  Boolean(job && typeof job.name === "string")
+              )
+              .map((job) => ({
+                name: job.name,
+                status: typeof job.status === "string" ? job.status : null,
+                conclusion: typeof job.conclusion === "string" ? job.conclusion : null,
+                steps: Array.isArray(job.steps)
+                  ? job.steps
+                      .filter(
+                        (step): step is NonNullable<
+                          NonNullable<IndexAdminFunctionsDeploymentRun["jobs"]>[number]["steps"]
+                        >[number] => Boolean(step && typeof step.name === "string")
+                      )
+                      .map((step) => ({
+                        name: step.name,
+                        status: typeof step.status === "string" ? step.status : null,
+                        conclusion: typeof step.conclusion === "string" ? step.conclusion : null
+                      }))
+                  : []
+              }))
+          : []
+      }
+      : null,
   requiredSecrets: Array.isArray(rawFunctionsDeployment?.requiredSecrets)
     ? rawFunctionsDeployment.requiredSecrets
         .map((entry) => entry as RawIndexAdminRepoSecretRequirement)
         .filter(
           (entry): entry is RawIndexAdminRepoSecretRequirement =>
-            entry.name === "SUPABASE_ACCESS_TOKEN" || entry.name === "SUPABASE_PROJECT_REF_PROD"
+            entry.name === "SUPABASE_ACCESS_TOKEN" ||
+            entry.name === "SUPABASE_PROJECT_REF_PROD" ||
+            entry.name === "ADMIN_PASSWORD"
         )
         .map(
           (entry) =>
@@ -585,12 +654,14 @@ export const configureIndexAdminStandaloneAuth = async ({
 export const deployIndexAdminChildFunctions = async ({
   archiveId,
   supabasePersonalAccessToken,
+  adminPassword,
   dispatchWorkflow = true
 }: IndexAdminDeployFunctionsPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     archive_id: archiveId,
     action: "deploy_child_functions",
     supabase_personal_access_token: supabasePersonalAccessToken,
+    admin_password: adminPassword?.trim() || undefined,
     dispatch_workflow: dispatchWorkflow
   }, options);
 

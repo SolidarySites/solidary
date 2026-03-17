@@ -16,6 +16,8 @@ if (!projectRef) {
   process.exit(1);
 }
 
+const adminPassword = process.env.ADMIN_PASSWORD?.trim() ?? "";
+
 const runOrExit = (command, args) => {
   const result = spawnSync(command, args, {
     cwd: rootDir,
@@ -31,6 +33,17 @@ const runOrExit = (command, args) => {
 runOrExit("node", ["./scripts/generate-github-create-repo-template-bundle.mjs"]);
 runOrExit("node", ["./scripts/generate-index-create-template-bundle.mjs"]);
 runOrExit("node", ["./scripts/generate-index-bootstrap-sql.mjs"]);
+
+if (adminPassword) {
+  console.log(`Updating Supabase secret: ADMIN_PASSWORD for project ${projectRef}`);
+  runOrExit("supabase", [
+    "secrets",
+    "set",
+    `ADMIN_PASSWORD=${adminPassword}`,
+    "--project-ref",
+    projectRef,
+  ]);
+}
 
 const rawManifest = readFileSync(manifestPath, "utf8");
 const manifest = JSON.parse(rawManifest);

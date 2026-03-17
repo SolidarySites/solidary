@@ -33,9 +33,11 @@ type IndexAdminSetupPanelProps = {
   setupLoading: boolean;
   githubClientId: string;
   githubClientSecret: string;
+  adminPassword: string;
   supabasePersonalAccessToken: string;
   onGithubClientIdChange: (value: string) => void;
   onGithubClientSecretChange: (value: string) => void;
+  onAdminPasswordChange: (value: string) => void;
   onSupabasePersonalAccessTokenChange: (value: string) => void;
   onConfigureStandaloneAuth: () => void;
   onFinalizeIndex: () => void;
@@ -81,9 +83,11 @@ export default function IndexAdminSetupPanel({
   setupLoading,
   githubClientId,
   githubClientSecret,
+  adminPassword,
   supabasePersonalAccessToken,
   onGithubClientIdChange,
   onGithubClientSecretChange,
+  onAdminPasswordChange,
   onSupabasePersonalAccessTokenChange,
   onConfigureStandaloneAuth,
   onFinalizeIndex,
@@ -96,14 +100,22 @@ export default function IndexAdminSetupPanel({
   const functionsDeployment = setup?.functionsDeployment ?? null;
   const canFinalize = Boolean(finalization?.available) && !startingFinalization;
   const isFinalized = Boolean(finalization?.isFinalized);
+  const requiredSecretsConfigured =
+    functionsDeployment?.requiredSecrets.every((secret) => secret.isConfigured) ?? false;
+  const needsAdminPasswordSecret =
+    functionsDeployment?.requiredSecrets.some(
+      (secret) => secret.name === "ADMIN_PASSWORD" && !secret.isConfigured
+    ) ?? false;
   const canConfigureAuth =
-    !configuringStandaloneAuth && githubClientId.trim().length > 0 && githubClientSecret.trim().length > 0;
+    !configuringStandaloneAuth &&
+    githubClientId.trim().length > 0 &&
+    githubClientSecret.trim().length > 0 &&
+    supabasePersonalAccessToken.trim().length > 0;
   const canDeployFunctions =
     !deployingFunctions &&
-    (
-      supabasePersonalAccessToken.trim().length > 0 ||
-      functionsDeployment?.requiredSecrets.every((secret) => secret.isConfigured)
-    ) &&
+    (requiredSecretsConfigured ||
+      (supabasePersonalAccessToken.trim().length > 0 &&
+        (!needsAdminPasswordSecret || adminPassword.trim().length > 0))) &&
     functionsDeployment?.status !== "running";
 
   return (
@@ -209,7 +221,8 @@ export default function IndexAdminSetupPanel({
                 autoComplete="new-password"
               />
               <span className="admin-field-hint">
-                Optional fallback if Supabase blocks the automatic Auth update.
+                Required here because Solidary uses the same token to configure child auth and the
+                child repo&apos;s deploy workflow secrets.
               </span>
             </label>
 
@@ -337,7 +350,10 @@ export default function IndexAdminSetupPanel({
 
           <div className="admin-setup-card">
             <h3>Deploy child functions</h3>
-            <p>Paste a Supabase personal access token once to save the workflow secrets. After that, retries can run without re-entering it.</p>
+            <p>
+              Solidary writes the child repo secrets and then runs the same GitHub Actions deploy
+              workflow used by the parent index.
+            </p>
 
             <dl>
               <div>
@@ -355,6 +371,45 @@ export default function IndexAdminSetupPanel({
                 </div>
               ) : null}
             </dl>
+
+            {functionsDeployment?.latestRun ? (
+              <div className="admin-required-secrets">
+                <h4>Latest workflow run</h4>
+                <dl>
+                  <div>
+                    <dt>Run status</dt>
+                    <dd>
+                      {functionsDeployment.latestRun.status || "unknown"}
+                      {functionsDeployment.latestRun.conclusion
+                        ? ` / ${functionsDeployment.latestRun.conclusion}`
+                        : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Last update</dt>
+                    <dd>{functionsDeployment.latestRun.updatedAt || "Unknown"}</dd>
+                  </div>
+                  {functionsDeployment.latestRun.jobs.map((job) => (
+                    <div key={job.name}>
+                      <dt>{job.name}</dt>
+                      <dd>
+                        {job.status || "unknown"}
+                        {job.conclusion ? ` / ${job.conclusion}` : ""}
+                        {job.steps.length
+                          ? ` - ${job.steps
+                              .map((step) =>
+                                `${step.name}: ${step.status || "unknown"}${
+                                  step.conclusion ? ` (${step.conclusion})` : ""
+                                }`
+                              )
+                              .join(" | ")}`
+                          : ""}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
 
             <div className="admin-required-secrets">
               <h4>Required repo secrets</h4>
@@ -380,7 +435,27 @@ export default function IndexAdminSetupPanel({
                 onChange={(event) => onSupabasePersonalAccessTokenChange(event.target.value)}
                 autoComplete="new-password"
               />
+              <span className="admin-field-hint">
+                Use a long-lived Supabase Personal Access Token. GitHub Actions uses it again for
+                future child function deploys.
+              </span>
             </label>
+
+            {needsAdminPasswordSecret || adminPassword.trim() ? (
+              <label>
+                Admin password
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(event) => onAdminPasswordChange(event.target.value)}
+                  autoComplete="new-password"
+                />
+                <span className="admin-field-hint">
+                  This is written straight into the child project&apos;s <code>ADMIN_PASSWORD</code>{" "}
+                  secret so the standalone <code>/admin</code> can unlock locally after deployment.
+                </span>
+              </label>
+            ) : null}
 
             <div className="admin-finalization-actions">
               <a
