@@ -18,8 +18,8 @@ import {
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import {
   buildFinalizationStepLabel,
-  buildSourceManifestFromTreeEntries,
 } from "./helpers.ts";
+import { prepareSourceManifest } from "./prepare-manifest.ts";
 import type { Handler } from "../_shared/types.ts";
 
 const GITHUB_API = "https://api.github.com";
@@ -1332,13 +1332,20 @@ const runPrepareManifestPhase = async ({
     );
   }
 
-  const sourceManifest = buildSourceManifestFromTreeEntries({
+  const sourceManifest = await prepareSourceManifest({
     treeEntries: sourceTree,
     generatedEntries: createGeneratedManifestEntries({
       projectRef: context.credentials.supabase_project_ref,
       projectUrl: context.credentials.supabase_project_url,
       publishableKey,
     }),
+    loadBlobBase64: (blobSha) =>
+      getBlobBase64({
+        userToken: context.githubToken,
+        owner: context.sourceRepo.owner,
+        repo: context.sourceRepo.repo,
+        blobSha,
+      }),
   });
 
   const nextPayload: IndexFinalizationPayloadState = {

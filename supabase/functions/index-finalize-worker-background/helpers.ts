@@ -1,20 +1,10 @@
 import type { IndexFinalizationSourceManifestEntry } from "../_shared/index-finalization.ts";
 
-const SOURCE_TREE_EXCLUSIONS = [
-  ".env",
-  ".env.example",
-  ".env.local",
-  ".env.production",
-  "apps/site/dist/",
-  "site/.well-known/",
-  "site/config/index.json",
-  "site/assets/index-image.jpg",
-  "supabase/migrations/",
-  "supabase/.temp/",
-  ".DS_Store",
-] as const;
+export const SOURCE_PUBLISH_IGNORE_PATH =
+  "apps/site/src/templates/index/default_template/publish-ignore.txt";
+const UNSUPPORTED_WILDCARD_PATTERN = /[*?[\]{}!]/;
 
-type GitTreeBlobEntry = {
+export type SourceTreeEntry = {
   path?: string;
   mode?: string;
   type?: string;
@@ -24,12 +14,77 @@ type GitTreeBlobEntry = {
 const toTrimmedString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
-export const shouldExcludeSourcePath = (path: string) =>
-  SOURCE_TREE_EXCLUSIONS.some((entry) =>
-    entry.endsWith("/")
-      ? path === entry.slice(0, -1) || path.startsWith(entry)
-      : path === entry || path.endsWith(`/${entry}`)
+const normalizeRepoRelativePath = (value: string) => {
+  let normalized = value.trim().replace(/\\/g, "/");
+  while (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  normalized = normalized.replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+  return normalized;
+};
+
+const validateRepoRelativeRule = (value: string, lineNumber: number) => {
+  if (!value) {
+    throw new Error(
+      `Invalid empty ignore rule on line ${lineNumber} in ${SOURCE_PUBLISH_IGNORE_PATH}.`,
+    );
+  }
+  if (value.startsWith("/")) {
+    throw new Error(
+      `Ignore rule on line ${lineNumber} in ${SOURCE_PUBLISH_IGNORE_PATH} must be repo-relative.`,
+    );
+  }
+  if (value === "." || value === ".." || value.startsWith("../") || value.includes("/../")) {
+    throw new Error(
+      `Ignore rule on line ${lineNumber} in ${SOURCE_PUBLISH_IGNORE_PATH} must stay within the repo root.`,
+    );
+  }
+  if (UNSUPPORTED_WILDCARD_PATTERN.test(value)) {
+    throw new Error(
+      `Ignore rule on line ${lineNumber} in ${SOURCE_PUBLISH_IGNORE_PATH} uses unsupported wildcard syntax: ${value}`,
+    );
+  }
+};
+
+export const parseSourcePublishIgnoreFile = (value: string) =>
+  value
+    .split(/\r?\n/)
+    .map((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) {
+        return null;
+      }
+
+      const normalized = normalizeRepoRelativePath(trimmed);
+      validateRepoRelativeRule(normalized, index + 1);
+      return normalized;
+    })
+    .filter((entry): entry is string => Boolean(entry));
+
+export const shouldExcludeSourcePath = ({
+  path,
+  exclusionRules,
+}: {
+  path: string;
+  exclusionRules: string[];
+}) => {
+  const normalizedPath = normalizeRepoRelativePath(path);
+  return exclusionRules.some((rule) =>
+    normalizedPath === rule || normalizedPath.startsWith(`${rule}/`)
   );
+};
+
+export const findSourceTreeBlobEntryByPath = ({
+  treeEntries,
+  path,
+}: {
+  treeEntries: SourceTreeEntry[];
+  path: string;
+}) =>
+  treeEntries.find((entry) =>
+    toTrimmedString(entry.type) === "blob" &&
+    normalizeRepoRelativePath(toTrimmedString(entry.path)) === path
+  ) ?? null;
 
 const normalizeGitTreeFileMode = (value: unknown): "100644" | "100755" | null => {
   const normalized = toTrimmedString(value);
@@ -38,18 +93,25 @@ const normalizeGitTreeFileMode = (value: unknown): "100644" | "100755" | null =>
 
 export const buildSourceManifestFromTreeEntries = ({
   treeEntries,
+  exclusionRules,
   generatedEntries
 }: {
-  treeEntries: GitTreeBlobEntry[];
+  treeEntries: SourceTreeEntry[];
+  exclusionRules: string[];
   generatedEntries: IndexFinalizationSourceManifestEntry[];
 }): IndexFinalizationSourceManifestEntry[] => {
   const sourceEntries = treeEntries
     .filter((entry) => toTrimmedString(entry.type) === "blob")
     .map((entry) => {
-      const path = toTrimmedString(entry.path);
+      const path = normalizeRepoRelativePath(toTrimmedString(entry.path));
       const mode = normalizeGitTreeFileMode(entry.mode);
       const sourceSha = toTrimmedString(entry.sha);
-      if (!path || !mode || !sourceSha || shouldExcludeSourcePath(path)) {
+      if (
+        !path ||
+        !mode ||
+        !sourceSha ||
+        shouldExcludeSourcePath({ path, exclusionRules })
+      ) {
         return null;
       }
 
@@ -64,9 +126,18 @@ export const buildSourceManifestFromTreeEntries = ({
       Boolean(entry)
     );
 
-  return [...sourceEntries, ...generatedEntries].sort((left, right) =>
-    left.path.localeCompare(right.path)
-  );
+  const manifestByPath = new Map<string, IndexFinalizationSourceManifestEntry>();
+  sourceEntries.forEach((entry) => {
+    manifestByPath.set(entry.path, entry);
+  });
+  generatedEntries.forEach((entry) => {
+    manifestByPath.set(normalizeRepoRelativePath(entry.path), {
+      ...entry,
+      path: normalizeRepoRelativePath(entry.path),
+    });
+  });
+
+  return [...manifestByPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 };
 
 export const buildFinalizationStepLabel = ({

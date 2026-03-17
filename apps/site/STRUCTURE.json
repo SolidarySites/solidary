@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-13T10:39:23.842Z",
-  "latest_commit_sha": "79893c6a3ee45c6c595d0f00315adba78aadb166",
+  "generated_at": "2026-03-17T12:11:21.464Z",
+  "latest_commit_sha": "0b7881c7794700db81c2eb2aef2c65b7f498fd38",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -66,7 +66,7 @@
                   {
                     "path": "src/App/components/SiteHeader.tsx",
                     "description": "Global header with brand link, explorer/search nav, and auth-aware avatar menu for profile, studio, and sign in/out.",
-                    "LOC": 152
+                    "LOC": 156
                   }
                 ]
               },
@@ -122,7 +122,7 @@
                           {
                             "path": "src/App/features/auth/providers/AuthProvider.tsx",
                             "description": "Hydrates auth state from Supabase (`getSession` + `onAuthStateChange`) and exposes GitHub OAuth sign-in (repo/delete/workflow scopes) plus sign-out actions.",
-                            "LOC": 238
+                            "LOC": 233
                           }
                         ]
                       },
@@ -134,12 +134,22 @@
                           {
                             "path": "src/App/features/auth/services/github-auth.test.ts",
                             "description": "Unit tests for GitHub auth token/session helpers, including required-token validation and error-path behavior.",
-                            "LOC": 202
+                            "LOC": 230
                           },
                           {
                             "path": "src/App/features/auth/services/github-auth.ts",
                             "description": "Supabase auth helpers that fetch fresh session tokens and enforce GitHub provider token + access token presence.",
-                            "LOC": 494
+                            "LOC": 543
+                          },
+                          {
+                            "path": "src/App/features/auth/services/redirect-paths.test.ts",
+                            "description": "?",
+                            "LOC": 62
+                          },
+                          {
+                            "path": "src/App/features/auth/services/redirect-paths.ts",
+                            "description": "?",
+                            "LOC": 64
                           },
                           {
                             "path": "src/App/features/auth/services/user-profile.ts",
@@ -163,12 +173,12 @@
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.test.ts",
                             "description": "Unit tests for markdown builder output, covering `solidary.md`/`header.md`/`footer.md` rendering and page `navLabel` mirroring.",
-                            "LOC": 99
+                            "LOC": 103
                           },
                           {
                             "path": "src/App/features/site-draft/services/astro-builders.ts",
                             "description": "Template-based builders that render markdown-backed content files (`solidary.md`, `header.md`, `footer.md`) plus page markdown from normalized settings/page values.",
-                            "LOC": 59
+                            "LOC": 60
                           },
                           {
                             "path": "src/App/features/site-draft/services/frontmatter.ts",
@@ -178,22 +188,22 @@
                           {
                             "path": "src/App/features/site-draft/services/solidary-links.test.ts",
                             "description": "?",
-                            "LOC": 65
+                            "LOC": 78
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary-links.ts",
                             "description": "?",
-                            "LOC": 137
+                            "LOC": 153
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.test.ts",
                             "description": "Unit tests for the Solidary metadata JSON parser, covering valid payload parsing and invalid JSON fallback behavior.",
-                            "LOC": 53
+                            "LOC": 55
                           },
                           {
                             "path": "src/App/features/site-draft/services/solidary.ts",
                             "description": "Minimal parser for `.well-known/solidary-links.json` content that safely returns typed metadata or `null` on invalid JSON.",
-                            "LOC": 104
+                            "LOC": 183
                           }
                         ]
                       }
@@ -207,7 +217,7 @@
                       {
                         "path": "src/App/features/site-draft/types.ts",
                         "description": "Shared draft content contracts (`RepoFileSet`, `AstroSettings`, `AstroPageDraft`, header/footer shapes) reused by create, studio, and builder flows.",
-                        "LOC": 50
+                        "LOC": 68
                       }
                     ]
                   },
@@ -329,7 +339,7 @@
                   {
                     "path": "src/App/lib/external-image-loading.ts",
                     "description": "External image tracking utilities: placeholder SVG, attribute constants, load state management, and persistence normalization helpers.",
-                    "LOC": 576
+                    "LOC": 584
                   },
                   {
                     "path": "src/App/lib/image-element-load-state.test.ts",
@@ -387,6 +397,85 @@
                 "path": "src/App/routes",
                 "description": "Route entry modules for landing (public) and studio/site-create/site-builder (auth-guarded).",
                 "directories": [
+                  {
+                    "path": "src/App/routes/admin",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/admin/components",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/admin/components/IndexAdminAdvancedSection.tsx",
+                            "description": "?",
+                            "LOC": 130
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/IndexAdminCollaboratorsSection.tsx",
+                            "description": "?",
+                            "LOC": 186
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/IndexAdminConnectionsSection.tsx",
+                            "description": "?",
+                            "LOC": 94
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/IndexAdminGeneralSection.tsx",
+                            "description": "?",
+                            "LOC": 105
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/IndexAdminSetupPanel.tsx",
+                            "description": "?",
+                            "LOC": 546
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/admin/hooks",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/admin/hooks/useAdminRouteController.ts",
+                            "description": "?",
+                            "LOC": 787
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/admin/services",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/admin/services/index-admin.ts",
+                            "description": "?",
+                            "LOC": 671
+                          },
+                          {
+                            "path": "src/App/routes/admin/services/types.ts",
+                            "description": "?",
+                            "LOC": 246
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/admin/AdminRoute.css",
+                        "description": "?",
+                        "LOC": 207
+                      },
+                      {
+                        "path": "src/App/routes/admin/AdminRoute.tsx",
+                        "description": "?",
+                        "LOC": 164
+                      }
+                    ]
+                  },
                   {
                     "path": "src/App/routes/contact",
                     "description": "?",
@@ -475,6 +564,95 @@
                         "path": "src/App/routes/explorer/index.ts",
                         "description": "Route barrel re-export for the explorer route entry component.",
                         "LOC": 1
+                      }
+                    ]
+                  },
+                  {
+                    "path": "src/App/routes/index-create",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/App/routes/index-create/components",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/index-create/components/IndexCreateCopyField.tsx",
+                            "description": "?",
+                            "LOC": 32
+                          },
+                          {
+                            "path": "src/App/routes/index-create/components/IndexCreateFormSection.tsx",
+                            "description": "?",
+                            "LOC": 186
+                          },
+                          {
+                            "path": "src/App/routes/index-create/components/IndexCreateProvisioningSection.tsx",
+                            "description": "?",
+                            "LOC": 19
+                          },
+                          {
+                            "path": "src/App/routes/index-create/components/IndexCreateWizardStep.tsx",
+                            "description": "?",
+                            "LOC": 45
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/index-create/hooks",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/index-create/hooks/useIndexCreateRouteController.ts",
+                            "description": "?",
+                            "LOC": 1096
+                          }
+                        ]
+                      },
+                      {
+                        "path": "src/App/routes/index-create/services",
+                        "description": "?",
+                        "directories": [],
+                        "files": [
+                          {
+                            "path": "src/App/routes/index-create/services/index-create-provisioning.ts",
+                            "description": "?",
+                            "LOC": 117
+                          },
+                          {
+                            "path": "src/App/routes/index-create/services/types.ts",
+                            "description": "?",
+                            "LOC": 60
+                          },
+                          {
+                            "path": "src/App/routes/index-create/services/wizard-progress.test.ts",
+                            "description": "?",
+                            "LOC": 229
+                          },
+                          {
+                            "path": "src/App/routes/index-create/services/wizard-progress.ts",
+                            "description": "?",
+                            "LOC": 133
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/App/routes/index-create/index.ts",
+                        "description": "?",
+                        "LOC": 1
+                      },
+                      {
+                        "path": "src/App/routes/index-create/IndexCreateRoute.css",
+                        "description": "?",
+                        "LOC": 258
+                      },
+                      {
+                        "path": "src/App/routes/index-create/IndexCreateRoute.tsx",
+                        "description": "?",
+                        "LOC": 834
                       }
                     ]
                   },
@@ -573,7 +751,7 @@
                           {
                             "path": "src/App/routes/profile/components/ProfileSupabaseConnectionCard.tsx",
                             "description": "?",
-                            "LOC": 151
+                            "LOC": 157
                           }
                         ]
                       },
@@ -730,7 +908,7 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/content.ts",
                                 "description": "Create-flow content/path helpers that build `solidary.md` from template values and define repository image paths/default OG URL constants.",
-                                "LOC": 136
+                                "LOC": 142
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/github-provisioning.ts",
@@ -789,12 +967,12 @@
                           {
                             "path": "src/App/routes/studio/components/IndexesListSection.tsx",
                             "description": "Currently a placeholder index section with a create CTA and empty-state copy; does not yet manage real index records.",
-                            "LOC": 34
+                            "LOC": 168
                           },
                           {
                             "path": "src/App/routes/studio/components/SitesListSection.tsx",
                             "description": "Primary card-grid section for site listings with loading/empty states, role label display, optional thumbnail rendering, and edit/delete actions.",
-                            "LOC": 196
+                            "LOC": 201
                           },
                           {
                             "path": "src/App/routes/studio/components/StudioMasthead.tsx",
@@ -814,9 +992,14 @@
                             "LOC": 167
                           },
                           {
+                            "path": "src/App/routes/studio/hooks/useStudioIndexData.ts",
+                            "description": "?",
+                            "LOC": 120
+                          },
+                          {
                             "path": "src/App/routes/studio/hooks/useStudioRouteController.ts",
                             "description": "Studio controller that merges owned/shared draft cards into one recency-sorted list, manages delete-dialog state/validation, and wires section action handlers/navigation.",
-                            "LOC": 92
+                            "LOC": 121
                           },
                           {
                             "path": "src/App/routes/studio/hooks/useStudioSupabaseConnectionStatus.ts",
@@ -913,12 +1096,12 @@
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildContentSectionProps.ts",
                                             "description": "?",
-                                            "LOC": 94
+                                            "LOC": 96
                                           },
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildPreviewPanelProps.ts",
                                             "description": "?",
-                                            "LOC": 73
+                                            "LOC": 74
                                           },
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/buildSettingsRouteContext.ts",
@@ -938,7 +1121,7 @@
                                           {
                                             "path": "src/App/routes/studio/routes/site-builder/hooks/controller/view-models/types.ts",
                                             "description": "?",
-                                            "LOC": 294
+                                            "LOC": 296
                                           }
                                         ]
                                       }
@@ -952,7 +1135,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderDocumentState.ts",
                                         "description": "?",
-                                        "LOC": 158
+                                        "LOC": 168
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/controller/useBuilderRouteEffects.ts",
@@ -979,7 +1162,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/types.ts",
                                         "description": "?",
-                                        "LOC": 91
+                                        "LOC": 93
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/hooks/live-settings/useLiveSettingsDeleteActions.ts",
@@ -1050,7 +1233,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderPreviewEditor.ts",
                                     "description": "Preview editing hook handling command execution, selection tracking, and inline image upload/edit behavior.",
-                                    "LOC": 445
+                                    "LOC": 485
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useBuilderSectionNavigation.ts",
@@ -1085,7 +1268,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderDraftLifecycle.ts",
                                     "description": "Draft lifecycle hook for initial load, normalization, refresh, and conflict recovery/reload behavior.",
-                                    "LOC": 477
+                                    "LOC": 481
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderLiveSettingsActions.ts",
@@ -1095,7 +1278,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderRouteController.ts",
                                     "description": "Primary builder controller orchestrating route state, editing actions, save/publish flows, and lock integration.",
-                                    "LOC": 593
+                                    "LOC": 595
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/hooks/useSiteBuilderSavePublishActions.ts",
@@ -1146,7 +1329,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/image-source-utils.ts",
                                         "description": "?",
-                                        "LOC": 213
+                                        "LOC": 228
                                       },
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/image-utils.ts",
@@ -1156,7 +1339,7 @@
                                       {
                                         "path": "src/App/routes/studio/routes/site-builder/preview/astro-preview/types.ts",
                                         "description": "?",
-                                        "LOC": 94
+                                        "LOC": 95
                                       }
                                     ]
                                   }
@@ -1165,7 +1348,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/preview/AstroTemplatePreview.tsx",
                                     "description": "?",
-                                    "LOC": 3201
+                                    "LOC": 3221
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/preview/BuilderEditorToolbar.tsx",
@@ -1180,7 +1363,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/preview/BuilderPreviewPanel.tsx",
                                     "description": "?",
-                                    "LOC": 413
+                                    "LOC": 417
                                   }
                                 ]
                               },
@@ -1272,12 +1455,22 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 199
+                                    "LOC": 235
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
                                     "description": "Builds repository file payloads from current draft settings/pages for save and publish workflows.",
-                                    "LOC": 275
+                                    "LOC": 284
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/builder-image-html.test.ts",
+                                    "description": "?",
+                                    "LOC": 34
+                                  },
+                                  {
+                                    "path": "src/App/routes/studio/routes/site-builder/services/builder-image-html.ts",
+                                    "description": "?",
+                                    "LOC": 102
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/collaborators.test.ts",
@@ -1292,7 +1485,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/constants.ts",
                                     "description": "Builder constants and default values shared across editing, saving, and publishing workflows.",
-                                    "LOC": 36
+                                    "LOC": 37
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.test.ts",
@@ -1302,22 +1495,22 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/draft-utils.ts",
                                     "description": "Draft normalization/signature/url utility helpers reused across builder load/save/publish logic.",
-                                    "LOC": 161
+                                    "LOC": 162
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/live-domain-publish.test.ts",
                                     "description": "?",
-                                    "LOC": 270
+                                    "LOC": 276
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/live-domain-publish.ts",
                                     "description": "?",
-                                    "LOC": 187
+                                    "LOC": 189
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/load-draft.ts",
                                     "description": "Draft loader that fetches draft/site/settings/page rows and normalizes them into builder-ready state.",
-                                    "LOC": 395
+                                    "LOC": 404
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/locks.test.ts",
@@ -1362,7 +1555,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-metadata-and-pages.ts",
                                     "description": "Service that saves metadata + page content updates as a coordinated draft persistence step.",
-                                    "LOC": 194
+                                    "LOC": 196
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/save-section-signature.ts",
@@ -1462,7 +1655,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/BuilderContentSection.tsx",
                                     "description": "Settings content switcher that renders General, Connections, Collaborators, or Danger section blocks.",
-                                    "LOC": 221
+                                    "LOC": 227
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/CollaboratorsSettingsSection.tsx",
@@ -1487,7 +1680,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/GeneralSettingsSection.tsx",
                                     "description": "Settings section form for editable site title, description, URL, and image metadata.",
-                                    "LOC": 87
+                                    "LOC": 102
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/SettingsTopbar.tsx",
@@ -1599,7 +1792,7 @@
                       {
                         "path": "src/App/routes/studio/StudioRoute.css",
                         "description": "Studio route stylesheet for site list cards, section headings, delete dialog surfaces, and mobile card layout behavior.",
-                        "LOC": 356
+                        "LOC": 403
                       },
                       {
                         "path": "src/App/routes/studio/StudioRoute.tsx",
@@ -1720,7 +1913,7 @@
                       {
                         "path": "src/App/styles/partials/tokens.css",
                         "description": "?",
-                        "LOC": 48
+                        "LOC": 49
                       }
                     ]
                   }
@@ -1750,7 +1943,7 @@
               {
                 "path": "src/App/App.tsx",
                 "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
-                "LOC": 163
+                "LOC": 181
               }
             ]
           },
@@ -1758,6 +1951,130 @@
             "path": "src/templates",
             "description": "Raw template assets imported and written into newly provisioned Astro repositories.",
             "directories": [
+              {
+                "path": "src/templates/index",
+                "description": "?",
+                "directories": [
+                  {
+                    "path": "src/templates/index/default_template",
+                    "description": "?",
+                    "directories": [
+                      {
+                        "path": "src/templates/index/default_template/scaffold",
+                        "description": "?",
+                        "directories": [
+                          {
+                            "path": "src/templates/index/default_template/scaffold/.github",
+                            "description": "?",
+                            "directories": [
+                              {
+                                "path": "src/templates/index/default_template/scaffold/.github/workflows",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/index/default_template/scaffold/.github/workflows/deploy.yml",
+                                    "description": "?",
+                                    "LOC": 34
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": []
+                          },
+                          {
+                            "path": "src/templates/index/default_template/scaffold/site",
+                            "description": "?",
+                            "directories": [
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/admin",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/index/default_template/scaffold/site/admin/app.js",
+                                    "description": "?",
+                                    "LOC": 1192
+                                  },
+                                  {
+                                    "path": "src/templates/index/default_template/scaffold/site/admin/index.html",
+                                    "description": "?",
+                                    "LOC": 42
+                                  }
+                                ]
+                              },
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/config",
+                                "description": "?",
+                                "directories": [],
+                                "files": [
+                                  {
+                                    "path": "src/templates/index/default_template/scaffold/site/config/index.json",
+                                    "description": "?",
+                                    "LOC": 21
+                                  }
+                                ]
+                              }
+                            ],
+                            "files": [
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/.nojekyll",
+                                "description": "?",
+                                "LOC": 1
+                              },
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/app.js",
+                                "description": "?",
+                                "LOC": 235
+                              },
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/index.html",
+                                "description": "?",
+                                "LOC": 94
+                              },
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/shared.js",
+                                "description": "?",
+                                "LOC": 181
+                              },
+                              {
+                                "path": "src/templates/index/default_template/scaffold/site/styles.css",
+                                "description": "?",
+                                "LOC": 318
+                              }
+                            ]
+                          }
+                        ],
+                        "files": [
+                          {
+                            "path": "src/templates/index/default_template/scaffold/.gitignore",
+                            "description": "?",
+                            "LOC": 1
+                          },
+                          {
+                            "path": "src/templates/index/default_template/scaffold/LICENSE",
+                            "description": "?",
+                            "LOC": 21
+                          },
+                          {
+                            "path": "src/templates/index/default_template/scaffold/README.md",
+                            "description": "?",
+                            "LOC": 7
+                          }
+                        ]
+                      }
+                    ],
+                    "files": [
+                      {
+                        "path": "src/templates/index/default_template/publish-ignore.txt",
+                        "description": "?",
+                        "LOC": 12
+                      }
+                    ]
+                  }
+                ],
+                "files": []
+              },
               {
                 "path": "src/templates/site",
                 "description": "?",
@@ -1784,7 +2101,7 @@
                           {
                             "path": "src/templates/site/default_template/runtime/solidary-config-site.ts.txt",
                             "description": "?",
-                            "LOC": 143
+                            "LOC": 162
                           },
                           {
                             "path": "src/templates/site/default_template/runtime/solidary-config-solidary.ts.txt",
@@ -1828,12 +2145,12 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/public/.well-known/solidary-links.json",
                                     "description": "?",
-                                    "LOC": 16
+                                    "LOC": 17
                                   },
                                   {
                                     "path": "src/templates/site/default_template/scaffold/public/.well-known/solidary.json",
                                     "description": "?",
-                                    "LOC": 9
+                                    "LOC": 10
                                   }
                                 ]
                               },
@@ -1904,6 +2221,11 @@
                                 "directories": [],
                                 "files": [
                                   {
+                                    "path": "src/templates/site/default_template/scaffold/src/components/DynamicImageLoader.astro",
+                                    "description": "?",
+                                    "LOC": 145
+                                  },
+                                  {
                                     "path": "src/templates/site/default_template/scaffold/src/components/Footer.astro",
                                     "description": "?",
                                     "LOC": 165
@@ -1961,7 +2283,7 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/src/content/solidary.md",
                                     "description": "?",
-                                    "LOC": 7
+                                    "LOC": 8
                                   }
                                 ]
                               },
@@ -1973,7 +2295,7 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/src/layouts/Base.astro",
                                     "description": "?",
-                                    "LOC": 76
+                                    "LOC": 84
                                   }
                                 ]
                               },
@@ -2012,7 +2334,7 @@
                                   {
                                     "path": "src/templates/site/default_template/scaffold/src/solidary-config/site.ts",
                                     "description": "?",
-                                    "LOC": 143
+                                    "LOC": 162
                                   },
                                   {
                                     "path": "src/templates/site/default_template/scaffold/src/solidary-config/solidary.ts",
@@ -2085,7 +2407,7 @@
                           {
                             "path": "src/templates/site/default_template/scaffold/astro.config.mjs",
                             "description": "?",
-                            "LOC": 61
+                            "LOC": 231
                           },
                           {
                             "path": "src/templates/site/default_template/scaffold/LICENSE",
@@ -2119,12 +2441,17 @@
                       {
                         "path": "src/templates/site/default_template/runtime-files.ts",
                         "description": "?",
-                        "LOC": 25
+                        "LOC": 27
                       },
                       {
                         "path": "src/templates/site/default_template/scaffold.ts",
                         "description": "?",
                         "LOC": 25
+                      },
+                      {
+                        "path": "src/templates/site/default_template/TEMPLATE_COMPATIBILITY.md",
+                        "description": "?",
+                        "LOC": 387
                       },
                       {
                         "path": "src/templates/site/default_template/template-integrity.test.ts",
@@ -2201,7 +2528,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 2228
+        "LOC": 2555
       },
       {
         "path": "tsconfig.app.json",
