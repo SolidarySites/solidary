@@ -194,6 +194,50 @@
   animation-delay: 1.45s;
 }
 
+.explorer-index-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  transform: translate(-9999px, -9999px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 150ms ease;
+}
+
+.explorer-index-marker::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translate(-50%, -50%) rotate(3deg);
+  background:
+    linear-gradient(135deg, rgba(36, 46, 41, 0.94), rgba(94, 124, 108, 0.96));
+  border: 1px solid rgba(248, 245, 239, 0.92);
+  box-shadow:
+    0 0 0 1px rgba(31, 34, 28, 0.26),
+    0 8px 18px rgba(31, 34, 28, 0.16);
+}
+
+.explorer-index-marker-label {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  max-width: min(18ch, 20vw);
+  padding: 0.18rem 0.34rem;
+  font-family: var(--site-font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(31, 34, 28, 0.82);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(31, 34, 28, 0.12);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @keyframes explorer-viewer-beacon-pulse {
   0% {
     opacity: 0;
@@ -280,6 +324,26 @@
   min-width: 0;
   display: grid;
   gap: 0.28rem;
+}
+
+.explorer-node-badge {
+  width: fit-content;
+  padding: 0.16rem 0.4rem;
+  font-family: var(--site-font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  border: 1px solid rgba(31, 34, 28, 0.14);
+}
+
+.explorer-node-badge-site {
+  background: rgba(76, 143, 104, 0.12);
+  color: rgba(31, 34, 28, 0.72);
+}
+
+.explorer-node-badge-index {
+  background: rgba(31, 34, 28, 0.08);
+  color: rgba(31, 34, 28, 0.88);
 }
 
 .explorer-hover-card-body h4 {

@@ -56,6 +56,7 @@ export const useExplorerRouteController = () => {
     sites: allSites,
     connections: allConnections,
     listSites,
+    totalNodeCount: allSites.length,
     totalSiteCount: allSites.length,
     totalConnectionCount: allConnections.length,
     onSearchQueryChange: setSearchQuery

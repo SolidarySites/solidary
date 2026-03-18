@@ -40,7 +40,7 @@ export function SearchResultsSection({
     <section className="search-results-section" aria-label="Search results">
       {loading && (
         <div className="search-status-panel" aria-live="polite">
-          <p>Loading published sites...</p>
+          <p>Loading published sites and indexes...</p>
         </div>
       )}
 
@@ -53,7 +53,11 @@ export function SearchResultsSection({
 
       {!loading && !error && !rankedSites.length && (
         <div className="search-status-panel">
-          <p>{trimmedQuery ? `No sites match "${trimmedQuery}".` : "No published sites yet."}</p>
+          <p>
+            {trimmedQuery
+              ? `No sites or indexes match "${trimmedQuery}".`
+              : "No published sites or indexes yet."}
+          </p>
         </div>
       )}
 

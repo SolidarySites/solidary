@@ -34,6 +34,7 @@
     "index-admin-read",
     "index-admin-search-collaborators",
     "index-admin-write",
+    "index-federation-refresh",
     "index-create",
     "index-create-status",
     "index-create-worker-background",

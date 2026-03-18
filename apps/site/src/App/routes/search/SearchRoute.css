@@ -221,6 +221,26 @@
   gap: 0.3rem;
 }
 
+.search-site-card-badge {
+  width: fit-content;
+  padding: 0.18rem 0.42rem;
+  font-family: var(--site-font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid rgba(31, 34, 28, 0.14);
+}
+
+.search-site-card-badge-site {
+  background: rgba(76, 143, 104, 0.11);
+  color: rgba(31, 34, 28, 0.68);
+}
+
+.search-site-card-badge-index {
+  background: rgba(31, 34, 28, 0.08);
+  color: rgba(31, 34, 28, 0.86);
+}
+
 .search-site-card-title {
   margin: 0;
   font-size: 1.14rem;

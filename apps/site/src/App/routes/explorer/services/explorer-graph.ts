@@ -12,8 +12,8 @@ export type ExplorerGraphNode = {
 
 export type ExplorerGraphEdge = {
   key: string;
-  sourceSiteId: string;
-  targetSiteId: string;
+  sourceId: string;
+  targetId: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -50,15 +50,15 @@ const normalizeConnections = (connections: ExplorerConnection[]): ExplorerConnec
   const seen = new Set<string>();
   const normalized: ExplorerConnection[] = [];
   for (const connection of connections) {
-    if (connection.sourceSiteId === connection.targetSiteId) continue;
+    if (connection.sourceId === connection.targetId) continue;
     const left =
-      connection.sourceSiteId < connection.targetSiteId
-        ? connection.sourceSiteId
-        : connection.targetSiteId;
+      connection.sourceId < connection.targetId
+        ? connection.sourceId
+        : connection.targetId;
     const right =
-      connection.sourceSiteId < connection.targetSiteId
-        ? connection.targetSiteId
-        : connection.sourceSiteId;
+      connection.sourceId < connection.targetId
+        ? connection.targetId
+        : connection.sourceId;
     const key = `${left}:${right}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -70,14 +70,14 @@ const normalizeConnections = (connections: ExplorerConnection[]): ExplorerConnec
 export const buildConnectedSiteLookup = (connections: ExplorerConnection[]) => {
   const connectedBySiteId: Record<string, Set<string>> = {};
   normalizeConnections(connections).forEach((connection) => {
-    if (!connectedBySiteId[connection.sourceSiteId]) {
-      connectedBySiteId[connection.sourceSiteId] = new Set<string>();
+    if (!connectedBySiteId[connection.sourceId]) {
+      connectedBySiteId[connection.sourceId] = new Set<string>();
     }
-    if (!connectedBySiteId[connection.targetSiteId]) {
-      connectedBySiteId[connection.targetSiteId] = new Set<string>();
+    if (!connectedBySiteId[connection.targetId]) {
+      connectedBySiteId[connection.targetId] = new Set<string>();
     }
-    connectedBySiteId[connection.sourceSiteId]?.add(connection.targetSiteId);
-    connectedBySiteId[connection.targetSiteId]?.add(connection.sourceSiteId);
+    connectedBySiteId[connection.sourceId]?.add(connection.targetId);
+    connectedBySiteId[connection.targetId]?.add(connection.sourceId);
   });
   return connectedBySiteId;
 };
@@ -101,11 +101,11 @@ export const buildExplorerGraphIndex = ({
   });
 
   const normalizedConnections = normalizeConnections(connections).filter(
-    (connection) => Boolean(sitesById[connection.sourceSiteId] && sitesById[connection.targetSiteId])
+    (connection) => Boolean(sitesById[connection.sourceId] && sitesById[connection.targetId])
   );
   normalizedConnections.forEach((connection) => {
-    adjacencyBySiteId[connection.sourceSiteId]?.push(connection.targetSiteId);
-    adjacencyBySiteId[connection.targetSiteId]?.push(connection.sourceSiteId);
+    adjacencyBySiteId[connection.sourceId]?.push(connection.targetId);
+    adjacencyBySiteId[connection.targetId]?.push(connection.sourceId);
   });
 
   const degreeBySiteId: Record<string, number> = {};
@@ -1019,8 +1019,8 @@ export const buildExplorerGraphFromLoaded = ({
       const right = sourceNode.siteId < targetNode.siteId ? targetNode.siteId : sourceNode.siteId;
       edges.push({
         key: `${left}:${right}`,
-        sourceSiteId: sourceNode.siteId,
-        targetSiteId: targetNode.siteId,
+        sourceId: sourceNode.siteId,
+        targetId: targetNode.siteId,
         sourceX: sourceNode.x,
         sourceY: sourceNode.y,
         targetX: targetNode.x,

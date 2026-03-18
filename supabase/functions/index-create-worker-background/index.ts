@@ -25,6 +25,7 @@ import {
   getSolidaryRootRepoFullName,
   getSolidaryRootRepoUrl,
 } from "../_shared/solidary-root-index.ts";
+import { refreshIndexFederationMirror } from "../_shared/index-federation.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
 
 const GITHUB_API = "https://api.github.com";
@@ -1395,6 +1396,8 @@ async function bootstrapProjectDatabase({
   description,
   canonicalUrl,
   imageUrl,
+  projectUrl,
+  publishableKey,
   indexLevel,
   parentIndexId,
   parentIndexUrl,
@@ -1410,6 +1413,8 @@ async function bootstrapProjectDatabase({
   description: string;
   canonicalUrl: string;
   imageUrl: string;
+  projectUrl: string;
+  publishableKey: string;
   indexLevel: number;
   parentIndexId: string;
   parentIndexUrl: string;
@@ -1431,6 +1436,8 @@ async function bootstrapProjectDatabase({
         description,
         canonicalUrl,
         imageUrl,
+        projectUrl,
+        publishableKey,
         indexLevel,
         parentIndexId,
         parentIndexUrl,
@@ -1480,7 +1487,9 @@ async function syncChildRootArchive({
   projectId,
   projectRef,
   projectName,
+  projectUrl,
   projectDashboardUrl,
+  publishableKey,
   indexLevel,
   parentIndexId,
   parentIndexUrl,
@@ -1500,7 +1509,9 @@ async function syncChildRootArchive({
   projectId: string | null;
   projectRef: string;
   projectName: string;
+  projectUrl: string;
   projectDashboardUrl: string;
+  publishableKey: string;
   indexLevel: number;
   parentIndexId: string;
   parentIndexUrl: string;
@@ -1525,6 +1536,8 @@ async function syncChildRootArchive({
       "  supabase_project_id,",
       "  supabase_project_ref,",
       "  supabase_project_name,",
+      "  supabase_project_url,",
+      "  supabase_publishable_key,",
       "  supabase_dashboard_url,",
       "  source,",
       "  type,",
@@ -1545,8 +1558,8 @@ async function syncChildRootArchive({
       }, ${toSqlText(repoFullName)}, ${toSqlText(repoUrl)}, ${
         toSqlText(projectId)
       }, ${toSqlText(projectRef)}, ${toSqlText(projectName)}, ${
-        toSqlText(projectDashboardUrl)
-      }, 'index_create', 'index', true, 'scaffold', ${indexLevel}, ${
+        toSqlText(projectUrl)
+      }, ${toSqlText(publishableKey)}, ${toSqlText(projectDashboardUrl)}, 'index_create', 'index', true, 'scaffold', ${indexLevel}, ${
         toSqlText(parentIndexId)
       }, ${toSqlText(parentIndexUrl)}, ${parentIndexLevel}, ${
         toSqlText(parentRepoFullName)
@@ -1562,6 +1575,8 @@ async function syncChildRootArchive({
       "  supabase_project_id = excluded.supabase_project_id,",
       "  supabase_project_ref = excluded.supabase_project_ref,",
       "  supabase_project_name = excluded.supabase_project_name,",
+      "  supabase_project_url = excluded.supabase_project_url,",
+      "  supabase_publishable_key = excluded.supabase_publishable_key,",
       "  supabase_dashboard_url = excluded.supabase_dashboard_url,",
       "  source = excluded.source,",
       "  type = excluded.type,",
@@ -1645,8 +1660,10 @@ async function saveParentIndexMetadata({
     supabase_project_id: projectId,
     supabase_project_ref: projectRef,
     supabase_project_name: projectName,
+    supabase_project_url: projectUrl,
+    supabase_publishable_key: publishableKey,
     supabase_dashboard_url: projectDashboardUrl,
-    source: "index_create",
+    source: "federation_mirror",
     type: "index",
     is_root: false,
     runtime_mode: "scaffold",
@@ -1953,6 +1970,8 @@ export const handler: Handler = async (event) => {
         description,
         canonicalUrl: siteUrl,
         imageUrl: defaultImageUrl,
+        projectUrl,
+        publishableKey,
         indexLevel,
         parentIndexId,
         parentIndexUrl,
@@ -1974,7 +1993,9 @@ export const handler: Handler = async (event) => {
         projectId: resolvedProject.id ?? null,
         projectRef,
         projectName: resolvedProject.name ?? title,
+        projectUrl,
         projectDashboardUrl,
+        publishableKey,
         indexLevel,
         parentIndexId,
         parentIndexUrl,
@@ -2091,6 +2112,20 @@ export const handler: Handler = async (event) => {
         parentRepoFullName,
         parentRepoUrl,
       });
+
+      try {
+        await refreshIndexFederationMirror({
+          supabase,
+          sourceProjectUrl: projectUrl,
+          sourcePublishableKey: publishableKey,
+          expectedArchiveId: archiveId,
+        });
+      } catch (error) {
+        console.warn("[index-create-worker] failed to refresh local federation mirror", {
+          archiveId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       await updateJob({
         status: "succeeded",

@@ -10,7 +10,7 @@ export default function SearchRoute() {
     <div className="app-shell search-app-shell">
       <main className="main-content search-main-content">
         <SearchMasthead
-          totalSiteCount={controller.totalSiteCount}
+          totalNodeCount={controller.totalNodeCount}
           totalConnectionCount={controller.totalConnectionCount}
           resultCount={controller.listSites.length}
           searchQuery={controller.searchQuery}

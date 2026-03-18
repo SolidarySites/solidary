@@ -35,6 +35,7 @@ const formatSiteDomain = (value: string) => {
 export function SearchSiteCard({ site, connectionCount }: SearchSiteCardProps) {
   const description = site.description || FALLBACK_DESCRIPTION;
   const domain = formatSiteDomain(site.canonicalUrl);
+  const isIndex = site.nodeType === "index";
 
   return (
     <article className="search-site-card">
@@ -57,6 +58,9 @@ export function SearchSiteCard({ site, connectionCount }: SearchSiteCardProps) {
 
         <div className="search-site-card-body">
           <div className="search-site-card-heading">
+            <span className={`search-site-card-badge search-site-card-badge-${site.nodeType}`}>
+              {isIndex ? "Index" : "Site"}
+            </span>
             <h3 className="search-site-card-title">{site.title}</h3>
             <p className="search-site-card-domain">{domain}</p>
           </div>

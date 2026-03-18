@@ -9,6 +9,7 @@ import {
   type ParentSourceRepoResolution,
   resolveParentSourceRepo,
 } from "../_shared/index-admin.ts";
+import { refreshIndexFederationMirror } from "../_shared/index-federation.ts";
 import {
   parseIndexFinalizationPayload,
   type IndexFinalizationPayloadState,
@@ -1578,6 +1579,20 @@ const runCommitFinalizePhase = async ({
     supabase,
     credentials: context.credentials,
   });
+
+  try {
+    await refreshIndexFederationMirror({
+      supabase,
+      sourceProjectUrl: context.credentials.supabase_project_url,
+      sourcePublishableKey: context.credentials.supabase_publishable_key ?? "",
+      expectedArchiveId: archiveId,
+    });
+  } catch (error) {
+    console.warn("[index-finalize-worker] failed to refresh local federation mirror", {
+      archiveId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   await updateJob({
     supabase,

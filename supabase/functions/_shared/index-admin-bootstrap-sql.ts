@@ -7,6 +7,8 @@ export const createIndexAdminBootstrapSql = ({
   description,
   canonicalUrl,
   imageUrl,
+  projectUrl,
+  publishableKey,
   indexLevel,
   parentIndexId,
   parentIndexUrl,
@@ -20,6 +22,8 @@ export const createIndexAdminBootstrapSql = ({
   description: string;
   canonicalUrl: string;
   imageUrl: string;
+  projectUrl: string;
+  publishableKey: string;
   indexLevel: number;
   parentIndexId: string;
   parentIndexUrl: string;
@@ -33,6 +37,8 @@ export const createIndexAdminBootstrapSql = ({
   const escapedDescription = escapeSqlLiteral(description);
   const escapedCanonicalUrl = escapeSqlLiteral(canonicalUrl);
   const escapedImageUrl = escapeSqlLiteral(imageUrl);
+  const escapedProjectUrl = escapeSqlLiteral(projectUrl);
+  const escapedPublishableKey = escapeSqlLiteral(publishableKey);
   const escapedParentIndexId = escapeSqlLiteral(parentIndexId);
   const escapedParentIndexUrl = escapeSqlLiteral(parentIndexUrl);
   const escapedParentRepoFullName = escapeSqlLiteral(parentRepoFullName);
@@ -55,6 +61,8 @@ export const createIndexAdminBootstrapSql = ({
     "  add column if not exists supabase_project_ref text,",
     "  add column if not exists supabase_project_name text,",
     "  add column if not exists supabase_dashboard_url text,",
+    "  add column if not exists supabase_project_url text,",
+    "  add column if not exists supabase_publishable_key text not null default '',",
     "  add column if not exists source text not null default 'manual',",
     "  add column if not exists type text not null default 'index',",
     "  add column if not exists is_root boolean not null default false,",
@@ -72,7 +80,7 @@ export const createIndexAdminBootstrapSql = ({
     "",
     "alter table public.archives",
     "  add constraint archives_source_check",
-    "  check (source in ('manual', 'index_create'));",
+    "  check (source in ('manual', 'index_create', 'federation_mirror'));",
     "",
     "alter table public.archives",
     "  drop constraint if exists archives_type_check;",
@@ -111,6 +119,8 @@ export const createIndexAdminBootstrapSql = ({
     "  description,",
     "  image_url,",
     "  canonical_url,",
+    "  supabase_project_url,",
+    "  supabase_publishable_key,",
     "  type,",
     "  is_root,",
     "  runtime_mode,",
@@ -122,13 +132,15 @@ export const createIndexAdminBootstrapSql = ({
     "  parent_repo_url,",
     "  source",
     ")",
-    `values ('${escapedArchiveId}', null, '${escapedSlug}', '${escapedTitle}', '${escapedDescription}', '${escapedImageUrl}', '${escapedCanonicalUrl}', 'index', true, 'scaffold', ${indexLevel}, '${escapedParentIndexId}', '${escapedParentIndexUrl}', ${parentIndexLevel}, '${escapedParentRepoFullName}', '${escapedParentRepoUrl}', 'index_create')`,
+    `values ('${escapedArchiveId}', null, '${escapedSlug}', '${escapedTitle}', '${escapedDescription}', '${escapedImageUrl}', '${escapedCanonicalUrl}', '${escapedProjectUrl}', '${escapedPublishableKey}', 'index', true, 'scaffold', ${indexLevel}, '${escapedParentIndexId}', '${escapedParentIndexUrl}', ${parentIndexLevel}, '${escapedParentRepoFullName}', '${escapedParentRepoUrl}', 'index_create')`,
     "on conflict (id) do update set",
     "  slug = excluded.slug,",
     "  title = excluded.title,",
     "  description = excluded.description,",
     "  image_url = excluded.image_url,",
     "  canonical_url = excluded.canonical_url,",
+    "  supabase_project_url = excluded.supabase_project_url,",
+    "  supabase_publishable_key = excluded.supabase_publishable_key,",
     "  type = excluded.type,",
     "  is_root = excluded.is_root,",
     "  runtime_mode = excluded.runtime_mode,",

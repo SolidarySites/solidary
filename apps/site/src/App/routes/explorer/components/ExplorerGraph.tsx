@@ -26,6 +26,7 @@ type PreparedGraphData = {
   links: Float32Array;
   linkCount: number;
   viewerPointIndices: number[];
+  indexPointIndices: number[];
 };
 
 const clamp = (value: number, min: number, max: number) =>
@@ -70,6 +71,8 @@ const DEFAULT_POINT_RGBA: [number, number, number, number] = [
   104 / 255,
   1
 ];
+const INVISIBLE_POINT_RGBA: [number, number, number, number] = [0, 0, 0, 0];
+const isIndexNode = (site: ExplorerSite) => site.nodeType === "index";
 
 const getInitialZoomLevelForNodeCount = (nodeCount: number) => {
   if (nodeCount <= 1) {
@@ -177,25 +180,36 @@ const buildPreparedGraphData = ({
   const pointColors = new Float32Array(sites.length * 4);
   const pointSizes = new Float32Array(sites.length);
   const viewerPointIndices: number[] = [];
+  const indexPointIndices: number[] = [];
   sites.forEach((site, index) => {
     const isViewerSite = viewerSiteIdSet.has(site.id);
     if (isViewerSite) {
       viewerPointIndices.push(index);
     }
+
+    const degree = connectedBySiteId[site.id]?.size ?? 0;
+    if (isIndexNode(site)) {
+      indexPointIndices.push(index);
+      pointColors[index * 4] = INVISIBLE_POINT_RGBA[0];
+      pointColors[index * 4 + 1] = INVISIBLE_POINT_RGBA[1];
+      pointColors[index * 4 + 2] = INVISIBLE_POINT_RGBA[2];
+      pointColors[index * 4 + 3] = INVISIBLE_POINT_RGBA[3];
+      pointSizes[index] = clamp(9.5 + Math.log2(degree + 1) * 1.6, 9.5, 18);
+      return;
+    }
+
     pointColors[index * 4] = DEFAULT_POINT_RGBA[0];
     pointColors[index * 4 + 1] = DEFAULT_POINT_RGBA[1];
     pointColors[index * 4 + 2] = DEFAULT_POINT_RGBA[2];
     pointColors[index * 4 + 3] = DEFAULT_POINT_RGBA[3];
-
-    const degree = connectedBySiteId[site.id]?.size ?? 0;
     pointSizes[index] = clamp(5.2 + Math.log2(degree + 1) * 1.45, 5.2, 15);
   });
 
   const linkValues: number[] = [];
   const seen = new Set<string>();
   connections.forEach((connection) => {
-    const sourceIndex = siteIdToIndex.get(connection.sourceSiteId);
-    const targetIndex = siteIdToIndex.get(connection.targetSiteId);
+    const sourceIndex = siteIdToIndex.get(connection.sourceId);
+    const targetIndex = siteIdToIndex.get(connection.targetId);
     if (sourceIndex === undefined || targetIndex === undefined) return;
     if (sourceIndex === targetIndex) return;
     const left = sourceIndex < targetIndex ? sourceIndex : targetIndex;
@@ -216,7 +230,8 @@ const buildPreparedGraphData = ({
     pointSizes,
     links: new Float32Array(linkValues),
     linkCount: linkValues.length / 2,
-    viewerPointIndices
+    viewerPointIndices,
+    indexPointIndices
   };
 };
 
@@ -230,8 +245,10 @@ export default function ExplorerGraph({
   const hasInitializedDataRef = useRef(false);
   const ambientSimulationIntervalRef = useRef<number | null>(null);
   const viewerBeaconFrameRef = useRef<number | null>(null);
+  const indexMarkerFrameRef = useRef<number | null>(null);
   const infoCardRef = useRef<HTMLElement | null>(null);
   const viewerBeaconRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const indexMarkerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const pointSiteIdsRef = useRef<string[]>([]);
   const [shellSize, setShellSize] = useState({ width: 960, height: 620 });
   const [selectedPointInfo, setSelectedPointInfo] = useState<{
@@ -298,6 +315,13 @@ export default function ExplorerGraph({
     if (viewerBeaconFrameRef.current !== null) {
       window.cancelAnimationFrame(viewerBeaconFrameRef.current);
       viewerBeaconFrameRef.current = null;
+    }
+  }, []);
+
+  const clearIndexMarkerLoop = useCallback(() => {
+    if (indexMarkerFrameRef.current !== null) {
+      window.cancelAnimationFrame(indexMarkerFrameRef.current);
+      indexMarkerFrameRef.current = null;
     }
   }, []);
 
@@ -384,12 +408,14 @@ export default function ExplorerGraph({
     return () => {
       clearAmbientSimulationLoop();
       clearViewerBeaconLoop();
+      clearIndexMarkerLoop();
       hasInitializedDataRef.current = false;
       graphRef.current = null;
       graph.destroy();
     };
   }, [
     clearAmbientSimulationLoop,
+    clearIndexMarkerLoop,
     clearViewerBeaconLoop,
     clearSelectedInfo,
     openSiteInfoByPointIndex
@@ -538,6 +564,64 @@ export default function ExplorerGraph({
     };
   }, [clearViewerBeaconLoop, graphData.pointSiteIds, graphData.viewerPointIndices]);
 
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+
+    clearIndexMarkerLoop();
+    const targets = graphData.indexPointIndices
+      .map((index) => ({
+        index,
+        siteId: graphData.pointSiteIds[index] ?? ""
+      }))
+      .filter((target) => target.siteId.length > 0);
+
+    if (!targets.length) {
+      Object.values(indexMarkerRefs.current).forEach((marker) => {
+        if (!marker) return;
+        marker.style.opacity = "0";
+      });
+      return;
+    }
+
+    const frame = () => {
+      const activeGraph = graphRef.current;
+      if (!activeGraph) {
+        return;
+      }
+
+      const positions = activeGraph.getPointPositions();
+      const activeSiteIds = new Set(targets.map((target) => target.siteId));
+      Object.entries(indexMarkerRefs.current).forEach(([siteId, marker]) => {
+        if (!marker) return;
+        if (!activeSiteIds.has(siteId)) {
+          marker.style.opacity = "0";
+        }
+      });
+
+      targets.forEach((target) => {
+        const marker = indexMarkerRefs.current[target.siteId];
+        if (!marker) return;
+        const x = positions[target.index * 2];
+        const y = positions[target.index * 2 + 1];
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          const [screenX, screenY] = activeGraph.spaceToScreenPosition([x, y]);
+          marker.style.transform = `translate(${Math.round(screenX)}px, ${Math.round(screenY)}px)`;
+          marker.style.opacity = "1";
+        } else {
+          marker.style.opacity = "0";
+        }
+      });
+
+      indexMarkerFrameRef.current = window.requestAnimationFrame(frame);
+    };
+
+    indexMarkerFrameRef.current = window.requestAnimationFrame(frame);
+    return () => {
+      clearIndexMarkerLoop();
+    };
+  }, [clearIndexMarkerLoop, graphData.indexPointIndices, graphData.pointSiteIds]);
+
   const selectedSite = selectedPointInfo ? siteById[selectedPointInfo.siteId] : null;
   const infoCardStyle: CSSProperties | undefined = useMemo(() => {
     if (!selectedPointInfo || !selectedSite) return undefined;
@@ -601,6 +685,23 @@ export default function ExplorerGraph({
             </div>
           );
         })}
+        {graphData.indexPointIndices.map((index) => {
+          const siteId = graphData.pointSiteIds[index] ?? "";
+          const site = siteById[siteId];
+          if (!siteId || !site || !isIndexNode(site)) return null;
+          return (
+            <div
+              className="explorer-index-marker"
+              aria-hidden="true"
+              key={siteId}
+              ref={(element) => {
+                indexMarkerRefs.current[siteId] = element;
+              }}
+            >
+              <span className="explorer-index-marker-label">{site.title}</span>
+            </div>
+          );
+        })}
         {selectedSite && selectedPointInfo && (
           <article
             className="explorer-hover-card"
@@ -618,6 +719,9 @@ export default function ExplorerGraph({
               placeholderContent={selectedSite.title.slice(0, 1).toUpperCase()}
             />
             <div className="explorer-hover-card-body">
+              <span className={`explorer-node-badge explorer-node-badge-${selectedSite.nodeType}`}>
+                {selectedSite.nodeType === "index" ? "Index" : "Site"}
+              </span>
               <h4>{truncateLabel(selectedSite.title)}</h4>
               <p>
                 {selectedSite.description
@@ -626,7 +730,7 @@ export default function ExplorerGraph({
               </p>
               {selectedSite.canonicalUrl && (
                 <a href={selectedSite.canonicalUrl} target="_blank" rel="noreferrer">
-                  Visit site
+                  {selectedSite.nodeType === "index" ? "Visit index" : "Visit site"}
                 </a>
               )}
             </div>

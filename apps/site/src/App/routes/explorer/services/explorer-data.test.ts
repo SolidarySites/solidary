@@ -1,110 +1,123 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PublicSite } from "../../../services/public-sites";
 
 const explorerMocks = vi.hoisted(() => ({
   from: vi.fn(),
-  loadPublicSites: vi.fn()
+  rpc: vi.fn(),
 }));
 
 vi.mock("../../../lib/supabase", () => ({
   supabase: {
-    from: explorerMocks.from
-  }
-}));
-
-vi.mock("../../../services/public-sites", () => ({
-  loadPublicSites: explorerMocks.loadPublicSites
+    from: explorerMocks.from,
+    rpc: explorerMocks.rpc,
+  },
 }));
 
 import { loadExplorerData } from "./explorer-data";
 
-const createConnectionsQuery = (result: { data: unknown; error: { message: string } | null }) => {
-  const order = vi.fn(async () => result);
-  const eq = vi.fn(() => ({
-    order
-  }));
-  const select = vi.fn(() => ({
-    eq
-  }));
-
-  return {
-    select,
-    eq,
-    order
-  };
-};
-
 describe("loadExplorerData", () => {
   beforeEach(() => {
     explorerMocks.from.mockReset();
-    explorerMocks.loadPublicSites.mockReset();
+    explorerMocks.rpc.mockReset();
   });
 
-  it("reuses public sites and keeps only valid approved connections", async () => {
-    const publicSites: PublicSite[] = [
+  it("loads shared public graph nodes and keeps only valid edges", async () => {
+    explorerMocks.rpc.mockResolvedValue({
+      data: {
+        nodes: [
+          {
+            id: "site-1",
+            node_type: "site",
+            title: "Alpha",
+            description: "",
+            canonical_url: "https://alpha.example/",
+            image_url: "https://alpha.example/solidary-media/images/site-image_thumb.jpg",
+            updated_at: "2026-03-04T00:00:00Z",
+            index_level: null,
+            parent_index_id: null,
+          },
+          {
+            id: "index-1",
+            node_type: "index",
+            title: "Root index",
+            description: "Public index",
+            canonical_url: "https://index.example/",
+            image_url: "",
+            updated_at: "2026-03-05T00:00:00Z",
+            index_level: 1,
+            parent_index_id: null,
+          },
+        ],
+        edges: [
+          {
+            id: "site-connection-1",
+            edge_type: "site_connection",
+            source_id: "site-1",
+            target_id: "index-1",
+            happened_at: "2026-03-05T00:00:00Z",
+          },
+          {
+            id: "self-loop",
+            edge_type: "index_lineage",
+            source_id: "index-1",
+            target_id: "index-1",
+            happened_at: "2026-03-05T00:00:00Z",
+          },
+          {
+            id: "missing-node",
+            edge_type: "index_membership",
+            source_id: "index-1",
+            target_id: "site-3",
+            happened_at: "2026-03-05T00:00:00Z",
+          },
+        ],
+      },
+      error: null,
+    });
+
+    const data = await loadExplorerData();
+
+    expect(explorerMocks.rpc).toHaveBeenCalledWith("rpc_public_explorer_graph");
+    expect(data.sites).toEqual([
       {
         id: "site-1",
+        nodeType: "site",
         title: "Alpha",
         description: "",
         canonicalUrl: "https://alpha.example/",
         imageUrl: "https://alpha.example/solidary-media/images/site-image_thumb.jpg",
-        updatedAt: "2026-03-04T00:00:00Z"
+        updatedAt: "2026-03-04T00:00:00Z",
+        indexLevel: null,
+        parentIndexId: null,
       },
       {
-        id: "site-2",
-        title: "Beta",
-        description: "",
-        canonicalUrl: "https://beta.example/",
-        imageUrl: "https://beta.example/solidary-media/images/site-image_thumb.jpg",
-        updatedAt: "2026-03-03T00:00:00Z"
-      }
-    ];
-    const connectionsQuery = createConnectionsQuery({
-      data: [
-        {
-          connection_uuid: "valid-connection",
-          source_site_id: "site-1",
-          target_site_id: "site-2",
-          responded_at: "2026-03-03T00:00:00Z"
-        },
-        {
-          connection_uuid: "self-link",
-          source_site_id: "site-1",
-          target_site_id: "site-1",
-          responded_at: "2026-03-03T00:00:00Z"
-        },
-        {
-          connection_uuid: "missing-site",
-          source_site_id: "site-1",
-          target_site_id: "site-3",
-          responded_at: "2026-03-03T00:00:00Z"
-        }
-      ],
-      error: null
-    });
-
-    explorerMocks.loadPublicSites.mockResolvedValue(publicSites);
-    explorerMocks.from.mockReturnValue(connectionsQuery);
-
-    const data = await loadExplorerData();
-
-    expect(explorerMocks.loadPublicSites).toHaveBeenCalledTimes(1);
-    expect(explorerMocks.from).toHaveBeenCalledWith("site_connection_requests");
-    expect(connectionsQuery.select).toHaveBeenCalledWith(
-      "connection_uuid, source_site_id, target_site_id, responded_at"
-    );
-    expect(connectionsQuery.eq).toHaveBeenCalledWith("status", "approved");
-    expect(connectionsQuery.order).toHaveBeenCalledWith("responded_at", {
-      ascending: false
-    });
-    expect(data.sites).toEqual(publicSites);
+        id: "index-1",
+        nodeType: "index",
+        title: "Root index",
+        description: "Public index",
+        canonicalUrl: "https://index.example/",
+        imageUrl: "",
+        updatedAt: "2026-03-05T00:00:00Z",
+        indexLevel: 1,
+        parentIndexId: null,
+      },
+    ]);
     expect(data.connections).toEqual([
       {
-        connectionUuid: "valid-connection",
-        sourceSiteId: "site-1",
-        targetSiteId: "site-2",
-        approvedAt: "2026-03-03T00:00:00Z"
-      }
+        id: "site-connection-1",
+        edgeType: "site_connection",
+        sourceId: "site-1",
+        targetId: "index-1",
+        happenedAt: "2026-03-05T00:00:00Z",
+      },
     ]);
+  });
+
+  it("throws when the public graph rpc fails", async () => {
+    explorerMocks.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "boom" },
+    });
+
+    await expect(loadExplorerData()).rejects.toThrow("boom");
   });
 });

@@ -1,12 +1,12 @@
 # Files excluded when finalizing a child index from this source repository.
+.DS_Store
 .env
 .env.example
 .env.local
 .env.production
+.tmp
+.tmp-skill
 apps/site/dist
 apps/site/node_modules
-site/.well-known
-site/config/index.json
-site/assets/index-image.jpg
 supabase/.temp
-.DS_Store
+

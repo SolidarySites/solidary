@@ -1,17 +1,17 @@
 type SearchMastheadProps = {
-  totalSiteCount: number;
+  totalNodeCount: number;
   totalConnectionCount: number;
   resultCount: number;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
 };
 
-const formatSiteCount = (count: number) => `${count} site${count === 1 ? "" : "s"}`;
+const formatNodeCount = (count: number) => `${count} result${count === 1 ? "" : "s"}`;
 const formatConnectionCount = (count: number) =>
   `${count} connection${count === 1 ? "" : "s"}`;
 
 export function SearchMasthead({
-  totalSiteCount,
+  totalNodeCount,
   totalConnectionCount,
   resultCount,
   searchQuery,
@@ -19,8 +19,8 @@ export function SearchMasthead({
 }: SearchMastheadProps) {
   const trimmedQuery = searchQuery.trim();
   const resultsLabel = trimmedQuery
-    ? `${formatSiteCount(resultCount)} matched`
-    : `${formatSiteCount(resultCount)} indexed`;
+    ? `${formatNodeCount(resultCount)} matched`
+    : `${formatNodeCount(resultCount)} indexed`;
 
   return (
     <section className="search-masthead" aria-labelledby="search-route-title">
@@ -29,10 +29,11 @@ export function SearchMasthead({
           Search the public index
         </h1>
         <p className="search-masthead-lead">
-          Find published sites by title, description, or URL across the public Solidary network.
+          Find published sites and indexes by title, description, or URL across the public
+          Solidary network.
         </p>
         <label className="search-query-field">
-          <span className="search-query-label">Search published sites</span>
+          <span className="search-query-label">Search published sites and indexes</span>
           <input
             type="search"
             value={searchQuery}
@@ -51,7 +52,7 @@ export function SearchMasthead({
         <dl className="search-masthead-stats">
           <div>
             <dt>Index</dt>
-            <dd>{formatSiteCount(totalSiteCount)}</dd>
+            <dd>{formatNodeCount(totalNodeCount)}</dd>
           </div>
           <div>
             <dt>Network</dt>
