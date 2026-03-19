@@ -11,6 +11,14 @@ type RootArchiveRow = {
   index_level: number | null;
 };
 
+type RootIndexFederationStateResponse = {
+  index?: {
+    id?: string;
+    canonical_url?: string | null;
+    index_level?: number | null;
+  } | null;
+};
+
 const getSessionExpiresAt = (session: Session) => {
   if (typeof session.expires_at === "number") {
     return session.expires_at;
@@ -105,24 +113,25 @@ const verifyLiveAuthUser = async ({
 };
 
 const loadRootArchive = async (): Promise<RootArchiveRow> => {
-  const { data, error } = await supabase
-    .from("archives")
-    .select("id, canonical_url, index_level")
-    .eq("type", "index")
-    .eq("is_root", true)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("rpc_index_federation_state");
 
   if (error) {
     throw new Error(error.message);
   }
 
-  if (!data?.id) {
+  const rootArchive = (data as RootIndexFederationStateResponse | null)?.index;
+  const rootArchiveId = typeof rootArchive?.id === "string" ? rootArchive.id.trim() : "";
+
+  if (!rootArchiveId) {
     throw new Error("Root index archive is missing.");
   }
 
-  return data as RootArchiveRow;
+  return {
+    id: rootArchiveId,
+    canonical_url:
+      typeof rootArchive?.canonical_url === "string" ? rootArchive.canonical_url : null,
+    index_level: typeof rootArchive?.index_level === "number" ? rootArchive.index_level : null
+  };
 };
 
 export const saveProvisionedSiteDraft = async ({
@@ -188,22 +197,6 @@ export const saveProvisionedSiteDraft = async ({
     throw new Error(siteError.message);
   }
 
-  const { error: archiveSiteError } = await supabase.from("archive_sites").upsert({
-    archive_id: rootArchive.id,
-    site_id: siteId,
-    status: "tracked",
-    delist_reason_code: null,
-    delist_note: null
-  });
-  if (archiveSiteError) {
-    logProvisioningDbError({
-      stage: "archive_sites_upsert",
-      error: archiveSiteError,
-      diagnostics
-    });
-    throw new Error(archiveSiteError.message);
-  }
-
   const { error: draftError } = await supabase.from("site_drafts").insert({
     id: siteId,
     site_id: siteId,
@@ -232,6 +225,22 @@ export const saveProvisionedSiteDraft = async ({
       throw new Error("A draft already exists for this repository and account. Open it from Studio instead.");
     }
     throw new Error(draftError.message);
+  }
+
+  const { error: archiveSiteError } = await supabase.from("archive_sites").insert({
+    archive_id: rootArchive.id,
+    site_id: siteId,
+    status: "tracked",
+    delist_reason_code: null,
+    delist_note: null
+  });
+  if (archiveSiteError) {
+    logProvisioningDbError({
+      stage: "archive_sites_insert",
+      error: archiveSiteError,
+      diagnostics
+    });
+    throw new Error(archiveSiteError.message);
   }
 
   const settings = buildSettingsPayload({
