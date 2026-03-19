@@ -217,84 +217,6 @@ const createDatabasePassword = () => {
   );
 };
 
-const createTemplateSolidaryFile = ({
-  archiveId,
-  title,
-  description,
-  siteUrl,
-  indexLevel,
-  parentIndexId,
-  parentIndexUrl,
-  parentIndexLevel,
-  hasImage,
-}: {
-  archiveId: string;
-  title: string;
-  description: string;
-  siteUrl: string;
-  indexLevel: number;
-  parentIndexId: string;
-  parentIndexUrl: string;
-  parentIndexLevel: number;
-  hasImage: boolean;
-}) =>
-  `${
-    JSON.stringify(
-      {
-        protocol_version: "1.0",
-        type: "index",
-        site_id: archiveId,
-        site_url: siteUrl,
-        title,
-        site_image: hasImage
-          ? resolveAbsoluteAssetUrl({
-            siteUrl,
-            assetPath: DEFAULT_INDEX_IMAGE_PATH,
-          })
-          : "",
-        site_image_thumb: "",
-        description,
-        index_level: indexLevel,
-        parent_index_id: parentIndexId,
-        parent_index_url: parentIndexUrl,
-        parent_index_level: parentIndexLevel,
-      },
-      null,
-      2,
-    )
-  }\n`;
-
-const createTemplateSolidaryLinksFile = ({
-  archiveId,
-  siteUrl,
-}: {
-  archiveId: string;
-  siteUrl: string;
-}) =>
-  `${
-    JSON.stringify(
-      {
-        "@context": {
-          site: "urn:solidary:type:site",
-          index: "urn:solidary:type:index",
-          connection: "urn:solidary:type:connection",
-          site_id: "urn:solidary:term:site_id",
-          connections: {
-            "@id": "urn:solidary:term:connections",
-            "@container": "@set",
-          },
-          connected_site: "urn:solidary:term:connected_site",
-        },
-        "@id": siteUrl,
-        "@type": "index",
-        site_id: archiveId,
-        connections: [],
-      },
-      null,
-      2,
-    )
-  }\n`;
-
 const getGhErrorMessage = (payload: unknown, fallback: string) => {
   const maybePayload = payload as GhErrorPayload;
   const message = typeof maybePayload?.message === "string"
@@ -1018,29 +940,6 @@ const applyIndexTemplateOverrides = ({
       parentIndexLevel,
     }),
   });
-  upsertTemplateFile({
-    filesByPath,
-    relPath: "site/.well-known/solidary.json",
-    content: createTemplateSolidaryFile({
-      archiveId,
-      title,
-      description,
-      siteUrl,
-      indexLevel,
-      parentIndexId,
-      parentIndexUrl,
-      parentIndexLevel,
-      hasImage: Boolean(normalizeRepoImageContent(imageContentB64)),
-    }),
-  });
-  upsertTemplateFile({
-    filesByPath,
-    relPath: "site/.well-known/solidary-links.json",
-    content: createTemplateSolidaryLinksFile({
-      archiveId,
-      siteUrl,
-    }),
-  });
 
   const normalizedImage = normalizeRepoImageContent(imageContentB64);
   if (normalizedImage) {
@@ -1597,7 +1496,9 @@ async function syncChildRootArchive({
         toSqlText(projectId)
       }, ${toSqlText(projectRef)}, ${toSqlText(projectName)}, ${
         toSqlText(projectUrl)
-      }, ${toSqlText(publishableKey)}, ${toSqlText(projectDashboardUrl)}, 'index_create', 'index', true, 'scaffold', ${indexLevel}, ${
+      }, ${toSqlText(publishableKey)}, ${
+        toSqlText(projectDashboardUrl)
+      }, 'index_create', 'index', true, 'scaffold', ${indexLevel}, ${
         toSqlText(parentIndexId)
       }, ${toSqlText(parentIndexUrl)}, ${parentIndexLevel}, ${
         toSqlText(parentRepoFullName)
@@ -2164,10 +2065,13 @@ export const handler: Handler = async (event) => {
           expectedArchiveId: archiveId,
         });
       } catch (error) {
-        console.warn("[index-create-worker] failed to refresh local federation mirror", {
-          archiveId,
-          message: error instanceof Error ? error.message : String(error),
-        });
+        console.warn(
+          "[index-create-worker] failed to refresh local federation mirror",
+          {
+            archiveId,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        );
       }
 
       await updateJob({
