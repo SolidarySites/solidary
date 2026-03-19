@@ -137,7 +137,7 @@ function ManagedIndexAdminRoutePage() {
 
             {controller.state && controller.setup && (
               <IndexAdminSetupPanel
-                archive={controller.state.index}
+                index={controller.state.index}
                 setup={controller.setup}
                 highlight={controller.createdMode}
                 startingFinalization={controller.startingFinalization}
@@ -223,7 +223,7 @@ function ManagedIndexAdminRoutePage() {
 
             {!controller.stateLoading && controller.state && controller.activeSection === "danger" && (
               <IndexAdminAdvancedSection
-                archive={controller.state.index}
+                index={controller.state.index}
                 setup={controller.setup}
                 domainValue={controller.domainInput}
                 saving={controller.savingAdvanced}
