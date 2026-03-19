@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import sodium from "npm:libsodium-wrappers-sumo@0.7.15";
-import { decryptTokenValue } from "./token-crypto.ts";
+import { decryptTokenValue, encryptTokenValue } from "./token-crypto.ts";
 import type { HandlerEvent } from "./types.ts";
 import {
   getSolidaryAppUrl,
@@ -40,8 +40,7 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
@@ -55,6 +54,7 @@ const INDEX_REQUIRED_REPO_SECRET_NAMES = [
   "SUPABASE_PROJECT_REF_PROD",
   "ADMIN_PASSWORD",
 ] as const;
+export const ROOT_INDEX_ADMIN_BRIDGE_USER_ID = "__solidary_root_admin__";
 
 export type IndexAdminRole = IndexAdminBridgeRole;
 
@@ -377,6 +377,19 @@ const asRecord = (value: unknown) =>
 const normalizeComparableUrl = (value: string) =>
   value.trim().replace(/\/+$/, "").toLowerCase();
 
+const deriveProjectRefFromSupabaseUrl = (value: string) => {
+  const normalized = toTrimmedString(value);
+  if (!normalized) return "";
+
+  try {
+    const hostname = new URL(normalized).hostname.trim().toLowerCase();
+    const match = hostname.match(/^([a-z0-9-]+)\.supabase\.co$/);
+    return match?.[1] ?? "";
+  } catch {
+    return "";
+  }
+};
+
 const normalizeRepoFullName = (value: unknown) => {
   const trimmed = toTrimmedString(value);
   return /^[^/\s]+\/[^/\s]+$/.test(trimmed) ? trimmed : "";
@@ -409,6 +422,20 @@ const isSolidaryRootParent = (
     .map(normalizeComparableUrl);
   return candidateUrls.includes(rootIndexUrl);
 };
+
+const isSolidaryRootArchive = (
+  archive: Pick<IndexArchiveRow, "id"> | null | undefined,
+) => toTrimmedString(archive?.id) === getSolidaryRootIndexId();
+
+const isRootPasswordAdminUserId = (value: string) =>
+  value.trim() === ROOT_INDEX_ADMIN_BRIDGE_USER_ID;
+
+export const isRootPasswordAdminContext = (
+  context: Pick<IndexAdminContext, "archive" | "actorUserId" | "via">,
+) =>
+  context.via === "bridge" &&
+  isSolidaryRootArchive(context.archive) &&
+  isRootPasswordAdminUserId(context.actorUserId);
 
 const createServiceSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -588,9 +615,11 @@ const readArchive = async ({
 const readCredentials = async ({
   supabase,
   archiveId,
+  archive,
 }: {
   supabase: ReturnType<typeof createServiceSupabase>;
   archiveId: string;
+  archive?: IndexArchiveRow | null;
 }) => {
   const { data, error } = await supabase
     .from("index_project_credentials")
@@ -614,11 +643,44 @@ const readCredentials = async ({
   if (error) {
     throw new Error(error.message);
   }
-  if (!data) {
-    throw new Error("Index project credentials are missing.");
+  if (data) {
+    return data as unknown as IndexProjectCredentialsRow;
   }
 
-  return data as unknown as IndexProjectCredentialsRow;
+  if (archive && isSolidaryRootArchive(archive)) {
+    const repoFullName =
+      normalizeRepoFullName(archive.repo_full_name) ||
+      normalizeRepoFullName(getSolidaryRootRepoFullName());
+    const [repoOwner = "", repoName = ""] = repoFullName.split("/");
+    const supabaseProjectUrl =
+      toTrimmedString(archive.supabase_project_url) || toTrimmedString(SUPABASE_URL);
+    const supabaseProjectRef =
+      toTrimmedString(archive.supabase_project_ref) ||
+      deriveProjectRefFromSupabaseUrl(supabaseProjectUrl);
+    const supabasePublishableKey =
+      toTrimmedString(archive.supabase_publishable_key) ||
+      toTrimmedString(Deno.env.get("SUPABASE_PUBLISHABLE_KEY")) ||
+      toTrimmedString(Deno.env.get("SUPABASE_ANON_KEY"));
+
+    if (!supabaseProjectUrl || !SUPABASE_SERVICE_KEY) {
+      throw new Error("Index project credentials are missing.");
+    }
+
+    return {
+      archive_id: archive.id,
+      owner_user_id: ROOT_INDEX_ADMIN_BRIDGE_USER_ID,
+      supabase_project_ref: supabaseProjectRef,
+      supabase_project_url: supabaseProjectUrl,
+      supabase_publishable_key: supabasePublishableKey || null,
+      supabase_secret_key_encrypted: encryptTokenValue(SUPABASE_SERVICE_KEY),
+      repo_owner: repoOwner,
+      repo_name: repoName,
+      repo_full_name: repoFullName,
+      repo_url: toTrimmedString(archive.repo_url) || getSolidaryRootRepoUrl(),
+    } satisfies IndexProjectCredentialsRow;
+  }
+
+  throw new Error("Index project credentials are missing.");
 };
 
 export const readLatestIndexFinalizationJob = async ({
@@ -720,7 +782,12 @@ export const resolveIndexAdminContext = async ({
   }
 
   const supabase = createServiceSupabase();
+  const archive = await readArchive({
+    supabase,
+    archiveId: normalizedArchiveId,
+  });
   let actorUserId = "";
+  let actorRole: IndexAdminRole;
   let via: "session" | "bridge" = "session";
 
   if (bridgeToken?.trim()) {
@@ -730,6 +797,21 @@ export const resolveIndexAdminContext = async ({
     }
     actorUserId = payload.userId;
     via = "bridge";
+    if (isSolidaryRootArchive(archive) && isRootPasswordAdminUserId(actorUserId)) {
+      const credentials = await readCredentials({
+        supabase,
+        archiveId: normalizedArchiveId,
+        archive,
+      });
+      return {
+        supabase,
+        archive,
+        credentials,
+        actorUserId,
+        actorRole: payload.role,
+        via,
+      };
+    }
   } else if (supabaseAccessToken?.trim()) {
     actorUserId = await resolveSessionUserId({
       supabase,
@@ -744,13 +826,11 @@ export const resolveIndexAdminContext = async ({
     archiveId: normalizedArchiveId,
     userId: actorUserId,
   });
-  const archive = await readArchive({
-    supabase,
-    archiveId: normalizedArchiveId,
-  });
+  actorRole = membership.role;
   const credentials = await readCredentials({
     supabase,
     archiveId: normalizedArchiveId,
+    archive,
   });
 
   return {
@@ -758,7 +838,7 @@ export const resolveIndexAdminContext = async ({
     archive,
     credentials,
     actorUserId,
-    actorRole: membership.role,
+    actorRole,
     via,
   };
 };
@@ -1693,6 +1773,7 @@ const listCollaborators = async (
 
 export const readIndexAdminState = async (context: IndexAdminContext) => {
   const child = createChildProjectClient(context.credentials);
+  const rootPasswordAdmin = isRootPasswordAdminContext(context);
   const { data: archiveData, error: archiveError } = await child
     .from("archives")
     .select(
@@ -1786,7 +1867,7 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
       } satisfies IndexConnectionRecord;
     });
 
-  const collaborators = await listCollaborators(context);
+  const collaborators = rootPasswordAdmin ? [] : await listCollaborators(context);
   const bridgeToken = createIndexAdminBridgeToken({
     archiveId: context.archive.id,
     userId: context.actorUserId,
@@ -1803,10 +1884,14 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
       userId: context.actorUserId,
       role: context.actorRole,
       via: context.via,
-      canEditGeneral: roleRank[context.actorRole] >= roleRank.editor,
+      canEditGeneral: rootPasswordAdmin
+        ? false
+        : roleRank[context.actorRole] >= roleRank.editor,
       canManageConnections: roleRank[context.actorRole] >= roleRank.admin,
-      canManageCollaborators: roleRank[context.actorRole] >= roleRank.admin,
-      canManageAdvanced: context.actorRole === "owner",
+      canManageCollaborators: rootPasswordAdmin
+        ? false
+        : roleRank[context.actorRole] >= roleRank.admin,
+      canManageAdvanced: rootPasswordAdmin ? false : context.actorRole === "owner",
     },
     archive: {
       id: context.archive.id,
@@ -1971,6 +2056,9 @@ export const updateIndexGeneralSettings = async ({
   description: string;
   imageContentB64?: string;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin currently supports connection management only.");
+  }
   assertIndexAdminRole(context.actorRole, "editor");
 
   const currentState = await readIndexAdminState(context);
@@ -2031,6 +2119,9 @@ export const searchIndexCollaboratorCandidates = async ({
   query: string;
   limit?: number;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not manage collaborators.");
+  }
   assertIndexAdminRole(context.actorRole, "admin");
   const { data, error } = await context.supabase.rpc(
     "index_search_collaborator_candidates",
@@ -2074,6 +2165,9 @@ export const upsertIndexCollaborator = async ({
   collaboratorUserId: string;
   role: Exclude<IndexAdminRole, "owner">;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not manage collaborators.");
+  }
   assertIndexAdminRole(context.actorRole, "admin");
   const targetUserId = collaboratorUserId.trim();
   if (!targetUserId) {
@@ -2102,6 +2196,9 @@ export const removeIndexCollaborator = async ({
   context: IndexAdminContext;
   collaboratorUserId: string;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not manage collaborators.");
+  }
   assertIndexAdminRole(context.actorRole, "admin");
   const targetUserId = collaboratorUserId.trim();
   if (!targetUserId) {
@@ -2146,6 +2243,11 @@ export const updateIndexConnectionStatus = async ({
   });
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (isRootPasswordAdminContext(context)) {
+    await notifyRelatedIndexesOfFederationChange({ context });
+    return;
   }
 
   const updatedState = await readIndexAdminState(context);
@@ -2239,6 +2341,9 @@ export const updateIndexAdvancedSettings = async ({
   context: IndexAdminContext;
   domain: string | null;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not manage standalone domain settings.");
+  }
   assertIndexAdminRole(context.actorRole, "owner");
   const githubToken = await resolveOwnerGitHubToken(context);
   const normalizedDomain =
@@ -2334,6 +2439,9 @@ export const configureIndexStandaloneAuth = async ({
   githubClientSecret: string;
   supabasePersonalAccessToken?: string;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not manage child standalone auth.");
+  }
   assertIndexAdminRole(context.actorRole, "owner");
   const normalizedGithubClientId = toTrimmedString(githubClientId);
   const normalizedGithubClientSecret = toTrimmedString(githubClientSecret);
@@ -2394,6 +2502,9 @@ export const deployIndexChildFunctions = async ({
   adminPassword?: string;
   dispatchWorkflow?: boolean;
 }) => {
+  if (isRootPasswordAdminContext(context)) {
+    throw new Error("Root /admin does not deploy child functions.");
+  }
   assertIndexAdminRole(context.actorRole, "owner");
   const normalizedSupabasePersonalAccessToken = toTrimmedString(
     supabasePersonalAccessToken,

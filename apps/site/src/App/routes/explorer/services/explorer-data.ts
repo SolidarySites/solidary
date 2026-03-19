@@ -64,6 +64,9 @@ export type ExplorerData = {
   connections: ExplorerConnection[];
 };
 
+export const isExplorerRootIndexNode = (site: ExplorerSite) =>
+  site.nodeType === "index" && site.parentIndexId === site.id;
+
 const toTrimmedString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 

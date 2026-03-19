@@ -3,8 +3,9 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY =
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SUPABASE_SERVICE_KEY =
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const GITHUB_OAUTH_CLIENT_ID = Deno.env.get("GITHUB_OAUTH_CLIENT_ID") ?? "";
 const GITHUB_OAUTH_CLIENT_SECRET = Deno.env.get("GITHUB_OAUTH_CLIENT_SECRET") ?? "";
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(Deno.env.get("GITHUB_TOKEN_DEBUG") ?? "");
@@ -52,9 +53,9 @@ const getBearerToken = (authorizationHeader: string | undefined): string => {
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or service-role API key."
+      error: "Missing SUPABASE_URL or Supabase service key."
     });
   }
 
@@ -84,7 +85,7 @@ export const handler: Handler = async (event) => {
     return safeJson(401, { error: "Missing Authorization bearer token." });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   const {

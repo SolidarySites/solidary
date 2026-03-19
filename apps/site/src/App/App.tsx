@@ -142,11 +142,7 @@ export default function App() {
               />
               <Route
                 path="/admin"
-                element={
-                  <RequireAuth>
-                    <AdminRoute />
-                  </RequireAuth>
-                }
+                element={<AdminRoute />}
               />
               <Route
                 path="/studio/builder"

@@ -3,6 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import { parseIndexAdminBridgeToken } from "../_shared/index-admin-bridge.ts";
 import {
   buildStandaloneAdminSetup,
+  isRootPasswordAdminContext,
   parseBearerToken,
   parseBridgeTokenFromEvent,
   readIndexAdminState,
@@ -65,15 +66,17 @@ export const handler: Handler = async (event) => {
       supabase: context.supabase,
       archiveId,
     });
-    const setup = await buildStandaloneAdminSetup({
-      context,
-      state,
-      latestJob,
-      managementAccessTokenOverride:
-        typeof body.supabase_personal_access_token === "string"
-          ? body.supabase_personal_access_token
-          : "",
-    });
+    const setup = isRootPasswordAdminContext(context)
+      ? null
+      : await buildStandaloneAdminSetup({
+        context,
+        state,
+        latestJob,
+        managementAccessTokenOverride:
+          typeof body.supabase_personal_access_token === "string"
+            ? body.supabase_personal_access_token
+            : "",
+      });
 
     return safeJson(200, {
       state,

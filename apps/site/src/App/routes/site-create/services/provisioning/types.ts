@@ -44,6 +44,7 @@ export type ProvisioningDiagnostics = {
 
 export type DbWriteStage =
   | "sites_insert"
+  | "archive_sites_upsert"
   | "site_drafts_insert"
   | "site_draft_settings_upsert"
   | "site_draft_pages_insert";

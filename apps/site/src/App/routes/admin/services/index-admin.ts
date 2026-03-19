@@ -506,9 +506,39 @@ type IndexAdminWriteOptions = {
   bridgeToken?: string;
 };
 
+const DEFAULT_SOLIDARY_ROOT_INDEX_ID = "00000000-0000-4000-8000-000000000001";
+
+const readConfiguredRootIndexId = () => {
+  const explicitRootIndexId =
+    typeof import.meta.env.VITE_SOLIDARY_ROOT_INDEX_ID === "string"
+      ? import.meta.env.VITE_SOLIDARY_ROOT_INDEX_ID.trim()
+      : "";
+  return explicitRootIndexId || DEFAULT_SOLIDARY_ROOT_INDEX_ID;
+};
+
+export const getRootIndexAdminArchiveId = () => readConfiguredRootIndexId();
+
 export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]> => {
   const payload = await githubRequest<{ items?: IndexAdminListItem[] }>("index-admin-list", {});
   return Array.isArray(payload.items) ? payload.items : [];
+};
+
+export const loginIndexAdminWithPassword = async ({
+  archiveId,
+  password
+}: {
+  archiveId: string;
+  password: string;
+}) => {
+  const payload = await githubRequest<{ token?: string }>("index-admin-password-login", {
+    archive_id: archiveId.trim(),
+    password
+  });
+  const token = typeof payload.token === "string" ? payload.token.trim() : "";
+  if (!token) {
+    throw new Error("Admin login did not return a token.");
+  }
+  return token;
 };
 
 export const readIndexAdmin = async (

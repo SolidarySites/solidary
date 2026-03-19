@@ -3,7 +3,8 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
+  "";
 
 type RepoProvisionStatusBody = {
   job_id?: string;
@@ -29,7 +30,7 @@ export const handler: Handler = async (event) => {
 
   if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY."
+      error: "Missing SUPABASE_URL or Supabase service key."
     });
   }
 

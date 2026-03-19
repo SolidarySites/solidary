@@ -3,12 +3,13 @@ import { timingSafeEqual } from "node:crypto";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { runHandler } from "../_shared/request-adapter.ts";
 import { createIndexAdminBridgeToken } from "../_shared/index-admin-bridge.ts";
+import { ROOT_INDEX_ADMIN_BRIDGE_USER_ID } from "../_shared/index-admin.ts";
+import { getSolidaryRootIndexId } from "../_shared/solidary-root-index.ts";
 import type { Handler } from "../_shared/types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const ADMIN_PASSWORD = Deno.env.get("ADMIN_PASSWORD") ?? "";
 const LOCAL_ADMIN_TOKEN_TTL_MS = 1000 * 60 * 60 * 12;
 
@@ -100,7 +101,7 @@ export const handler: Handler = async (event) => {
     const ownerUserId = typeof data.owner_user_id === "string"
       ? data.owner_user_id.trim()
       : "";
-    if (!ownerUserId) {
+    if (!ownerUserId && archiveId !== getSolidaryRootIndexId()) {
       return safeJson(412, {
         error: "This index is missing its owner account.",
         error_code: "owner_missing",
@@ -109,7 +110,7 @@ export const handler: Handler = async (event) => {
 
     const token = createIndexAdminBridgeToken({
       archiveId,
-      userId: ownerUserId,
+      userId: ownerUserId || ROOT_INDEX_ADMIN_BRIDGE_USER_ID,
       role: "owner",
       expiresAt: new Date(Date.now() + LOCAL_ADMIN_TOKEN_TTL_MS).toISOString(),
     });

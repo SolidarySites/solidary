@@ -7,8 +7,7 @@ import type { Handler } from "../_shared/types.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
 type RefreshBody = {
   source_archive_id?: unknown;

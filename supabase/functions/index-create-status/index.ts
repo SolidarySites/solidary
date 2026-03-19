@@ -46,7 +46,7 @@ export const handler: Handler = async (event) => {
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY.",
+      error: "Missing SUPABASE_URL or Supabase service key.",
     });
   }
 

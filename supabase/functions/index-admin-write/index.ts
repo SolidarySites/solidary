@@ -4,6 +4,7 @@ import {
   buildStandaloneAdminSetup,
   configureIndexStandaloneAuth,
   deployIndexChildFunctions,
+  isRootPasswordAdminContext,
   isIndexFinalizationJobStale,
   parseBearerToken,
   parseBridgeTokenFromEvent,
@@ -160,6 +161,9 @@ export const handler: Handler = async (event) => {
         supabasePersonalAccessToken: suppliedSupabasePersonalAccessToken,
       });
     } else if (action === "finalize_index") {
+      if (isRootPasswordAdminContext(context)) {
+        throw new Error("Root /admin does not finalize child indexes.");
+      }
       if (context.actorRole !== "owner") {
         throw new Error("Only the owner can finalize the index.");
       }

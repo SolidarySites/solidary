@@ -5,6 +5,12 @@ import { normalizeSiteTitle } from "../../../../services/site-metadata";
 import { buildSettingsPayload, FILE_KEYS } from "./content";
 import type { DbWriteStage, ProvisioningDiagnostics } from "./types";
 
+type RootArchiveRow = {
+  id: string;
+  canonical_url: string | null;
+  index_level: number | null;
+};
+
 const getSessionExpiresAt = (session: Session) => {
   if (typeof session.expires_at === "number") {
     return session.expires_at;
@@ -98,6 +104,27 @@ const verifyLiveAuthUser = async ({
   };
 };
 
+const loadRootArchive = async (): Promise<RootArchiveRow> => {
+  const { data, error } = await supabase
+    .from("archives")
+    .select("id, canonical_url, index_level")
+    .eq("type", "index")
+    .eq("is_root", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data?.id) {
+    throw new Error("Root index archive is missing.");
+  }
+
+  return data as RootArchiveRow;
+};
+
 export const saveProvisionedSiteDraft = async ({
   session,
   siteId,
@@ -136,6 +163,7 @@ export const saveProvisionedSiteDraft = async ({
     siteId,
     repoFullName
   });
+  const rootArchive = await loadRootArchive();
 
   const { error: siteError } = await supabase.from("sites").insert({
     id: siteId,
@@ -143,6 +171,9 @@ export const saveProvisionedSiteDraft = async ({
     title: normalizedTitle,
     description: normalizedDescription,
     image_url: siteRecordImageUrl,
+    parent_index_id: rootArchive.id,
+    parent_index_url: rootArchive.canonical_url,
+    parent_index_level: rootArchive.index_level,
     meta: {
       completion: "complete",
       source: "studio"
@@ -155,6 +186,22 @@ export const saveProvisionedSiteDraft = async ({
       diagnostics
     });
     throw new Error(siteError.message);
+  }
+
+  const { error: archiveSiteError } = await supabase.from("archive_sites").upsert({
+    archive_id: rootArchive.id,
+    site_id: siteId,
+    status: "tracked",
+    delist_reason_code: null,
+    delist_note: null
+  });
+  if (archiveSiteError) {
+    logProvisioningDbError({
+      stage: "archive_sites_upsert",
+      error: archiveSiteError,
+      diagnostics
+    });
+    throw new Error(archiveSiteError.message);
   }
 
   const { error: draftError } = await supabase.from("site_drafts").insert({

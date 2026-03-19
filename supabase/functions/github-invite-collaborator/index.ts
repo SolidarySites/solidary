@@ -8,7 +8,8 @@ import {
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const DELETE_REPO_SUPABASE_SECRET_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ?? "";
+const DELETE_REPO_SUPABASE_SECRET_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
 type CollaboratorRole = "admin" | "editor" | "contributor";
 type ParsedCollaboratorRole = CollaboratorRole | "viewer";
@@ -28,7 +29,7 @@ const roleToGithubPermission: Record<Exclude<CollaboratorRole, "contributor">, "
 
 const requireEnv = () => {
   if (!SUPABASE_URL || !DELETE_REPO_SUPABASE_SECRET_KEY) {
-    return "Missing SUPABASE_URL or DELETE_REPO_SUPABASE_SECRET_KEY.";
+    return "Missing SUPABASE_URL or Supabase service key.";
   }
   return null;
 };

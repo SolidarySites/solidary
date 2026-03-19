@@ -48,6 +48,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
+const PROJECT_FUNCTION_SERVICE_SECRET_NAMES = [
+  "CREATE_SITE_SUPABASE_API_KEY",
+  "DELETE_REPO_SUPABASE_SECRET_KEY",
+] as const;
 
 type GhErrorPayload = { message?: string; documentation_url?: string };
 type GhRepoPayload = {
@@ -1356,6 +1360,40 @@ async function ensureProjectApiKeys({
   throw new HttpError(500, "Could not resolve the new project's API keys.");
 }
 
+async function ensureProjectFunctionSecrets({
+  accessToken,
+  projectRef,
+  secretKey,
+}: {
+  accessToken: string;
+  projectRef: string;
+  secretKey: string;
+}) {
+  const { response, payload } = await managementRequest<unknown>({
+    accessToken,
+    path: `/v1/projects/${projectRef}/secrets`,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        PROJECT_FUNCTION_SERVICE_SECRET_NAMES.map((name) => ({
+          name,
+          value: secretKey,
+        })),
+      ),
+    },
+  });
+
+  if (!response.ok) {
+    throw new HttpError(
+      response.status,
+      getGhErrorMessage(payload, "Failed to update child project secrets."),
+    );
+  }
+}
+
 async function runProjectQuery({
   accessToken,
   projectRef,
@@ -1726,7 +1764,7 @@ export const handler: Handler = async (event) => {
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return safeJson(500, {
-      error: "Missing SUPABASE_URL or CREATE_SITE_SUPABASE_API_KEY.",
+      error: "Missing SUPABASE_URL or Supabase service key.",
     });
   }
 
@@ -1955,6 +1993,11 @@ export const handler: Handler = async (event) => {
       const { publishableKey, secretKey } = await ensureProjectApiKeys({
         accessToken: managementAccessToken,
         projectRef,
+      });
+      await ensureProjectFunctionSecrets({
+        accessToken: managementAccessToken,
+        projectRef,
+        secretKey,
       });
 
       await updateJob({
