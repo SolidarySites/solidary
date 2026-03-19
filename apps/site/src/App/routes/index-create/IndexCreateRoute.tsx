@@ -72,9 +72,9 @@ const getStepSummary = ({
           ? `${controller.setup.finalization.progressCurrent ?? 0}/${controller.setup.finalization.progressTotal} files processed.`
         : controller.setup?.finalization.step || "Copy the standalone app into the child repo.";
     case "functions":
-      return controller.setup?.functionsDeployment.status === "deployed"
+      return controller.functionsDeploymentDisplayStatus === "deployed"
         ? "Child functions deployed."
-        : controller.setup?.functionsDeployment.message || "Deploy the child Supabase functions.";
+        : controller.functionsDeploymentDisplayMessage || "Deploy the child Supabase functions.";
     case "launch":
       return "Open the standalone index and start using the child app directly.";
     default:
@@ -92,6 +92,8 @@ const renderStepContent = ({
   const authSetup = controller.setup?.authSetup ?? null;
   const finalization = controller.setup?.finalization ?? null;
   const functionsDeployment = controller.setup?.functionsDeployment ?? null;
+  const functionsDeploymentStatus = controller.functionsDeploymentDisplayStatus;
+  const functionsDeploymentMessage = controller.functionsDeploymentDisplayMessage;
   const finalizationProgressLabel = finalization?.progressTotal
     ? `${finalization.progressCurrent ?? 0} / ${finalization.progressTotal}`
     : "Waiting to start.";
@@ -582,7 +584,7 @@ const renderStepContent = ({
           <div className="index-create-status-grid">
             <div>
               <strong>Deployment status</strong>
-              <span>{functionsDeployment?.status || "not_ready"}</span>
+              <span>{functionsDeploymentStatus}</span>
             </div>
             <div>
               <strong>What Solidary needs</strong>
@@ -594,8 +596,8 @@ const renderStepContent = ({
               </span>
             </div>
           </div>
-          {functionsDeployment?.message ? (
-            <p className="index-create-step-note">{functionsDeployment.message}</p>
+          {functionsDeploymentMessage ? (
+            <p className="index-create-step-note">{functionsDeploymentMessage}</p>
           ) : null}
           {functionsDeployment?.latestRun ? (
             <div className="index-create-status-grid">
@@ -653,8 +655,8 @@ const renderStepContent = ({
                 Open latest run
               </a>
             ) : null}
-            {functionsDeployment?.status === "ready_to_run" ||
-            functionsDeployment?.status === "failed" ? (
+            {functionsDeploymentStatus === "ready_to_run" ||
+            functionsDeploymentStatus === "failed" ? (
               <button
                 type="button"
                 className="primary"
@@ -663,12 +665,12 @@ const renderStepContent = ({
               >
                 {controller.deployingFunctions
                   ? "Deploying..."
-                  : functionsDeployment?.status === "failed"
+                  : functionsDeploymentStatus === "failed"
                     ? "Retry deployment"
                     : "Deploy child functions"}
               </button>
             ) : null}
-            {functionsDeployment?.status !== "running" ? (
+            {functionsDeploymentStatus !== "running" ? (
               <button
                 type="button"
                 className="ghost"

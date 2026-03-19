@@ -11,15 +11,17 @@ import {
 } from "../_shared/index-admin.ts";
 import { refreshIndexFederationMirror } from "../_shared/index-federation.ts";
 import {
-  parseIndexFinalizationPayload,
   type IndexFinalizationPayloadState,
   type IndexFinalizationPreparedTreeEntry,
   type IndexFinalizationSourceManifestEntry,
+  parseIndexFinalizationPayload,
 } from "../_shared/index-finalization.ts";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import {
   buildFinalizationStepLabel,
+  findSourceTreeBlobEntryByPath,
 } from "./helpers.ts";
+import { getSolidaryAppUrl } from "../_shared/solidary-root-index.ts";
 import { prepareSourceManifest } from "./prepare-manifest.ts";
 import type { Handler } from "../_shared/types.ts";
 
@@ -43,6 +45,39 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+const LEGACY_STANDALONE_SITE_ROOT = "site";
+const STANDALONE_PUBLIC_ROOT = "apps/site/public";
+const STANDALONE_TEMPLATE_ROOT =
+  "apps/site/src/templates/index/default_template/scaffold/site";
+const STANDALONE_INDEX_IMAGE_ASSET_PATH = "/assets/index-image.jpg";
+const STANDALONE_PUBLIC_CONFIG_PATH =
+  `${STANDALONE_PUBLIC_ROOT}/config/index.json`;
+const STANDALONE_PUBLIC_SOLIDARY_PATH =
+  `${STANDALONE_PUBLIC_ROOT}/.well-known/solidary.json`;
+const STANDALONE_PUBLIC_SOLIDARY_LINKS_PATH =
+  `${STANDALONE_PUBLIC_ROOT}/.well-known/solidary-links.json`;
+const STANDALONE_PUBLIC_INDEX_IMAGE_PATH =
+  `${STANDALONE_PUBLIC_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
+const LEGACY_STANDALONE_INDEX_IMAGE_PATH =
+  `${LEGACY_STANDALONE_SITE_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
+const STANDALONE_PUBLIC_TEMPLATE_MAPPINGS = [
+  {
+    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/admin/index.html`,
+    targetPath: `${STANDALONE_PUBLIC_ROOT}/admin/index.html`,
+  },
+  {
+    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/admin/app.js`,
+    targetPath: `${STANDALONE_PUBLIC_ROOT}/admin/app.js`,
+  },
+  {
+    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/styles.css`,
+    targetPath: `${STANDALONE_PUBLIC_ROOT}/styles.css`,
+  },
+  {
+    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/shared.js`,
+    targetPath: `${STANDALONE_PUBLIC_ROOT}/shared.js`,
+  },
+] as const;
 
 type GhErrorPayload = {
   message?: string;
@@ -186,9 +221,16 @@ const getGhErrorMessage = (payload: unknown, fallback: string) => {
   return `${fallback} (${message || docs})`;
 };
 
-const assertOk = (response: Response, payload: unknown, fallbackMessage: string) => {
+const assertOk = (
+  response: Response,
+  payload: unknown,
+  fallbackMessage: string,
+) => {
   if (!response.ok) {
-    throw new HttpError(response.status, getGhErrorMessage(payload, fallbackMessage));
+    throw new HttpError(
+      response.status,
+      getGhErrorMessage(payload, fallbackMessage),
+    );
   }
 };
 
@@ -243,7 +285,10 @@ async function ghUserWithRetry<T>({
 
     const current = await ghUser<T>(userToken, url, init);
     last = current;
-    if (current.response.ok || !shouldRetry(current.response.status, current.payload)) {
+    if (
+      current.response.ok ||
+      !shouldRetry(current.response.status, current.payload)
+    ) {
       return current;
     }
   }
@@ -263,7 +308,9 @@ async function getRepo({
   owner: string;
   repo: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhRepoPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhRepoPayload | GhErrorPayload
+  >({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
@@ -284,13 +331,21 @@ async function getBranchHeadSha({
   repo: string;
   branch: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhBranchPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhBranchPayload | GhErrorPayload
+  >({
     userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}`,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/branches/${
+      encodeURIComponent(branch)
+    }`,
     delaysMs: BRANCH_READY_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(response, payload, `Failed to read ${branch} branch for ${owner}/${repo}.`);
+  assertOk(
+    response,
+    payload,
+    `Failed to read ${branch} branch for ${owner}/${repo}.`,
+  );
   const sha = typeof (payload as GhBranchPayload)?.commit?.sha === "string"
     ? (payload as GhBranchPayload).commit?.sha
     : "";
@@ -314,13 +369,19 @@ async function getCommitTreeSha({
   repo: string;
   commitSha: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhCommitPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhCommitPayload | GhErrorPayload
+  >({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits/${commitSha}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(response, payload, `Failed reading commit ${commitSha} for ${owner}/${repo}.`);
+  assertOk(
+    response,
+    payload,
+    `Failed reading commit ${commitSha} for ${owner}/${repo}.`,
+  );
 
   const treeSha = typeof (payload as GhCommitPayload)?.tree?.sha === "string"
     ? (payload as GhCommitPayload).tree?.sha
@@ -345,13 +406,20 @@ async function getRecursiveTree({
   repo: string;
   treeSha: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhTreePayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhTreePayload | GhErrorPayload
+  >({
     userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
+    url:
+      `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(response, payload, `Failed reading tree ${treeSha} for ${owner}/${repo}.`);
+  assertOk(
+    response,
+    payload,
+    `Failed reading tree ${treeSha} for ${owner}/${repo}.`,
+  );
   const treePayload = payload as GhTreePayload;
   if (treePayload.truncated === true) {
     throw new HttpError(
@@ -373,17 +441,27 @@ async function getBlobBase64({
   repo: string;
   blobSha: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhBlobPayload | GhErrorPayload
+  >({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs/${blobSha}`,
     delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
     shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
   });
-  assertOk(response, payload, `Failed reading blob ${blobSha} from ${owner}/${repo}.`);
+  assertOk(
+    response,
+    payload,
+    `Failed reading blob ${blobSha} from ${owner}/${repo}.`,
+  );
 
   const blobPayload = payload as GhBlobPayload;
-  const encoding = typeof blobPayload.encoding === "string" ? blobPayload.encoding : "";
-  const rawContent = typeof blobPayload.content === "string" ? blobPayload.content : "";
+  const encoding = typeof blobPayload.encoding === "string"
+    ? blobPayload.encoding
+    : "";
+  const rawContent = typeof blobPayload.content === "string"
+    ? blobPayload.content
+    : "";
   if (blobSha === EMPTY_GIT_BLOB_SHA) {
     return "";
   }
@@ -407,7 +485,9 @@ async function createBlob({
   repo: string;
   contentB64: string;
 }) {
-  const { response, payload } = await ghUserWithRetry<GhBlobPayload | GhErrorPayload>({
+  const { response, payload } = await ghUserWithRetry<
+    GhBlobPayload | GhErrorPayload
+  >({
     userToken,
     url: `${GITHUB_API}/repos/${owner}/${repo}/git/blobs`,
     init: {
@@ -452,34 +532,28 @@ async function createCommitFromTreeEntries({
     repo,
     branch,
   });
-  const baseTreeSha = await getCommitTreeSha({
-    userToken,
-    owner,
-    repo,
-    commitSha: parentCommitSha,
-  });
 
-  const { response: treeResponse, payload: treePayload } = await ghUserWithRetry<
-    GhTreePayload | GhErrorPayload
-  >({
-    userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        base_tree: baseTreeSha,
-        tree: treeEntries.map((entry) => ({
-          path: entry.path,
-          mode: entry.mode,
-          type: "blob",
-          sha: entry.sha,
-        })),
-      }),
-    },
-    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
-  });
+  const { response: treeResponse, payload: treePayload } =
+    await ghUserWithRetry<
+      GhTreePayload | GhErrorPayload
+    >({
+      userToken,
+      url: `${GITHUB_API}/repos/${owner}/${repo}/git/trees`,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tree: treeEntries.map((entry) => ({
+            path: entry.path,
+            mode: entry.mode,
+            type: "blob",
+            sha: entry.sha,
+          })),
+        }),
+      },
+      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
+    });
   assertOk(treeResponse, treePayload, "Failed creating repository tree.");
   const treeSha = typeof (treePayload as GhTreePayload).sha === "string"
     ? (treePayload as GhTreePayload).sha
@@ -488,23 +562,24 @@ async function createCommitFromTreeEntries({
     throw new HttpError(500, "GitHub did not return a tree SHA.");
   }
 
-  const { response: commitResponse, payload: commitPayload } = await ghUserWithRetry<
-    GhCommitPayload | GhErrorPayload
-  >({
-    userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits`,
-    init: {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        tree: treeSha,
-        parents: [parentCommitSha],
-      }),
-    },
-    delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
-    shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
-  });
+  const { response: commitResponse, payload: commitPayload } =
+    await ghUserWithRetry<
+      GhCommitPayload | GhErrorPayload
+    >({
+      userToken,
+      url: `${GITHUB_API}/repos/${owner}/${repo}/git/commits`,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          tree: treeSha,
+          parents: [parentCommitSha],
+        }),
+      },
+      delaysMs: GITHUB_WRITE_RETRY_DELAYS_MS,
+      shouldRetry: (statusCode) => RETRYABLE_GITHUB_STATUS.has(statusCode),
+    });
   assertOk(commitResponse, commitPayload, "Failed creating repository commit.");
 
   const commitSha = typeof (commitPayload as GhCommitPayload).sha === "string"
@@ -514,9 +589,13 @@ async function createCommitFromTreeEntries({
     throw new HttpError(500, "GitHub did not return a commit SHA.");
   }
 
-  const { response: refResponse, payload: refPayload } = await ghUserWithRetry<GhErrorPayload>({
+  const { response: refResponse, payload: refPayload } = await ghUserWithRetry<
+    GhErrorPayload
+  >({
     userToken,
-    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`,
+    url: `${GITHUB_API}/repos/${owner}/${repo}/git/refs/heads/${
+      encodeURIComponent(branch)
+    }`,
     init: {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -621,14 +700,8 @@ jobs:
       - name: Build site
         run: npm run build
 
-      - name: Copy standalone bridge admin
+      - name: Prepare GitHub Pages fallback
         run: |
-          mkdir -p apps/site/dist/admin apps/site/dist/config apps/site/dist/.well-known apps/site/dist/assets
-          cp -R site/admin/. apps/site/dist/admin/
-          cp site/config/index.json apps/site/dist/config/index.json
-          cp site/shared.js apps/site/dist/shared.js
-          if [ -d site/.well-known ]; then cp -R site/.well-known/. apps/site/dist/.well-known/; fi
-          if [ -d site/assets ]; then cp -R site/assets/. apps/site/dist/assets/; fi
           cp apps/site/dist/index.html apps/site/dist/404.html
 
       - name: Upload Pages artifact
@@ -641,12 +714,417 @@ jobs:
         uses: actions/deploy-pages@v4
 `;
 
+const getProjectDashboardUrl = (projectRef: string) =>
+  `https://supabase.com/dashboard/project/${projectRef}`;
+
+const resolveSiteUrlForRepo = (owner: string, repo: string) => {
+  const pagesRootUrl = `https://${owner}.github.io`;
+  const isUserSite = repo.toLowerCase() === `${owner.toLowerCase()}.github.io`;
+  return isUserSite ? pagesRootUrl : `${pagesRootUrl}/${repo}`;
+};
+
+const resolveAbsoluteAssetUrl = ({
+  siteUrl,
+  assetPath,
+}: {
+  siteUrl: string;
+  assetPath: string;
+}) => {
+  try {
+    const base = new URL(siteUrl.trim());
+    const normalizedAssetPath = assetPath.trim().replace(/^\/+/, "");
+    const basePath = base.pathname.replace(/\/$/, "");
+    base.pathname = `${basePath}/${normalizedAssetPath}`.replace(
+      /\/{2,}/g,
+      "/",
+    );
+    base.search = "";
+    base.hash = "";
+    return base.toString();
+  } catch {
+    return assetPath.trim();
+  }
+};
+
+const createStandaloneConfigFile = ({
+  archiveId,
+  title,
+  description,
+  slug,
+  repoFullName,
+  repoUrl,
+  projectRef,
+  projectUrl,
+  projectDashboardUrl,
+  publishableKey,
+  siteUrl,
+  solidaryAppUrl,
+  solidarySupabaseUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+}: {
+  archiveId: string;
+  title: string;
+  description: string;
+  slug: string;
+  repoFullName: string;
+  repoUrl: string;
+  projectRef: string;
+  projectUrl: string;
+  projectDashboardUrl: string;
+  publishableKey: string;
+  siteUrl: string;
+  solidaryAppUrl: string;
+  solidarySupabaseUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+}) =>
+  `${
+    JSON.stringify(
+      {
+        title,
+        description,
+        slug,
+        archiveId,
+        repoFullName,
+        repoUrl,
+        projectRef,
+        projectUrl,
+        publishableKey,
+        projectDashboardUrl,
+        siteUrl,
+        solidaryAppUrl,
+        solidarySupabaseUrl,
+        authCallbackUrl: `${projectUrl}/auth/v1/callback`,
+        authProvidersDashboardUrl: `${projectDashboardUrl}/auth/providers`,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+      },
+      null,
+      2,
+    )
+  }\n`;
+
+const createStandaloneSolidaryFile = ({
+  archiveId,
+  title,
+  description,
+  siteUrl,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+  hasImage,
+}: {
+  archiveId: string;
+  title: string;
+  description: string;
+  siteUrl: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+  hasImage: boolean;
+}) =>
+  `${
+    JSON.stringify(
+      {
+        protocol_version: "1.0",
+        type: "index",
+        site_id: archiveId,
+        site_url: siteUrl,
+        title,
+        site_image: hasImage
+          ? resolveAbsoluteAssetUrl({
+            siteUrl,
+            assetPath: STANDALONE_INDEX_IMAGE_ASSET_PATH,
+          })
+          : "",
+        site_image_thumb: "",
+        description,
+        index_level: indexLevel,
+        parent_index_id: parentIndexId,
+        parent_index_url: parentIndexUrl,
+        parent_index_level: parentIndexLevel,
+      },
+      null,
+      2,
+    )
+  }\n`;
+
+const createStandaloneSolidaryLinksFile = ({
+  archiveId,
+  siteUrl,
+}: {
+  archiveId: string;
+  siteUrl: string;
+}) =>
+  `${
+    JSON.stringify(
+      {
+        "@context": {
+          site: "urn:solidary:type:site",
+          index: "urn:solidary:type:index",
+          connection: "urn:solidary:type:connection",
+          site_id: "urn:solidary:term:site_id",
+          connections: {
+            "@id": "urn:solidary:term:connections",
+            "@container": "@set",
+          },
+          connected_site: "urn:solidary:term:connected_site",
+        },
+        "@id": siteUrl,
+        "@type": "index",
+        site_id: archiveId,
+        connections: [],
+      },
+      null,
+      2,
+    )
+  }\n`;
+
+const stripStandaloneManagedSourceEntries = (
+  sourceManifest: IndexFinalizationSourceManifestEntry[],
+) =>
+  sourceManifest.filter((entry) => {
+    if (entry.kind !== "source") {
+      return true;
+    }
+
+    const path = entry.path;
+    return !(
+      path.startsWith(`${LEGACY_STANDALONE_SITE_ROOT}/`) ||
+      path.startsWith(`${STANDALONE_PUBLIC_ROOT}/admin/`) ||
+      path.startsWith(`${STANDALONE_PUBLIC_ROOT}/config/`) ||
+      path.startsWith(`${STANDALONE_PUBLIC_ROOT}/.well-known/`) ||
+      path === `${STANDALONE_PUBLIC_ROOT}/shared.js` ||
+      path === `${STANDALONE_PUBLIC_ROOT}/styles.css` ||
+      path === STANDALONE_PUBLIC_INDEX_IMAGE_PATH
+    );
+  });
+
+const createGeneratedContentEntry = ({
+  path,
+  content,
+  mode = "100644",
+}: {
+  path: string;
+  content: string;
+  mode?: "100644" | "100755";
+}): IndexFinalizationSourceManifestEntry => ({
+  kind: "generated",
+  path,
+  mode,
+  contentB64: Buffer.from(content, "utf8").toString("base64"),
+});
+
+const createGeneratedBase64Entry = ({
+  path,
+  contentB64,
+  mode = "100644",
+}: {
+  path: string;
+  contentB64: string;
+  mode?: "100644" | "100755";
+}): IndexFinalizationSourceManifestEntry => ({
+  kind: "generated",
+  path,
+  mode,
+  contentB64,
+});
+
+const resolveArchiveIndexLevel = (archive: IndexArchiveRow) => {
+  const value = Number(archive.index_level);
+  if (!Number.isFinite(value)) {
+    throw new HttpError(412, "The child index is missing its index level.");
+  }
+  return Math.max(0, Math.trunc(value));
+};
+
+const resolveArchiveParentIndexLevel = (archive: IndexArchiveRow) => {
+  const value = Number(archive.parent_index_level);
+  if (!Number.isFinite(value)) {
+    throw new HttpError(
+      412,
+      "The child index is missing its parent index level.",
+    );
+  }
+  return Math.max(0, Math.trunc(value));
+};
+
+const resolveArchiveParentIndexId = (archive: IndexArchiveRow) => {
+  const value = toTrimmedString(archive.parent_index_id);
+  if (!value) {
+    throw new HttpError(412, "The child index is missing its parent index id.");
+  }
+  return value;
+};
+
+const resolveArchiveParentIndexUrl = (archive: IndexArchiveRow) => {
+  const value = toTrimmedString(archive.parent_index_url);
+  if (!value) {
+    throw new HttpError(
+      412,
+      "The child index is missing its parent index URL.",
+    );
+  }
+  return value;
+};
+
+const buildStandalonePublicTemplateEntries = async ({
+  sourceTree,
+  loadSourceBlobBase64,
+}: {
+  sourceTree: GhTreeEntry[];
+  loadSourceBlobBase64: (blobSha: string) => Promise<string>;
+}) =>
+  Promise.all(
+    STANDALONE_PUBLIC_TEMPLATE_MAPPINGS.map(
+      async ({ sourcePath, targetPath }) => {
+        const sourceEntry = findSourceTreeBlobEntryByPath({
+          treeEntries: sourceTree,
+          path: sourcePath,
+        });
+        const sourceSha = toTrimmedString(sourceEntry?.sha);
+        if (!sourceSha) {
+          throw new HttpError(
+            412,
+            `Finalization source repo is missing required template file ${sourcePath}.`,
+          );
+        }
+
+        return createGeneratedBase64Entry({
+          path: targetPath,
+          contentB64: await loadSourceBlobBase64(sourceSha),
+        });
+      },
+    ),
+  );
+
+const readCurrentIndexImageContentB64 = async ({
+  targetTree,
+  loadTargetBlobBase64,
+}: {
+  targetTree: GhTreeEntry[];
+  loadTargetBlobBase64: (blobSha: string) => Promise<string>;
+}) => {
+  const currentImageEntry = findSourceTreeBlobEntryByPath({
+    treeEntries: targetTree,
+    path: STANDALONE_PUBLIC_INDEX_IMAGE_PATH,
+  }) ?? findSourceTreeBlobEntryByPath({
+    treeEntries: targetTree,
+    path: LEGACY_STANDALONE_INDEX_IMAGE_PATH,
+  });
+  const currentImageSha = toTrimmedString(currentImageEntry?.sha);
+  return currentImageSha ? loadTargetBlobBase64(currentImageSha) : null;
+};
+
 const splitRepoFullName = (repoFullName: string) => {
   const [owner, repo] = repoFullName.split("/");
   if (!owner || !repo) {
     throw new Error(`Invalid repo_full_name: ${repoFullName}`);
   }
   return { owner, repo };
+};
+
+const createStandalonePublicGeneratedEntries = ({
+  archive,
+  credentials,
+  siteUrl,
+  indexImageContentB64,
+}: {
+  archive: IndexArchiveRow;
+  credentials: IndexProjectCredentialsRow;
+  siteUrl: string;
+  indexImageContentB64: string | null;
+}): IndexFinalizationSourceManifestEntry[] => {
+  const repoFullName = toTrimmedString(credentials.repo_full_name);
+  const repoUrl = toTrimmedString(credentials.repo_url);
+  const slug = toTrimmedString(archive.slug);
+  const title = toTrimmedString(archive.title);
+  const description = toTrimmedString(archive.description);
+  const projectRef = toTrimmedString(credentials.supabase_project_ref);
+  const projectUrl = toTrimmedString(credentials.supabase_project_url);
+  const publishableKey = toTrimmedString(credentials.supabase_publishable_key);
+  const parentIndexId = resolveArchiveParentIndexId(archive);
+  const parentIndexUrl = resolveArchiveParentIndexUrl(archive);
+  const parentIndexLevel = resolveArchiveParentIndexLevel(archive);
+  const indexLevel = resolveArchiveIndexLevel(archive);
+
+  if (
+    !repoFullName || !repoUrl || !slug || !title || !projectRef ||
+    !projectUrl || !publishableKey
+  ) {
+    throw new HttpError(
+      412,
+      "The child index is missing repository or Supabase metadata needed for finalization.",
+    );
+  }
+
+  const projectDashboardUrl = getProjectDashboardUrl(projectRef);
+
+  const generatedEntries = [
+    createGeneratedContentEntry({
+      path: STANDALONE_PUBLIC_CONFIG_PATH,
+      content: createStandaloneConfigFile({
+        archiveId: archive.id,
+        title,
+        description,
+        slug,
+        repoFullName,
+        repoUrl,
+        projectRef,
+        projectUrl,
+        projectDashboardUrl,
+        publishableKey,
+        siteUrl,
+        solidaryAppUrl: getSolidaryAppUrl(),
+        solidarySupabaseUrl: SUPABASE_URL,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+      }),
+    }),
+    createGeneratedContentEntry({
+      path: STANDALONE_PUBLIC_SOLIDARY_PATH,
+      content: createStandaloneSolidaryFile({
+        archiveId: archive.id,
+        title,
+        description,
+        siteUrl,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+        hasImage: Boolean(indexImageContentB64),
+      }),
+    }),
+    createGeneratedContentEntry({
+      path: STANDALONE_PUBLIC_SOLIDARY_LINKS_PATH,
+      content: createStandaloneSolidaryLinksFile({
+        archiveId: archive.id,
+        siteUrl,
+      }),
+    }),
+  ];
+
+  if (indexImageContentB64) {
+    generatedEntries.push(
+      createGeneratedBase64Entry({
+        path: STANDALONE_PUBLIC_INDEX_IMAGE_PATH,
+        contentB64: indexImageContentB64,
+      }),
+    );
+  }
+
+  return generatedEntries;
 };
 
 const createGeneratedManifestEntries = ({
@@ -843,7 +1321,8 @@ const reconcileParentSourceRepoLineage = async ({
   };
 
   if (
-    toTrimmedString(archive.parent_repo_full_name) !== nextValues.parent_repo_full_name ||
+    toTrimmedString(archive.parent_repo_full_name) !==
+      nextValues.parent_repo_full_name ||
     toTrimmedString(archive.parent_repo_url) !== nextValues.parent_repo_url
   ) {
     const { error } = await supabase
@@ -856,7 +1335,8 @@ const reconcileParentSourceRepoLineage = async ({
   }
 
   if (
-    toTrimmedString(childArchive.parent_repo_full_name) !== nextValues.parent_repo_full_name ||
+    toTrimmedString(childArchive.parent_repo_full_name) !==
+      nextValues.parent_repo_full_name ||
     toTrimmedString(childArchive.parent_repo_url) !== nextValues.parent_repo_url
   ) {
     const child = createChildProjectClient(credentials);
@@ -1047,18 +1527,21 @@ const dispatchWorker = async ({
   archiveId: string;
   ownerUserId: string;
 }) => {
-  const response = await fetch(new URL(FINALIZE_WORKER_PATH, SUPABASE_URL).toString(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-provision-internal-key": SUPABASE_SERVICE_KEY,
+  const response = await fetch(
+    new URL(FINALIZE_WORKER_PATH, SUPABASE_URL).toString(),
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-provision-internal-key": SUPABASE_SERVICE_KEY,
+      },
+      body: JSON.stringify({
+        jobId,
+        archiveId,
+        ownerUserId,
+      }),
     },
-    body: JSON.stringify({
-      jobId,
-      archiveId,
-      ownerUserId,
-    }),
-  });
+  );
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -1093,7 +1576,9 @@ const scheduleWorkerDispatch = ({
       if (currentJob?.payload) {
         payloadState = parseIndexFinalizationPayload(currentJob.payload);
       }
-      if (currentJob?.status === "failed" || currentJob?.status === "succeeded") {
+      if (
+        currentJob?.status === "failed" || currentJob?.status === "succeeded"
+      ) {
         return;
       }
 
@@ -1112,7 +1597,9 @@ const scheduleWorkerDispatch = ({
         if (latestJob?.payload) {
           payloadState = parseIndexFinalizationPayload(latestJob.payload);
         }
-        if (latestJob?.status === "failed" || latestJob?.status === "succeeded") {
+        if (
+          latestJob?.status === "failed" || latestJob?.status === "succeeded"
+        ) {
           return;
         }
 
@@ -1127,11 +1614,16 @@ const scheduleWorkerDispatch = ({
             : "Could not dispatch the next finalization worker phase.",
         });
       } catch (persistError) {
-        console.error("[index-finalize-worker] could not persist dispatch failure", {
-          archiveId,
-          jobId,
-          message: persistError instanceof Error ? persistError.message : String(persistError),
-        });
+        console.error(
+          "[index-finalize-worker] could not persist dispatch failure",
+          {
+            archiveId,
+            jobId,
+            message: persistError instanceof Error
+              ? persistError.message
+              : String(persistError),
+          },
+        );
       }
     }
   })());
@@ -1223,7 +1715,10 @@ const loadFinalizationContext = async ({
     archiveId,
   });
   if (archive.owner_user_id !== ownerUserId) {
-    throw new HttpError(403, "Only the index owner can finalise this child repo.");
+    throw new HttpError(
+      403,
+      "Only the index owner can finalise this child repo.",
+    );
   }
 
   const childArchive = await readChildParentSourceArchive({
@@ -1305,7 +1800,8 @@ const runPrepareManifestPhase = async ({
     owner: context.sourceRepo.owner,
     repo: context.sourceRepo.repo,
   });
-  const sourceBranch = toTrimmedString(sourceRepoPayload.default_branch) || "main";
+  const sourceBranch = toTrimmedString(sourceRepoPayload.default_branch) ||
+    "main";
   const sourceHeadSha = await getBranchHeadSha({
     userToken: context.githubToken,
     owner: context.sourceRepo.owner,
@@ -1324,8 +1820,35 @@ const runPrepareManifestPhase = async ({
     repo: context.sourceRepo.repo,
     treeSha: sourceTreeSha,
   });
+  const targetRepoPayload = await getRepo({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+  });
+  const targetBranch = toTrimmedString(targetRepoPayload.default_branch) ||
+    "main";
+  const targetHeadSha = await getBranchHeadSha({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+    branch: targetBranch,
+  });
+  const targetTreeSha = await getCommitTreeSha({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+    commitSha: targetHeadSha,
+  });
+  const targetTree = await getRecursiveTree({
+    userToken: context.githubToken,
+    owner: context.targetRepo.owner,
+    repo: context.targetRepo.repo,
+    treeSha: targetTreeSha,
+  });
 
-  const publishableKey = toTrimmedString(context.credentials.supabase_publishable_key);
+  const publishableKey = toTrimmedString(
+    context.credentials.supabase_publishable_key,
+  );
   if (!publishableKey) {
     throw new HttpError(
       500,
@@ -1333,14 +1856,9 @@ const runPrepareManifestPhase = async ({
     );
   }
 
-  const sourceManifest = await prepareSourceManifest({
-    treeEntries: sourceTree,
-    generatedEntries: createGeneratedManifestEntries({
-      projectRef: context.credentials.supabase_project_ref,
-      projectUrl: context.credentials.supabase_project_url,
-      publishableKey,
-    }),
-    loadBlobBase64: (blobSha) =>
+  const templateEntries = await buildStandalonePublicTemplateEntries({
+    sourceTree,
+    loadSourceBlobBase64: (blobSha) =>
       getBlobBase64({
         userToken: context.githubToken,
         owner: context.sourceRepo.owner,
@@ -1348,6 +1866,46 @@ const runPrepareManifestPhase = async ({
         blobSha,
       }),
   });
+  const currentIndexImageContentB64 = await readCurrentIndexImageContentB64({
+    targetTree,
+    loadTargetBlobBase64: (blobSha) =>
+      getBlobBase64({
+        userToken: context.githubToken,
+        owner: context.targetRepo.owner,
+        repo: context.targetRepo.repo,
+        blobSha,
+      }),
+  });
+  const siteUrl = toTrimmedString(context.archive.canonical_url) ||
+    resolveSiteUrlForRepo(context.targetRepo.owner, context.targetRepo.repo);
+  const generatedEntries = [
+    ...createGeneratedManifestEntries({
+      projectRef: context.credentials.supabase_project_ref,
+      projectUrl: context.credentials.supabase_project_url,
+      publishableKey,
+    }),
+    ...templateEntries,
+    ...createStandalonePublicGeneratedEntries({
+      archive: context.archive,
+      credentials: context.credentials,
+      siteUrl,
+      indexImageContentB64: currentIndexImageContentB64,
+    }),
+  ];
+
+  const sourceManifest = stripStandaloneManagedSourceEntries(
+    await prepareSourceManifest({
+      treeEntries: sourceTree,
+      generatedEntries,
+      loadBlobBase64: (blobSha) =>
+        getBlobBase64({
+          userToken: context.githubToken,
+          owner: context.sourceRepo.owner,
+          repo: context.sourceRepo.repo,
+          blobSha,
+        }),
+    }),
+  );
 
   const nextPayload: IndexFinalizationPayloadState = {
     ...payloadState,
@@ -1418,7 +1976,10 @@ const runMaterializeBlobsPhase = async ({
     ownerUserId,
   });
 
-  const currentCursor = Math.min(payloadState.cursor, payloadState.sourceManifest.length);
+  const currentCursor = Math.min(
+    payloadState.cursor,
+    payloadState.sourceManifest.length,
+  );
   const batch = payloadState.sourceManifest.slice(
     currentCursor,
     currentCursor + FINALIZATION_BATCH_SIZE,
@@ -1539,7 +2100,8 @@ const runCommitFinalizePhase = async ({
     owner: context.targetRepo.owner,
     repo: context.targetRepo.repo,
   });
-  const targetBranch = toTrimmedString(targetRepoPayload.default_branch) || "main";
+  const targetBranch = toTrimmedString(targetRepoPayload.default_branch) ||
+    "main";
 
   await updateJob({
     supabase,
@@ -1588,10 +2150,13 @@ const runCommitFinalizePhase = async ({
       expectedArchiveId: archiveId,
     });
   } catch (error) {
-    console.warn("[index-finalize-worker] failed to refresh local federation mirror", {
-      archiveId,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    console.warn(
+      "[index-finalize-worker] failed to refresh local federation mirror",
+      {
+        archiveId,
+        message: error instanceof Error ? error.message : String(error),
+      },
+    );
   }
 
   await updateJob({
@@ -1600,8 +2165,7 @@ const runCommitFinalizePhase = async ({
     archiveId,
     values: {
       status: "succeeded",
-      step:
-        "Index finalization completed. Continue to deploy child functions.",
+      step: "Index finalization completed. Continue to deploy child functions.",
       error: null,
       payload: encodePayloadState({
         ...payloadState,
@@ -1766,7 +2330,9 @@ export const handler: Handler = async (event) => {
       console.error("[index-finalize-worker] could not persist failure", {
         archiveId,
         jobId,
-        message: persistError instanceof Error ? persistError.message : String(persistError),
+        message: persistError instanceof Error
+          ? persistError.message
+          : String(persistError),
       });
     }
 

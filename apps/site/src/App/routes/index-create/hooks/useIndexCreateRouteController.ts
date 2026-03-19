@@ -46,6 +46,10 @@ const GITHUB_CONNECT_POPUP_NAME = "solidary_github_app_connect";
 const SUPABASE_CONNECT_POPUP_NAME = "solidary_supabase_management_connect";
 const INITIAL_PROVISION_STEP = "Preparing your index...";
 
+const shouldAwaitFunctionsDeploymentRun = (
+  status: IndexAdminSetup["functionsDeployment"]["status"] | null | undefined
+) => status == null || status === "ready_to_run" || status === "unknown";
+
 type RepoConflict = {
   repoName: string;
   repoUrl: string;
@@ -183,6 +187,7 @@ export const useIndexCreateRouteController = () => {
   const [savingFunctionAccess, setSavingFunctionAccess] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
   const [deployingFunctions, setDeployingFunctions] = useState(false);
+  const [functionsDeploymentPending, setFunctionsDeploymentPending] = useState(false);
 
   const [githubClientId, setGithubClientId] = useState("");
   const [githubClientSecret, setGithubClientSecret] = useState("");
@@ -240,6 +245,16 @@ export const useIndexCreateRouteController = () => {
   );
 
   const activeStepKey = steps.find((step) => step.status === "current")?.key ?? "github_app";
+  const functionsDeploymentDisplayStatus =
+    functionsDeploymentPending &&
+      shouldAwaitFunctionsDeploymentRun(setup?.functionsDeployment.status)
+      ? "running"
+      : setup?.functionsDeployment.status ?? "not_ready";
+  const functionsDeploymentDisplayMessage =
+    functionsDeploymentPending &&
+      shouldAwaitFunctionsDeploymentRun(setup?.functionsDeployment.status)
+      ? "Deployment requested. Waiting for GitHub Actions to report the child workflow run."
+      : setup?.functionsDeployment.message ?? null;
 
   useEffect(() => {
     if (!image) {
@@ -325,6 +340,7 @@ export const useIndexCreateRouteController = () => {
     if (!archiveId) {
       setSetup(null);
       setBridgeToken("");
+      setFunctionsDeploymentPending(false);
       previousFunctionsStatusRef.current = null;
       return;
     }
@@ -342,17 +358,37 @@ export const useIndexCreateRouteController = () => {
     }
 
     if (nextStatus && previousStatus && nextStatus !== previousStatus) {
-      if (previousStatus === "running" && nextStatus === "deployed") {
+      if (
+        (previousStatus === "running" || functionsDeploymentPending) &&
+        nextStatus === "deployed"
+      ) {
         setNotice("Child functions deployed. The standalone index is ready.");
         setNoticeKind("notice");
-      } else if (previousStatus === "running" && nextStatus === "failed") {
+      } else if (
+        (previousStatus === "running" || functionsDeploymentPending) &&
+        nextStatus === "failed"
+      ) {
         setNotice("Child function deployment failed. Review the latest workflow output below.");
         setNoticeKind("error");
       }
     }
 
     previousFunctionsStatusRef.current = nextStatus;
-  }, [archiveId, setup?.functionsDeployment.status]);
+  }, [archiveId, functionsDeploymentPending, setup?.functionsDeployment.status]);
+
+  useEffect(() => {
+    if (!archiveId) {
+      setFunctionsDeploymentPending(false);
+      return;
+    }
+
+    if (
+      functionsDeploymentPending &&
+      !shouldAwaitFunctionsDeploymentRun(setup?.functionsDeployment.status)
+    ) {
+      setFunctionsDeploymentPending(false);
+    }
+  }, [archiveId, functionsDeploymentPending, setup?.functionsDeployment.status]);
 
   useEffect(() => {
     if (archiveId || selectedOrganizationId || organizations.length !== 1) {
@@ -365,7 +401,11 @@ export const useIndexCreateRouteController = () => {
     if (!archiveId) {
       return;
     }
-    if (!setup?.finalization.isRunning && setup?.functionsDeployment.status !== "running") {
+    if (
+      !setup?.finalization.isRunning &&
+      setup?.functionsDeployment.status !== "running" &&
+      !functionsDeploymentPending
+    ) {
       return;
     }
 
@@ -386,7 +426,13 @@ export const useIndexCreateRouteController = () => {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [archiveId, refreshSetup, setup?.finalization.isRunning, setup?.functionsDeployment.status]);
+  }, [
+    archiveId,
+    functionsDeploymentPending,
+    refreshSetup,
+    setup?.finalization.isRunning,
+    setup?.functionsDeployment.status
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -887,10 +933,14 @@ export const useIndexCreateRouteController = () => {
       });
       setSetup(response.setup);
       syncBridgeTokenFromSetup(response.setup);
+      setFunctionsDeploymentPending(
+        shouldAwaitFunctionsDeploymentRun(response.setup.functionsDeployment.status)
+      );
       setSupabasePersonalAccessToken("");
       setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
       setNoticeKind("notice");
     } catch (error) {
+      setFunctionsDeploymentPending(false);
       setNotice(error instanceof Error ? error.message : "Could not deploy child functions.");
       setNoticeKind("error");
     } finally {
@@ -930,6 +980,9 @@ export const useIndexCreateRouteController = () => {
         }
         setSetup(response.setup);
         syncBridgeTokenFromSetup(response.setup);
+        setFunctionsDeploymentPending(
+          shouldAwaitFunctionsDeploymentRun(response.setup.functionsDeployment.status)
+        );
         setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
         setNoticeKind("notice");
       } catch (error) {
@@ -937,6 +990,7 @@ export const useIndexCreateRouteController = () => {
           return;
         }
         autoDeployArchiveIdRef.current = null;
+        setFunctionsDeploymentPending(false);
         setNotice(
           error instanceof Error ? error.message : "Could not deploy child functions."
         );
@@ -1011,6 +1065,8 @@ export const useIndexCreateRouteController = () => {
     isProvisioning,
     provisionStep,
     setup,
+    functionsDeploymentDisplayMessage,
+    functionsDeploymentDisplayStatus,
     githubClientId,
     githubClientSecret,
     supabasePersonalAccessToken,
