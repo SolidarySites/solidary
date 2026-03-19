@@ -658,7 +658,7 @@ const readCredentials = async ({
       deriveProjectRefFromSupabaseUrl(supabaseProjectUrl);
     const supabasePublishableKey =
       toTrimmedString(archive.supabase_publishable_key) ||
-      toTrimmedString(Deno.env.get("SB_PUBLISHABLE_KEY")) ||
+      toTrimmedString(Deno.env.get("SOLIDARY_PUBLISHABLE_KEY")) ||
       toTrimmedString(Deno.env.get("SUPABASE_PUBLISHABLE_KEY")) ||
       "";
 

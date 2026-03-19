@@ -15,7 +15,8 @@ type RouteNoticeRegistration = {
 
 const SUPABASE_CONFIG_NOTICE: SiteNoticePayload = {
   signature: "system:supabase-config",
-  message: "Add VITE_SUPABASE_PROJECT_ID and VITE_SUPABASE_PUBLISHABLE_KEY to .env before signing in.",
+  message:
+    "Add SUPABASE_URL or SOLIDARY_PROJECT_ID, plus SOLIDARY_PUBLISHABLE_KEY, to .env before signing in.",
   kind: "warning"
 };
 

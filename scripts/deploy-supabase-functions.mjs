@@ -24,9 +24,10 @@ if (!managementAccessToken) {
 
 const adminPassword = process.env.ADMIN_PASSWORD?.trim() ?? "";
 const SUPABASE_MANAGEMENT_API = "https://api.supabase.com";
-const PROJECT_FUNCTION_SERVICE_SECRET_NAMES = [
-  "SOLIDARY_SECRET_KEY",
-];
+const PROJECT_FUNCTION_SECRET_NAMES = {
+  publishableKey: "SOLIDARY_PUBLISHABLE_KEY",
+  secretKey: "SOLIDARY_SECRET_KEY",
+};
 
 const runOrExit = (command, args) => {
   const result = spawnSync(command, args, {
@@ -99,11 +100,11 @@ const extractApiKeyValue = (payload, type) => {
   return "";
 };
 
-const ensureProjectSecretApiKey = async () => {
+const ensureProjectApiKeys = async () => {
   const readKeys = async () =>
     managementRequest(`/v1/projects/${projectRef}/api-keys?reveal=true`);
 
-  const createSecretKey = async () => {
+  const createKey = async (type) => {
     const { response, payload } = await managementRequest(
       `/v1/projects/${projectRef}/api-keys?reveal=true`,
       {
@@ -112,32 +113,50 @@ const ensureProjectSecretApiKey = async () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          type: "secret",
+          type,
           name: "default",
-          secret_jwt_template: {
-            role: "service_role",
-          },
+          ...(type === "secret"
+            ? {
+              secret_jwt_template: {
+                role: "service_role",
+              },
+            }
+            : {}),
         }),
       },
     );
 
     if (!response.ok) {
-      console.error(getManagementErrorMessage(payload, "Failed to create secret API key."));
+      console.error(
+        getManagementErrorMessage(payload, `Failed to create ${type} API key.`),
+      );
       process.exit(1);
     }
   };
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const { response, payload } = await readKeys();
-    if (response.ok) {
-      const secretKey = extractApiKeyValue(payload, "secret");
-      if (secretKey) return secretKey;
+    if (!response.ok) {
+      continue;
     }
 
-    await createSecretKey();
+    const publishableKey = extractApiKeyValue(payload, "publishable");
+    const secretKey = extractApiKeyValue(payload, "secret");
+
+    if (publishableKey && secretKey) {
+      return { publishableKey, secretKey };
+    }
+
+    if (!publishableKey) {
+      await createKey("publishable");
+    }
+
+    if (!secretKey) {
+      await createKey("secret");
+    }
   }
 
-  console.error("Could not resolve the project's secret API key.");
+  console.error("Could not resolve the project's API keys.");
   process.exit(1);
 };
 
@@ -145,10 +164,12 @@ runOrExit("node", ["./scripts/generate-github-create-repo-template-bundle.mjs"])
 runOrExit("node", ["./scripts/generate-index-create-template-bundle.mjs"]);
 runOrExit("node", ["./scripts/generate-index-bootstrap-sql.mjs"]);
 
-const projectSecretApiKey = await ensureProjectSecretApiKey();
-const projectSecretsToSet = PROJECT_FUNCTION_SERVICE_SECRET_NAMES.map((name) =>
-  `${name}=${projectSecretApiKey}`
-);
+const { publishableKey: projectPublishableApiKey, secretKey: projectSecretApiKey } =
+  await ensureProjectApiKeys();
+const projectSecretsToSet = [
+  `${PROJECT_FUNCTION_SECRET_NAMES.publishableKey}=${projectPublishableApiKey}`,
+  `${PROJECT_FUNCTION_SECRET_NAMES.secretKey}=${projectSecretApiKey}`,
+];
 if (adminPassword) {
   projectSecretsToSet.push(`ADMIN_PASSWORD=${adminPassword}`);
 }

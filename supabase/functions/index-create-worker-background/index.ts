@@ -47,9 +47,10 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
-const PROJECT_FUNCTION_SERVICE_SECRET_NAMES = [
-  "SOLIDARY_SECRET_KEY",
-] as const;
+const PROJECT_FUNCTION_SECRET_NAMES = {
+  publishableKey: "SOLIDARY_PUBLISHABLE_KEY",
+  secretKey: "SOLIDARY_SECRET_KEY",
+} as const;
 
 type GhErrorPayload = { message?: string; documentation_url?: string };
 type GhRepoPayload = {
@@ -1260,10 +1261,12 @@ async function ensureProjectApiKeys({
 async function ensureProjectFunctionSecrets({
   accessToken,
   projectRef,
+  publishableKey,
   secretKey,
 }: {
   accessToken: string;
   projectRef: string;
+  publishableKey: string;
   secretKey: string;
 }) {
   const { response, payload } = await managementRequest<unknown>({
@@ -1275,10 +1278,16 @@ async function ensureProjectFunctionSecrets({
         "Content-Type": "application/json",
       },
       body: JSON.stringify(
-        PROJECT_FUNCTION_SERVICE_SECRET_NAMES.map((name) => ({
-          name,
-          value: secretKey,
-        })),
+        [
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.publishableKey,
+            value: publishableKey,
+          },
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.secretKey,
+            value: secretKey,
+          },
+        ],
       ),
     },
   });
@@ -1896,6 +1905,7 @@ export const handler: Handler = async (event) => {
       await ensureProjectFunctionSecrets({
         accessToken: managementAccessToken,
         projectRef,
+        publishableKey,
         secretKey,
       });
 

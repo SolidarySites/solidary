@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+declare const __SOLIDARY_PROJECT_ID__: string;
+declare const __SOLIDARY_SUPABASE_URL__: string;
 declare const __SOLIDARY_SUPABASE_PUBLISHABLE_KEY__: string;
 
 const readEnv = (value: unknown): string => {
@@ -7,13 +9,9 @@ const readEnv = (value: unknown): string => {
   return value.trim();
 };
 
-const projectId = readEnv(import.meta.env.VITE_SUPABASE_PROJECT_ID);
-const publishableKey = readEnv(
-  typeof __SOLIDARY_SUPABASE_PUBLISHABLE_KEY__ === "string"
-    ? __SOLIDARY_SUPABASE_PUBLISHABLE_KEY__
-    : import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-);
-const explicitSupabaseUrl = readEnv(import.meta.env.VITE_SUPABASE_URL);
+const projectId = readEnv(__SOLIDARY_PROJECT_ID__);
+const publishableKey = readEnv(__SOLIDARY_SUPABASE_PUBLISHABLE_KEY__);
+const explicitSupabaseUrl = readEnv(__SOLIDARY_SUPABASE_URL__);
 const supabaseUrl =
   explicitSupabaseUrl || (projectId ? `https://${projectId}.supabase.co` : "");
 const supabasePublishableKey = publishableKey;

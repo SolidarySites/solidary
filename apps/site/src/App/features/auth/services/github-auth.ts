@@ -7,7 +7,7 @@ type SessionWithProviderCredentials = Session & {
 };
 
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
-  String(import.meta.env.VITE_GITHUB_TOKEN_DEBUG ?? "")
+  String(import.meta.env.GITHUB_TOKEN_DEBUG ?? "")
 );
 
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";

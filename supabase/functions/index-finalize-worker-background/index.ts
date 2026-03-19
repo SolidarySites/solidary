@@ -619,8 +619,10 @@ const createEnvFile = ({
   publishableKey: string;
 }) =>
   [
+    `SOLIDARY_PROJECT_ID=${projectRef}`,
+    `SUPABASE_URL=${projectUrl}`,
+    `SOLIDARY_PUBLISHABLE_KEY=${publishableKey}`,
     `VITE_SUPABASE_PROJECT_ID=${projectRef}`,
-    `VITE_SUPABASE_URL=${projectUrl}`,
     `VITE_SUPABASE_PUBLISHABLE_KEY=${publishableKey}`,
     "",
   ].join("\n");

@@ -1,11 +1,12 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string;
-  readonly VITE_SUPABASE_PROJECT_ID: string;
-  readonly VITE_SUPABASE_PUBLISHABLE_KEY: string;
-}
+declare const __SOLIDARY_PROJECT_ID__: string;
+declare const __SOLIDARY_SUPABASE_URL__: string;
+declare const __SOLIDARY_SUPABASE_PUBLISHABLE_KEY__: string;
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
+interface ImportMetaEnv {
+  readonly GITHUB_TOKEN_DEBUG?: string;
+  readonly VITE_SOLIDARY_ROOT_INDEX_ID?: string;
+  readonly SOLIDARY_PROJECT_ID?: string;
+  readonly SOLIDARY_PUBLISHABLE_KEY?: string;
 }

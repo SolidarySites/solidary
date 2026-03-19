@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-19T15:06:47.867Z",
-  "latest_commit_sha": "91931577990bbcc7e8c6d45702a494928f8a529e",
+  "generated_at": "2026-03-19T15:57:11.437Z",
+  "latest_commit_sha": "8caf95db15e1458849effa2c82391f8809abd973",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -269,7 +269,7 @@
                           {
                             "path": "src/App/features/site-notice/providers/SiteNoticeProvider.tsx",
                             "description": "?",
-                            "LOC": 75
+                            "LOC": 76
                           }
                         ]
                       }
@@ -389,7 +389,7 @@
                   {
                     "path": "src/App/lib/supabase.ts",
                     "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
-                    "LOC": 45
+                    "LOC": 43
                   }
                 ]
               },
@@ -2509,7 +2509,7 @@
           {
             "path": "src/vite-env.d.ts",
             "description": "Vite env type declarations for Supabase URL/keys (including both URL+anon and projectId+publishable-key forms).",
-            "LOC": 11
+            "LOC": 12
           }
         ]
       }
@@ -2563,7 +2563,7 @@
       {
         "path": "vite.config.ts",
         "description": "Vite config for the app: React plugin plus fixed local dev host/port settings.",
-        "LOC": 34
+        "LOC": 50
       }
     ]
   }
