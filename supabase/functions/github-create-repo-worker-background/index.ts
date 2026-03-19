@@ -16,9 +16,7 @@ const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const STORAGE_DOWNLOAD_RETRY_DELAYS_MS = [0, 250, 500, 1000, 2000];
 const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const SOLIDARY_CONTENT_FILE_REL_PATH = "src/content/solidary.md";
 const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";

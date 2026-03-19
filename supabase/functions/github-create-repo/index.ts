@@ -8,9 +8,7 @@ import {
 } from "../_shared/github-auth-broker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const WORKER_PATH = "/functions/v1/github-create-repo-worker-background";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const MAX_STAGED_SITE_IMAGE_BYTES = 4 * 1024 * 1024;

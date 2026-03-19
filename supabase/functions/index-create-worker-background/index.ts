@@ -45,14 +45,10 @@ const RETRYABLE_GITHUB_STATUS = new Set([
   504,
 ]);
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const PROJECT_FUNCTION_SERVICE_SECRET_NAMES = [
   "SOLIDARY_SECRET_KEY",
-  "DELETE_REPO_SUPABASE_SECRET_KEY",
-  "CREATE_SITE_SUPABASE_API_KEY",
 ] as const;
 
 type GhErrorPayload = { message?: string; documentation_url?: string };

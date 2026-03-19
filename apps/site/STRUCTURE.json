@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-17T12:11:21.464Z",
-  "latest_commit_sha": "0b7881c7794700db81c2eb2aef2c65b7f498fd38",
+  "generated_at": "2026-03-19T15:06:47.867Z",
+  "latest_commit_sha": "91931577990bbcc7e8c6d45702a494928f8a529e",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -389,7 +389,7 @@
                   {
                     "path": "src/App/lib/supabase.ts",
                     "description": "Initializes the shared Supabase client from Vite env vars and exports a configuration presence check.",
-                    "LOC": 40
+                    "LOC": 45
                   }
                 ]
               },
@@ -430,6 +430,16 @@
                             "path": "src/App/routes/admin/components/IndexAdminSetupPanel.tsx",
                             "description": "?",
                             "LOC": 546
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/RootAdminOverviewSection.tsx",
+                            "description": "?",
+                            "LOC": 61
+                          },
+                          {
+                            "path": "src/App/routes/admin/components/RootAdminUnlockPanel.tsx",
+                            "description": "?",
+                            "LOC": 41
                           }
                         ]
                       },
@@ -442,6 +452,11 @@
                             "path": "src/App/routes/admin/hooks/useAdminRouteController.ts",
                             "description": "?",
                             "LOC": 787
+                          },
+                          {
+                            "path": "src/App/routes/admin/hooks/useRootAdminRouteController.ts",
+                            "description": "?",
+                            "LOC": 192
                           }
                         ]
                       },
@@ -453,7 +468,7 @@
                           {
                             "path": "src/App/routes/admin/services/index-admin.ts",
                             "description": "?",
-                            "LOC": 671
+                            "LOC": 701
                           },
                           {
                             "path": "src/App/routes/admin/services/types.ts",
@@ -467,12 +482,12 @@
                       {
                         "path": "src/App/routes/admin/AdminRoute.css",
                         "description": "?",
-                        "LOC": 207
+                        "LOC": 211
                       },
                       {
                         "path": "src/App/routes/admin/AdminRoute.tsx",
                         "description": "?",
-                        "LOC": 164
+                        "LOC": 74
                       }
                     ]
                   },
@@ -505,7 +520,7 @@
                           {
                             "path": "src/App/routes/explorer/components/ExplorerGraph.tsx",
                             "description": "Canvas-driven interactive explorer graph using @cosmos.gl/graph with hover cards, viewer beacons, and deterministic point placement.",
-                            "LOC": 638
+                            "LOC": 742
                           },
                           {
                             "path": "src/App/routes/explorer/components/ExplorerSitesList.tsx",
@@ -522,7 +537,7 @@
                           {
                             "path": "src/App/routes/explorer/hooks/useExplorerRouteController.ts",
                             "description": "Controller hook that loads explorer data, handles errors, and filters sites by search query.",
-                            "LOC": 63
+                            "LOC": 64
                           }
                         ]
                       },
@@ -534,12 +549,12 @@
                           {
                             "path": "src/App/routes/explorer/services/explorer-data.test.ts",
                             "description": "?",
-                            "LOC": 110
+                            "LOC": 123
                           },
                           {
                             "path": "src/App/routes/explorer/services/explorer-data.ts",
                             "description": "Supabase data loader for explorer sites/connections, normalizes canonical/image URLs, and loads viewer-owned site IDs.",
-                            "LOC": 96
+                            "LOC": 182
                           },
                           {
                             "path": "src/App/routes/explorer/services/explorer-graph.ts",
@@ -553,7 +568,7 @@
                       {
                         "path": "src/App/routes/explorer/ExplorerRoute.css",
                         "description": "Explorer route styles for fullscreen graph layout, hover cards, viewer beacons, and loading/error overlays.",
-                        "LOC": 378
+                        "LOC": 442
                       },
                       {
                         "path": "src/App/routes/explorer/ExplorerRoute.tsx",
@@ -606,7 +621,7 @@
                           {
                             "path": "src/App/routes/index-create/hooks/useIndexCreateRouteController.ts",
                             "description": "?",
-                            "LOC": 1096
+                            "LOC": 1155
                           }
                         ]
                       },
@@ -652,7 +667,7 @@
                       {
                         "path": "src/App/routes/index-create/IndexCreateRoute.tsx",
                         "description": "?",
-                        "LOC": 834
+                        "LOC": 836
                       }
                     ]
                   },
@@ -825,17 +840,17 @@
                           {
                             "path": "src/App/routes/search/components/SearchMasthead.tsx",
                             "description": "?",
-                            "LOC": 68
+                            "LOC": 69
                           },
                           {
                             "path": "src/App/routes/search/components/SearchResultsSection.tsx",
                             "description": "?",
-                            "LOC": 73
+                            "LOC": 77
                           },
                           {
                             "path": "src/App/routes/search/components/SearchSiteCard.tsx",
                             "description": "?",
-                            "LOC": 72
+                            "LOC": 76
                           }
                         ]
                       }
@@ -849,12 +864,12 @@
                       {
                         "path": "src/App/routes/search/SearchRoute.css",
                         "description": "?",
-                        "LOC": 273
+                        "LOC": 293
                       },
                       {
                         "path": "src/App/routes/search/SearchRoute.tsx",
                         "description": "Search route that reuses explorer controller data to render a searchable site list with loading/error states.",
-                        "LOC": 29
+                        "LOC": 48
                       }
                     ]
                   },
@@ -918,12 +933,12 @@
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/persistence.ts",
                                 "description": "Supabase persistence helpers that insert initial site/draft/settings/pages rows after provisioning and include auth-identity consistency checks.",
-                                "LOC": 235
+                                "LOC": 282
                               },
                               {
                                 "path": "src/App/routes/site-create/services/provisioning/types.ts",
                                 "description": "Type contracts shared across create-flow provisioning modules (GitHub payloads, polling states, and persisted draft metadata).",
-                                "LOC": 57
+                                "LOC": 58
                               }
                             ]
                           }
@@ -1943,7 +1958,7 @@
               {
                 "path": "src/App/App.tsx",
                 "description": "Top-level application shell that wires AuthProvider, global header + image-loading hook, and route-level auth guards/routes including explorer graph, search list, profile, and connection explorer.",
-                "LOC": 181
+                "LOC": 177
               }
             ]
           },
@@ -2494,7 +2509,7 @@
           {
             "path": "src/vite-env.d.ts",
             "description": "Vite env type declarations for Supabase URL/keys (including both URL+anon and projectId+publishable-key forms).",
-            "LOC": 12
+            "LOC": 11
           }
         ]
       }
@@ -2528,7 +2543,7 @@
       {
         "path": "STRUCTURE.json",
         "description": "Machine-readable project map with metadata, per-path descriptions, and per-file LOC snapshots.",
-        "LOC": 2555
+        "LOC": 2570
       },
       {
         "path": "tsconfig.app.json",
@@ -2548,7 +2563,7 @@
       {
         "path": "vite.config.ts",
         "description": "Vite config for the app: React plugin plus fixed local dev host/port settings.",
-        "LOC": 18
+        "LOC": 34
       }
     ]
   }

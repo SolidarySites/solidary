@@ -26,8 +26,6 @@ const adminPassword = process.env.ADMIN_PASSWORD?.trim() ?? "";
 const SUPABASE_MANAGEMENT_API = "https://api.supabase.com";
 const PROJECT_FUNCTION_SERVICE_SECRET_NAMES = [
   "SOLIDARY_SECRET_KEY",
-  "DELETE_REPO_SUPABASE_SECRET_KEY",
-  "CREATE_SITE_SUPABASE_API_KEY",
 ];
 
 const runOrExit = (command, args) => {

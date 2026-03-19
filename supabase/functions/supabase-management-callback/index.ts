@@ -9,9 +9,7 @@ import { resolveSupabaseManagementRedirectUri } from "../_shared/supabase-manage
 import { parseSupabaseManagementState } from "../_shared/supabase-management-auth/state.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const SUPA_MANAGEMENT_OAUTH_STATE_SECRET =
   Deno.env.get("SUPA_MANAGEMENT_OAUTH_STATE_SECRET") ?? SUPABASE_SERVICE_KEY;
 const SUPA_MANAGEMENT_OAUTH_REDIRECT_URI =

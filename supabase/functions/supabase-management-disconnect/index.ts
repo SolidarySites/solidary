@@ -5,9 +5,7 @@ import { disconnectSupabaseManagementConnection } from "../_shared/supabase-mana
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
-  Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+  Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 
 const safeJson = (statusCode: number, body: unknown) => ({
   statusCode,

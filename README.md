@@ -280,7 +280,7 @@ Protocol ingestion must remain GitHub-API-independent.
 
 1) Env
 - `cp apps/site/.env.example .env`
-- Set frontend keys (`VITE_SUPABASE_URL` or `VITE_SUPABASE_PROJECT_ID`, plus `VITE_SUPABASE_PUBLISHABLE_KEY`) and backend keys (`SUPABASE_URL`, `SOLIDARY_SECRET_KEY`, etc.) in root `.env`
+- Set frontend keys (`VITE_SUPABASE_URL` or `VITE_SUPABASE_PROJECT_ID`, plus `SB_PUBLISHABLE_KEY` or `VITE_SUPABASE_PUBLISHABLE_KEY`) and backend keys (`SUPABASE_URL`, `SOLIDARY_SECRET_KEY`, etc.) in root `.env`
 - For Supabase account connect, also set `SUPA_MANAGEMENT_OAUTH_CLIENT_ID`, `SUPA_MANAGEMENT_OAUTH_CLIENT_SECRET`, optional `SUPA_MANAGEMENT_OAUTH_STATE_SECRET`, and `TOKEN_ENCRYPTION_KEY`
 
 3) Install + run

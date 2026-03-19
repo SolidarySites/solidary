@@ -3,9 +3,7 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
-  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
-  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 console.log("Loaded cleanup-draft-images function with config:", {
