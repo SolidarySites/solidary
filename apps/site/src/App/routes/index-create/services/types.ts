@@ -30,7 +30,7 @@ export type IndexProvisionJobProjectPayload = {
   project_url?: string | null;
 };
 
-export type IndexProvisionJobArchivePayload = {
+export type IndexProvisionJobIndexPayload = {
   id?: string;
   title?: string;
   slug?: string;
@@ -55,6 +55,6 @@ export type IndexProvisionStatusResponse = {
     error?: string | null;
     repo?: IndexProvisionJobRepoPayload | null;
     project?: IndexProvisionJobProjectPayload | null;
-    archive?: IndexProvisionJobArchivePayload | null;
+    index?: IndexProvisionJobIndexPayload | null;
   };
 };

@@ -34,8 +34,8 @@ create table if not exists public.site_urls (
 create index if not exists site_urls_url_idx on public.site_urls (url);
 create index if not exists site_urls_canonical_idx on public.site_urls (site_id, is_canonical);
 
--- Archives
-create table if not exists public.archives (
+-- Indexes
+create table if not exists public.indexes (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid references auth.users(id) on delete set null,
   slug text not null unique,
@@ -49,24 +49,24 @@ create table if not exists public.archives (
   check (slug ~ '^[a-z0-9-]{3,48}$')
 );
 
--- Archive ↔ site tracking
-create table if not exists public.archive_sites (
-  archive_id uuid not null references public.archives(id) on delete cascade,
+-- Index ↔ site tracking
+create table if not exists public.index_sites (
+  index_id uuid not null references public.indexes(id) on delete cascade,
   site_id uuid not null references public.sites(id) on delete cascade,
   status text not null default 'tracked',
   delist_reason_code text,
   delist_note text,
   created_at timestamptz not null default now(),
-  primary key (archive_id, site_id),
+  primary key (index_id, site_id),
   check (status in ('tracked', 'delisted'))
 );
 
-create index if not exists archive_sites_status_idx on public.archive_sites (archive_id, status);
+create index if not exists index_sites_status_idx on public.index_sites (index_id, status);
 
--- Archive membership events
-create table if not exists public.archive_membership_events (
+-- Index membership events
+create table if not exists public.index_membership_events (
   id uuid primary key default gen_random_uuid(),
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   site_id uuid not null references public.sites(id) on delete cascade,
   event_kind text not null,
   at timestamptz not null default now(),
@@ -75,12 +75,12 @@ create table if not exists public.archive_membership_events (
   check (event_kind in ('added', 'inactive', 'reactivated', 'delisted'))
 );
 
-create index if not exists archive_membership_events_site_idx on public.archive_membership_events (site_id, at desc);
+create index if not exists index_membership_events_site_idx on public.index_membership_events (site_id, at desc);
 
 -- Observations
 create table if not exists public.site_observations (
   id uuid primary key default gen_random_uuid(),
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   site_id uuid not null references public.sites(id) on delete cascade,
   fetched_at timestamptz not null default now(),
   url text not null,
@@ -92,12 +92,12 @@ create table if not exists public.site_observations (
 );
 
 create index if not exists site_observations_site_idx on public.site_observations (site_id, fetched_at desc);
-create index if not exists site_observations_archive_idx on public.site_observations (archive_id, fetched_at desc);
+create index if not exists site_observations_index_idx on public.site_observations (index_id, fetched_at desc);
 
 -- Snapshots
 create table if not exists public.site_snapshots (
   id uuid primary key default gen_random_uuid(),
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   site_id uuid not null references public.sites(id) on delete cascade,
   snapshot_id text not null,
   dataset_hash text not null,
@@ -172,7 +172,7 @@ create index if not exists edges_edge_hash_idx on public.edges (edge_hash);
 -- Edge verification events
 create table if not exists public.edge_verification_events (
   id uuid primary key default gen_random_uuid(),
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   edge_id uuid not null references public.edges(id) on delete cascade,
   status text not null,
   at timestamptz not null default now(),
@@ -180,7 +180,7 @@ create table if not exists public.edge_verification_events (
   check (status in ('asserted', 'mutual', 'attested', 'stale'))
 );
 
-create index if not exists edge_verification_events_idx on public.edge_verification_events (archive_id, edge_id, at desc);
+create index if not exists edge_verification_events_idx on public.edge_verification_events (index_id, edge_id, at desc);
 
 -- Site admins
 create table if not exists public.site_admins (
@@ -207,17 +207,17 @@ create trigger sites_set_updated_at
 before update on public.sites
 for each row execute function public.set_updated_at();
 
-drop trigger if exists archives_set_updated_at on public.archives;
-create trigger archives_set_updated_at
-before update on public.archives
+drop trigger if exists indexes_set_updated_at on public.indexes;
+create trigger indexes_set_updated_at
+before update on public.indexes
 for each row execute function public.set_updated_at();
 
 -- RLS
 alter table public.sites enable row level security;
 alter table public.site_urls enable row level security;
-alter table public.archives enable row level security;
-alter table public.archive_sites enable row level security;
-alter table public.archive_membership_events enable row level security;
+alter table public.indexes enable row level security;
+alter table public.index_sites enable row level security;
+alter table public.index_membership_events enable row level security;
 alter table public.site_observations enable row level security;
 alter table public.site_snapshots enable row level security;
 alter table public.snapshot_pages enable row level security;
@@ -236,50 +236,50 @@ create policy "sites_insert_authenticated" on public.sites
 create policy "site_urls_select_public" on public.site_urls
   for select using (true);
 
--- Archives owner policies
-create policy "archives_select_owner" on public.archives
+-- Indexes owner policies
+create policy "indexes_select_owner" on public.indexes
   for select using (auth.uid() = owner_user_id);
 
-create policy "archives_insert_owner" on public.archives
+create policy "indexes_insert_owner" on public.indexes
   for insert with check (auth.uid() = owner_user_id);
 
-create policy "archives_update_owner" on public.archives
+create policy "indexes_update_owner" on public.indexes
   for update using (auth.uid() = owner_user_id);
 
--- Archive sites management by owner
-create policy "archive_sites_select_owner" on public.archive_sites
+-- Index sites management by owner
+create policy "index_sites_select_owner" on public.index_sites
   for select using (
     exists (
-      select 1 from public.archives a
-      where a.id = archive_sites.archive_id
-        and a.owner_user_id = auth.uid()
+      select 1 from public.indexes i
+      where i.id = index_sites.index_id
+        and i.owner_user_id = auth.uid()
     )
   );
 
-create policy "archive_sites_insert_owner" on public.archive_sites
+create policy "index_sites_insert_owner" on public.index_sites
   for insert with check (
     exists (
-      select 1 from public.archives a
-      where a.id = archive_sites.archive_id
-        and a.owner_user_id = auth.uid()
+      select 1 from public.indexes i
+      where i.id = index_sites.index_id
+        and i.owner_user_id = auth.uid()
     )
   );
 
-create policy "archive_sites_update_owner" on public.archive_sites
+create policy "index_sites_update_owner" on public.index_sites
   for update using (
     exists (
-      select 1 from public.archives a
-      where a.id = archive_sites.archive_id
-        and a.owner_user_id = auth.uid()
+      select 1 from public.indexes i
+      where i.id = index_sites.index_id
+        and i.owner_user_id = auth.uid()
     )
   );
 
-create policy "archive_sites_delete_owner" on public.archive_sites
+create policy "index_sites_delete_owner" on public.index_sites
   for delete using (
     exists (
-      select 1 from public.archives a
-      where a.id = archive_sites.archive_id
-        and a.owner_user_id = auth.uid()
+      select 1 from public.indexes i
+      where i.id = index_sites.index_id
+        and i.owner_user_id = auth.uid()
     )
   );
 
@@ -293,7 +293,7 @@ create policy "site_admins_select_owner" on public.site_admins
 
 -- RPCs
 create or replace function public.rpc_edges_for_site(
-  archive_id uuid,
+  index_id uuid,
   site_id uuid
 ) returns setof public.edges
 language sql
@@ -302,18 +302,18 @@ set search_path = public
 as $$
   select e.*
   from public.edges e
-  join public.archive_sites a
-    on a.site_id = e.source_site_id
-   and a.archive_id = rpc_edges_for_site.archive_id
-  join public.archives ar
-    on ar.id = a.archive_id
-  where ar.owner_user_id = auth.uid()
-    and a.status = 'tracked'
+  join public.index_sites i
+    on i.site_id = e.source_site_id
+   and i.index_id = rpc_edges_for_site.index_id
+  join public.indexes idx
+    on idx.id = i.index_id
+  where idx.owner_user_id = auth.uid()
+    and i.status = 'tracked'
     and e.source_site_id = rpc_edges_for_site.site_id;
 $$;
 
 create or replace function public.rpc_graph_traverse(
-  archive_id uuid,
+  index_id uuid,
   start_site_id uuid,
   depth int,
   kinds text[] default null,
@@ -341,13 +341,13 @@ begin
       e.kind,
       1 as hop
     from public.edges e
-    join public.archive_sites a
-      on a.site_id = e.source_site_id
-     and a.archive_id = rpc_graph_traverse.archive_id
-    join public.archives ar
-      on ar.id = a.archive_id
-    where ar.owner_user_id = auth.uid()
-      and a.status = 'tracked'
+    join public.index_sites i
+      on i.site_id = e.source_site_id
+     and i.index_id = rpc_graph_traverse.index_id
+    join public.indexes idx
+      on idx.id = i.index_id
+    where idx.owner_user_id = auth.uid()
+      and i.status = 'tracked'
       and e.source_site_id = rpc_graph_traverse.start_site_id
       and (kinds is null or e.kind = any(kinds))
 
@@ -365,13 +365,13 @@ begin
     from public.edges e
     join graph g on g.target_type = 'site'
     join public.sites s on s.canonical_url = g.target_site_url
-    join public.archive_sites a
-      on a.site_id = e.source_site_id
-     and a.archive_id = rpc_graph_traverse.archive_id
-    join public.archives ar
-      on ar.id = a.archive_id
-    where ar.owner_user_id = auth.uid()
-      and a.status = 'tracked'
+    join public.index_sites i
+      on i.site_id = e.source_site_id
+     and i.index_id = rpc_graph_traverse.index_id
+    join public.indexes idx
+      on idx.id = i.index_id
+    where idx.owner_user_id = auth.uid()
+      and i.status = 'tracked'
       and e.source_site_id = s.id
       and g.hop < rpc_graph_traverse.depth
       and (kinds is null or e.kind = any(kinds))

@@ -1,4 +1,4 @@
-alter table public.archives
+alter table public.indexes
   add column if not exists description text,
   add column if not exists image_url text,
   add column if not exists repo_full_name text,
@@ -9,17 +9,17 @@ alter table public.archives
   add column if not exists supabase_dashboard_url text,
   add column if not exists source text not null default 'manual';
 
-alter table public.archives
-  drop constraint if exists archives_source_check;
+alter table public.indexes
+  drop constraint if exists indexes_source_check;
 
-alter table public.archives
-  add constraint archives_source_check
+alter table public.indexes
+  add constraint indexes_source_check
   check (source in ('manual', 'index_create'));
 
 create table if not exists public.index_provision_jobs (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id) on delete cascade,
-  archive_id uuid references public.archives(id) on delete set null,
+  index_id uuid references public.indexes(id) on delete set null,
   status text not null default 'queued'
     check (status in ('queued', 'running', 'succeeded', 'failed')),
   step text not null default 'Queued',
@@ -27,7 +27,7 @@ create table if not exists public.index_provision_jobs (
   repo_full_name text,
   repo_payload jsonb,
   project_payload jsonb,
-  archive_payload jsonb,
+  index_payload jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   started_at timestamptz,

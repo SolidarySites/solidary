@@ -44,13 +44,13 @@ export const handler: Handler = async (event) => {
   }
 
   const payload = event.body ? JSON.parse(event.body) : {};
-  const archiveId = payload.archive_id as string | undefined;
+  const indexId = (payload.index_id ?? payload.index_id) as string | undefined;
   const siteUrl = normalizeUrl(payload.site_url as string | undefined);
 
-  if (!archiveId || !siteUrl) {
+  if (!indexId || !siteUrl) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "archive_id and site_url are required." })
+      body: JSON.stringify({ error: "index_id and site_url are required." })
     };
   }
 
@@ -140,14 +140,14 @@ export const handler: Handler = async (event) => {
     .neq("url", canonicalUrl);
 
   const { error: archiveSiteError } = await supabase
-    .from("archive_sites")
+    .from("index_sites")
     .upsert(
       {
-        archive_id: archiveId,
+        index_id: indexId,
         site_id: siteId,
         status: "tracked"
       },
-      { onConflict: "archive_id,site_id" }
+      { onConflict: "index_id,site_id" }
     );
 
   if (archiveSiteError) {

@@ -30,8 +30,8 @@ import {
   updateSupabaseProjectGitHubAuthConfig,
 } from "./supabase-management-auth/index.ts";
 import {
-  parseIndexFinalizationPayload,
   type IndexFinalizationPhase,
+  parseIndexFinalizationPayload,
 } from "./index-finalization.ts";
 import {
   notifyIndexFederationRefresh,
@@ -47,7 +47,8 @@ const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 2;
 const INDEX_FUNCTIONS_WORKFLOW_FILE = "deploy-supabase-functions.yml";
 const INDEX_FUNCTIONS_WORKFLOW_BRANCH = "main";
 const INDEX_AUTH_CONFIG_REQUIRED_SCOPES = ["auth:write"] as const;
-const GITHUB_OAUTH_APP_CREATE_URL = "https://github.com/settings/applications/new";
+const GITHUB_OAUTH_APP_CREATE_URL =
+  "https://github.com/settings/applications/new";
 const INDEX_REQUIRED_REPO_SECRET_NAMES = [
   "SUPABASE_ACCESS_TOKEN",
   "SUPABASE_PROJECT_REF_PROD",
@@ -86,7 +87,7 @@ export type IndexArchiveRow = {
 };
 
 export type IndexProjectCredentialsRow = {
-  archive_id: string;
+  index_id: string;
   owner_user_id: string;
   supabase_project_ref: string;
   supabase_project_url: string;
@@ -99,7 +100,7 @@ export type IndexProjectCredentialsRow = {
 };
 
 type IndexMembershipRow = {
-  archive_id: string;
+  index_id: string;
   user_id: string;
   role: IndexAdminRole;
 };
@@ -134,12 +135,19 @@ type ChildSiteRow = {
   meta?: Record<string, unknown> | null;
 };
 
-type ChildArchiveSiteRow = {
-  site_id: string;
+type ChildConnectionRow = {
+  id: string;
+  connection_uuid: string;
+  source_site_id: string;
   status: string | null;
   created_at: string | null;
-  delist_reason_code: string | null;
-  delist_note: string | null;
+  responded_at: string | null;
+};
+
+type ChildOwnerDraftRow = {
+  site_id: string;
+  owner_user_id: string;
+  repo_full_name: string | null;
 };
 
 type AuthUserSummary = {
@@ -199,19 +207,16 @@ export type IndexCollaboratorRecord = AuthUserSummary & {
 };
 
 export type IndexConnectionRecord = {
-  siteId: string;
-  status: "tracked" | "delisted";
+  requestId: string;
+  connectionUuid: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
   createdAt: string | null;
-  delistReasonCode: string | null;
-  delistNote: string | null;
-  title: string;
-  description: string;
-  canonicalUrl: string;
-  imageUrl: string | null;
-  type: "site" | "index" | null;
-  parentIndexId: string | null;
-  parentIndexUrl: string | null;
-  parentIndexLevel: number | null;
+  respondedAt: string | null;
+  sourceSiteId: string;
+  sourceSiteTitle: string;
+  sourceSiteUrl: string;
+  sourceSiteImageUrl: string;
+  sourceOwnerDisplayName: string;
 };
 
 export type IndexAdminContext = {
@@ -225,7 +230,7 @@ export type IndexAdminContext = {
 
 export type IndexFinalizationJobRow = {
   id: string;
-  archive_id: string;
+  index_id: string;
   owner_user_id: string;
   status: "queued" | "running" | "succeeded" | "failed";
   step: string | null;
@@ -544,8 +549,8 @@ const readMembership = async ({
 }) => {
   const { data, error } = await supabase
     .from("index_admin_memberships")
-    .select("archive_id, user_id, role")
-    .eq("archive_id", archiveId)
+    .select("index_id, user_id, role")
+    .eq("index_id", archiveId)
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -567,7 +572,7 @@ const readArchive = async ({
   archiveId: string;
 }) => {
   const { data, error } = await supabase
-    .from("archives")
+    .from("indexes")
     .select(
       [
         "id",
@@ -605,7 +610,7 @@ const readArchive = async ({
     throw new Error(error.message);
   }
   if (!data) {
-    throw new Error("Index archive not found.");
+    throw new Error("Index not found.");
   }
 
   return data as unknown as IndexArchiveRow;
@@ -624,7 +629,7 @@ const readCredentials = async ({
     .from("index_project_credentials")
     .select(
       [
-        "archive_id",
+        "index_id",
         "owner_user_id",
         "supabase_project_ref",
         "supabase_project_url",
@@ -636,7 +641,7 @@ const readCredentials = async ({
         "repo_url",
       ].join(", "),
     )
-    .eq("archive_id", archiveId)
+    .eq("index_id", archiveId)
     .maybeSingle();
 
   if (error) {
@@ -647,14 +652,12 @@ const readCredentials = async ({
   }
 
   if (archive && isSolidaryRootArchive(archive)) {
-    const repoFullName =
-      normalizeRepoFullName(archive.repo_full_name) ||
+    const repoFullName = normalizeRepoFullName(archive.repo_full_name) ||
       normalizeRepoFullName(getSolidaryRootRepoFullName());
     const [repoOwner = "", repoName = ""] = repoFullName.split("/");
-    const supabaseProjectUrl =
-      toTrimmedString(archive.supabase_project_url) || toTrimmedString(SUPABASE_URL);
-    const supabaseProjectRef =
-      toTrimmedString(archive.supabase_project_ref) ||
+    const supabaseProjectUrl = toTrimmedString(archive.supabase_project_url) ||
+      toTrimmedString(SUPABASE_URL);
+    const supabaseProjectRef = toTrimmedString(archive.supabase_project_ref) ||
       deriveProjectRefFromSupabaseUrl(supabaseProjectUrl);
     const supabasePublishableKey =
       toTrimmedString(archive.supabase_publishable_key) ||
@@ -667,7 +670,7 @@ const readCredentials = async ({
     }
 
     return {
-      archive_id: archive.id,
+      index_id: archive.id,
       owner_user_id: ROOT_INDEX_ADMIN_BRIDGE_USER_ID,
       supabase_project_ref: supabaseProjectRef,
       supabase_project_url: supabaseProjectUrl,
@@ -685,17 +688,17 @@ const readCredentials = async ({
 
 export const readLatestIndexFinalizationJob = async ({
   supabase,
-  archiveId,
+  indexId,
 }: {
   supabase: ReturnType<typeof createServiceSupabase>;
-  archiveId: string;
+  indexId: string;
 }) => {
   const { data, error } = await supabase
     .from("index_finalization_jobs")
     .select(
       [
         "id",
-        "archive_id",
+        "index_id",
         "owner_user_id",
         "status",
         "step",
@@ -712,7 +715,7 @@ export const readLatestIndexFinalizationJob = async ({
         "completed_at",
       ].join(", "),
     )
-    .eq("archive_id", archiveId)
+    .eq("index_id", indexId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -768,23 +771,23 @@ export const getEffectiveIndexFinalizationJob = (
 };
 
 export const resolveIndexAdminContext = async ({
-  archiveId,
+  indexId,
   supabaseAccessToken,
   bridgeToken,
 }: {
-  archiveId: string;
+  indexId: string;
   supabaseAccessToken?: string;
   bridgeToken?: string;
 }): Promise<IndexAdminContext> => {
-  const normalizedArchiveId = archiveId.trim();
-  if (!normalizedArchiveId) {
-    throw new Error("Missing archive_id.");
+  const normalizedIndexId = indexId.trim();
+  if (!normalizedIndexId) {
+    throw new Error("Missing index_id.");
   }
 
   const supabase = createServiceSupabase();
   const archive = await readArchive({
     supabase,
-    archiveId: normalizedArchiveId,
+    archiveId: normalizedIndexId,
   });
   let actorUserId = "";
   let actorRole: IndexAdminRole;
@@ -792,15 +795,17 @@ export const resolveIndexAdminContext = async ({
 
   if (bridgeToken?.trim()) {
     const payload = parseIndexAdminBridgeToken(bridgeToken.trim());
-    if (payload.archiveId !== normalizedArchiveId) {
+    if (payload.indexId !== normalizedIndexId) {
       throw new Error("Admin bridge token does not match this index.");
     }
     actorUserId = payload.userId;
     via = "bridge";
-    if (isSolidaryRootArchive(archive) && isRootPasswordAdminUserId(actorUserId)) {
+    if (
+      isSolidaryRootArchive(archive) && isRootPasswordAdminUserId(actorUserId)
+    ) {
       const credentials = await readCredentials({
         supabase,
-        archiveId: normalizedArchiveId,
+        archiveId: normalizedIndexId,
         archive,
       });
       return {
@@ -823,13 +828,13 @@ export const resolveIndexAdminContext = async ({
 
   const membership = await readMembership({
     supabase,
-    archiveId: normalizedArchiveId,
+    archiveId: normalizedIndexId,
     userId: actorUserId,
   });
   actorRole = membership.role;
   const credentials = await readCredentials({
     supabase,
-    archiveId: normalizedArchiveId,
+    archiveId: normalizedIndexId,
     archive,
   });
 
@@ -1047,7 +1052,9 @@ const upsertGitHubRepoSecret = async ({
   });
 
   const response = await fetch(
-    `${GITHUB_API}/repos/${owner}/${repo}/actions/secrets/${encodeURIComponent(secretName)}`,
+    `${GITHUB_API}/repos/${owner}/${repo}/actions/secrets/${
+      encodeURIComponent(secretName)
+    }`,
     {
       method: "PUT",
       headers: githubHeaders(githubToken),
@@ -1180,7 +1187,9 @@ const readGitHubWorkflowRunJobs = async ({
   runId: string;
 }) => {
   const jobsUrl = new URL(
-    `${GITHUB_API}/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(runId)}/jobs`,
+    `${GITHUB_API}/repos/${owner}/${repo}/actions/runs/${
+      encodeURIComponent(runId)
+    }/jobs`,
   );
   jobsUrl.searchParams.set("per_page", "100");
 
@@ -1559,7 +1568,7 @@ const refreshLocalFederationMirrorForContext = async ({
     supabase: context.supabase,
     sourceProjectUrl: context.credentials.supabase_project_url,
     sourcePublishableKey: context.credentials.supabase_publishable_key ?? "",
-    expectedArchiveId: context.archive.id,
+    expectedIndexId: context.archive.id,
   });
 };
 
@@ -1574,8 +1583,9 @@ const listRelatedIndexFederationTargets = async ({
     relatedArchiveIds.add(parentIndexId);
   }
 
-  const { data: childArchives, error: childArchivesError } = await context.supabase
-    .from("archives")
+  const { data: childArchives, error: childArchivesError } = await context
+    .supabase
+    .from("indexes")
     .select("id")
     .eq("type", "index")
     .eq("parent_index_id", context.archive.id);
@@ -1598,8 +1608,9 @@ const listRelatedIndexFederationTargets = async ({
     }>;
   }
 
-  const { data: relatedArchives, error: relatedArchivesError } = await context.supabase
-    .from("archives")
+  const { data: relatedArchives, error: relatedArchivesError } = await context
+    .supabase
+    .from("indexes")
     .select("id, supabase_project_url, supabase_publishable_key")
     .in("id", Array.from(relatedArchiveIds))
     .eq("type", "index");
@@ -1636,7 +1647,7 @@ const notifyRelatedIndexesOfFederationChange = async ({
       notifyIndexFederationRefresh({
         targetProjectUrl: target.projectUrl,
         targetPublishableKey: target.publishableKey,
-        sourceArchiveId: context.archive.id,
+        sourceIndexId: context.archive.id,
         sourceProjectUrl: context.credentials.supabase_project_url,
         sourcePublishableKey: context.credentials.supabase_publishable_key ??
           "",
@@ -1672,20 +1683,20 @@ export const listAccessibleIndexesForUser = async ({
 
   const { data, error } = await supabase
     .from("index_admin_memberships")
-    .select("archive_id, role")
+    .select("index_id, role")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) {
     throw new Error(error.message);
   }
 
-  const archiveIds = (data ?? [])
-    .map((row) => toTrimmedString(row.archive_id))
+  const indexIds = (data ?? [])
+    .map((row) => toTrimmedString(row.index_id))
     .filter(Boolean);
-  if (!archiveIds.length) return [];
+  if (!indexIds.length) return [];
 
-  const { data: archives, error: archivesError } = await supabase
-    .from("archives")
+  const { data: indexes, error: indexesError } = await supabase
+    .from("indexes")
     .select(
       [
         "id",
@@ -1706,36 +1717,36 @@ export const listAccessibleIndexesForUser = async ({
         "parent_index_level",
       ].join(", "),
     )
-    .in("id", archiveIds)
+    .in("id", indexIds)
     .eq("type", "index")
     .order("updated_at", { ascending: false });
-  if (archivesError) {
-    throw new Error(archivesError.message);
+  if (indexesError) {
+    throw new Error(indexesError.message);
   }
 
-  const roleByArchiveId = new Map(
+  const roleByIndexId = new Map(
     (data ?? []).map((
       row,
-    ) => [toTrimmedString(row.archive_id), toTrimmedString(row.role)]),
+    ) => [toTrimmedString(row.index_id), toTrimmedString(row.role)]),
   );
 
-  return ((archives ?? []) as unknown as IndexArchiveRow[]).map((archive) => ({
-    id: archive.id,
-    slug: archive.slug ?? "",
-    title: archive.title ?? "Untitled index",
-    description: archive.description ?? "",
-    imageUrl: archive.image_url ?? "",
-    canonicalUrl: archive.canonical_url ?? "",
-    repoFullName: archive.repo_full_name ?? null,
-    repoUrl: archive.repo_url ?? null,
-    supabaseProjectRef: archive.supabase_project_ref ?? null,
-    supabaseDashboardUrl: archive.supabase_dashboard_url ?? null,
-    indexLevel: archive.index_level ?? null,
-    parentIndexId: archive.parent_index_id ?? null,
-    parentIndexUrl: archive.parent_index_url ?? null,
-    parentIndexLevel: archive.parent_index_level ?? null,
+  return ((indexes ?? []) as unknown as IndexArchiveRow[]).map((indexRow) => ({
+    id: indexRow.id,
+    slug: indexRow.slug ?? "",
+    title: indexRow.title ?? "Untitled index",
+    description: indexRow.description ?? "",
+    imageUrl: indexRow.image_url ?? "",
+    canonicalUrl: indexRow.canonical_url ?? "",
+    repoFullName: indexRow.repo_full_name ?? null,
+    repoUrl: indexRow.repo_url ?? null,
+    supabaseProjectRef: indexRow.supabase_project_ref ?? null,
+    supabaseDashboardUrl: indexRow.supabase_dashboard_url ?? null,
+    indexLevel: indexRow.index_level ?? null,
+    parentIndexId: indexRow.parent_index_id ?? null,
+    parentIndexUrl: indexRow.parent_index_url ?? null,
+    parentIndexLevel: indexRow.parent_index_level ?? null,
     accessRole:
-      (roleByArchiveId.get(archive.id) as IndexAdminRole | undefined) ??
+      (roleByIndexId.get(indexRow.id) as IndexAdminRole | undefined) ??
         "owner",
   }));
 };
@@ -1745,8 +1756,8 @@ const listCollaborators = async (
 ): Promise<IndexCollaboratorRecord[]> => {
   const { data, error } = await context.supabase
     .from("index_admin_memberships")
-    .select("archive_id, user_id, role")
-    .eq("archive_id", context.archive.id)
+    .select("index_id, user_id, role")
+    .eq("index_id", context.archive.id)
     .order("created_at", { ascending: true });
   if (error) {
     throw new Error(error.message);
@@ -1771,11 +1782,164 @@ const listCollaborators = async (
   );
 };
 
+const compareIndexConnections = (
+  left: IndexConnectionRecord,
+  right: IndexConnectionRecord,
+) => {
+  if (left.status === "pending" && right.status !== "pending") return -1;
+  if (left.status !== "pending" && right.status === "pending") return 1;
+
+  const leftAt = Date.parse(left.respondedAt ?? left.createdAt ?? "");
+  const rightAt = Date.parse(right.respondedAt ?? right.createdAt ?? "");
+  if (
+    Number.isFinite(leftAt) && Number.isFinite(rightAt) && leftAt !== rightAt
+  ) {
+    return rightAt - leftAt;
+  }
+  if (Number.isFinite(leftAt) && !Number.isFinite(rightAt)) return -1;
+  if (!Number.isFinite(leftAt) && Number.isFinite(rightAt)) return 1;
+  return left.sourceSiteTitle.localeCompare(right.sourceSiteTitle);
+};
+
+const buildStandaloneIndexConnectionEntries = (
+  connections: IndexConnectionRecord[],
+) =>
+  connections
+    .filter((entry) => entry.status === "approved" && entry.sourceSiteUrl)
+    .map((entry) => ({
+      connectedSiteId: entry.sourceSiteId,
+      connectedSiteUrl: entry.sourceSiteUrl,
+      connectedSiteType: "site" as const,
+    }));
+
+const readIndexConnectionRecords = async ({
+  context,
+  child,
+}: {
+  context: IndexAdminContext;
+  child: ReturnType<typeof createChildProjectClient>;
+}): Promise<IndexConnectionRecord[]> => {
+  const { data: connectionRows, error: connectionsError } = await child
+    .from("connections")
+    .select(
+      [
+        "id",
+        "connection_uuid",
+        "source_site_id",
+        "status",
+        "created_at",
+        "responded_at",
+      ].join(", "),
+    )
+    .eq("target_index_id", context.archive.id)
+    .in("status", ["pending", "approved"])
+    .order("created_at", { ascending: false });
+  if (connectionsError) {
+    throw new Error(connectionsError.message);
+  }
+
+  const rawConnections =
+    (connectionRows ?? []) as unknown as ChildConnectionRow[];
+  if (!rawConnections.length) {
+    return [];
+  }
+
+  const siteIds = Array.from(
+    new Set(
+      rawConnections.map((row) => toTrimmedString(row.source_site_id)).filter(
+        Boolean,
+      ),
+    ),
+  );
+  const [
+    { data: childSites, error: childSitesError },
+    { data: ownerDraftRows, error: ownerDraftsError },
+  ] = await Promise.all([
+    child
+      .from("sites")
+      .select(
+        [
+          "id",
+          "canonical_url",
+          "title",
+          "description",
+          "image_url",
+          "parent_index_id",
+          "parent_index_url",
+          "parent_index_level",
+        ].join(", "),
+      )
+      .in("id", siteIds),
+    child
+      .from("site_drafts")
+      .select("site_id, owner_user_id, repo_full_name")
+      .eq("draft_type", "owner")
+      .in("site_id", siteIds),
+  ]);
+  if (childSitesError) {
+    throw new Error(childSitesError.message);
+  }
+  if (ownerDraftsError) {
+    throw new Error(ownerDraftsError.message);
+  }
+
+  const connectedSites = (childSites ?? []) as unknown as ChildSiteRow[];
+  const ownerDrafts = (ownerDraftRows ?? []) as unknown as ChildOwnerDraftRow[];
+  const connectedSiteById = new Map(
+    connectedSites.map((entry) => [entry.id, entry] as const),
+  );
+  const ownerDraftBySiteId = new Map(
+    ownerDrafts.map((entry) =>
+      [toTrimmedString(entry.site_id), entry] as const
+    ),
+  );
+  const ownerUserIds = Array.from(
+    new Set(
+      ownerDrafts.map((entry) => toTrimmedString(entry.owner_user_id)).filter(
+        Boolean,
+      ),
+    ),
+  );
+  const ownerSummaryEntries = await Promise.all(
+    ownerUserIds.map(async (userId) =>
+      [userId, await readAuthUserSummaryById(child, userId)] as const
+    ),
+  );
+  const ownerSummaryByUserId = new Map(ownerSummaryEntries);
+
+  return rawConnections.map((row) => {
+    const sourceSiteId = toTrimmedString(row.source_site_id);
+    const childSite = connectedSiteById.get(sourceSiteId);
+    const ownerDraft = ownerDraftBySiteId.get(sourceSiteId);
+    const ownerSummary = ownerDraft
+      ? ownerSummaryByUserId.get(toTrimmedString(ownerDraft.owner_user_id))
+      : null;
+    const fallbackRepoName = normalizeRepoFullName(ownerDraft?.repo_full_name);
+    const fallbackTitle = fallbackRepoName
+      ? fallbackRepoName.split("/")[1] ?? sourceSiteId
+      : sourceSiteId;
+
+    return {
+      requestId: toTrimmedString(row.id),
+      connectionUuid: toTrimmedString(row.connection_uuid),
+      status: row.status === "approved" ? "approved" : "pending",
+      createdAt: row.created_at,
+      respondedAt: row.responded_at,
+      sourceSiteId,
+      sourceSiteTitle: childSite?.title ?? fallbackTitle,
+      sourceSiteUrl: childSite?.canonical_url ?? "",
+      sourceSiteImageUrl: childSite?.image_url ?? "",
+      sourceOwnerDisplayName: ownerSummary?.displayName ||
+        ownerSummary?.email || "Unknown",
+    } satisfies IndexConnectionRecord;
+  }).sort(compareIndexConnections);
+};
+
 export const readIndexAdminState = async (context: IndexAdminContext) => {
   const child = createChildProjectClient(context.credentials);
   const rootPasswordAdmin = isRootPasswordAdminContext(context);
   const { data: archiveData, error: archiveError } = await child
-    .from("archives")
+    .from("indexes")
     .select(
       [
         "id",
@@ -1802,74 +1966,16 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
   }
   const archive = (archiveData ?? null) as unknown as ChildArchiveRow | null;
   if (!archive) {
-    throw new Error("The child index is missing its archive metadata row.");
+    throw new Error("The child index is missing its index metadata row.");
   }
 
-  const { data: connectionRows, error: connectionsError } = await child
-    .from("archive_sites")
-    .select("site_id, status, created_at, delist_reason_code, delist_note")
-    .eq("archive_id", context.archive.id)
-    .order("created_at", { ascending: false });
-  if (connectionsError) {
-    throw new Error(connectionsError.message);
-  }
+  const connections = await readIndexConnectionRecords({ context, child });
 
-  const rawConnections =
-    (connectionRows ?? []) as unknown as ChildArchiveSiteRow[];
-  const siteIds = rawConnections
-    .map((row) => toTrimmedString(row.site_id))
-    .filter(Boolean);
-  let connectedSites: ChildSiteRow[] = [];
-
-  if (siteIds.length) {
-    const { data: childSites, error: childSitesError } = await child
-      .from("sites")
-      .select(
-        [
-          "id",
-          "canonical_url",
-          "title",
-          "description",
-          "image_url",
-          "parent_index_id",
-          "parent_index_url",
-          "parent_index_level",
-        ].join(", "),
-      )
-      .in("id", siteIds);
-    if (childSitesError) {
-      throw new Error(childSitesError.message);
-    }
-    connectedSites = (childSites ?? []) as unknown as ChildSiteRow[];
-  }
-
-  const connectedSiteById = new Map(
-    connectedSites.map((entry) => [entry.id, entry] as const),
-  );
-  const connections = rawConnections
-    .filter((row) => toTrimmedString(row.site_id))
-    .map((row) => {
-      const childSite = connectedSiteById.get(row.site_id);
-      return {
-        siteId: row.site_id,
-        status: row.status === "delisted" ? "delisted" : "tracked",
-        createdAt: row.created_at,
-        delistReasonCode: row.delist_reason_code,
-        delistNote: row.delist_note,
-        title: childSite?.title ?? row.site_id,
-        description: childSite?.description ?? "",
-        canonicalUrl: childSite?.canonical_url ?? "",
-        imageUrl: childSite?.image_url ?? null,
-        type: childSite ? "site" : null,
-        parentIndexId: childSite?.parent_index_id ?? null,
-        parentIndexUrl: childSite?.parent_index_url ?? null,
-        parentIndexLevel: childSite?.parent_index_level ?? null,
-      } satisfies IndexConnectionRecord;
-    });
-
-  const collaborators = rootPasswordAdmin ? [] : await listCollaborators(context);
+  const collaborators = rootPasswordAdmin
+    ? []
+    : await listCollaborators(context);
   const bridgeToken = createIndexAdminBridgeToken({
-    archiveId: context.archive.id,
+    indexId: context.archive.id,
     userId: context.actorUserId,
     role: context.actorRole,
     expiresAt: new Date(Date.now() + BRIDGE_TOKEN_TTL_MS).toISOString(),
@@ -1891,9 +1997,11 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
       canManageCollaborators: rootPasswordAdmin
         ? false
         : roleRank[context.actorRole] >= roleRank.admin,
-      canManageAdvanced: rootPasswordAdmin ? false : context.actorRole === "owner",
+      canManageAdvanced: rootPasswordAdmin
+        ? false
+        : context.actorRole === "owner",
     },
-    archive: {
+    index: {
       id: context.archive.id,
       slug: context.archive.slug ?? "",
       title: archive.title ?? context.archive.title ?? "",
@@ -1923,7 +2031,7 @@ export const readIndexAdminState = async (context: IndexAdminContext) => {
       type: archive.type ?? context.archive.type ?? "index",
       standaloneAdminUrl,
       solidaryAdminUrl:
-        `${getSolidaryAppUrl()}/admin?archiveId=${context.archive.id}`,
+        `${getSolidaryAppUrl()}/admin?indexId=${context.archive.id}`,
       authCallbackUrl:
         `${context.credentials.supabase_project_url}/auth/v1/callback`,
       authProvidersDashboardUrl: context.archive.supabase_dashboard_url
@@ -1950,7 +2058,7 @@ const updateChildIndexMetadata = async ({
 }) => {
   const child = createChildProjectClient(context.credentials);
   const { error: archiveError } = await child
-    .from("archives")
+    .from("indexes")
     .update({
       type: "index",
       title,
@@ -2057,12 +2165,14 @@ export const updateIndexGeneralSettings = async ({
   imageContentB64?: string;
 }) => {
   if (isRootPasswordAdminContext(context)) {
-    throw new Error("Root /admin currently supports connection management only.");
+    throw new Error(
+      "Root /admin currently supports connection management only.",
+    );
   }
   assertIndexAdminRole(context.actorRole, "editor");
 
   const currentState = await readIndexAdminState(context);
-  let nextImageUrl = currentState.archive.imageUrl || "";
+  let nextImageUrl = currentState.index.imageUrl || "";
 
   if (toTrimmedString(imageContentB64)) {
     const githubToken = await resolveOwnerGitHubToken(context);
@@ -2075,21 +2185,21 @@ export const updateIndexGeneralSettings = async ({
       message: "Update standalone index image",
     });
     nextImageUrl = buildAbsoluteAssetUrl({
-      siteUrl: currentState.archive.canonicalUrl,
+      siteUrl: currentState.index.canonicalUrl,
       assetPath: DEFAULT_INDEX_IMAGE_PATH,
     });
   }
 
   const manifest = buildSolidaryManifest({
-    rootId: currentState.archive.id,
-    siteUrl: currentState.archive.canonicalUrl,
+    rootId: currentState.index.id,
+    siteUrl: currentState.index.canonicalUrl,
     title,
     description,
     imageUrl: nextImageUrl,
-    indexLevel: currentState.archive.indexLevel ?? 1,
-    parentIndexId: currentState.archive.parentIndexId ?? "",
-    parentIndexUrl: currentState.archive.parentIndexUrl ?? "",
-    parentIndexLevel: currentState.archive.parentIndexLevel ?? 0,
+    indexLevel: currentState.index.indexLevel ?? 1,
+    parentIndexId: currentState.index.parentIndexId ?? "",
+    parentIndexUrl: currentState.index.parentIndexUrl ?? "",
+    parentIndexLevel: currentState.index.parentIndexLevel ?? 0,
   });
   const githubToken = await resolveOwnerGitHubToken(context);
   await writeRepoFile({
@@ -2106,7 +2216,7 @@ export const updateIndexGeneralSettings = async ({
     title,
     description,
     imageUrl: nextImageUrl,
-    siteUrl: currentState.archive.canonicalUrl,
+    siteUrl: currentState.index.canonicalUrl,
   });
 };
 
@@ -2126,7 +2236,7 @@ export const searchIndexCollaboratorCandidates = async ({
   const { data, error } = await context.supabase.rpc(
     "index_search_collaborator_candidates",
     {
-      p_archive_id: context.archive.id,
+      p_index_id: context.archive.id,
       p_actor_user_id: context.actorUserId,
       p_query: query,
       p_limit: limit,
@@ -2180,7 +2290,7 @@ export const upsertIndexCollaborator = async ({
   const { error } = await context.supabase
     .from("index_admin_memberships")
     .upsert({
-      archive_id: context.archive.id,
+      index_id: context.archive.id,
       user_id: targetUserId,
       role,
     });
@@ -2211,40 +2321,20 @@ export const removeIndexCollaborator = async ({
   const { error } = await context.supabase
     .from("index_admin_memberships")
     .delete()
-    .eq("archive_id", context.archive.id)
+    .eq("index_id", context.archive.id)
     .eq("user_id", targetUserId);
   if (error) {
     throw new Error(error.message);
   }
 };
 
-export const updateIndexConnectionStatus = async ({
+const syncStandaloneIndexConnectionsMetadata = async ({
   context,
-  siteId,
-  status,
+  message,
 }: {
   context: IndexAdminContext;
-  siteId: string;
-  status: "tracked" | "delisted";
+  message: string;
 }) => {
-  assertIndexAdminRole(context.actorRole, "admin");
-  const normalizedSiteId = siteId.trim();
-  if (!normalizedSiteId) {
-    throw new Error("Missing site id.");
-  }
-
-  const child = createChildProjectClient(context.credentials);
-  const { error } = await child.from("archive_sites").upsert({
-    archive_id: context.archive.id,
-    site_id: normalizedSiteId,
-    status,
-    delist_reason_code: status === "delisted" ? "index_admin_removed" : null,
-    delist_note: null,
-  });
-  if (error) {
-    throw new Error(error.message);
-  }
-
   if (isRootPasswordAdminContext(context)) {
     await notifyRelatedIndexesOfFederationChange({ context });
     return;
@@ -2252,15 +2342,11 @@ export const updateIndexConnectionStatus = async ({
 
   const updatedState = await readIndexAdminState(context);
   const linksManifest = buildSolidaryLinksManifest({
-    rootId: updatedState.archive.id,
-    siteUrl: updatedState.archive.canonicalUrl,
-    connections: updatedState.connections
-      .filter((entry) => entry.status === "tracked" && entry.canonicalUrl)
-      .map((entry) => ({
-        connectedSiteId: entry.siteId,
-        connectedSiteUrl: entry.canonicalUrl,
-        connectedSiteType: entry.type ?? "site",
-      })),
+    rootId: updatedState.index.id,
+    siteUrl: updatedState.index.canonicalUrl,
+    connections: buildStandaloneIndexConnectionEntries(
+      updatedState.connections,
+    ),
   });
   const githubToken = await resolveOwnerGitHubToken(context);
   await writeRepoFile({
@@ -2269,11 +2355,221 @@ export const updateIndexConnectionStatus = async ({
     repo: context.credentials.repo_name,
     path: "site/.well-known/solidary-links.json",
     contentB64: Buffer.from(linksManifest, "utf8").toString("base64"),
-    message: "Update standalone index connections metadata",
+    message,
   });
 
   await refreshLocalFederationMirrorForContext({ context });
   await notifyRelatedIndexesOfFederationChange({ context });
+};
+
+export const updateIndexConnectionRequest = async ({
+  context,
+  requestId,
+  action,
+}: {
+  context: IndexAdminContext;
+  requestId: string;
+  action: "approve" | "reject" | "disconnect";
+}) => {
+  assertIndexAdminRole(context.actorRole, "admin");
+  const normalizedRequestId = requestId.trim();
+  if (!normalizedRequestId) {
+    throw new Error("Missing request id.");
+  }
+
+  const child = createChildProjectClient(context.credentials);
+  const manifestActorUserId =
+    isRootPasswordAdminContext(context) && context.archive.owner_user_id
+      ? context.archive.owner_user_id
+      : context.actorUserId;
+  const { data: requestRowData, error: requestRowError } = await child
+    .from("connections")
+    .select(
+      "id, connection_uuid, source_site_id, status, created_at, responded_at, target_index_id",
+    )
+    .eq("id", normalizedRequestId)
+    .eq("target_index_id", context.archive.id)
+    .maybeSingle();
+  if (requestRowError) {
+    throw new Error(requestRowError.message);
+  }
+  const requestRow = requestRowData as {
+    id: string;
+    connection_uuid: string;
+    source_site_id: string;
+    status: string | null;
+    created_at: string | null;
+    responded_at: string | null;
+    target_index_id: string;
+  } | null;
+  if (!requestRow) {
+    throw new Error("Connection request not found.");
+  }
+
+  const normalizedSourceSiteId = toTrimmedString(requestRow.source_site_id);
+  if (!normalizedSourceSiteId) {
+    throw new Error("Connection request is missing a source site.");
+  }
+
+  if (action === "approve") {
+    if (requestRow.status !== "pending") {
+      return;
+    }
+
+    const { data: duplicateApproved, error: duplicateApprovedError } =
+      await child
+        .from("connections")
+        .select("id")
+        .eq("source_site_id", normalizedSourceSiteId)
+        .eq("target_index_id", context.archive.id)
+        .eq("status", "approved")
+        .neq("id", normalizedRequestId)
+        .limit(1);
+    if (duplicateApprovedError) {
+      throw new Error(duplicateApprovedError.message);
+    }
+    if ((duplicateApproved ?? []).length > 0) {
+      throw new Error("This site is already connected to the index.");
+    }
+
+    const { error: approveError } = await child
+      .from("connections")
+      .update({
+        status: "approved",
+        responded_at: new Date().toISOString(),
+        responded_by_user_id: context.actorUserId,
+      })
+      .eq("id", normalizedRequestId);
+    if (approveError) {
+      throw new Error(approveError.message);
+    }
+
+    const { error: trackError } = await child.from("index_sites").upsert({
+      index_id: context.archive.id,
+      site_id: normalizedSourceSiteId,
+      status: "tracked",
+      delist_reason_code: null,
+      delist_note: null,
+    });
+    if (trackError) {
+      throw new Error(trackError.message);
+    }
+
+    if (manifestActorUserId) {
+      const { error: syncSourceError } = await child.rpc(
+        "connection_sync_site_links_internal",
+        {
+          p_site_id: normalizedSourceSiteId,
+          p_actor_user_id: manifestActorUserId,
+        },
+      );
+      if (syncSourceError) {
+        throw new Error(syncSourceError.message);
+      }
+    }
+
+    await syncStandaloneIndexConnectionsMetadata({
+      context,
+      message: "Update standalone index connections metadata",
+    });
+    return;
+  }
+
+  if (action === "reject") {
+    if (requestRow.status !== "pending") {
+      return;
+    }
+
+    const { error: rejectError } = await child
+      .from("connections")
+      .update({
+        status: "rejected",
+        responded_at: new Date().toISOString(),
+        responded_by_user_id: context.actorUserId,
+      })
+      .eq("id", normalizedRequestId);
+    if (rejectError) {
+      throw new Error(rejectError.message);
+    }
+    return;
+  }
+
+  if (requestRow.status !== "pending" && requestRow.status !== "approved") {
+    return;
+  }
+
+  const { error: disconnectError } = await child
+    .from("connections")
+    .update({
+      status: "cancelled",
+      responded_at: new Date().toISOString(),
+      responded_by_user_id: context.actorUserId,
+    })
+    .eq("id", normalizedRequestId);
+  if (disconnectError) {
+    throw new Error(disconnectError.message);
+  }
+
+  if (requestRow.status === "approved") {
+    const { data: sourceSiteData, error: sourceSiteError } = await child
+      .from("sites")
+      .select("parent_index_id")
+      .eq("id", normalizedSourceSiteId)
+      .maybeSingle();
+    if (sourceSiteError) {
+      throw new Error(sourceSiteError.message);
+    }
+
+    const sourceSiteParentIndexId = toTrimmedString(
+      (sourceSiteData as { parent_index_id?: string | null } | null)
+        ?.parent_index_id,
+    );
+    if (sourceSiteParentIndexId === context.archive.id) {
+      const { error: preserveMembershipError } = await child.from(
+        "index_sites",
+      ).upsert({
+        index_id: context.archive.id,
+        site_id: normalizedSourceSiteId,
+        status: "tracked",
+        delist_reason_code: null,
+        delist_note: null,
+      });
+      if (preserveMembershipError) {
+        throw new Error(preserveMembershipError.message);
+      }
+    } else {
+      const { error: delistError } = await child
+        .from("index_sites")
+        .update({
+          status: "delisted",
+          delist_reason_code: "connection_removed",
+          delist_note: null,
+        })
+        .eq("index_id", context.archive.id)
+        .eq("site_id", normalizedSourceSiteId);
+      if (delistError) {
+        throw new Error(delistError.message);
+      }
+    }
+
+    if (manifestActorUserId) {
+      const { error: syncSourceError } = await child.rpc(
+        "connection_sync_site_links_internal",
+        {
+          p_site_id: normalizedSourceSiteId,
+          p_actor_user_id: manifestActorUserId,
+        },
+      );
+      if (syncSourceError) {
+        throw new Error(syncSourceError.message);
+      }
+    }
+
+    await syncStandaloneIndexConnectionsMetadata({
+      context,
+      message: "Update standalone index connections metadata",
+    });
+  }
 };
 
 const updateGitHubPagesDomain = async ({
@@ -2371,7 +2667,7 @@ export const updateIndexAdvancedSettings = async ({
     siteUrl: nextSiteUrl,
   });
   const currentState = await readIndexAdminState(context);
-  const imageUrl = currentState.archive.imageUrl
+  const imageUrl = currentState.index.imageUrl
     ? buildAbsoluteAssetUrl({
       siteUrl: nextSiteUrl,
       assetPath: DEFAULT_INDEX_IMAGE_PATH,
@@ -2379,15 +2675,15 @@ export const updateIndexAdvancedSettings = async ({
     : "";
 
   const manifest = buildSolidaryManifest({
-    rootId: currentState.archive.id,
+    rootId: currentState.index.id,
     siteUrl: nextSiteUrl,
-    title: currentState.archive.title,
-    description: currentState.archive.description,
+    title: currentState.index.title,
+    description: currentState.index.description,
     imageUrl,
-    indexLevel: currentState.archive.indexLevel ?? 1,
-    parentIndexId: currentState.archive.parentIndexId ?? "",
-    parentIndexUrl: currentState.archive.parentIndexUrl ?? "",
-    parentIndexLevel: currentState.archive.parentIndexLevel ?? 0,
+    indexLevel: currentState.index.indexLevel ?? 1,
+    parentIndexId: currentState.index.parentIndexId ?? "",
+    parentIndexUrl: currentState.index.parentIndexUrl ?? "",
+    parentIndexLevel: currentState.index.parentIndexLevel ?? 0,
   });
   await writeRepoFile({
     githubToken,
@@ -2398,15 +2694,11 @@ export const updateIndexAdvancedSettings = async ({
     message: "Update standalone index domain metadata",
   });
   const linksManifest = buildSolidaryLinksManifest({
-    rootId: currentState.archive.id,
+    rootId: currentState.index.id,
     siteUrl: nextSiteUrl,
-    connections: currentState.connections
-      .filter((entry) => entry.status === "tracked" && entry.canonicalUrl)
-      .map((entry) => ({
-        connectedSiteId: entry.siteId,
-        connectedSiteUrl: entry.canonicalUrl,
-        connectedSiteType: entry.type ?? "site",
-      })),
+    connections: buildStandaloneIndexConnectionEntries(
+      currentState.connections,
+    ),
   });
   await writeRepoFile({
     githubToken,
@@ -2419,8 +2711,8 @@ export const updateIndexAdvancedSettings = async ({
 
   await updateChildIndexMetadata({
     context,
-    title: currentState.archive.title,
-    description: currentState.archive.description,
+    title: currentState.index.title,
+    description: currentState.index.description,
     imageUrl,
     siteUrl: nextSiteUrl,
   });
@@ -2453,7 +2745,7 @@ export const configureIndexStandaloneAuth = async ({
   }
 
   const currentState = await readIndexAdminState(context);
-  const siteUrl = currentState.archive.canonicalUrl ||
+  const siteUrl = currentState.index.canonicalUrl ||
     resolveRepoDefaultSiteUrl(
       context.credentials.repo_owner,
       context.credentials.repo_name,
@@ -2603,24 +2895,26 @@ const buildAuthSetup = async ({
   state: Awaited<ReturnType<typeof readIndexAdminState>>;
   managementAccessTokenOverride?: string | null;
 }): Promise<IndexAuthSetup> => {
-  const siteUrl = state.archive.canonicalUrl ||
+  const siteUrl = state.index.canonicalUrl ||
     resolveRepoDefaultSiteUrl(
       context.credentials.repo_owner,
       context.credentials.repo_name,
     );
-  const callbackUrl = state.archive.authCallbackUrl ||
+  const callbackUrl = state.index.authCallbackUrl ||
     `${context.credentials.supabase_project_url}/auth/v1/callback`;
   const expectedUriAllowList = buildSupabaseManagementUriAllowList(siteUrl);
-  const githubOauthAppName = state.archive.title
-    ? `Solidary ${state.archive.title}`
-    : `Solidary ${state.archive.slug || "Index"}`;
+  const githubOauthAppName = state.index.title
+    ? `Solidary ${state.index.title}`
+    : `Solidary ${state.index.slug || "Index"}`;
 
-  let authConfig: Awaited<ReturnType<typeof readSupabaseProjectAuthConfig>> | null =
-    null;
+  let authConfig:
+    | Awaited<ReturnType<typeof readSupabaseProjectAuthConfig>>
+    | null = null;
   let verificationError: string | null = null;
 
   try {
-    const managementAccessToken = toTrimmedString(managementAccessTokenOverride) ||
+    const managementAccessToken =
+      toTrimmedString(managementAccessTokenOverride) ||
       await resolveSupabaseManagementAuthConfigAccessToken(context);
     authConfig = await readSupabaseProjectAuthConfig({
       accessToken: managementAccessToken,
@@ -2651,7 +2945,7 @@ const buildAuthSetup = async ({
   return {
     siteUrl,
     callbackUrl,
-    providerSettingsUrl: state.archive.authProvidersDashboardUrl,
+    providerSettingsUrl: state.index.authProvidersDashboardUrl,
     githubOauthAppUrl: GITHUB_OAUTH_APP_CREATE_URL,
     githubOauthAppName,
     githubProviderEnabled,
@@ -2818,10 +3112,10 @@ const buildFinalizationSetup = async ({
   const parentSource = resolveParentSourceRepo({
     archive: context.archive,
     childArchive: {
-      parent_index_id: state.archive.parentIndexId,
-      parent_index_url: state.archive.parentIndexUrl,
-      parent_repo_full_name: state.archive.parentRepoFullName,
-      parent_repo_url: state.archive.parentRepoUrl,
+      parent_index_id: state.index.parentIndexId,
+      parent_index_url: state.index.parentIndexUrl,
+      parent_repo_full_name: state.index.parentRepoFullName,
+      parent_repo_url: state.index.parentRepoUrl,
     },
   });
   const effectiveJob = getEffectiveIndexFinalizationJob(latestJob);
@@ -2831,20 +3125,24 @@ const buildFinalizationSetup = async ({
   const normalizedStatus: IndexFinalizationStatus = isFinalized
     ? "finalized"
     : jobStatus === "queued" || jobStatus === "running"
-      ? jobStatus
-      : jobStatus === "failed"
-        ? "failed"
-        : jobStatus === "succeeded"
-          ? "running"
-          : "idle";
-  const isRunning = normalizedStatus === "queued" || normalizedStatus === "running";
-  const progressTotal = jobPayload.totalFiles > 0 ? jobPayload.totalFiles : null;
+    ? jobStatus
+    : jobStatus === "failed"
+    ? "failed"
+    : jobStatus === "succeeded"
+    ? "running"
+    : "idle";
+  const isRunning = normalizedStatus === "queued" ||
+    normalizedStatus === "running";
+  const progressTotal = jobPayload.totalFiles > 0
+    ? jobPayload.totalFiles
+    : null;
   const progressCurrent = progressTotal !== null
     ? Math.min(jobPayload.processedFiles, progressTotal)
     : null;
-  const configuredFunctionSecretNames = await readConfiguredFunctionsDeploymentSecretNames({
-    context,
-  }).catch(() => null);
+  const configuredFunctionSecretNames =
+    await readConfiguredFunctionsDeploymentSecretNames({
+      context,
+    }).catch(() => null);
   const functionsDeployment = isFinalized
     ? await buildFinalizedFunctionsDeploymentSetup({ context })
     : buildNotReadyFunctionsDeploymentSetup({
@@ -2877,7 +3175,7 @@ const buildFinalizationSetup = async ({
           ? "Standalone app finalized and child functions deployed."
           : "Repo finalized. Finish the child function deployment setup below."
         : jobStatus === "succeeded"
-          ? "Finishing child setup..."
+        ? "Finishing child setup..."
         : toTrimmedString(effectiveJob?.step) || null,
       error: normalizedStatus === "failed"
         ? toTrimmedString(effectiveJob?.error)
@@ -2932,42 +3230,42 @@ export const buildStandaloneAdminSetup = async ({
   });
   const standaloneAdminUrl = context.archive.runtime_mode === "finalized" &&
       functionsDeployment.status === "deployed"
-    ? buildStandaloneAdminBaseUrl(state.archive.canonicalUrl)
-    : state.archive.standaloneAdminUrl;
+    ? buildStandaloneAdminBaseUrl(state.index.canonicalUrl)
+    : state.index.standaloneAdminUrl;
 
   const nextSteps = context.archive.runtime_mode === "finalized"
     ? functionsDeployment.status === "deployed"
       ? [
         "Open Search, Explorer, and Studio from the links below to verify the copied app is live.",
-        "Open the standalone /admin and unlock it with the admin password you configured during setup.",
+        "Use Solidary /admin for ongoing index management.",
         "If you want the finalized repo to spawn sites or indexes, make sure the child project's GitHub App and Supabase OAuth secrets are configured too.",
       ]
       : [
         "Add the required GitHub repo secrets shown below to the child repository.",
         "Set SUPABASE_PROJECT_REF_PROD to the child project ref and set SUPABASE_ACCESS_TOKEN to a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_....",
         "Open the child repo's Deploy Supabase Functions workflow and rerun it after the secrets are saved.",
-        "Until the child function deployment succeeds, keep using the bridge-backed /admin link.",
+        "Until the child function deployment succeeds, keep using Solidary /admin.",
       ]
     : [
       "Create a GitHub OAuth application for the standalone index.",
       "Enable GitHub in the new Supabase project's Auth providers.",
       "Use the standalone index URL as the site URL and the Supabase auth callback URL in the GitHub app.",
       "When the standalone setup is ready, click Finalise Index to copy over Search, Explorer, Studio, functions, and repo files from the parent index.",
-      "Until that is configured, use the bridge link below to access /admin.",
+      "Until that is configured, keep using Solidary /admin for management.",
     ];
 
   return {
     authSetup,
     finalization,
     functionsDeployment,
-    liveUrl: state.archive.canonicalUrl,
-    repoUrl: state.archive.repoUrl,
-    supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
+    liveUrl: state.index.canonicalUrl,
+    repoUrl: state.index.repoUrl,
+    supabaseDashboardUrl: state.index.supabaseDashboardUrl,
     standaloneAdminUrl,
-    authCallbackUrl: state.archive.authCallbackUrl,
-    authProvidersDashboardUrl: state.archive.authProvidersDashboardUrl,
+    authCallbackUrl: state.index.authCallbackUrl,
+    authProvidersDashboardUrl: state.index.authProvidersDashboardUrl,
     nextSteps,
     solidaryAdminUrl:
-      `${getSolidaryAppUrl()}/admin?archiveId=${context.archive.id}`,
+      `${getSolidaryAppUrl()}/admin?indexId=${context.archive.id}`,
   };
 };

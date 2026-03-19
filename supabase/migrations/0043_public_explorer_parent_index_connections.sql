@@ -21,19 +21,19 @@ as $$
   ),
   visible_indexes as (
     select
-      archive.id,
+      index_row.id,
       'index'::text as node_type,
-      coalesce(nullif(trim(archive.title), ''), 'Untitled index') as title,
-      coalesce(archive.description, '') as description,
-      archive.canonical_url,
-      coalesce(archive.image_url, '') as image_url,
-      archive.updated_at,
-      archive.index_level,
-      archive.parent_index_id
-    from public.archives archive
-    where archive.type = 'index'
-      and archive.runtime_mode = 'finalized'
-      and nullif(trim(coalesce(archive.canonical_url, '')), '') is not null
+      coalesce(nullif(trim(index_row.title), ''), 'Untitled index') as title,
+      coalesce(index_row.description, '') as description,
+      index_row.canonical_url,
+      coalesce(index_row.image_url, '') as image_url,
+      index_row.updated_at,
+      index_row.index_level,
+      index_row.parent_index_id
+    from public.indexes index_row
+    where index_row.type = 'index'
+      and index_row.runtime_mode = 'finalized'
+      and nullif(trim(coalesce(index_row.canonical_url, '')), '') is not null
   ),
   nodes as (
     select * from visible_sites
@@ -61,15 +61,15 @@ as $$
       'site_connection'::text as edge_type,
       parent.id as source_id,
       child.id as target_id,
-      coalesce(child_archive.finalized_at, child.updated_at, parent.updated_at) as happened_at
-    from public.archives child_archive
+      coalesce(child_index.finalized_at, child.updated_at, parent.updated_at) as happened_at
+    from public.indexes child_index
     join visible_indexes child
-      on child.id = child_archive.id
+      on child.id = child_index.id
     join visible_indexes parent
       on parent.id = child.parent_index_id
     where child.parent_index_id is not null
       and child.parent_index_id <> child.id
-      and child_archive.runtime_mode = 'finalized'
+      and child_index.runtime_mode = 'finalized'
   ),
   index_lineage_edges as (
     select
@@ -86,14 +86,14 @@ as $$
   ),
   index_membership_edges as (
     select
-      concat('index-membership:', membership.archive_id::text, ':', membership.site_id::text) as edge_id,
+      concat('index-membership:', membership.index_id::text, ':', membership.site_id::text) as edge_id,
       'index_membership'::text as edge_type,
-      membership.archive_id as source_id,
+      membership.index_id as source_id,
       membership.site_id as target_id,
       membership.created_at as happened_at
-    from public.archive_sites membership
-    join visible_indexes archive
-      on archive.id = membership.archive_id
+    from public.index_sites membership
+    join visible_indexes index_row
+      on index_row.id = membership.index_id
     join visible_sites site
       on site.id = membership.site_id
     where membership.status = 'tracked'

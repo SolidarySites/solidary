@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import type { IndexAdminArchiveState, IndexAdminSetup } from "../services/types";
+import type { IndexAdminIndexState, IndexAdminSetup } from "../services/types";
 
 type IndexAdminAdvancedSectionProps = {
-  archive: IndexAdminArchiveState;
+  index: IndexAdminIndexState;
   setup: IndexAdminSetup | null;
   domainValue: string;
   saving: boolean;
@@ -19,7 +19,7 @@ const normalizeDomainInput = (value: string) => {
 };
 
 export default function IndexAdminAdvancedSection({
-  archive,
+  index,
   setup,
   domainValue,
   saving,
@@ -38,14 +38,14 @@ export default function IndexAdminAdvancedSection({
       </div>
 
       <div className="admin-advanced-links">
-        {archive.repoUrl && (
-          <a href={archive.repoUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+        {index.repoUrl && (
+          <a href={index.repoUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
             GitHub repo
           </a>
         )}
-        {archive.supabaseDashboardUrl && (
+        {index.supabaseDashboardUrl && (
           <a
-            href={archive.supabaseDashboardUrl}
+            href={index.supabaseDashboardUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
@@ -53,14 +53,14 @@ export default function IndexAdminAdvancedSection({
             Supabase project
           </a>
         )}
-        {setup?.standaloneAdminUrl && (
+        {setup?.solidaryAdminUrl && (
           <a
-            href={setup.standaloneAdminUrl}
+            href={setup.solidaryAdminUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
           >
-            Standalone /admin
+            Solidary /admin
           </a>
         )}
       </div>
@@ -104,7 +104,7 @@ export default function IndexAdminAdvancedSection({
           <dl className="admin-advanced-reference">
             <div>
               <dt>Standalone site URL</dt>
-              <dd>{setup.liveUrl || archive.canonicalUrl || "-"}</dd>
+              <dd>{setup.liveUrl || index.canonicalUrl || "-"}</dd>
             </div>
             <div>
               <dt>Auth callback URL</dt>

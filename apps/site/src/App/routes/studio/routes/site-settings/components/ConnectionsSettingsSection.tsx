@@ -50,7 +50,7 @@ const ConnectionsSettingsSection = ({
     <div className="builder-section">
       <div className="section-header">
         <h2>Connections</h2>
-        <p>Invite other sites and review incoming connection requests.</p>
+        <p>Invite sites or indexes and review incoming connection requests.</p>
       </div>
 
       {draftId ? (

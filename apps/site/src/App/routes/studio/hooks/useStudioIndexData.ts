@@ -22,7 +22,7 @@ type UseStudioIndexDataArgs = {
   setNoticeKind: (value: NoticeKind) => void;
 };
 
-type ArchiveRow = {
+type IndexRow = {
   id: string;
   type: string | null;
   title: string | null;
@@ -54,7 +54,7 @@ export const useStudioIndexData = ({
     const loadIndexes = async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from("archives")
+        .from("indexes")
         .select(
           [
             "id",
@@ -86,7 +86,7 @@ export const useStudioIndexData = ({
         return;
       }
 
-      const rows = ((data ?? []) as unknown) as ArchiveRow[];
+      const rows = ((data ?? []) as unknown) as IndexRow[];
       setItems(
         rows.map((row) => ({
           id: typeof row.id === "string" ? row.id : "",

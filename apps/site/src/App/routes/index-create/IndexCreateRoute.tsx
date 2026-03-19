@@ -44,17 +44,17 @@ const getStepSummary = ({
     case "organization":
       return controller.selectedOrganization
         ? `${controller.selectedOrganization.name} selected.`
-        : controller.archiveId
+        : controller.indexId
           ? "Supabase organization selected during creation."
           : "Choose which Supabase organization will own the child project.";
     case "details":
-      return controller.archiveId
+      return controller.indexId
         ? "Index details saved."
         : controller.detailsConfirmed
         ? `Index details confirmed. Repo slug: ${controller.computedSlug}.`
         : "Name the index and confirm the GitHub repo name is available.";
     case "provision":
-      return controller.archiveId
+      return controller.indexId
         ? "Child repo and Supabase project created."
         : "Solidary will create the repo, project, and base configuration.";
     case "supabase_pat":
@@ -725,20 +725,20 @@ const renderStepContent = ({
                 Open Studio
               </a>
             ) : null}
-            {controller.setup?.standaloneAdminUrl ? (
+            {controller.setup?.solidaryAdminUrl ? (
               <a
-                href={controller.setup.standaloneAdminUrl}
+                href={controller.setup.solidaryAdminUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="site-card-action-link"
               >
-                Open standalone /admin
+                Open Solidary /admin
               </a>
             ) : null}
           </div>
           <div className="form-actions">
             <button type="button" className="ghost" onClick={controller.onOpenAdvancedAdmin}>
-              Open advanced fallback
+              Open index admin
             </button>
           </div>
         </>
@@ -779,15 +779,15 @@ export default function IndexCreateRoute() {
             <button type="button" className="ghost" onClick={controller.onBackToStudio}>
               Back to Studio
             </button>
-            {controller.archiveId ? (
+            {controller.indexId ? (
               <button type="button" className="ghost" onClick={controller.onOpenAdvancedAdmin}>
-                Open advanced /admin
+                Open index admin
               </button>
             ) : null}
           </div>
         </section>
 
-        {controller.archiveId && controller.setup ? (
+        {controller.indexId && controller.setup ? (
           <section className="index-create-overview">
             <a href={controller.setup.liveUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
               Open live index

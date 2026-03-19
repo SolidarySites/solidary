@@ -9,7 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 
 type RefreshBody = {
-  source_archive_id?: unknown;
+  source_index_id?: unknown;
   source_project_url?: unknown;
   source_publishable_key?: unknown;
 };
@@ -55,7 +55,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const sourceArchiveId = toTrimmedString(body.source_archive_id);
+  const sourceIndexId = toTrimmedString(body.source_index_id);
   const sourceProjectUrl = toTrimmedString(body.source_project_url);
   const sourcePublishableKey = toTrimmedString(body.source_publishable_key);
   if (!sourceProjectUrl || !sourcePublishableKey) {
@@ -69,12 +69,12 @@ export const handler: Handler = async (event) => {
       supabase: createServiceSupabase(),
       sourceProjectUrl,
       sourcePublishableKey,
-      expectedArchiveId: sourceArchiveId || undefined,
+      expectedIndexId: sourceIndexId || undefined,
     });
 
     return safeJson(200, {
       ok: true,
-      archive_id: result.archiveId,
+      index_id: result.indexId,
       membership_count: result.membershipCount,
       skipped: result.skipped,
       reason: result.reason,

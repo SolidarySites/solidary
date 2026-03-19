@@ -98,6 +98,26 @@ const normalizeConnections = (value: unknown): SolidaryLinksConnection[] =>
         .filter((entry): entry is SolidaryLinksConnection => Boolean(entry))
     : [];
 
+export const buildSolidaryLinksConnection = ({
+  connectionUuid,
+  connectedSiteId,
+  connectedSiteUrl,
+  connectedSiteType = SOLIDARY_LINKS_SITE_TYPE
+}: {
+  connectionUuid: string;
+  connectedSiteId: string;
+  connectedSiteUrl: string;
+  connectedSiteType?: SolidaryLinksRootType;
+}): SolidaryLinksConnection => ({
+  "@id": `urn:uuid:${connectionUuid.trim()}`,
+  "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
+  connected_site: {
+    "@id": connectedSiteUrl.trim(),
+    "@type": connectedSiteType,
+    site_id: connectedSiteId.trim()
+  }
+});
+
 const buildDefaultDocument = (): SolidaryLinksDocument => ({
   "@context": DEFAULT_CONTEXT,
   "@id": "",
@@ -128,13 +148,15 @@ export const buildSolidaryLinksFile = ({
   siteId,
   siteUrl,
   rootType = SOLIDARY_LINKS_SITE_TYPE,
-  previousSolidaryLinksRaw
+  previousSolidaryLinksRaw,
+  connectionsOverride
 }: {
   templateSolidaryLinks: string;
   siteId: string;
   siteUrl: string;
   rootType?: SolidaryLinksRootType;
   previousSolidaryLinksRaw?: string;
+  connectionsOverride?: SolidaryLinksConnection[];
 }) => {
   const templateDocument =
     parseSolidaryLinksJson(templateSolidaryLinks) ?? buildDefaultDocument();
@@ -146,7 +168,7 @@ export const buildSolidaryLinksFile = ({
     "@id": siteUrl.trim(),
     "@type": rootType,
     site_id: siteId.trim(),
-    connections: previousDocument?.connections ?? templateDocument.connections
+    connections: connectionsOverride ?? previousDocument?.connections ?? templateDocument.connections
   };
 
   return `${JSON.stringify(nextDocument, null, 2)}\n`;

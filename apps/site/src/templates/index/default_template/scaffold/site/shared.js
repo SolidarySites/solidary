@@ -142,32 +142,32 @@ export const normalizeDomainInput = (value) =>
     .replace(/\.+$/, "")
     .toLowerCase();
 
-export const getBridgeStorageKey = (archiveId) => `solidary-index-admin-bridge:${archiveId}`;
-export const getLocalAdminStorageKey = (archiveId) => `solidary-index-admin-local:${archiveId}`;
+export const getBridgeStorageKey = (indexId) => `solidary-index-admin-bridge:${indexId}`;
+export const getLocalAdminStorageKey = (indexId) => `solidary-index-admin-local:${indexId}`;
 
-export const rememberBridgeToken = ({ archiveId, token }) => {
-  if (!archiveId || !token) return;
-  window.sessionStorage.setItem(getBridgeStorageKey(archiveId), token);
+export const rememberBridgeToken = ({ indexId, token }) => {
+  if (!indexId || !token) return;
+  window.sessionStorage.setItem(getBridgeStorageKey(indexId), token);
 };
 
-export const readStoredBridgeToken = (archiveId) => {
-  if (!archiveId) return "";
-  return window.sessionStorage.getItem(getBridgeStorageKey(archiveId)) || "";
+export const readStoredBridgeToken = (indexId) => {
+  if (!indexId) return "";
+  return window.sessionStorage.getItem(getBridgeStorageKey(indexId)) || "";
 };
 
-export const rememberLocalAdminToken = ({ archiveId, token }) => {
-  if (!archiveId || !token) return;
-  window.sessionStorage.setItem(getLocalAdminStorageKey(archiveId), token);
+export const rememberLocalAdminToken = ({ indexId, token }) => {
+  if (!indexId || !token) return;
+  window.sessionStorage.setItem(getLocalAdminStorageKey(indexId), token);
 };
 
-export const readStoredLocalAdminToken = (archiveId) => {
-  if (!archiveId) return "";
-  return window.sessionStorage.getItem(getLocalAdminStorageKey(archiveId)) || "";
+export const readStoredLocalAdminToken = (indexId) => {
+  if (!indexId) return "";
+  return window.sessionStorage.getItem(getLocalAdminStorageKey(indexId)) || "";
 };
 
-export const clearStoredLocalAdminToken = (archiveId) => {
-  if (!archiveId) return;
-  window.sessionStorage.removeItem(getLocalAdminStorageKey(archiveId));
+export const clearStoredLocalAdminToken = (indexId) => {
+  if (!indexId) return;
+  window.sessionStorage.removeItem(getLocalAdminStorageKey(indexId));
 };
 
 export const extractBridgeTokenFromUrl = () => {

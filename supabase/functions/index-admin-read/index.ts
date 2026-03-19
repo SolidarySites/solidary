@@ -12,7 +12,7 @@ import {
 } from "../_shared/index-admin.ts";
 
 type ReadBody = {
-  archive_id?: string;
+  index_id?: string;
   bridge_token?: string;
   supabase_access_token?: string;
   supabase_personal_access_token?: string;
@@ -40,19 +40,19 @@ export const handler: Handler = async (event) => {
   try {
     const body = parseBody(event.body);
     const bridgeToken = parseBridgeTokenFromEvent(event, body);
-    const archiveIdFromBody = typeof body.archive_id === "string"
-      ? body.archive_id.trim()
+    const indexIdFromBody = typeof body.index_id === "string"
+      ? body.index_id.trim()
       : "";
-    const archiveIdFromBridge = bridgeToken
-      ? parseIndexAdminBridgeToken(bridgeToken).archiveId
+    const indexIdFromBridge = bridgeToken
+      ? parseIndexAdminBridgeToken(bridgeToken).indexId
       : "";
-    const archiveId = archiveIdFromBody || archiveIdFromBridge;
-    if (!archiveId) {
-      return safeJson(400, { error: "Missing archive_id." });
+    const indexId = indexIdFromBody || indexIdFromBridge;
+    if (!indexId) {
+      return safeJson(400, { error: "Missing index_id." });
     }
 
     const context = await resolveIndexAdminContext({
-      archiveId,
+      indexId,
       supabaseAccessToken: (typeof body.supabase_access_token === "string"
         ? body.supabase_access_token
         : "") ||
@@ -64,7 +64,7 @@ export const handler: Handler = async (event) => {
     const state = await readIndexAdminState(context);
     const latestJob = await readLatestIndexFinalizationJob({
       supabase: context.supabase,
-      archiveId,
+      indexId,
     });
     const setup = isRootPasswordAdminContext(context)
       ? null

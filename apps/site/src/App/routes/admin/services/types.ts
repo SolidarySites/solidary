@@ -32,7 +32,7 @@ export type IndexAdminActorState = {
   canManageAdvanced: boolean;
 };
 
-export type IndexAdminArchiveState = {
+export type IndexAdminIndexState = {
   id: string;
   slug: string;
   title: string;
@@ -59,19 +59,16 @@ export type IndexAdminArchiveState = {
 };
 
 export type IndexAdminConnection = {
-  siteId: string;
-  status: "tracked" | "delisted";
+  requestId: string;
+  connectionUuid: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
   createdAt: string | null;
-  delistReasonCode: string | null;
-  delistNote: string | null;
-  title: string;
-  description: string;
-  canonicalUrl: string;
-  imageUrl: string | null;
-  type: "site" | "index" | null;
-  parentIndexId: string | null;
-  parentIndexUrl: string | null;
-  parentIndexLevel: number | null;
+  respondedAt: string | null;
+  sourceSiteId: string;
+  sourceSiteTitle: string;
+  sourceSiteUrl: string;
+  sourceSiteImageUrl: string;
+  sourceOwnerDisplayName: string;
 };
 
 export type IndexAdminSetup = {
@@ -186,7 +183,7 @@ export type IndexAdminFinalizationState = {
 
 export type IndexAdminState = {
   actor: IndexAdminActorState;
-  archive: IndexAdminArchiveState;
+  index: IndexAdminIndexState;
   connections: IndexAdminConnection[];
   collaborators: ManagedCollaborator[];
   owner: CollaboratorSearchResult | null;
@@ -204,42 +201,42 @@ export type IndexAdminSearchResponse = {
 export type IndexAdminWriteResponse = IndexAdminReadResponse;
 
 export type IndexAdminGeneralPayload = {
-  archiveId: string;
+  indexId: string;
   title: string;
   description: string;
   imageContentB64?: string;
 };
 
-export type IndexAdminConnectionStatusPayload = {
-  archiveId: string;
-  siteId: string;
-  status: "tracked" | "delisted";
+export type IndexAdminConnectionRequestPayload = {
+  indexId: string;
+  requestId: string;
+  action: "approve" | "reject" | "disconnect";
 };
 
 export type IndexAdminCollaboratorPayload = {
-  archiveId: string;
+  indexId: string;
   collaboratorUserId: string;
   role: CollaboratorRole;
 };
 
 export type IndexAdminAdvancedPayload = {
-  archiveId: string;
+  indexId: string;
   domain: string | null;
 };
 
 export type IndexAdminFinalizePayload = {
-  archiveId: string;
+  indexId: string;
 };
 
 export type IndexAdminConfigureStandaloneAuthPayload = {
-  archiveId: string;
+  indexId: string;
   githubClientId: string;
   githubClientSecret: string;
   supabasePersonalAccessToken?: string;
 };
 
 export type IndexAdminDeployFunctionsPayload = {
-  archiveId: string;
+  indexId: string;
   supabasePersonalAccessToken: string;
   adminPassword?: string;
   dispatchWorkflow?: boolean;

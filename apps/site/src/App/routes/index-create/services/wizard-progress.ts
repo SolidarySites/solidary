@@ -52,7 +52,7 @@ export const buildIndexCreateWizardSteps = ({
   organizationConfirmed,
   detailsConfirmed,
   supabasePatConfirmed,
-  archiveId,
+  indexId,
   setup,
   isProvisioning
 }: {
@@ -60,12 +60,12 @@ export const buildIndexCreateWizardSteps = ({
   organizationConfirmed: boolean;
   detailsConfirmed: boolean;
   supabasePatConfirmed: boolean;
-  archiveId: string;
+  indexId: string;
   setup: IndexAdminSetup | null;
   isProvisioning: boolean;
 }): IndexCreateWizardStep[] => {
   const completed = new Set<IndexCreateWizardStepKey>();
-  const hasArchive = Boolean(archiveId.trim());
+  const hasArchive = Boolean(indexId.trim());
   const functionSecretsReady =
     (setup?.functionsDeployment.requiredSecrets.length ?? 0) > 0 &&
     setup?.functionsDeployment.requiredSecrets.every((secret) => secret.isConfigured);

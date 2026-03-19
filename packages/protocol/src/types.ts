@@ -14,7 +14,7 @@ export type Site = {
   updated_at: string;
 };
 
-export type Archive = {
+export type Index = {
   id: string;
   owner_user_id: string | null;
   slug: string;
@@ -27,8 +27,8 @@ export type Archive = {
   updated_at: string;
 };
 
-export type ArchiveSite = {
-  archive_id: string;
+export type IndexSite = {
+  index_id: string;
   site_id: string;
   status: "tracked" | "delisted";
   delist_reason_code: string | null;

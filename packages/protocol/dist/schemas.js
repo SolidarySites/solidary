@@ -14,7 +14,7 @@ export const siteSchema = z.object({
     created_at: z.string(),
     updated_at: z.string()
 });
-export const archiveSchema = z.object({
+export const indexSchema = z.object({
     id: z.string().uuid(),
     owner_user_id: z.string().uuid().nullable(),
     slug: z.string(),
@@ -26,8 +26,8 @@ export const archiveSchema = z.object({
     created_at: z.string(),
     updated_at: z.string()
 });
-export const archiveSiteSchema = z.object({
-    archive_id: z.string().uuid(),
+export const indexSiteSchema = z.object({
+    index_id: z.string().uuid(),
     site_id: z.string().uuid(),
     status: z.enum(["tracked", "delisted"]),
     delist_reason_code: z.string().nullable(),

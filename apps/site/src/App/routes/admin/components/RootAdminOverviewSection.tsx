@@ -22,13 +22,13 @@ export default function RootAdminOverviewSection({
       <div className="admin-general-readonly-grid">
         <div>
           <span className="builder-collaborator-hint">Title</span>
-          <strong>{state.archive.title || "Untitled index"}</strong>
+          <strong>{state.index.title || "Untitled index"}</strong>
         </div>
         <div>
           <span className="builder-collaborator-hint">Live URL</span>
-          {state.archive.canonicalUrl ? (
-            <a href={state.archive.canonicalUrl} target="_blank" rel="noreferrer">
-              {state.archive.canonicalUrl}
+          {state.index.canonicalUrl ? (
+            <a href={state.index.canonicalUrl} target="_blank" rel="noreferrer">
+              {state.index.canonicalUrl}
             </a>
           ) : (
             <strong>-</strong>
@@ -36,7 +36,7 @@ export default function RootAdminOverviewSection({
         </div>
         <div>
           <span className="builder-collaborator-hint">Index level</span>
-          <strong>{typeof state.archive.indexLevel === "number" ? state.archive.indexLevel : "-"}</strong>
+          <strong>{typeof state.index.indexLevel === "number" ? state.index.indexLevel : "-"}</strong>
         </div>
         <div>
           <span className="builder-collaborator-hint">Connected sites</span>
@@ -44,11 +44,11 @@ export default function RootAdminOverviewSection({
         </div>
       </div>
 
-      {state.archive.description ? <p>{state.archive.description}</p> : null}
+      {state.index.description ? <p>{state.index.description}</p> : null}
 
       <div className="admin-setup-links">
-        {state.archive.canonicalUrl ? (
-          <a href={state.archive.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+        {state.index.canonicalUrl ? (
+          <a href={state.index.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
             Open live root index
           </a>
         ) : null}

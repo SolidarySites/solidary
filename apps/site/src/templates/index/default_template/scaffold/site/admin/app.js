@@ -107,7 +107,7 @@ const readAdminState = async () =>
   callAdminFunction({
     functionName: "index-admin-read",
     body: {
-      archive_id: state.config.archiveId,
+      index_id: state.config.indexId,
     },
   });
 
@@ -117,7 +117,7 @@ const probeLocalAdminAvailability = async () => {
       config: state.config,
       functionName: "index-admin-password-login",
       body: {
-        archive_id: state.config.archiveId,
+        index_id: state.config.indexId,
         password: "",
       },
     });
@@ -149,7 +149,7 @@ const unlockLocalAdmin = async (password) => {
     config: state.config,
     functionName: "index-admin-password-login",
     body: {
-      archive_id: state.config.archiveId,
+      index_id: state.config.indexId,
       password,
     },
   });
@@ -158,7 +158,7 @@ const unlockLocalAdmin = async (password) => {
     throw new Error("Local admin login did not return a token.");
   }
   rememberLocalAdminToken({
-    archiveId: state.config.archiveId,
+    indexId: state.config.indexId,
     token,
   });
   state.bridgeToken = token;
@@ -299,7 +299,7 @@ const renderGuard = ({
     actionRow.className = "hero-actions";
     renderLink(actionRow, {
       href:
-        `${state.config.solidaryAppUrl}/admin?archiveId=${state.config.archiveId}`,
+        `${state.config.solidaryAppUrl}/admin?indexId=${state.config.indexId}`,
       label: "Open Solidary /admin",
       primary: true,
     });
@@ -494,7 +494,7 @@ const renderFinalizationCard = () => {
         const payload = await callAdminFunction({
           functionName: "index-admin-write",
           body: {
-            archive_id: state.config.archiveId,
+            index_id: state.config.indexId,
             action: "finalize_index",
           },
         });
@@ -570,7 +570,7 @@ const scheduleFinalizationPoll = () => {
 };
 
 const renderGeneral = (panel) => {
-  const archive = state.adminState.archive;
+  const index = state.adminState.index;
   const canEdit = Boolean(state.adminState.actor.canEditGeneral);
   panel.innerHTML = `
     <section class="admin-section">
@@ -580,7 +580,7 @@ const renderGeneral = (panel) => {
       </div>
       <label>
         Index title
-        <input id="general-title" value="${archive.title || ""}" ${
+        <input id="general-title" value="${index.title || ""}" ${
     canEdit ? "" : "disabled"
   } />
       </label>
@@ -588,11 +588,11 @@ const renderGeneral = (panel) => {
         Description
         <textarea id="general-description" rows="4" ${
     canEdit ? "" : "disabled"
-  }>${archive.description || ""}</textarea>
+  }>${index.description || ""}</textarea>
       </label>
       <label>
         Live URL
-        <input value="${archive.canonicalUrl || ""}" readonly />
+        <input value="${index.canonicalUrl || ""}" readonly />
       </label>
       <label>
         Index image (JPEG)
@@ -621,7 +621,7 @@ const renderGeneral = (panel) => {
         const payload = await callAdminFunction({
           functionName: "index-admin-write",
           body: {
-            archive_id: state.config.archiveId,
+            index_id: state.config.indexId,
             action: "update_general",
             title,
             description,
@@ -706,7 +706,7 @@ const renderConnections = (panel) => {
           const payload = await callAdminFunction({
             functionName: "index-admin-write",
             body: {
-              archive_id: state.config.archiveId,
+              index_id: state.config.indexId,
               action: "set_connection_status",
               site_id: connection.siteId,
               status: connection.status === "tracked" ? "delisted" : "tracked",
@@ -822,7 +822,7 @@ const renderCollaborators = (panel) => {
           const payload = await callAdminFunction({
             functionName: "index-admin-search-collaborators",
             body: {
-              archive_id: state.config.archiveId,
+              index_id: state.config.indexId,
               query,
             },
           });
@@ -859,7 +859,7 @@ const renderCollaborators = (panel) => {
         const payload = await callAdminFunction({
           functionName: "index-admin-write",
           body: {
-            archive_id: state.config.archiveId,
+            index_id: state.config.indexId,
             action: "upsert_collaborator",
             collaborator_user_id: state.selectedCollaborator.userId,
             role: state.collaboratorRole,
@@ -923,7 +923,7 @@ const renderCollaborators = (panel) => {
           const payload = await callAdminFunction({
             functionName: "index-admin-write",
             body: {
-              archive_id: state.config.archiveId,
+              index_id: state.config.indexId,
               action: "upsert_collaborator",
               collaborator_user_id: entry.userId,
               role: roleControl.value,
@@ -953,7 +953,7 @@ const renderCollaborators = (panel) => {
           const payload = await callAdminFunction({
             functionName: "index-admin-write",
             body: {
-              archive_id: state.config.archiveId,
+              index_id: state.config.indexId,
               action: "remove_collaborator",
               collaborator_user_id: entry.userId,
             },
@@ -978,7 +978,7 @@ const renderCollaborators = (panel) => {
 };
 
 const renderAdvanced = (panel) => {
-  const archive = state.adminState.archive;
+  const index = state.adminState.index;
   const canManage = Boolean(state.adminState.actor.canManageAdvanced);
   panel.innerHTML = `
     <section class="admin-section">
@@ -988,7 +988,7 @@ const renderAdvanced = (panel) => {
       </div>
       <label>
         Custom domain
-        <input id="advanced-domain" value="${archive.canonicalUrl || ""}" ${
+        <input id="advanced-domain" value="${index.canonicalUrl || ""}" ${
     canManage ? "" : "disabled"
   } />
       </label>
@@ -1006,7 +1006,7 @@ const renderAdvanced = (panel) => {
       </div>
       <dl class="connected-site-meta">
         <div><dt>Site URL</dt><dd>${
-    state.setup?.liveUrl || archive.canonicalUrl || "-"
+    state.setup?.liveUrl || index.canonicalUrl || "-"
   }</dd></div>
         <div><dt>Auth callback URL</dt><dd>${
     state.setup?.authCallbackUrl || "-"
@@ -1033,7 +1033,7 @@ const renderAdvanced = (panel) => {
         const payload = await callAdminFunction({
           functionName: "index-admin-write",
           body: {
-            archive_id: state.config.archiveId,
+            index_id: state.config.indexId,
             action: "update_advanced",
             domain,
           },
@@ -1060,7 +1060,7 @@ const renderAdvanced = (panel) => {
         const payload = await callAdminFunction({
           functionName: "index-admin-write",
           body: {
-            archive_id: state.config.archiveId,
+            index_id: state.config.indexId,
             action: "update_advanced",
             domain: null,
           },
@@ -1103,7 +1103,7 @@ const renderPanel = () => {
 
 const renderAll = () => {
   if (!state.adminState) return;
-  byId("admin-title").textContent = state.adminState.archive.title ||
+  byId("admin-title").textContent = state.adminState.index.title ||
     "Standalone index admin";
   byId("admin-lead").textContent = state.adminMode === "local"
     ? "This admin is running against the child index's own Supabase project."
@@ -1122,56 +1122,19 @@ const boot = async () => {
   try {
     state.config = await loadConfig("../config/index.json");
     const bridgeTokenFromUrl = extractBridgeTokenFromUrl();
-    const storedBridgeToken = readStoredBridgeToken(state.config.archiveId);
-    const storedLocalAdminToken = readStoredLocalAdminToken(state.config.archiveId);
-
+    const nextParams = new URLSearchParams();
+    nextParams.set("indexId", state.config.indexId);
     if (bridgeTokenFromUrl) {
-      rememberBridgeToken({
-        archiveId: state.config.archiveId,
-        token: bridgeTokenFromUrl,
-      });
+      nextParams.set("bridge", bridgeTokenFromUrl);
     }
+    const destination = `${state.config.solidaryAppUrl}/admin?${nextParams.toString()}`;
 
-    if (storedLocalAdminToken) {
-      try {
-        state.adminMode = "local";
-        state.bridgeToken = storedLocalAdminToken;
-        const payload = await readAdminState();
-        applyPayload(payload);
-        renderAll();
-        return;
-      } catch {
-        clearStoredLocalAdminToken(state.config.archiveId);
-      }
-    }
-
-    const localAdminAvailability = await probeLocalAdminAvailability();
-    state.localAdminAvailable = localAdminAvailability.available;
-    if (state.localAdminAvailable) {
-      const localAdminConfigured = !/not configured/i.test(
-        localAdminAvailability.message || "",
-      );
-      renderGuard({
-        message: localAdminAvailability.message,
-        allowAdminLink: !localAdminConfigured,
-        showLocalPasswordForm: localAdminConfigured,
-      });
-      return;
-    }
-
-    state.adminMode = "bridge";
-    state.bridgeToken = bridgeTokenFromUrl || storedBridgeToken || "";
-    if (!state.bridgeToken) {
-      renderGuard({
-        message:
-          "This standalone /admin is not ready for local password login yet. Finish the child function deployment or open Solidary /admin.",
-      });
-      return;
-    }
-
-    const payload = await readAdminState();
-    applyPayload(payload);
-    renderAll();
+    renderGuard({
+      message: "Index admin has moved to Solidary /admin. Redirecting now...",
+      allowAdminLink: false,
+      showLocalPasswordForm: false,
+    });
+    window.location.replace(destination);
   } catch (error) {
     renderGuard({
       message: error instanceof Error

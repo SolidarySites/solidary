@@ -13,6 +13,7 @@ import {
   resolveConnectionExplorerContext,
   respondToSiteConnectionRequest,
   searchConnectionTargets,
+  disconnectSiteConnection,
   sendSiteConnectionInvite,
   type ConnectionExplorerContext,
   type ConnectionTarget,
@@ -50,7 +51,7 @@ export const useConnectionExplorerController = ({
   const [searchResults, setSearchResults] = useState<ConnectionTarget[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [sendingInviteSiteId, setSendingInviteSiteId] = useState<string | null>(null);
+  const [sendingInviteTargetId, setSendingInviteTargetId] = useState<string | null>(null);
 
   const [requests, setRequests] = useState<SiteConnectionRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -62,6 +63,7 @@ export const useConnectionExplorerController = ({
     string | null
   >(null);
   const [respondingRequestId, setRespondingRequestId] = useState<string | null>(null);
+  const [disconnectingRequestId, setDisconnectingRequestId] = useState<string | null>(null);
 
   const canManageConnections = canManageConnectionsForRole(context?.accessRole ?? null);
 
@@ -281,16 +283,17 @@ export const useConnectionExplorerController = ({
     }
   }, [canManageConnections, context, searchMode, searchQuery]);
 
-  const handleSendInvite = async (targetSiteId: string) => {
+  const handleSendInvite = async (target: ConnectionTarget) => {
     if (!context || !canManageConnections) return;
 
-    setSendingInviteSiteId(targetSiteId);
+    setSendingInviteTargetId(target.targetId);
     setNotice(null);
     setNoticeKind(null);
     try {
       const result = await sendSiteConnectionInvite({
         sourceSiteId: context.siteId,
-        targetSiteId
+        targetSiteId: target.siteId,
+        targetIndexId: target.indexId
       });
       setNotice(`Connection invite sent. Connection UUID: ${result.connectionUuid}`);
       setNoticeKind("notice");
@@ -299,7 +302,7 @@ export const useConnectionExplorerController = ({
       setNotice(getFriendlyErrorMessage(error, "Failed to send connection invite."));
       setNoticeKind("error");
     } finally {
-      setSendingInviteSiteId(null);
+      setSendingInviteTargetId(null);
     }
   };
 
@@ -326,6 +329,25 @@ export const useConnectionExplorerController = ({
     }
   };
 
+  const handleDisconnect = async (requestId: string) => {
+    if (!context || !canManageConnections) return;
+
+    setDisconnectingRequestId(requestId);
+    setNotice(null);
+    setNoticeKind(null);
+    try {
+      await disconnectSiteConnection({ requestId });
+      setNotice("Connection removed.");
+      setNoticeKind("notice");
+      await Promise.all([loadRequests(context), refreshSearchResults()]);
+    } catch (error) {
+      setNotice(getFriendlyErrorMessage(error, "Failed to remove connection."));
+      setNoticeKind("error");
+    } finally {
+      setDisconnectingRequestId(null);
+    }
+  };
+
   return {
     notice,
     noticeKind,
@@ -338,7 +360,7 @@ export const useConnectionExplorerController = ({
     searchResults,
     searchLoading,
     searchError,
-    sendingInviteSiteId,
+    sendingInviteTargetId,
     requestsLoading,
     requestsError,
     incomingPendingRequests,
@@ -348,13 +370,17 @@ export const useConnectionExplorerController = ({
     approvedConnectionsComparisonError,
     hasApprovedConnectionsLiveMetadataDrift,
     respondingRequestId,
+    disconnectingRequestId,
     onSearchModeChange: setSearchMode,
     onSearchQueryChange: setSearchQuery,
-    onSendInvite: (targetSiteId: string) => {
-      void handleSendInvite(targetSiteId);
+    onSendInvite: (target: ConnectionTarget) => {
+      void handleSendInvite(target);
     },
     onRespondToRequest: (requestId: string, action: "approve" | "reject") => {
       void handleRespondToRequest(requestId, action);
+    },
+    onDisconnect: (requestId: string) => {
+      void handleDisconnect(requestId);
     }
   };
 };

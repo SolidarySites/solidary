@@ -3,6 +3,10 @@ import {
   TEMPLATE_SOLIDARY,
   TEMPLATE_SOLIDARY_LINKS
 } from "../../../../../templates/site";
+import {
+  parseSolidaryLinksJson,
+  SOLIDARY_LINKS_INDEX_TYPE
+} from "../../../../features/site-draft/services/solidary-links";
 import { resolveSiteUrlFromRepo } from "../../../../lib/site-url";
 import {
   buildSettingsPayload as buildCreateSettingsPayload,
@@ -71,6 +75,41 @@ describe("well-known file generation", () => {
 
     expect(createResult.solidaryFile).toBe(publishResult.solidaryFile);
     expect(createResult.solidaryLinksFile).toBe(publishResult.solidaryLinksFile);
+  });
+
+  it("can seed the initial root index connection in the create flow manifest", () => {
+    const createResult = buildCreateWellKnownFiles({
+      templateSolidary: TEMPLATE_SOLIDARY,
+      templateSolidaryLinks: TEMPLATE_SOLIDARY_LINKS,
+      siteId: "site-1",
+      siteTitle: "Test Site",
+      siteDescription: "Description",
+      siteUrl: "https://example.com",
+      hasSiteImage: true,
+      connectionsOverride: [
+        {
+          "@id": "urn:uuid:conn-root-1",
+          "@type": "connection",
+          connected_site: {
+            "@id": "https://index.example.com",
+            "@type": "index",
+            site_id: "index-1"
+          }
+        }
+      ]
+    });
+
+    expect(parseSolidaryLinksJson(createResult.solidaryLinksFile)?.connections).toEqual([
+      {
+        "@id": "urn:uuid:conn-root-1",
+        "@type": "connection",
+        connected_site: {
+          "@id": "https://index.example.com",
+          "@type": SOLIDARY_LINKS_INDEX_TYPE,
+          site_id: "index-1"
+        }
+      }
+    ]);
   });
 
   it("clamps site titles to 50 characters in create settings payloads", () => {

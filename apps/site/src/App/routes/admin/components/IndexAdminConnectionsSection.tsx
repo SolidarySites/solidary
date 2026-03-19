@@ -3,92 +3,158 @@ import type { IndexAdminConnection } from "../services/types";
 type IndexAdminConnectionsSectionProps = {
   connections: IndexAdminConnection[];
   canManage: boolean;
-  updatingSiteId: string | null;
-  onConnectionStatusChange: (siteId: string, status: "tracked" | "delisted") => void;
+  updatingRequestId: string | null;
+  onConnectionRequestAction: (
+    requestId: string,
+    action: "approve" | "reject" | "disconnect"
+  ) => void;
+};
+
+const formatShortDate = (value: string | null) => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return value;
+  return new Date(parsed).toLocaleString();
 };
 
 export default function IndexAdminConnectionsSection({
   connections,
   canManage,
-  updatingSiteId,
-  onConnectionStatusChange
+  updatingRequestId,
+  onConnectionRequestAction
 }: IndexAdminConnectionsSectionProps) {
+  const pendingConnections = connections.filter((connection) => connection.status === "pending");
+  const approvedConnections = connections.filter((connection) => connection.status === "approved");
+
   return (
     <div className="builder-section">
       <div className="section-header">
         <h2>Connections</h2>
         <p>
-          Sites created from this index should be born connected here. The connection can be removed
-          later, but the parent-index lineage stays immutable.
+          Review site connection requests for this index. The public connection can be removed later
+          without erasing parent-index lineage.
         </p>
       </div>
 
-      {!connections.length && (
-        <p className="builder-collaborator-hint">No connected sites are stored for this index yet.</p>
-      )}
+      <div className="builder-section builder-collaborator-list-section">
+        <div className="section-header">
+          <h3>Incoming requests</h3>
+          <p>Approve or reject pending site requests targeting this index.</p>
+        </div>
 
-      {connections.length > 0 && (
-        <div className="admin-connection-list">
-          {connections.map((connection) => {
-            const nextStatus = connection.status === "tracked" ? "delisted" : "tracked";
-            const busy = updatingSiteId === connection.siteId;
+        {!pendingConnections.length && (
+          <p className="builder-collaborator-hint">No incoming pending requests.</p>
+        )}
 
-            return (
-              <article className="connection-result-card" key={connection.siteId}>
-                <div className="connection-result-header">
-                  <div>
-                    <h4>{connection.title}</h4>
-                    <span>{connection.status === "tracked" ? "Connected" : "Disconnected"}</span>
+        {pendingConnections.length > 0 && (
+          <div className="connection-request-list">
+            {pendingConnections.map((connection) => {
+              const isUpdating = updatingRequestId === connection.requestId;
+              return (
+                <article className="connection-request-card" key={connection.requestId}>
+                  <div className="connection-request-header">
+                    <h4>{connection.sourceSiteTitle}</h4>
+                    <span>{formatShortDate(connection.createdAt) ?? "Pending"}</span>
                   </div>
-                  {connection.canonicalUrl ? (
-                    <a href={connection.canonicalUrl} target="_blank" rel="noreferrer">
-                      Visit site
+                  <p>From {connection.sourceOwnerDisplayName}</p>
+                  {connection.sourceSiteUrl ? (
+                    <a href={connection.sourceSiteUrl} target="_blank" rel="noreferrer">
+                      {connection.sourceSiteUrl}
                     </a>
                   ) : null}
-                </div>
-
-                {connection.description ? <p>{connection.description}</p> : null}
-
-                <dl className="admin-connection-meta">
-                  <div>
-                    <dt>Site UUID</dt>
-                    <dd>{connection.siteId}</dd>
-                  </div>
-                  <div>
-                    <dt>Parent index URL</dt>
-                    <dd>{connection.parentIndexUrl || "-"}</dd>
-                  </div>
-                  <div>
-                    <dt>Parent index level</dt>
-                    <dd>{typeof connection.parentIndexLevel === "number" ? connection.parentIndexLevel : "-"}</dd>
-                  </div>
-                </dl>
-
-                {!canManage ? (
-                  <p className="builder-collaborator-hint">
-                    Your current role can view connection state but cannot change it.
+                  <p className="connection-request-uuid">
+                    Connection UUID: {connection.connectionUuid}
                   </p>
-                ) : (
-                  <div className="connection-result-actions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      disabled={busy}
-                      onClick={() => onConnectionStatusChange(connection.siteId, nextStatus)}
-                    >
-                      {busy
-                        ? "Saving..."
-                        : nextStatus === "tracked"
-                          ? "Reconnect to index"
-                          : "Disconnect from index"}
-                    </button>
-                  </div>
-                )}
-              </article>
-            );
-          })}
+                  {!canManage ? (
+                    <p className="builder-collaborator-hint">
+                      Your current role can view requests but cannot respond to them.
+                    </p>
+                  ) : (
+                    <div className="connection-request-actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          onConnectionRequestAction(connection.requestId, "approve")
+                        }
+                      >
+                        {isUpdating ? "Working..." : "Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          onConnectionRequestAction(connection.requestId, "reject")
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="builder-section builder-collaborator-list-section">
+        <div className="section-header">
+          <h3>Approved connections</h3>
+          <p>Sites that currently have an approved public connection to this index.</p>
         </div>
-      )}
+
+        {!approvedConnections.length && (
+          <p className="builder-collaborator-hint">No approved connections yet.</p>
+        )}
+
+        {approvedConnections.length > 0 && (
+          <div className="connection-request-list">
+            {approvedConnections.map((connection) => {
+              const isUpdating = updatingRequestId === connection.requestId;
+              return (
+                <article className="connection-request-card" key={connection.requestId}>
+                  <div className="connection-request-header">
+                    <h4>{connection.sourceSiteTitle}</h4>
+                    <span>
+                      {formatShortDate(connection.respondedAt ?? connection.createdAt) ?? "Approved"}
+                    </span>
+                  </div>
+                  <p>Owner: {connection.sourceOwnerDisplayName}</p>
+                  {connection.sourceSiteUrl ? (
+                    <a href={connection.sourceSiteUrl} target="_blank" rel="noreferrer">
+                      {connection.sourceSiteUrl}
+                    </a>
+                  ) : null}
+                  <p className="connection-request-uuid">
+                    Connection UUID: {connection.connectionUuid}
+                  </p>
+                  {!canManage ? (
+                    <p className="builder-collaborator-hint">
+                      Your current role can view connection state but cannot change it.
+                    </p>
+                  ) : (
+                    <div className="connection-request-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          onConnectionRequestAction(connection.requestId, "disconnect")
+                        }
+                      >
+                        {isUpdating ? "Working..." : "Remove connection"}
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

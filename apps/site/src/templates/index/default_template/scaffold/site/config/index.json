@@ -2,7 +2,7 @@
   "title": "Solidary Index",
   "description": "This configuration is replaced during provisioning.",
   "slug": "solidary-index",
-  "archiveId": "",
+  "indexId": "",
   "repoFullName": "",
   "repoUrl": "",
   "projectRef": "",

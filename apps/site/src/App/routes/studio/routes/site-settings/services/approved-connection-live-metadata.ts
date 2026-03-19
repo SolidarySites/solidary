@@ -1,12 +1,13 @@
 import { parseSolidaryLinksJson } from "../../../../../features/site-draft/services/solidary-links";
 import { readTextFile } from "../../../../../services/github";
 import { FILE_KEYS } from "../../site-builder/services/constants";
-import type { SiteConnectionRequest } from "./site-connections";
+import type { ConnectionTargetType, SiteConnectionRequest } from "./site-connections";
 
 export type ApprovedConnectionCounterparty = {
   siteId: string;
   siteTitle: string;
   currentCanonicalUrl: string;
+  targetType: ConnectionTargetType;
 };
 
 export type ApprovedConnectionLiveMetadata = {
@@ -31,9 +32,12 @@ const resolveRepoCoordinates = (repoFullName: string) => {
 export const getApprovedConnectionCounterparty = (
   request: SiteConnectionRequest
 ): ApprovedConnectionCounterparty => ({
-  siteId: request.isIncoming ? request.sourceSiteId : request.targetSiteId,
-  siteTitle: request.isIncoming ? request.sourceSiteTitle : request.targetSiteTitle,
-  currentCanonicalUrl: normalizeUrl(request.isIncoming ? request.sourceSiteUrl : request.targetSiteUrl)
+  siteId: request.isIncoming
+    ? request.sourceSiteId
+    : (request.targetType === "index" ? request.targetIndexId : request.targetSiteId) ?? "",
+  siteTitle: request.isIncoming ? request.sourceSiteTitle : request.targetTitle,
+  currentCanonicalUrl: normalizeUrl(request.isIncoming ? request.sourceSiteUrl : request.targetUrl),
+  targetType: request.isIncoming ? "site" : request.targetType
 });
 
 export const loadLiveSolidaryLinksRaw = async ({

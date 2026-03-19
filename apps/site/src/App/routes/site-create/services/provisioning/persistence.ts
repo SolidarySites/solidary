@@ -5,7 +5,7 @@ import { normalizeSiteTitle } from "../../../../services/site-metadata";
 import { buildSettingsPayload, FILE_KEYS } from "./content";
 import type { DbWriteStage, ProvisioningDiagnostics } from "./types";
 
-type RootArchiveRow = {
+export type RootIndexRow = {
   id: string;
   canonical_url: string | null;
   index_level: number | null;
@@ -112,25 +112,32 @@ const verifyLiveAuthUser = async ({
   };
 };
 
-const loadRootArchive = async (): Promise<RootArchiveRow> => {
+export const loadRootIndex = async (): Promise<RootIndexRow> => {
   const { data, error } = await supabase.rpc("rpc_index_federation_state");
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rootArchive = (data as RootIndexFederationStateResponse | null)?.index;
-  const rootArchiveId = typeof rootArchive?.id === "string" ? rootArchive.id.trim() : "";
+  const rootIndex = (data as RootIndexFederationStateResponse | null)?.index;
+  const rootIndexId = typeof rootIndex?.id === "string" ? rootIndex.id.trim() : "";
+  const rootIndexCanonicalUrl =
+    typeof rootIndex?.canonical_url === "string" && rootIndex.canonical_url.trim()
+      ? rootIndex.canonical_url.trim()
+      : null;
 
-  if (!rootArchiveId) {
-    throw new Error("Root index archive is missing.");
+  if (!rootIndexId) {
+    throw new Error("Root index is missing.");
+  }
+
+  if (!rootIndexCanonicalUrl) {
+    throw new Error("Root index canonical URL is missing.");
   }
 
   return {
-    id: rootArchiveId,
-    canonical_url:
-      typeof rootArchive?.canonical_url === "string" ? rootArchive.canonical_url : null,
-    index_level: typeof rootArchive?.index_level === "number" ? rootArchive.index_level : null
+    id: rootIndexId,
+    canonical_url: rootIndexCanonicalUrl,
+    index_level: typeof rootIndex?.index_level === "number" ? rootIndex.index_level : null
   };
 };
 
@@ -148,7 +155,9 @@ export const saveProvisionedSiteDraft = async ({
   solidaryFile,
   solidaryLinksFile,
   tokensCss,
-  pages
+  pages,
+  rootIndex,
+  rootConnectionUuid
 }: {
   session: Session;
   siteId: string;
@@ -164,6 +173,8 @@ export const saveProvisionedSiteDraft = async ({
   solidaryLinksFile: string;
   tokensCss: string;
   pages: AstroPageDraft[];
+  rootIndex?: RootIndexRow;
+  rootConnectionUuid?: string;
 }) => {
   const normalizedTitle = normalizeSiteTitle(siteTitle);
   const normalizedDescription = siteDescription.trim();
@@ -172,7 +183,7 @@ export const saveProvisionedSiteDraft = async ({
     siteId,
     repoFullName
   });
-  const rootArchive = await loadRootArchive();
+  const resolvedRootIndex = rootIndex ?? await loadRootIndex();
 
   const { error: siteError } = await supabase.from("sites").insert({
     id: siteId,
@@ -180,9 +191,9 @@ export const saveProvisionedSiteDraft = async ({
     title: normalizedTitle,
     description: normalizedDescription,
     image_url: siteRecordImageUrl,
-    parent_index_id: rootArchive.id,
-    parent_index_url: rootArchive.canonical_url,
-    parent_index_level: rootArchive.index_level,
+    parent_index_id: resolvedRootIndex.id,
+    parent_index_url: resolvedRootIndex.canonical_url,
+    parent_index_level: resolvedRootIndex.index_level,
     meta: {
       completion: "complete",
       source: "studio"
@@ -227,8 +238,22 @@ export const saveProvisionedSiteDraft = async ({
     throw new Error(draftError.message);
   }
 
-  const { error: archiveSiteError } = await supabase.from("archive_sites").insert({
-    archive_id: rootArchive.id,
+  const { error: connectionError } = await supabase.rpc("connection_create_site_index", {
+    p_source_site_id: siteId,
+    p_target_index_id: resolvedRootIndex.id,
+    p_connection_uuid: rootConnectionUuid ?? null
+  });
+  if (connectionError) {
+    logProvisioningDbError({
+      stage: "connections_insert",
+      error: connectionError,
+      diagnostics
+    });
+    throw new Error(connectionError.message);
+  }
+
+  const { error: archiveSiteError } = await supabase.from("index_sites").insert({
+    index_id: resolvedRootIndex.id,
     site_id: siteId,
     status: "tracked",
     delist_reason_code: null,
@@ -236,7 +261,7 @@ export const saveProvisionedSiteDraft = async ({
   });
   if (archiveSiteError) {
     logProvisioningDbError({
-      stage: "archive_sites_insert",
+      stage: "index_sites_insert",
       error: archiveSiteError,
       diagnostics
     });

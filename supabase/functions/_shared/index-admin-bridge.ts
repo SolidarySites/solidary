@@ -3,7 +3,7 @@ import { decryptTokenValue, encryptTokenValue } from "./token-crypto.ts";
 export type IndexAdminBridgeRole = "owner" | "admin" | "editor" | "contributor";
 
 export type IndexAdminBridgePayload = {
-  archiveId: string;
+  indexId: string;
   userId: string;
   role: IndexAdminBridgeRole;
   expiresAt: string;
@@ -14,14 +14,14 @@ const isBridgeRole = (value: string): value is IndexAdminBridgeRole =>
   value === "contributor";
 
 export const createIndexAdminBridgeToken = ({
-  archiveId,
+  indexId,
   userId,
   role,
   expiresAt,
 }: IndexAdminBridgePayload) =>
   encryptTokenValue(
     JSON.stringify({
-      archiveId: archiveId.trim(),
+      indexId: indexId.trim(),
       userId: userId.trim(),
       role,
       expiresAt,
@@ -39,8 +39,8 @@ export const parseIndexAdminBridgeToken = (
     throw new Error("Invalid admin bridge token.");
   }
 
-  const archiveId = typeof parsed.archiveId === "string"
-    ? parsed.archiveId.trim()
+  const indexId = typeof parsed.indexId === "string"
+    ? parsed.indexId.trim()
     : "";
   const userId = typeof parsed.userId === "string" ? parsed.userId.trim() : "";
   const role = typeof parsed.role === "string" && isBridgeRole(parsed.role)
@@ -50,7 +50,7 @@ export const parseIndexAdminBridgeToken = (
     ? parsed.expiresAt.trim()
     : "";
 
-  if (!archiveId || !userId || !role || !expiresAt) {
+  if (!indexId || !userId || !role || !expiresAt) {
     throw new Error("Admin bridge token is missing required fields.");
   }
 
@@ -63,7 +63,7 @@ export const parseIndexAdminBridgeToken = (
   }
 
   return {
-    archiveId,
+    indexId,
     userId,
     role,
     expiresAt,

@@ -8,7 +8,7 @@ import {
 } from "../_shared/index-admin.ts";
 
 type SearchBody = {
-  archive_id?: string;
+  index_id?: string;
   query?: string;
   limit?: number;
   bridge_token?: string;
@@ -36,16 +36,16 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = parseBody(event.body);
-    const archiveId = typeof body.archive_id === "string"
-      ? body.archive_id.trim()
+    const indexId = typeof body.index_id === "string"
+      ? body.index_id.trim()
       : "";
     const query = typeof body.query === "string" ? body.query.trim() : "";
-    if (!archiveId || !query) {
-      return safeJson(400, { error: "Missing archive_id or query." });
+    if (!indexId || !query) {
+      return safeJson(400, { error: "Missing index_id or query." });
     }
 
     const context = await resolveIndexAdminContext({
-      archiveId,
+      indexId,
       supabaseAccessToken: (typeof body.supabase_access_token === "string"
         ? body.supabase_access_token
         : "") ||

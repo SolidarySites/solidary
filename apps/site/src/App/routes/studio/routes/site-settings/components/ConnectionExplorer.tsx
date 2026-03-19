@@ -14,6 +14,8 @@ const formatConnectionState = (value: "available" | "pending_outgoing" | "pendin
   return "Available";
 };
 
+const formatConnectionTargetType = (value: "site" | "index") => value === "index" ? "Index" : "Site";
+
 const formatShortDate = (iso: string) => {
   const parsed = Date.parse(iso);
   if (!Number.isFinite(parsed)) return iso;
@@ -81,8 +83,8 @@ const ConnectionExplorer = ({
             <>
               <section className="connection-explorer-panel">
                 <div className="section-header">
-                  <h3>Find sites to connect</h3>
-                  <p>Search by user or site and send a connection invite.</p>
+                  <h3>Find connections</h3>
+                  <p>Search by user, site, or index and send a connection invite.</p>
                 </div>
 
                 <div className="connection-search-mode">
@@ -117,7 +119,7 @@ const ConnectionExplorer = ({
 
                 {controller.searchLoading && <p>Searching...</p>}
                 {controller.searchError && <p className="connection-explorer-error">{controller.searchError}</p>}
-                {showEmptySearch && <p>No matching sites found.</p>}
+                {showEmptySearch && <p>No matching connections found.</p>}
 
                 {controller.searchResults.length > 0 && (
                   <div className="connection-search-results">
@@ -125,11 +127,13 @@ const ConnectionExplorer = ({
                       const stateLabel = formatConnectionState(result.existingState);
                       const disableInvite =
                         result.existingState !== "available" ||
-                        controller.sendingInviteSiteId === result.siteId;
+                        controller.sendingInviteTargetId === result.targetId;
                       return (
-                        <article key={result.siteId} className="connection-result-card">
+                        <article key={result.targetId} className="connection-result-card">
                           <div className="connection-result-header">
-                            <h4>{result.title}</h4>
+                            <h4>
+                              {result.title} <span className="builder-collaborator-hint">({formatConnectionTargetType(result.targetType)})</span>
+                            </h4>
                             <span className="connection-result-state">{stateLabel}</span>
                           </div>
                           <p className="connection-result-owner">
@@ -147,9 +151,9 @@ const ConnectionExplorer = ({
                               type="button"
                               className="primary"
                               disabled={disableInvite}
-                              onClick={() => controller.onSendInvite(result.siteId)}
+                              onClick={() => controller.onSendInvite(result)}
                             >
-                              {controller.sendingInviteSiteId === result.siteId
+                              {controller.sendingInviteTargetId === result.targetId
                                 ? "Sending invite..."
                                 : "Send invite"}
                             </button>
@@ -234,13 +238,27 @@ const ConnectionExplorer = ({
                     {controller.outgoingPendingRequests.map((request) => (
                       <article key={request.requestId} className="connection-request-card">
                         <div className="connection-request-header">
-                          <h4>{request.targetSiteTitle}</h4>
+                          <h4>
+                            {request.targetTitle} <span className="builder-collaborator-hint">({formatConnectionTargetType(request.targetType)})</span>
+                          </h4>
                           <span>{formatShortDate(request.createdAt)}</span>
                         </div>
                         <p>Waiting on {request.targetOwnerDisplayName}</p>
                         <p className="connection-request-uuid">
                           Connection UUID: {request.connectionUuid}
                         </p>
+                        <div className="connection-request-actions">
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={controller.disconnectingRequestId === request.requestId}
+                            onClick={() => controller.onDisconnect(request.requestId)}
+                          >
+                            {controller.disconnectingRequestId === request.requestId
+                              ? "Working..."
+                              : "Cancel invite"}
+                          </button>
+                        </div>
                       </article>
                     ))}
                   </div>
@@ -303,6 +321,18 @@ const ConnectionExplorer = ({
                         <p className="connection-request-uuid">
                           Connection UUID: {request.connectionUuid}
                         </p>
+                        <div className="connection-request-actions">
+                          <button
+                            type="button"
+                            className="ghost"
+                            disabled={controller.disconnectingRequestId === request.requestId}
+                            onClick={() => controller.onDisconnect(request.requestId)}
+                          >
+                            {controller.disconnectingRequestId === request.requestId
+                              ? "Working..."
+                              : "Remove connection"}
+                          </button>
+                        </div>
                       </article>
                     ))}
                   </div>

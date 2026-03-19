@@ -1,23 +1,23 @@
-alter table public.archives
+alter table public.indexes
   add column if not exists supabase_project_url text,
   add column if not exists supabase_publishable_key text not null default '';
 
-alter table public.archives
-  drop constraint if exists archives_source_check;
+alter table public.indexes
+  drop constraint if exists indexes_source_check;
 
-alter table public.archives
-  add constraint archives_source_check
+alter table public.indexes
+  add constraint indexes_source_check
   check (source in ('manual', 'index_create', 'federation_mirror'));
 
-update public.archives archive
+update public.indexes index_row
 set
   supabase_project_url = credentials.supabase_project_url,
   supabase_publishable_key = credentials.supabase_publishable_key
 from public.index_project_credentials credentials
-where credentials.archive_id = archive.id
+where credentials.index_id = index_row.id
   and (
-    coalesce(archive.supabase_project_url, '') = ''
-    or coalesce(archive.supabase_publishable_key, '') = ''
+    coalesce(index_row.supabase_project_url, '') = ''
+    or coalesce(index_row.supabase_publishable_key, '') = ''
   );
 
 create or replace function public.rpc_index_federation_state()
@@ -27,15 +27,15 @@ security definer
 set search_path = public
 as $$
 declare
-  v_root public.archives%rowtype;
+  v_root public.indexes%rowtype;
   v_memberships jsonb := '[]'::jsonb;
 begin
-  select archive.*
+  select index_row.*
   into v_root
-  from public.archives archive
-  where archive.type = 'index'
-    and archive.is_root = true
-  order by archive.updated_at desc
+  from public.indexes index_row
+  where index_row.type = 'index'
+    and index_row.is_root = true
+  order by index_row.updated_at desc
   limit 1;
 
   if not found then
@@ -62,10 +62,10 @@ begin
     '[]'::jsonb
   )
   into v_memberships
-  from public.archive_sites membership
+  from public.index_sites membership
   join public.sites site
     on site.id = membership.site_id
-  where membership.archive_id = v_root.id
+  where membership.index_id = v_root.id
     and membership.status = 'tracked'
     and coalesce(site.visibility, 'public') = 'public'
     and nullif(trim(coalesce(site.canonical_url, '')), '') is not null;
@@ -133,19 +133,19 @@ as $$
   ),
   visible_indexes as (
     select
-      archive.id,
+      index_row.id,
       'index'::text as node_type,
-      coalesce(nullif(trim(archive.title), ''), 'Untitled index') as title,
-      coalesce(archive.description, '') as description,
-      archive.canonical_url,
-      coalesce(archive.image_url, '') as image_url,
-      archive.updated_at,
-      archive.index_level,
-      archive.parent_index_id
-    from public.archives archive
-    where archive.type = 'index'
-      and archive.runtime_mode = 'finalized'
-      and nullif(trim(coalesce(archive.canonical_url, '')), '') is not null
+      coalesce(nullif(trim(index_row.title), ''), 'Untitled index') as title,
+      coalesce(index_row.description, '') as description,
+      index_row.canonical_url,
+      coalesce(index_row.image_url, '') as image_url,
+      index_row.updated_at,
+      index_row.index_level,
+      index_row.parent_index_id
+    from public.indexes index_row
+    where index_row.type = 'index'
+      and index_row.runtime_mode = 'finalized'
+      and nullif(trim(coalesce(index_row.canonical_url, '')), '') is not null
   ),
   nodes as (
     select * from visible_sites
@@ -182,14 +182,14 @@ as $$
   ),
   index_membership_edges as (
     select
-      concat('index-membership:', membership.archive_id::text, ':', membership.site_id::text) as edge_id,
+      concat('index-membership:', membership.index_id::text, ':', membership.site_id::text) as edge_id,
       'index_membership'::text as edge_type,
-      membership.archive_id as source_id,
+      membership.index_id as source_id,
       membership.site_id as target_id,
       membership.created_at as happened_at
-    from public.archive_sites membership
-    join visible_indexes archive
-      on archive.id = membership.archive_id
+    from public.index_sites membership
+    join visible_indexes index_row
+      on index_row.id = membership.index_id
     join visible_sites site
       on site.id = membership.site_id
     where membership.status = 'tracked'

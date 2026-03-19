@@ -19,10 +19,12 @@ const createApprovedRequest = (
   sourceSiteUrl: "https://source.example.com",
   sourceSiteImageUrl: "/solidary-media/images/site-image_thumb.jpg",
   sourceOwnerDisplayName: "Source Owner",
+  targetType: "site",
   targetSiteId: "site-target",
-  targetSiteTitle: "Target Site",
-  targetSiteUrl: "https://target.example.com",
-  targetSiteImageUrl: "/solidary-media/images/site-image_thumb.jpg",
+  targetIndexId: null,
+  targetTitle: "Target Site",
+  targetUrl: "https://target.example.com",
+  targetImageUrl: "/solidary-media/images/site-image_thumb.jpg",
   targetOwnerDisplayName: "Target Owner",
   isIncoming: false,
   ...overrides
@@ -34,8 +36,8 @@ describe("approved connection live metadata", () => {
       createApprovedRequest({
         requestId: "request-1",
         targetSiteId: "site-2",
-        targetSiteTitle: "Red Rose",
-        targetSiteUrl: "https://red-rose-on-green-background.netlify.app"
+        targetTitle: "Red Rose",
+        targetUrl: "https://red-rose-on-green-background.netlify.app"
       })
     ];
 
@@ -76,8 +78,8 @@ describe("approved connection live metadata", () => {
       createApprovedRequest({
         requestId: "request-2",
         targetSiteId: "site-2",
-        targetSiteTitle: "Red Rose",
-        targetSiteUrl: "https://red-rose-on-green-background.netlify.app/"
+        targetTitle: "Red Rose",
+        targetUrl: "https://red-rose-on-green-background.netlify.app/"
       })
     ];
 
@@ -142,14 +144,15 @@ describe("approved connection live metadata", () => {
         createApprovedRequest({
           isIncoming: false,
           targetSiteId: "target-1",
-          targetSiteTitle: "Outgoing Target",
-          targetSiteUrl: "https://outgoing.example.com"
+          targetTitle: "Outgoing Target",
+          targetUrl: "https://outgoing.example.com"
         })
       )
     ).toEqual({
       siteId: "target-1",
       siteTitle: "Outgoing Target",
-      currentCanonicalUrl: "https://outgoing.example.com"
+      currentCanonicalUrl: "https://outgoing.example.com",
+      targetType: "site"
     });
 
     expect(
@@ -164,7 +167,27 @@ describe("approved connection live metadata", () => {
     ).toEqual({
       siteId: "source-1",
       siteTitle: "Incoming Source",
-      currentCanonicalUrl: "https://incoming.example.com"
+      currentCanonicalUrl: "https://incoming.example.com",
+      targetType: "site"
+    });
+  });
+
+  it("uses the archive target when the approved connection points at an index", () => {
+    expect(
+      getApprovedConnectionCounterparty(
+        createApprovedRequest({
+          targetType: "index",
+          targetSiteId: null,
+          targetIndexId: "index-1",
+          targetTitle: "Solidary Index",
+          targetUrl: "https://index.example.com"
+        })
+      )
+    ).toEqual({
+      siteId: "index-1",
+      siteTitle: "Solidary Index",
+      currentCanonicalUrl: "https://index.example.com",
+      targetType: "index"
     });
   });
 });

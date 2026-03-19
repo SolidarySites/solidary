@@ -5,25 +5,25 @@ alter table public.sites
 
 create index if not exists sites_parent_index_idx on public.sites (parent_index_id);
 
-alter table public.archives
+alter table public.indexes
   add column if not exists type text not null default 'index',
   add column if not exists index_level int,
   add column if not exists parent_index_id uuid,
   add column if not exists parent_index_url text,
   add column if not exists parent_index_level int;
 
-alter table public.archives
-  drop constraint if exists archives_type_check;
+alter table public.indexes
+  drop constraint if exists indexes_type_check;
 
-alter table public.archives
-  add constraint archives_type_check
+alter table public.indexes
+  add constraint indexes_type_check
   check (type in ('site', 'index'));
 
-create index if not exists archives_type_idx on public.archives (type);
-create index if not exists archives_parent_index_idx on public.archives (parent_index_id);
+create index if not exists indexes_type_idx on public.indexes (type);
+create index if not exists indexes_parent_index_idx on public.indexes (parent_index_id);
 
 create table if not exists public.index_project_credentials (
-  archive_id uuid primary key references public.archives(id) on delete cascade,
+  index_id uuid primary key references public.indexes(id) on delete cascade,
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   supabase_project_ref text not null,
   supabase_project_url text not null,
@@ -51,12 +51,12 @@ for each row execute function public.set_updated_at();
 alter table public.index_project_credentials enable row level security;
 
 create table if not exists public.index_admin_memberships (
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   role text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  primary key (archive_id, user_id),
+  primary key (index_id, user_id),
   check (role in ('owner', 'admin', 'editor', 'contributor'))
 );
 
@@ -78,7 +78,7 @@ create policy "index_admin_memberships_select_self" on public.index_admin_member
   for select using (auth.uid() = user_id);
 
 create or replace function public.index_search_collaborator_candidates(
-  p_archive_id uuid,
+  p_index_id uuid,
   p_actor_user_id uuid,
   p_query text,
   p_limit int default 10
@@ -97,14 +97,14 @@ declare
   v_limit int := greatest(1, least(coalesce(p_limit, 10), 10));
   v_role text;
 begin
-  if p_archive_id is null or p_actor_user_id is null or v_query is null then
+  if p_index_id is null or p_actor_user_id is null or v_query is null then
     return;
   end if;
 
   select iam.role
   into v_role
   from public.index_admin_memberships iam
-  where iam.archive_id = p_archive_id
+  where iam.index_id = p_index_id
     and iam.user_id = p_actor_user_id;
 
   if v_role is null or v_role not in ('owner', 'admin') then

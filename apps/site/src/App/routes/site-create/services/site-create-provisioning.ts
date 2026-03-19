@@ -1,5 +1,9 @@
 import type { Session } from "@supabase/supabase-js";
 import type { AstroPageDraft } from "../../../features/site-draft/types";
+import {
+  buildSolidaryLinksConnection,
+  SOLIDARY_LINKS_INDEX_TYPE
+} from "../../../features/site-draft/services/solidary-links";
 import { toBase64 } from "../../../lib/base64";
 import {
   BYTES_100_KB,
@@ -15,7 +19,7 @@ import {
   SITE_IMAGE_THUMB_PATH
 } from "./provisioning/content";
 import { provisionGitHubRepository } from "./provisioning/github-provisioning";
-import { saveProvisionedSiteDraft } from "./provisioning/persistence";
+import { loadRootIndex, saveProvisionedSiteDraft } from "./provisioning/persistence";
 
 type ProvisionSiteDraftParams = {
   session: Session;
@@ -108,6 +112,8 @@ export const provisionSiteDraft = async ({
   onSiteUrlResolved(provisionedRepo.siteUrlResolved);
   const imageUrl = DEFAULT_OG_IMAGE_URL;
   const siteRecordImageUrl = siteImage ? `/${SITE_IMAGE_PATH.replace(/^public\//, "")}` : imageUrl;
+  const rootIndex = await loadRootIndex();
+  const rootConnectionUuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${siteId}`;
 
   const { solidaryFile, solidaryLinksFile } = buildWellKnownFiles({
     templateSolidary,
@@ -117,7 +123,15 @@ export const provisionSiteDraft = async ({
     siteDescription,
     siteUrl,
     hasSiteImage: Boolean(siteImage),
-    urlOverride: provisionedRepo.siteUrlResolved
+    urlOverride: provisionedRepo.siteUrlResolved,
+    connectionsOverride: [
+      buildSolidaryLinksConnection({
+        connectionUuid: rootConnectionUuid,
+        connectedSiteId: rootIndex.id,
+        connectedSiteUrl: rootIndex.canonical_url ?? "",
+        connectedSiteType: SOLIDARY_LINKS_INDEX_TYPE
+      })
+    ]
   });
 
   onStep("Launching your site...");
@@ -135,7 +149,9 @@ export const provisionSiteDraft = async ({
     solidaryFile,
     solidaryLinksFile,
     tokensCss,
-    pages
+    pages,
+    rootIndex,
+    rootConnectionUuid
   });
 
   return siteId;

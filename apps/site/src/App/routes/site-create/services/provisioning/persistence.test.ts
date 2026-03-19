@@ -65,10 +65,10 @@ describe("saveProvisionedSiteDraft", () => {
     persistenceMocks.rpc.mockReset();
   });
 
-  it("loads the root archive from federation state and creates the root membership after the draft", async () => {
+  it("loads the root index from federation state and creates the root connection before index membership", async () => {
     const sitesQuery = createInsertQuery({ error: null });
     const siteDraftsQuery = createInsertQuery({ error: null });
-    const archiveSitesQuery = createInsertQuery({ error: null });
+    const indexSitesQuery = createInsertQuery({ error: null });
     const siteDraftSettingsQuery = createUpsertQuery({ error: null });
     const siteDraftPagesQuery = createInsertQuery({ error: null });
 
@@ -80,20 +80,25 @@ describe("saveProvisionedSiteDraft", () => {
       },
       error: null
     });
-    persistenceMocks.rpc.mockResolvedValue({
-      data: {
-        index: {
-          id: "root-archive-1",
-          canonical_url: "https://solidary.netlify.app",
-          index_level: 0
-        }
-      },
-      error: null
-    });
+    persistenceMocks.rpc
+      .mockResolvedValueOnce({
+        data: {
+          index: {
+            id: "root-index-1",
+            canonical_url: "https://solidary.netlify.app",
+            index_level: 0
+          }
+        },
+        error: null
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: null
+      });
     persistenceMocks.from.mockImplementation((table: string) => {
       if (table === "sites") return sitesQuery;
       if (table === "site_drafts") return siteDraftsQuery;
-      if (table === "archive_sites") return archiveSitesQuery;
+      if (table === "index_sites") return indexSitesQuery;
       if (table === "site_draft_settings") return siteDraftSettingsQuery;
       if (table === "site_draft_pages") return siteDraftPagesQuery;
       throw new Error(`Unexpected table ${table}`);
@@ -101,24 +106,29 @@ describe("saveProvisionedSiteDraft", () => {
 
     await saveProvisionedSiteDraft(baseParams);
 
-    expect(persistenceMocks.rpc).toHaveBeenCalledWith("rpc_index_federation_state");
+    expect(persistenceMocks.rpc).toHaveBeenNthCalledWith(1, "rpc_index_federation_state");
     expect(sitesQuery.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "site-1",
-        parent_index_id: "root-archive-1",
+        parent_index_id: "root-index-1",
         parent_index_url: "https://solidary.netlify.app",
         parent_index_level: 0
       })
     );
+    expect(persistenceMocks.rpc).toHaveBeenNthCalledWith(2, "connection_create_site_index", {
+      p_source_site_id: "site-1",
+      p_target_index_id: "root-index-1",
+      p_connection_uuid: null
+    });
     expect(persistenceMocks.from.mock.calls.map(([table]) => table)).toEqual([
       "sites",
       "site_drafts",
-      "archive_sites",
+      "index_sites",
       "site_draft_settings",
       "site_draft_pages"
     ]);
-    expect(archiveSitesQuery.insert).toHaveBeenCalledWith({
-      archive_id: "root-archive-1",
+    expect(indexSitesQuery.insert).toHaveBeenCalledWith({
+      index_id: "root-index-1",
       site_id: "site-1",
       status: "tracked",
       delist_reason_code: null,
@@ -126,7 +136,7 @@ describe("saveProvisionedSiteDraft", () => {
     });
   });
 
-  it("fails before any writes when the federation state does not expose a root archive", async () => {
+  it("fails before any writes when the federation state does not expose a root index", async () => {
     persistenceMocks.authGetUser.mockResolvedValue({
       data: {
         user: {
@@ -143,7 +153,7 @@ describe("saveProvisionedSiteDraft", () => {
     });
 
     await expect(saveProvisionedSiteDraft(baseParams)).rejects.toThrow(
-      "Root index archive is missing."
+      "Root index is missing."
     );
 
     expect(persistenceMocks.from).not.toHaveBeenCalled();

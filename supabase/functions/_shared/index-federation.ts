@@ -40,7 +40,7 @@ export type FederationState = {
 };
 
 export type FederationRefreshResult = {
-  archiveId: string | null;
+  indexId: string | null;
   membershipCount: number;
   skipped: boolean;
   reason: string | null;
@@ -240,12 +240,12 @@ export const refreshIndexFederationMirror = async ({
   supabase,
   sourceProjectUrl,
   sourcePublishableKey,
-  expectedArchiveId,
+  expectedIndexId,
 }: {
   supabase: LocalSupabaseClient;
   sourceProjectUrl: string;
   sourcePublishableKey: string;
-  expectedArchiveId?: string;
+  expectedIndexId?: string;
 }): Promise<FederationRefreshResult> => {
   const federationState = await fetchIndexFederationState({
     projectUrl: sourceProjectUrl,
@@ -255,23 +255,23 @@ export const refreshIndexFederationMirror = async ({
 
   if (!remoteIndex) {
     return {
-      archiveId: null,
+      indexId: null,
       membershipCount: 0,
       skipped: true,
       reason: "missing_remote_index",
     };
   }
 
-  const normalizedExpectedArchiveId = toTrimmedString(expectedArchiveId);
+  const normalizedExpectedArchiveId = toTrimmedString(expectedIndexId);
   if (
     normalizedExpectedArchiveId &&
     remoteIndex.id !== normalizedExpectedArchiveId
   ) {
-    throw new Error("Remote federation state returned an unexpected archive id.");
+    throw new Error("Remote federation state returned an unexpected index id.");
   }
 
   const { data: existingArchive, error: existingArchiveError } = await supabase
-    .from("archives")
+    .from("indexes")
     .select("id, owner_user_id, is_root")
     .eq("id", remoteIndex.id)
     .maybeSingle();
@@ -281,7 +281,7 @@ export const refreshIndexFederationMirror = async ({
 
   if (existingArchive?.is_root === true) {
     return {
-      archiveId: remoteIndex.id,
+      indexId: remoteIndex.id,
       membershipCount: federationState.memberships.length,
       skipped: true,
       reason: "local_root",
@@ -313,7 +313,7 @@ export const refreshIndexFederationMirror = async ({
 
   if (existingArchive?.id) {
     const { error: archiveUpdateError } = await supabase
-      .from("archives")
+      .from("indexes")
       .update(archivePayload)
       .eq("id", remoteIndex.id);
     if (archiveUpdateError) {
@@ -321,7 +321,7 @@ export const refreshIndexFederationMirror = async ({
     }
   } else {
     const { error: archiveInsertError } = await supabase
-      .from("archives")
+      .from("indexes")
       .insert({
         id: remoteIndex.id,
         ...archivePayload,
@@ -350,19 +350,19 @@ export const refreshIndexFederationMirror = async ({
   }
 
   const { error: archiveSitesDeleteError } = await supabase
-    .from("archive_sites")
+    .from("index_sites")
     .delete()
-    .eq("archive_id", remoteIndex.id);
+    .eq("index_id", remoteIndex.id);
   if (archiveSitesDeleteError) {
     throw new Error(archiveSitesDeleteError.message);
   }
 
   if (federationState.memberships.length) {
     const { error: archiveSitesInsertError } = await supabase
-      .from("archive_sites")
+      .from("index_sites")
       .insert(
         federationState.memberships.map((membership) => ({
-          archive_id: remoteIndex.id,
+          index_id: remoteIndex.id,
           site_id: membership.siteId,
           status: "tracked",
           created_at: membership.trackedAt ?? undefined,
@@ -374,7 +374,7 @@ export const refreshIndexFederationMirror = async ({
   }
 
   return {
-    archiveId: remoteIndex.id,
+    indexId: remoteIndex.id,
     membershipCount: federationState.memberships.length,
     skipped: false,
     reason: null,
@@ -384,19 +384,19 @@ export const refreshIndexFederationMirror = async ({
 export const notifyIndexFederationRefresh = async ({
   targetProjectUrl,
   targetPublishableKey,
-  sourceArchiveId,
+  sourceIndexId,
   sourceProjectUrl,
   sourcePublishableKey,
 }: {
   targetProjectUrl: string;
   targetPublishableKey: string;
-  sourceArchiveId: string;
+  sourceIndexId: string;
   sourceProjectUrl: string;
   sourcePublishableKey: string;
 }) => {
   const normalizedTargetProjectUrl = toTrimmedString(targetProjectUrl);
   const normalizedTargetPublishableKey = toTrimmedString(targetPublishableKey);
-  const normalizedSourceArchiveId = toTrimmedString(sourceArchiveId);
+  const normalizedSourceArchiveId = toTrimmedString(sourceIndexId);
   const normalizedSourceProjectUrl = toTrimmedString(sourceProjectUrl);
   const normalizedSourcePublishableKey = toTrimmedString(sourcePublishableKey);
 
@@ -424,7 +424,7 @@ export const notifyIndexFederationRefresh = async ({
         accept: "application/json",
       },
       body: JSON.stringify({
-        source_archive_id: normalizedSourceArchiveId,
+        source_index_id: normalizedSourceArchiveId,
         source_project_url: normalizedSourceProjectUrl,
         source_publishable_key: normalizedSourcePublishableKey,
       }),

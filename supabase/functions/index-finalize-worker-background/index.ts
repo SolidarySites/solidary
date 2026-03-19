@@ -117,6 +117,7 @@ type GhBlobPayload = {
 
 type WorkerBody = {
   jobId?: string;
+  indexId?: string;
   archiveId?: string;
   ownerUserId?: string;
 };
@@ -1194,7 +1195,7 @@ const readArchiveAndCredentials = async ({
     { data: credentialsData, error: credentialsError },
   ] = await Promise.all([
     supabase
-      .from("archives")
+      .from("indexes")
       .select(
         [
           "id",
@@ -1229,7 +1230,7 @@ const readArchiveAndCredentials = async ({
       .from("index_project_credentials")
       .select(
         [
-          "archive_id",
+          "index_id",
           "owner_user_id",
           "supabase_project_ref",
           "supabase_project_url",
@@ -1241,7 +1242,7 @@ const readArchiveAndCredentials = async ({
           "repo_url",
         ].join(", "),
       )
-      .eq("archive_id", archiveId)
+      .eq("index_id", archiveId)
       .maybeSingle(),
   ]);
 
@@ -1252,7 +1253,7 @@ const readArchiveAndCredentials = async ({
     throw new Error(credentialsError.message);
   }
   if (!archiveData) {
-    throw new Error("Index archive not found.");
+    throw new Error("Index not found.");
   }
   if (!credentialsData) {
     throw new Error("Index project credentials are missing.");
@@ -1273,7 +1274,7 @@ const readChildParentSourceArchive = async ({
 }) => {
   const child = createChildProjectClient(credentials);
   const { data, error } = await child
-    .from("archives")
+    .from("indexes")
     .select(
       [
         "id",
@@ -1291,7 +1292,7 @@ const readChildParentSourceArchive = async ({
     throw new Error(error.message);
   }
   if (!data) {
-    throw new Error("The child index is missing its archive metadata row.");
+    throw new Error("The child index is missing its index metadata row.");
   }
 
   return data as unknown as ChildParentSourceArchiveRow;
@@ -1327,7 +1328,7 @@ const reconcileParentSourceRepoLineage = async ({
     toTrimmedString(archive.parent_repo_url) !== nextValues.parent_repo_url
   ) {
     const { error } = await supabase
-      .from("archives")
+      .from("indexes")
       .update(nextValues)
       .eq("id", archiveId);
     if (error) {
@@ -1342,7 +1343,7 @@ const reconcileParentSourceRepoLineage = async ({
   ) {
     const child = createChildProjectClient(credentials);
     const { error } = await child
-      .from("archives")
+      .from("indexes")
       .update(nextValues)
       .eq("id", archiveId)
       .eq("is_root", true);
@@ -1368,7 +1369,7 @@ const updateArchiveModes = async ({
 }) => {
   const finalizedAt = new Date().toISOString();
   const { error: parentError } = await supabase
-    .from("archives")
+    .from("indexes")
     .update({
       runtime_mode: "finalized",
       finalized_at: finalizedAt,
@@ -1380,7 +1381,7 @@ const updateArchiveModes = async ({
 
   const child = createChildProjectClient(credentials);
   const { error: childError } = await child
-    .from("archives")
+    .from("indexes")
     .update({
       runtime_mode: "finalized",
       finalized_at: finalizedAt,
@@ -1432,7 +1433,7 @@ const readJob = async ({
     .select(
       [
         "id",
-        "archive_id",
+        "index_id",
         "owner_user_id",
         "status",
         "step",
@@ -1450,7 +1451,7 @@ const readJob = async ({
       ].join(", "),
     )
     .eq("id", jobId)
-    .eq("archive_id", archiveId)
+    .eq("index_id", archiveId)
     .maybeSingle();
 
   if (error) {
@@ -1478,7 +1479,7 @@ const updateJob = async ({
     .from("index_finalization_jobs")
     .update(values)
     .eq("id", jobId)
-    .eq("archive_id", archiveId);
+    .eq("index_id", archiveId);
 
   if (error) {
     throw new Error(error.message);
@@ -2148,7 +2149,7 @@ const runCommitFinalizePhase = async ({
       supabase,
       sourceProjectUrl: context.credentials.supabase_project_url,
       sourcePublishableKey: context.credentials.supabase_publishable_key ?? "",
-      expectedArchiveId: archiveId,
+      expectedIndexId: archiveId,
     });
   } catch (error) {
     console.warn(
@@ -2276,11 +2277,11 @@ export const handler: Handler = async (event) => {
 
   const body = parseBody(event.body);
   const jobId = toTrimmedString(body.jobId);
-  const archiveId = toTrimmedString(body.archiveId);
+  const archiveId = toTrimmedString(body.indexId) || toTrimmedString(body.archiveId);
   const ownerUserId = toTrimmedString(body.ownerUserId);
   if (!jobId || !archiveId || !ownerUserId) {
     return safeJson(400, {
-      error: "Missing jobId, archiveId, or ownerUserId.",
+      error: "Missing jobId, indexId, or ownerUserId.",
     });
   }
 

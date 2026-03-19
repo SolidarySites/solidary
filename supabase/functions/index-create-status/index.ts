@@ -17,7 +17,7 @@ type IndexProvisionJobRow = {
   error: string | null;
   repo_payload: unknown;
   project_payload: unknown;
-  archive_payload: unknown;
+  index_payload: unknown;
   created_at: string;
   updated_at: string;
   started_at: string | null;
@@ -88,7 +88,7 @@ export const handler: Handler = async (event) => {
         "error",
         "repo_payload",
         "project_payload",
-        "archive_payload",
+        "index_payload",
         "created_at",
         "updated_at",
         "started_at",
@@ -121,7 +121,7 @@ export const handler: Handler = async (event) => {
       error: job.error,
       repo: job.repo_payload,
       project: job.project_payload,
-      archive: job.archive_payload,
+      index: job.index_payload,
       created_at: job.created_at,
       updated_at: job.updated_at,
       started_at: job.started_at,

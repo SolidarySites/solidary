@@ -5,7 +5,7 @@ const sections = [
     title: "Start with the repository",
     paragraphs: [
       "If you want to reach the project, the clearest public point of contact right now is the Solidary repository.",
-      "Use it to follow development, understand the protocol, and start a conversation around publishing, archives, or implementation."
+      "Use it to follow development, understand the protocol, and start a conversation around publishing, indexes, or implementation."
     ],
     action: {
       href: "https://github.com/SolidarySites/solidary",

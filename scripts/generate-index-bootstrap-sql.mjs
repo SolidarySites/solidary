@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const migrationsDir = path.join(rootDir, "supabase", "migrations");
 const outputPath = path.join(rootDir, "supabase", "functions", "_shared", "index-bootstrap-sql.ts");
-const MAX_BOOTSTRAP_MIGRATION_PREFIX = 44;
+const MAX_BOOTSTRAP_MIGRATION_PREFIX = 47;
 
 if (!fs.existsSync(migrationsDir)) {
   if (fs.existsSync(outputPath)) {

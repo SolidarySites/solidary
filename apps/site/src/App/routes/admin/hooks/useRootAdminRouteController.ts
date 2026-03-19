@@ -5,10 +5,10 @@ import {
   type StudioSettingsSection
 } from "../../studio/routes/site-settings/services/settings-sections";
 import {
-  getRootIndexAdminArchiveId,
+  getRootIndexAdminIndexId,
   loginIndexAdminWithPassword,
   readIndexAdmin,
-  saveIndexAdminConnectionStatus
+  updateIndexAdminConnectionRequest
 } from "../services/index-admin";
 import type { IndexAdminState } from "../services/types";
 
@@ -20,7 +20,7 @@ const getFriendlyErrorMessage = (error: unknown, fallback: string) =>
 
 const getRootAdminErrorMessage = (error: unknown, fallback: string) => {
   const message = getFriendlyErrorMessage(error, fallback);
-  if (/archive not found/i.test(message)) {
+  if (/index not found/i.test(message)) {
     return "This /admin route is only available on the Solidary root index.";
   }
   return message;
@@ -49,7 +49,7 @@ const writeStoredRootAdminToken = (value: string) => {
 };
 
 export const useRootAdminRouteController = () => {
-  const archiveId = getRootIndexAdminArchiveId();
+  const indexId = getRootIndexAdminIndexId();
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [password, setPassword] = useState("");
@@ -57,7 +57,7 @@ export const useRootAdminRouteController = () => {
   const [unlocking, setUnlocking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [state, setState] = useState<IndexAdminState | null>(null);
-  const [updatingConnectionSiteId, setUpdatingConnectionSiteId] = useState<string | null>(null);
+  const [updatingConnectionRequestId, setUpdatingConnectionRequestId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<StudioSettingsSection>("general");
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export const useRootAdminRouteController = () => {
 
     void (async () => {
       try {
-        const response = await readIndexAdmin(archiveId, {
+        const response = await readIndexAdmin(indexId, {
           bridgeToken
         });
         if (cancelled) return;
@@ -94,7 +94,7 @@ export const useRootAdminRouteController = () => {
     return () => {
       cancelled = true;
     };
-  }, [archiveId, bridgeToken]);
+  }, [indexId, bridgeToken]);
 
   const sectionButtons = useMemo(
     () =>
@@ -116,7 +116,7 @@ export const useRootAdminRouteController = () => {
 
     try {
       const token = await loginIndexAdminWithPassword({
-        archiveId,
+        indexId,
         password
       });
       writeStoredRootAdminToken(token);
@@ -130,42 +130,51 @@ export const useRootAdminRouteController = () => {
     }
   };
 
-  const handleConnectionStatusChange = async (siteId: string, status: "tracked" | "delisted") => {
+  const handleConnectionRequestAction = async (
+    requestId: string,
+    action: "approve" | "reject" | "disconnect"
+  ) => {
     if (!bridgeToken) return;
 
-    setUpdatingConnectionSiteId(siteId);
+    setUpdatingConnectionRequestId(requestId);
     try {
-      const response = await saveIndexAdminConnectionStatus(
+      const response = await updateIndexAdminConnectionRequest(
         {
-          archiveId,
-          siteId,
-          status
+          indexId,
+          requestId,
+          action
         },
         {
           bridgeToken
         }
       );
       setState(response.state);
-      setNotice(status === "tracked" ? "Site reconnected to the root index." : "Site disconnected from the root index.");
+      setNotice(
+        action === "approve"
+          ? "Connection approved."
+          : action === "reject"
+            ? "Connection request rejected."
+            : "Connection removed."
+      );
       setNoticeKind("notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not update root connection status."));
+      setNotice(getFriendlyErrorMessage(error, "Could not update the root connection."));
       setNoticeKind("error");
     } finally {
-      setUpdatingConnectionSiteId(null);
+      setUpdatingConnectionRequestId(null);
     }
   };
 
   return {
     notice,
     noticeKind,
-    archiveId,
+    indexId,
     password,
     unlocking,
     loading,
     state,
     activeSection,
-    updatingConnectionSiteId,
+    updatingConnectionRequestId,
     isUnlocked: Boolean(bridgeToken),
     settingsTopbarProps: {
       activeSection,
@@ -176,8 +185,11 @@ export const useRootAdminRouteController = () => {
     onUnlock: () => {
       void handleUnlock();
     },
-    onConnectionStatusChange: (siteId: string, status: "tracked" | "delisted") => {
-      void handleConnectionStatusChange(siteId, status);
+    onConnectionRequestAction: (
+      requestId: string,
+      action: "approve" | "reject" | "disconnect"
+    ) => {
+      void handleConnectionRequestAction(requestId, action);
     },
     onLogout: () => {
       writeStoredRootAdminToken("");

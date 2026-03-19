@@ -1,21 +1,21 @@
-alter table public.archives
+alter table public.indexes
   add column if not exists is_root boolean not null default false,
   add column if not exists runtime_mode text not null default 'scaffold',
   add column if not exists parent_repo_full_name text,
   add column if not exists parent_repo_url text,
   add column if not exists finalized_at timestamptz;
 
-alter table public.archives
-  drop constraint if exists archives_runtime_mode_check;
+alter table public.indexes
+  drop constraint if exists indexes_runtime_mode_check;
 
-alter table public.archives
-  add constraint archives_runtime_mode_check
+alter table public.indexes
+  add constraint indexes_runtime_mode_check
   check (runtime_mode in ('scaffold', 'finalized'));
 
-create index if not exists archives_is_root_idx on public.archives (is_root);
-create index if not exists archives_runtime_mode_idx on public.archives (runtime_mode);
+create index if not exists indexes_is_root_idx on public.indexes (is_root);
+create index if not exists indexes_runtime_mode_idx on public.indexes (runtime_mode);
 
-update public.archives
+update public.indexes
 set
   is_root = true,
   runtime_mode = 'scaffold'
@@ -25,7 +25,7 @@ where coalesce(type, '') = 'index'
 
 create table if not exists public.index_finalization_jobs (
   id uuid primary key default gen_random_uuid(),
-  archive_id uuid not null references public.archives(id) on delete cascade,
+  index_id uuid not null references public.indexes(id) on delete cascade,
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   status text not null default 'queued'
     check (status in ('queued', 'running', 'succeeded', 'failed')),
@@ -43,8 +43,8 @@ create table if not exists public.index_finalization_jobs (
   completed_at timestamptz
 );
 
-create index if not exists index_finalization_jobs_archive_created_idx
-  on public.index_finalization_jobs (archive_id, created_at desc);
+create index if not exists index_finalization_jobs_index_created_idx
+  on public.index_finalization_jobs (index_id, created_at desc);
 
 create index if not exists index_finalization_jobs_owner_created_idx
   on public.index_finalization_jobs (owner_user_id, created_at desc);

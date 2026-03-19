@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEMPLATE_SOLIDARY_LINKS } from "../../../../templates/site";
 import {
+  buildSolidaryLinksConnection,
   buildSolidaryLinksFile,
   SOLIDARY_LINKS_INDEX_TYPE,
   parseSolidaryLinksJson,
@@ -74,5 +75,33 @@ describe("solidary-links", () => {
     });
 
     expect(parseSolidaryLinksJson(raw)?.["@type"]).toBe(SOLIDARY_LINKS_INDEX_TYPE);
+  });
+
+  it("allows an explicit connection set to seed initial site-to-index metadata", () => {
+    const raw = buildSolidaryLinksFile({
+      templateSolidaryLinks,
+      siteId: "site-1",
+      siteUrl: "https://example.com",
+      connectionsOverride: [
+        buildSolidaryLinksConnection({
+          connectionUuid: "conn-root-1",
+          connectedSiteId: "index-1",
+          connectedSiteUrl: "https://index.example.com",
+          connectedSiteType: SOLIDARY_LINKS_INDEX_TYPE
+        })
+      ]
+    });
+
+    expect(parseSolidaryLinksJson(raw)?.connections).toEqual([
+      {
+        "@id": "urn:uuid:conn-root-1",
+        "@type": SOLIDARY_LINKS_CONNECTION_TYPE,
+        connected_site: {
+          "@id": "https://index.example.com",
+          "@type": SOLIDARY_LINKS_INDEX_TYPE,
+          site_id: "index-1"
+        }
+      }
+    ]);
   });
 });

@@ -4,8 +4,8 @@ import {
   buildStandaloneAdminSetup,
   configureIndexStandaloneAuth,
   deployIndexChildFunctions,
-  isRootPasswordAdminContext,
   isIndexFinalizationJobStale,
+  isRootPasswordAdminContext,
   parseBearerToken,
   parseBridgeTokenFromEvent,
   readIndexAdminState,
@@ -14,14 +14,14 @@ import {
   resolveIndexAdminContext,
   resolveParentSourceRepo,
   updateIndexAdvancedSettings,
-  updateIndexConnectionStatus,
+  updateIndexConnectionRequest,
   updateIndexGeneralSettings,
   upsertIndexCollaborator,
 } from "../_shared/index-admin.ts";
 
 type WriteAction =
   | "update_general"
-  | "set_connection_status"
+  | "update_connection_request"
   | "upsert_collaborator"
   | "remove_collaborator"
   | "update_advanced"
@@ -49,7 +49,7 @@ const parseBody = (rawBody: string | null): Record<string, unknown> => {
 
 const isWriteAction = (value: unknown): value is WriteAction =>
   value === "update_general" ||
-  value === "set_connection_status" ||
+  value === "update_connection_request" ||
   value === "upsert_collaborator" ||
   value === "remove_collaborator" ||
   value === "update_advanced" ||
@@ -64,20 +64,20 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = parseBody(event.body);
-    const archiveId = typeof body.archive_id === "string"
-      ? body.archive_id.trim()
+    const indexId = typeof body.index_id === "string"
+      ? body.index_id.trim()
       : "";
     const action = isWriteAction(body.action) ? body.action : null;
     const suppliedSupabasePersonalAccessToken =
       typeof body.supabase_personal_access_token === "string"
         ? body.supabase_personal_access_token
         : "";
-    if (!archiveId || !action) {
-      return safeJson(400, { error: "Missing archive_id or action." });
+    if (!indexId || !action) {
+      return safeJson(400, { error: "Missing index_id or action." });
     }
 
     const context = await resolveIndexAdminContext({
-      archiveId,
+      indexId,
       supabaseAccessToken: (typeof body.supabase_access_token === "string"
         ? body.supabase_access_token
         : "") ||
@@ -103,18 +103,24 @@ export const handler: Handler = async (event) => {
           ? body.image_content_b64.trim()
           : undefined,
       });
-    } else if (action === "set_connection_status") {
-      const siteId = typeof body.site_id === "string"
-        ? body.site_id.trim()
+    } else if (action === "update_connection_request") {
+      const requestId = typeof body.request_id === "string"
+        ? body.request_id.trim()
         : "";
-      const status = body.status === "delisted" ? "delisted" : "tracked";
-      if (!siteId) {
-        return safeJson(400, { error: "Missing site_id." });
+      const connectionAction = body.connection_action === "approve" ||
+          body.connection_action === "reject" ||
+          body.connection_action === "disconnect"
+        ? body.connection_action
+        : null;
+      if (!requestId || !connectionAction) {
+        return safeJson(400, {
+          error: "Missing request_id or valid connection_action.",
+        });
       }
-      await updateIndexConnectionStatus({
+      await updateIndexConnectionRequest({
         context,
-        siteId,
-        status,
+        requestId,
+        action: connectionAction,
       });
     } else if (action === "upsert_collaborator") {
       const collaboratorUserId = typeof body.collaborator_user_id === "string"
@@ -168,7 +174,7 @@ export const handler: Handler = async (event) => {
       }
       const existingJob = await readLatestIndexFinalizationJob({
         supabase: context.supabase,
-        archiveId,
+        indexId,
       });
       if (existingJob && isIndexFinalizationJobStale(existingJob)) {
         const { error: staleJobError } = await context.supabase
@@ -181,7 +187,7 @@ export const handler: Handler = async (event) => {
             completed_at: new Date().toISOString(),
           })
           .eq("id", existingJob.id)
-          .eq("archive_id", archiveId);
+          .eq("index_id", indexId);
         if (staleJobError) {
           throw new Error(staleJobError.message);
         }
@@ -203,10 +209,10 @@ export const handler: Handler = async (event) => {
       const parentSource = resolveParentSourceRepo({
         archive: context.archive,
         childArchive: {
-          parent_index_id: currentState.archive.parentIndexId,
-          parent_index_url: currentState.archive.parentIndexUrl,
-          parent_repo_full_name: currentState.archive.parentRepoFullName,
-          parent_repo_url: currentState.archive.parentRepoUrl,
+          parent_index_id: currentState.index.parentIndexId,
+          parent_index_url: currentState.index.parentIndexUrl,
+          parent_repo_full_name: currentState.index.parentRepoFullName,
+          parent_repo_url: currentState.index.parentRepoUrl,
         },
       });
       if (!parentSource.repoFullName) {
@@ -219,7 +225,7 @@ export const handler: Handler = async (event) => {
       const { data: jobData, error: jobError } = await context.supabase
         .from("index_finalization_jobs")
         .insert({
-          archive_id: archiveId,
+          index_id: indexId,
           owner_user_id: context.actorUserId,
           status: "queued",
           step: "Queued",
@@ -249,7 +255,7 @@ export const handler: Handler = async (event) => {
           },
           body: JSON.stringify({
             jobId: jobData.id,
-            archiveId,
+            indexId,
             ownerUserId: context.actorUserId,
           }),
         },
@@ -276,16 +282,15 @@ export const handler: Handler = async (event) => {
     const state = await readIndexAdminState(context);
     const latestJob = await readLatestIndexFinalizationJob({
       supabase: context.supabase,
-      archiveId,
+      indexId,
     });
     const setup = await buildStandaloneAdminSetup({
       context,
       state,
       latestJob,
-      managementAccessTokenOverride:
-        action === "configure_standalone_auth"
-          ? suppliedSupabasePersonalAccessToken
-          : "",
+      managementAccessTokenOverride: action === "configure_standalone_auth"
+        ? suppliedSupabasePersonalAccessToken
+        : "",
     });
     return safeJson(200, {
       state,

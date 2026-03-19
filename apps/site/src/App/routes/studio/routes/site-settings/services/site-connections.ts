@@ -3,6 +3,7 @@ import { resolveSiteImageUrl } from "../../../../../lib/site-image-url";
 
 export type ConnectionAccessRole = "owner" | "admin" | "editor" | "contributor";
 export type SearchMode = "site" | "user";
+export type ConnectionTargetType = "site" | "index";
 export type ExistingConnectionState =
   | "available"
   | "pending_outgoing"
@@ -20,12 +21,15 @@ export type ConnectionExplorerContext = {
 };
 
 export type ConnectionTarget = {
-  siteId: string;
+  targetId: string;
+  targetType: ConnectionTargetType;
+  siteId: string | null;
+  indexId: string | null;
   title: string;
   description: string;
   siteUrl: string;
   imageUrl: string;
-  ownerUserId: string;
+  ownerUserId: string | null;
   ownerDisplayName: string;
   ownerEmail: string;
   ownerGithubLogin: string | null;
@@ -45,20 +49,24 @@ export type SiteConnectionRequest = {
   sourceSiteUrl: string;
   sourceSiteImageUrl: string;
   sourceOwnerDisplayName: string;
-  targetSiteId: string;
-  targetSiteTitle: string;
-  targetSiteUrl: string;
-  targetSiteImageUrl: string;
+  targetType: ConnectionTargetType;
+  targetSiteId: string | null;
+  targetIndexId: string | null;
+  targetTitle: string;
+  targetUrl: string;
+  targetImageUrl: string;
   targetOwnerDisplayName: string;
   isIncoming: boolean;
 };
 
 type SiteConnectionSearchRow = {
+  target_type: string | null;
   target_site_id: string | null;
-  target_site_title: string | null;
-  target_site_description: string | null;
-  target_site_url: string | null;
-  target_site_image_url: string | null;
+  target_index_id: string | null;
+  target_title: string | null;
+  target_description: string | null;
+  target_url: string | null;
+  target_image_url: string | null;
   target_owner_user_id: string | null;
   target_owner_display_name: string | null;
   target_owner_email: string | null;
@@ -79,10 +87,12 @@ type SiteConnectionRequestRow = {
   source_site_url: string | null;
   source_site_image_url: string | null;
   source_owner_display_name: string | null;
+  target_type: string | null;
   target_site_id: string | null;
-  target_site_title: string | null;
-  target_site_url: string | null;
-  target_site_image_url: string | null;
+  target_index_id: string | null;
+  target_title: string | null;
+  target_url: string | null;
+  target_image_url: string | null;
   target_owner_display_name: string | null;
   is_incoming: boolean | null;
 };
@@ -129,9 +139,20 @@ const normalizeRequestStatus = (
 const mapSearchRows = (rows: SiteConnectionSearchRow[] | null | undefined): ConnectionTarget[] =>
   (rows ?? [])
     .map((row) => {
+      const targetType: ConnectionTargetType =
+        row.target_type === "index"
+          ? "index"
+          : "site";
       const siteId = typeof row.target_site_id === "string" ? row.target_site_id.trim() : "";
-      const ownerUserId = typeof row.target_owner_user_id === "string" ? row.target_owner_user_id.trim() : "";
-      if (!siteId || !ownerUserId) return null;
+      const indexId =
+        typeof row.target_index_id === "string" ? row.target_index_id.trim() : "";
+      const targetId = targetType === "index" ? indexId : siteId;
+      if (!targetId) return null;
+
+      const ownerUserId =
+        typeof row.target_owner_user_id === "string" && row.target_owner_user_id.trim()
+          ? row.target_owner_user_id.trim()
+          : null;
 
       const ownerEmail = typeof row.target_owner_email === "string" ? row.target_owner_email.trim() : "";
       const ownerDisplayName =
@@ -140,16 +161,21 @@ const mapSearchRows = (rows: SiteConnectionSearchRow[] | null | undefined): Conn
           : ownerEmail || "Unknown";
 
       return {
-        siteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
-        siteId,
+        targetId,
+        targetType,
+        siteId: siteId || null,
+        indexId: indexId || null,
+        siteUrl: typeof row.target_url === "string" ? row.target_url : "",
         title:
-          typeof row.target_site_title === "string" && row.target_site_title.trim()
-            ? row.target_site_title.trim()
-            : "Untitled site",
-        description: typeof row.target_site_description === "string" ? row.target_site_description : "",
+          typeof row.target_title === "string" && row.target_title.trim()
+            ? row.target_title.trim()
+            : targetType === "index"
+              ? "Untitled index"
+              : "Untitled site",
+        description: typeof row.target_description === "string" ? row.target_description : "",
         imageUrl: resolveSiteImageUrl(
-          typeof row.target_site_url === "string" ? row.target_site_url : "",
-          typeof row.target_site_image_url === "string" ? row.target_site_image_url : ""
+          typeof row.target_url === "string" ? row.target_url : "",
+          typeof row.target_image_url === "string" ? row.target_image_url : ""
         ),
         ownerUserId,
         ownerDisplayName,
@@ -177,8 +203,16 @@ const mapRequestRows = (rows: SiteConnectionRequestRow[] | null | undefined): Si
       const requestId = typeof row.request_id === "string" ? row.request_id.trim() : "";
       const connectionUuid = typeof row.connection_uuid === "string" ? row.connection_uuid.trim() : "";
       const sourceSiteId = typeof row.source_site_id === "string" ? row.source_site_id.trim() : "";
+      const targetType: ConnectionTargetType =
+        row.target_type === "index"
+          ? "index"
+          : "site";
       const targetSiteId = typeof row.target_site_id === "string" ? row.target_site_id.trim() : "";
-      if (!requestId || !connectionUuid || !sourceSiteId || !targetSiteId) return null;
+      const targetIndexId =
+        typeof row.target_index_id === "string" ? row.target_index_id.trim() : "";
+      if (!requestId || !connectionUuid || !sourceSiteId) return null;
+      if (targetType === "index" && !targetIndexId) return null;
+      if (targetType === "site" && !targetSiteId) return null;
 
       return {
         requestId,
@@ -200,15 +234,19 @@ const mapRequestRows = (rows: SiteConnectionRequestRow[] | null | undefined): Si
           typeof row.source_owner_display_name === "string" && row.source_owner_display_name.trim()
             ? row.source_owner_display_name.trim()
             : "Unknown",
-        targetSiteId,
-        targetSiteUrl: typeof row.target_site_url === "string" ? row.target_site_url : "",
-        targetSiteTitle:
-          typeof row.target_site_title === "string" && row.target_site_title.trim()
-            ? row.target_site_title.trim()
-            : "Untitled site",
-        targetSiteImageUrl: resolveSiteImageUrl(
-          typeof row.target_site_url === "string" ? row.target_site_url : "",
-          typeof row.target_site_image_url === "string" ? row.target_site_image_url : ""
+        targetType,
+        targetSiteId: targetSiteId || null,
+        targetIndexId: targetIndexId || null,
+        targetUrl: typeof row.target_url === "string" ? row.target_url : "",
+        targetTitle:
+          typeof row.target_title === "string" && row.target_title.trim()
+            ? row.target_title.trim()
+            : targetType === "index"
+              ? "Untitled index"
+              : "Untitled site",
+        targetImageUrl: resolveSiteImageUrl(
+          typeof row.target_url === "string" ? row.target_url : "",
+          typeof row.target_image_url === "string" ? row.target_image_url : ""
         ),
         targetOwnerDisplayName:
           typeof row.target_owner_display_name === "string" && row.target_owner_display_name.trim()
@@ -334,14 +372,17 @@ export const listSiteConnectionRequests = async ({
 
 export const sendSiteConnectionInvite = async ({
   sourceSiteId,
-  targetSiteId
+  targetSiteId,
+  targetIndexId
 }: {
   sourceSiteId: string;
-  targetSiteId: string;
+  targetSiteId?: string | null;
+  targetIndexId?: string | null;
 }) => {
   const { data, error } = await supabase.rpc("site_connection_send_invite", {
     p_source_site_id: sourceSiteId,
-    p_target_site_id: targetSiteId
+    p_target_site_id: targetSiteId?.trim() || null,
+    p_target_index_id: targetIndexId?.trim() || null
   });
 
   if (error) {
@@ -374,6 +415,26 @@ export const respondToSiteConnectionRequest = async ({
   const row = mapMutationRows((data ?? []) as SiteConnectionMutationRow[]);
   if (!row) {
     throw new Error("Connection request could not be updated.");
+  }
+  return row;
+};
+
+export const disconnectSiteConnection = async ({
+  requestId
+}: {
+  requestId: string;
+}) => {
+  const { data, error } = await supabase.rpc("site_connection_disconnect", {
+    p_request_id: requestId
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = mapMutationRows((data ?? []) as SiteConnectionMutationRow[]);
+  if (!row) {
+    throw new Error("Connection could not be removed.");
   }
   return row;
 };

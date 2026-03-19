@@ -15,7 +15,7 @@ import type {
   IndexAdminAdvancedPayload,
   IndexAdminAuthSetup,
   IndexAdminConnection,
-  IndexAdminConnectionStatusPayload,
+  IndexAdminConnectionRequestPayload,
   IndexAdminConfigureStandaloneAuthPayload,
   IndexAdminDeployFunctionsPayload,
   IndexAdminFunctionsDeploymentRun,
@@ -42,7 +42,7 @@ type RawIndexAdminActor = {
   canManageAdvanced?: boolean;
 };
 
-type RawIndexAdminArchive = {
+type RawIndexAdminIndex = {
   id?: string;
   slug?: string;
   title?: string;
@@ -69,19 +69,16 @@ type RawIndexAdminArchive = {
 };
 
 type RawIndexAdminConnection = {
-  siteId?: string;
-  status?: "tracked" | "delisted";
+  requestId?: string;
+  connectionUuid?: string;
+  status?: "pending" | "approved" | "rejected" | "cancelled";
   createdAt?: string | null;
-  delistReasonCode?: string | null;
-  delistNote?: string | null;
-  title?: string;
-  description?: string;
-  canonicalUrl?: string;
-  imageUrl?: string | null;
-  type?: "site" | "index" | null;
-  parentIndexId?: string | null;
-  parentIndexUrl?: string | null;
-  parentIndexLevel?: number | null;
+  respondedAt?: string | null;
+  sourceSiteId?: string;
+  sourceSiteTitle?: string;
+  sourceSiteUrl?: string;
+  sourceSiteImageUrl?: string | null;
+  sourceOwnerDisplayName?: string;
 };
 
 type RawIndexAdminCollaborator = {
@@ -95,7 +92,7 @@ type RawIndexAdminCollaborator = {
 
 type RawIndexAdminState = {
   actor?: RawIndexAdminActor;
-  archive?: RawIndexAdminArchive;
+  index?: RawIndexAdminIndex;
   connections?: RawIndexAdminConnection[];
   collaborators?: RawIndexAdminCollaborator[];
 };
@@ -121,7 +118,7 @@ type RawIndexAdminSetup = Partial<IndexAdminSetup> & {
 
 const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): IndexAdminState => {
   const actor = rawState?.actor;
-  const archive = rawState?.archive;
+  const index = rawState?.index;
   const collaboratorRows = rawState?.collaborators ?? [];
   const ownerRow = collaboratorRows.find((entry) => entry.role === "owner") ?? null;
   const managedCollaboratorRows: ManagedCollaboratorApiRow[] = collaboratorRows
@@ -162,66 +159,72 @@ const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): In
       canManageCollaborators: actor?.canManageCollaborators !== false,
       canManageAdvanced: actor?.canManageAdvanced !== false
     },
-    archive: {
-      id: typeof archive?.id === "string" ? archive.id : "",
-      slug: typeof archive?.slug === "string" ? archive.slug : "",
-      title: typeof archive?.title === "string" ? archive.title : "",
-      description: typeof archive?.description === "string" ? archive.description : "",
-      imageUrl: typeof archive?.imageUrl === "string" ? archive.imageUrl : "",
-      canonicalUrl: typeof archive?.canonicalUrl === "string" ? archive.canonicalUrl : "",
-      repoFullName: typeof archive?.repoFullName === "string" ? archive.repoFullName : null,
-      repoUrl: typeof archive?.repoUrl === "string" ? archive.repoUrl : null,
+    index: {
+      id: typeof index?.id === "string" ? index.id : "",
+      slug: typeof index?.slug === "string" ? index.slug : "",
+      title: typeof index?.title === "string" ? index.title : "",
+      description: typeof index?.description === "string" ? index.description : "",
+      imageUrl: typeof index?.imageUrl === "string" ? index.imageUrl : "",
+      canonicalUrl: typeof index?.canonicalUrl === "string" ? index.canonicalUrl : "",
+      repoFullName: typeof index?.repoFullName === "string" ? index.repoFullName : null,
+      repoUrl: typeof index?.repoUrl === "string" ? index.repoUrl : null,
       supabaseProjectRef:
-        typeof archive?.supabaseProjectRef === "string" ? archive.supabaseProjectRef : null,
+        typeof index?.supabaseProjectRef === "string" ? index.supabaseProjectRef : null,
       supabaseDashboardUrl:
-        typeof archive?.supabaseDashboardUrl === "string" ? archive.supabaseDashboardUrl : null,
+        typeof index?.supabaseDashboardUrl === "string" ? index.supabaseDashboardUrl : null,
       supabaseProjectUrl:
-        typeof archive?.supabaseProjectUrl === "string" ? archive.supabaseProjectUrl : "",
+        typeof index?.supabaseProjectUrl === "string" ? index.supabaseProjectUrl : "",
       supabasePublishableKey:
-        typeof archive?.supabasePublishableKey === "string" ? archive.supabasePublishableKey : "",
-      indexLevel: typeof archive?.indexLevel === "number" ? archive.indexLevel : null,
+        typeof index?.supabasePublishableKey === "string" ? index.supabasePublishableKey : "",
+      indexLevel: typeof index?.indexLevel === "number" ? index.indexLevel : null,
       parentIndexId:
-        typeof archive?.parentIndexId === "string" ? archive.parentIndexId : null,
+        typeof index?.parentIndexId === "string" ? index.parentIndexId : null,
       parentIndexUrl:
-        typeof archive?.parentIndexUrl === "string" ? archive.parentIndexUrl : null,
+        typeof index?.parentIndexUrl === "string" ? index.parentIndexUrl : null,
       parentIndexLevel:
-        typeof archive?.parentIndexLevel === "number" ? archive.parentIndexLevel : null,
+        typeof index?.parentIndexLevel === "number" ? index.parentIndexLevel : null,
       parentRepoFullName:
-        typeof archive?.parentRepoFullName === "string" ? archive.parentRepoFullName : null,
-      parentRepoUrl: typeof archive?.parentRepoUrl === "string" ? archive.parentRepoUrl : null,
-      type: archive?.type === "site" || archive?.type === "index" ? archive.type : "index",
+        typeof index?.parentRepoFullName === "string" ? index.parentRepoFullName : null,
+      parentRepoUrl: typeof index?.parentRepoUrl === "string" ? index.parentRepoUrl : null,
+      type: index?.type === "site" || index?.type === "index" ? index.type : "index",
       standaloneAdminUrl:
-        typeof archive?.standaloneAdminUrl === "string" ? archive.standaloneAdminUrl : "",
+        typeof index?.standaloneAdminUrl === "string" ? index.standaloneAdminUrl : "",
       solidaryAdminUrl:
-        typeof archive?.solidaryAdminUrl === "string" ? archive.solidaryAdminUrl : "",
+        typeof index?.solidaryAdminUrl === "string" ? index.solidaryAdminUrl : "",
       authCallbackUrl:
-        typeof archive?.authCallbackUrl === "string" ? archive.authCallbackUrl : "",
+        typeof index?.authCallbackUrl === "string" ? index.authCallbackUrl : "",
       authProvidersDashboardUrl:
-        typeof archive?.authProvidersDashboardUrl === "string"
-          ? archive.authProvidersDashboardUrl
+        typeof index?.authProvidersDashboardUrl === "string"
+          ? index.authProvidersDashboardUrl
           : ""
     },
     connections: (rawState?.connections ?? []).map(
       (connection) =>
         ({
-          siteId: typeof connection.siteId === "string" ? connection.siteId : "",
-          status: connection.status === "delisted" ? "delisted" : "tracked",
+          requestId: typeof connection.requestId === "string" ? connection.requestId : "",
+          connectionUuid: typeof connection.connectionUuid === "string" ? connection.connectionUuid : "",
+          status:
+            connection.status === "approved" ||
+            connection.status === "rejected" ||
+            connection.status === "cancelled"
+              ? connection.status
+              : "pending",
           createdAt: typeof connection.createdAt === "string" ? connection.createdAt : null,
-          delistReasonCode:
-            typeof connection.delistReasonCode === "string" ? connection.delistReasonCode : null,
-          delistNote: typeof connection.delistNote === "string" ? connection.delistNote : null,
-          title: typeof connection.title === "string" ? connection.title : "Untitled site",
-          description: typeof connection.description === "string" ? connection.description : "",
-          canonicalUrl:
-            typeof connection.canonicalUrl === "string" ? connection.canonicalUrl : "",
-          imageUrl: typeof connection.imageUrl === "string" ? connection.imageUrl : null,
-          type: connection.type === "site" || connection.type === "index" ? connection.type : null,
-          parentIndexId:
-            typeof connection.parentIndexId === "string" ? connection.parentIndexId : null,
-          parentIndexUrl:
-            typeof connection.parentIndexUrl === "string" ? connection.parentIndexUrl : null,
-          parentIndexLevel:
-            typeof connection.parentIndexLevel === "number" ? connection.parentIndexLevel : null
+          respondedAt: typeof connection.respondedAt === "string" ? connection.respondedAt : null,
+          sourceSiteId: typeof connection.sourceSiteId === "string" ? connection.sourceSiteId : "",
+          sourceSiteTitle:
+            typeof connection.sourceSiteTitle === "string" && connection.sourceSiteTitle.trim()
+              ? connection.sourceSiteTitle
+              : "Untitled site",
+          sourceSiteUrl:
+            typeof connection.sourceSiteUrl === "string" ? connection.sourceSiteUrl : "",
+          sourceSiteImageUrl:
+            typeof connection.sourceSiteImageUrl === "string" ? connection.sourceSiteImageUrl : "",
+          sourceOwnerDisplayName:
+            typeof connection.sourceOwnerDisplayName === "string" &&
+              connection.sourceOwnerDisplayName.trim()
+              ? connection.sourceOwnerDisplayName
+              : "Unknown"
         }) satisfies IndexAdminConnection
     ),
     collaborators: mapManagedCollaboratorRows(managedCollaboratorRows),
@@ -516,7 +519,7 @@ const readConfiguredRootIndexId = () => {
   return explicitRootIndexId || DEFAULT_SOLIDARY_ROOT_INDEX_ID;
 };
 
-export const getRootIndexAdminArchiveId = () => readConfiguredRootIndexId();
+export const getRootIndexAdminIndexId = () => readConfiguredRootIndexId();
 
 export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]> => {
   const payload = await githubRequest<{ items?: IndexAdminListItem[] }>("index-admin-list", {});
@@ -524,14 +527,14 @@ export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]>
 };
 
 export const loginIndexAdminWithPassword = async ({
-  archiveId,
+  indexId,
   password
 }: {
-  archiveId: string;
+  indexId: string;
   password: string;
 }) => {
   const payload = await githubRequest<{ token?: string }>("index-admin-password-login", {
-    archive_id: archiveId.trim(),
+    index_id: indexId.trim(),
     password
   });
   const token = typeof payload.token === "string" ? payload.token.trim() : "";
@@ -542,13 +545,13 @@ export const loginIndexAdminWithPassword = async ({
 };
 
 export const readIndexAdmin = async (
-  archiveId: string,
+  indexId: string,
   options: IndexAdminRequestOptions = {}
 ): Promise<IndexAdminReadResponse> => {
   const payload = await githubRequest<{ state?: RawIndexAdminState; setup?: RawIndexAdminSetup }>(
     "index-admin-read",
     {
-      archive_id: archiveId.trim() || undefined,
+      index_id: indexId.trim() || undefined,
       bridge_token: options.bridgeToken?.trim() || undefined,
       supabase_personal_access_token: options.supabasePersonalAccessToken?.trim() || undefined
     }
@@ -557,18 +560,18 @@ export const readIndexAdmin = async (
 };
 
 export const searchIndexAdminCollaborators = async ({
-  archiveId,
+  indexId,
   query,
   bridgeToken
 }: {
-  archiveId: string;
+  indexId: string;
   query: string;
   bridgeToken?: string;
 }): Promise<IndexAdminSearchResponse> => {
   const payload = await githubRequest<{ results?: CollaboratorSearchRpcRow[] }>(
     "index-admin-search-collaborators",
     {
-      archive_id: archiveId,
+      index_id: indexId,
       query,
       bridge_token: bridgeToken?.trim() || undefined
     }
@@ -594,87 +597,87 @@ const writeIndexAdmin = async (
 };
 
 export const saveIndexAdminGeneral = async ({
-  archiveId,
+  indexId,
   title,
   description,
   imageContentB64
 }: IndexAdminGeneralPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "update_general",
     title,
     description,
     image_content_b64: imageContentB64
   }, options);
 
-export const saveIndexAdminConnectionStatus = async ({
-  archiveId,
-  siteId,
-  status
-}: IndexAdminConnectionStatusPayload, options: IndexAdminWriteOptions = {}) =>
+export const updateIndexAdminConnectionRequest = async ({
+  indexId,
+  requestId,
+  action
+}: IndexAdminConnectionRequestPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
-    action: "set_connection_status",
-    site_id: siteId,
-    status
+    index_id: indexId,
+    action: "update_connection_request",
+    request_id: requestId,
+    connection_action: action
   }, options);
 
 export const saveIndexAdminCollaborator = async ({
-  archiveId,
+  indexId,
   collaboratorUserId,
   role
 }: {
-  archiveId: string;
+  indexId: string;
   collaboratorUserId: string;
   role: CollaboratorRole;
 }, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "upsert_collaborator",
     collaborator_user_id: collaboratorUserId,
     role
   }, options);
 
 export const removeIndexAdminCollaborator = async ({
-  archiveId,
+  indexId,
   collaboratorUserId
 }: {
-  archiveId: string;
+  indexId: string;
   collaboratorUserId: string;
 }, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "remove_collaborator",
     collaborator_user_id: collaboratorUserId
   }, options);
 
 export const saveIndexAdminAdvanced = async ({
-  archiveId,
+  indexId,
   domain
 }: IndexAdminAdvancedPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "update_advanced",
     domain
   }, options);
 
 export const finalizeIndexAdmin = async (
-  { archiveId }: IndexAdminFinalizePayload,
+  { indexId }: IndexAdminFinalizePayload,
   options: IndexAdminWriteOptions = {}
 ) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "finalize_index"
   }, options);
 
 export const configureIndexAdminStandaloneAuth = async ({
-  archiveId,
+  indexId,
   githubClientId,
   githubClientSecret,
   supabasePersonalAccessToken
 }: IndexAdminConfigureStandaloneAuthPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "configure_standalone_auth",
     github_client_id: githubClientId,
     github_client_secret: githubClientSecret,
@@ -682,13 +685,13 @@ export const configureIndexAdminStandaloneAuth = async ({
   }, options);
 
 export const deployIndexAdminChildFunctions = async ({
-  archiveId,
+  indexId,
   supabasePersonalAccessToken,
   adminPassword,
   dispatchWorkflow = true
 }: IndexAdminDeployFunctionsPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
-    archive_id: archiveId,
+    index_id: indexId,
     action: "deploy_child_functions",
     supabase_personal_access_token: supabasePersonalAccessToken,
     admin_password: adminPassword?.trim() || undefined,

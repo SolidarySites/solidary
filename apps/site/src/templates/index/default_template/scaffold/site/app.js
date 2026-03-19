@@ -67,22 +67,22 @@ const renderConnectedSites = (container, connections) => {
 };
 
 const loadSiteState = async (config) => {
-  const [archiveRows, archiveSiteRows] = await Promise.all([
+  const [indexRows, indexSiteRows] = await Promise.all([
     selectFromTable({
       config,
-      table: "archives",
+      table: "indexes",
       select:
         "id,type,canonical_url,title,description,image_url,index_level,parent_index_id,parent_index_url,parent_index_level",
       filters: {
-        id: `eq.${config.archiveId}`
+        id: `eq.${config.indexId}`
       }
     }),
     selectFromTable({
       config,
-      table: "archive_sites",
+      table: "index_sites",
       select: "site_id,status,created_at,delist_reason_code,delist_note",
       filters: {
-        archive_id: `eq.${config.archiveId}`,
+        index_id: `eq.${config.indexId}`,
         status: "eq.tracked"
       },
       order: {
@@ -92,9 +92,9 @@ const loadSiteState = async (config) => {
     })
   ]);
 
-  const archive = Array.isArray(archiveRows) ? archiveRows[0] || null : null;
-  const connectionSiteIds = Array.isArray(archiveSiteRows)
-    ? archiveSiteRows
+  const index = Array.isArray(indexRows) ? indexRows[0] || null : null;
+  const connectionSiteIds = Array.isArray(indexSiteRows)
+    ? indexSiteRows
         .map((row) => (typeof row.site_id === "string" ? row.site_id : ""))
         .filter(Boolean)
     : [];
@@ -131,7 +131,7 @@ const loadSiteState = async (config) => {
   });
 
   return {
-    archive,
+    index,
     connections
   };
 };
@@ -139,42 +139,42 @@ const loadSiteState = async (config) => {
 const boot = async () => {
   try {
     const config = await loadConfig("./config/index.json");
-    const { archive, connections } = await loadSiteState(config);
-    const archiveTitle =
-      (archive && typeof archive.title === "string" && archive.title) || config.title || "Solidary Index";
-    const archiveDescription =
-      (archive && typeof archive.description === "string" && archive.description) ||
+    const { index, connections } = await loadSiteState(config);
+    const indexTitle =
+      (index && typeof index.title === "string" && index.title) || config.title || "Solidary Index";
+    const indexDescription =
+      (index && typeof index.description === "string" && index.description) ||
       config.description ||
       "This standalone index is loading.";
     const siteUrl =
-      (archive && typeof archive.canonical_url === "string" && archive.canonical_url) ||
+      (index && typeof index.canonical_url === "string" && index.canonical_url) ||
       config.siteUrl ||
       "";
 
-    document.title = `${archiveTitle} | Solidary Index`;
+    document.title = `${indexTitle} | Solidary Index`;
     const descriptionMeta = document.querySelector('meta[name="description"]');
     if (descriptionMeta) {
-      descriptionMeta.setAttribute("content", archiveDescription);
+      descriptionMeta.setAttribute("content", indexDescription);
     }
 
-    setText("index-title", archiveTitle);
-    setText("index-description", archiveDescription);
-    setText("archive-slug", typeof config.slug === "string" ? config.slug : "");
-    setText("archive-id", typeof config.archiveId === "string" ? config.archiveId : "");
+    setText("index-title", indexTitle);
+    setText("index-description", indexDescription);
+    setText("index-slug", typeof config.slug === "string" ? config.slug : "");
+    setText("index-id", typeof config.indexId === "string" ? config.indexId : "");
     setText("project-ref", typeof config.projectRef === "string" ? config.projectRef : "");
     setText("project-url", typeof config.projectUrl === "string" ? config.projectUrl : "");
     setText(
       "index-level",
-      archive && typeof archive.index_level === "number"
-        ? String(archive.index_level)
+      index && typeof index.index_level === "number"
+        ? String(index.index_level)
         : typeof config.indexLevel === "number"
           ? String(config.indexLevel)
           : "-"
     );
     setText(
       "parent-index-url",
-      archive && typeof archive.parent_index_url === "string" && archive.parent_index_url
-        ? archive.parent_index_url
+      index && typeof index.parent_index_url === "string" && index.parent_index_url
+        ? index.parent_index_url
         : typeof config.parentIndexUrl === "string"
           ? config.parentIndexUrl
           : ""

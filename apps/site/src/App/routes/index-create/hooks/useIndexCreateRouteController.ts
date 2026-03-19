@@ -152,7 +152,7 @@ export const useIndexCreateRouteController = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const archiveId = searchParams.get("archiveId")?.trim() ?? "";
+  const indexId = searchParams.get("indexId")?.trim() ?? "";
 
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
@@ -168,7 +168,7 @@ export const useIndexCreateRouteController = () => {
 
   const [title, setTitle] = useState("New Index");
   const [description, setDescription] = useState(
-    "Describe what this archive will track and publish."
+    "Describe what this index will track and publish."
   );
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
   const [organizationConfirmed, setOrganizationConfirmed] = useState(false);
@@ -196,7 +196,7 @@ export const useIndexCreateRouteController = () => {
   const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
 
   const repoCheckRequestIdRef = useRef(0);
-  const autoDeployArchiveIdRef = useRef<string | null>(null);
+  const autoDeployIndexIdRef = useRef<string | null>(null);
   const autoDeployInFlightRef = useRef(false);
   const previousFunctionsStatusRef = useRef<string | null>(null);
 
@@ -230,12 +230,12 @@ export const useIndexCreateRouteController = () => {
         organizationConfirmed,
         detailsConfirmed,
         supabasePatConfirmed,
-        archiveId,
+        indexId,
         setup,
         isProvisioning
       }),
     [
-      archiveId,
+      indexId,
       detailsConfirmed,
       isProvisioning,
       organizationConfirmed,
@@ -299,22 +299,22 @@ export const useIndexCreateRouteController = () => {
 
   const refreshSetup = useCallback(
     async (
-      requestedArchiveId = archiveId,
+      requestedIndexId = indexId,
       {
         supabasePersonalAccessToken: nextSupabasePersonalAccessToken
       }: {
         supabasePersonalAccessToken?: string;
       } = {}
     ) => {
-      const normalizedArchiveId = requestedArchiveId.trim();
-      if (!normalizedArchiveId) {
+      const normalizedIndexId = requestedIndexId.trim();
+      if (!normalizedIndexId) {
         setSetup(null);
         return null;
       }
 
       setSetupLoading(true);
       try {
-        const response = await readIndexAdmin(normalizedArchiveId, {
+        const response = await readIndexAdmin(normalizedIndexId, {
           bridgeToken: bridgeToken || undefined,
           supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
         });
@@ -330,7 +330,7 @@ export const useIndexCreateRouteController = () => {
         setSetupLoading(false);
       }
     },
-    [archiveId, bridgeToken, syncBridgeTokenFromSetup]
+    [indexId, bridgeToken, syncBridgeTokenFromSetup]
   );
 
   useEffect(() => {
@@ -338,7 +338,7 @@ export const useIndexCreateRouteController = () => {
   }, [refreshStatuses]);
 
   useEffect(() => {
-    if (!archiveId) {
+    if (!indexId) {
       setSetup(null);
       setBridgeToken("");
       setFunctionsDeploymentPending(false);
@@ -346,14 +346,14 @@ export const useIndexCreateRouteController = () => {
       return;
     }
 
-    void refreshSetup(archiveId);
-  }, [archiveId, refreshSetup]);
+    void refreshSetup(indexId);
+  }, [indexId, refreshSetup]);
 
   useEffect(() => {
     const nextStatus = setup?.functionsDeployment.status ?? null;
     const previousStatus = previousFunctionsStatusRef.current;
 
-    if (!archiveId) {
+    if (!indexId) {
       previousFunctionsStatusRef.current = null;
       return;
     }
@@ -375,10 +375,10 @@ export const useIndexCreateRouteController = () => {
     }
 
     previousFunctionsStatusRef.current = nextStatus;
-  }, [archiveId, functionsDeploymentPending, setup?.functionsDeployment.status]);
+  }, [indexId, functionsDeploymentPending, setup?.functionsDeployment.status]);
 
   useEffect(() => {
-    if (!archiveId) {
+    if (!indexId) {
       setFunctionsDeploymentPending(false);
       setDeployingFunctions(false);
       return;
@@ -396,17 +396,17 @@ export const useIndexCreateRouteController = () => {
     ) {
       setDeployingFunctions(false);
     }
-  }, [archiveId, deployingFunctions, functionsDeploymentPending, setup?.functionsDeployment.status]);
+  }, [indexId, deployingFunctions, functionsDeploymentPending, setup?.functionsDeployment.status]);
 
   useEffect(() => {
-    if (archiveId || selectedOrganizationId || organizations.length !== 1) {
+    if (indexId || selectedOrganizationId || organizations.length !== 1) {
       return;
     }
     setSelectedOrganizationId(organizations[0]?.id ?? "");
-  }, [archiveId, organizations, selectedOrganizationId]);
+  }, [indexId, organizations, selectedOrganizationId]);
 
   useEffect(() => {
-    if (!archiveId) {
+    if (!indexId) {
       return;
     }
     if (
@@ -425,7 +425,7 @@ export const useIndexCreateRouteController = () => {
       }
 
       refreshInFlight = true;
-      void refreshSetup(archiveId).finally(() => {
+      void refreshSetup(indexId).finally(() => {
         refreshInFlight = false;
       });
     }, 2500);
@@ -435,7 +435,7 @@ export const useIndexCreateRouteController = () => {
       window.clearInterval(intervalId);
     };
   }, [
-    archiveId,
+    indexId,
     functionsDeploymentPending,
     refreshSetup,
     setup?.finalization.isRunning,
@@ -760,7 +760,7 @@ export const useIndexCreateRouteController = () => {
       return;
     }
 
-    if (!archiveId) {
+    if (!indexId) {
       setNotice("Create the index before saving the deployment token.");
       setNoticeKind("error");
       return;
@@ -769,7 +769,7 @@ export const useIndexCreateRouteController = () => {
     setSavingFunctionAccess(true);
     try {
       const response = await deployIndexAdminChildFunctions({
-        archiveId,
+        indexId,
         supabasePersonalAccessToken,
         adminPassword,
         dispatchWorkflow: false
@@ -848,15 +848,15 @@ export const useIndexCreateRouteController = () => {
         onStep: setProvisionStep
       });
 
-      const createdArchiveId = completedJob.archive?.id?.trim() ?? "";
-      if (!createdArchiveId) {
-        throw new Error("The new index was created, but the setup route is missing the archive id.");
+      const createdIndexId = completedJob.index?.id?.trim() ?? "";
+      if (!createdIndexId) {
+        throw new Error("The new index was created, but the setup route is missing the index id.");
       }
 
       const nextParams = new URLSearchParams(searchParams);
-      nextParams.set("archiveId", createdArchiveId);
+      nextParams.set("indexId", createdIndexId);
       setSearchParams(nextParams, { replace: true });
-      await refreshSetup(createdArchiveId);
+      await refreshSetup(createdIndexId);
       setNotice("Index created. Continue with the next setup step.");
       setNoticeKind("notice");
     } catch (error) {
@@ -868,7 +868,7 @@ export const useIndexCreateRouteController = () => {
   };
 
   const handleConfigureStandaloneAuth = async () => {
-    if (!archiveId) {
+    if (!indexId) {
       return;
     }
 
@@ -877,7 +877,7 @@ export const useIndexCreateRouteController = () => {
     setConfiguringStandaloneAuth(true);
     try {
       const response = await configureIndexAdminStandaloneAuth({
-        archiveId,
+        indexId,
         githubClientId,
         githubClientSecret,
         supabasePersonalAccessToken
@@ -900,7 +900,7 @@ export const useIndexCreateRouteController = () => {
   };
 
   const handleFinalizeIndex = async () => {
-    if (!archiveId) {
+    if (!indexId) {
       return;
     }
 
@@ -908,7 +908,7 @@ export const useIndexCreateRouteController = () => {
     setNoticeKind(null);
     setStartingFinalization(true);
     try {
-      const response = await finalizeIndexAdmin({ archiveId }, {
+      const response = await finalizeIndexAdmin({ indexId }, {
         bridgeToken: bridgeToken || undefined
       });
       setSetup(response.setup);
@@ -924,7 +924,7 @@ export const useIndexCreateRouteController = () => {
   };
 
   const handleDeployFunctions = async () => {
-    if (!archiveId) {
+    if (!indexId) {
       return;
     }
 
@@ -934,7 +934,7 @@ export const useIndexCreateRouteController = () => {
     setFunctionsDeploymentPending(true);
     try {
       const response = await deployIndexAdminChildFunctions({
-        archiveId,
+        indexId,
         supabasePersonalAccessToken,
         adminPassword
       }, {
@@ -958,8 +958,8 @@ export const useIndexCreateRouteController = () => {
   };
 
   useEffect(() => {
-    if (!archiveId || !setup?.finalization.isFinalized) {
-      autoDeployArchiveIdRef.current = null;
+    if (!indexId || !setup?.finalization.isFinalized) {
+      autoDeployIndexIdRef.current = null;
       autoDeployInFlightRef.current = false;
       return;
     }
@@ -969,11 +969,11 @@ export const useIndexCreateRouteController = () => {
     if (autoDeployInFlightRef.current) {
       return;
     }
-    if (autoDeployArchiveIdRef.current === archiveId) {
+    if (autoDeployIndexIdRef.current === indexId) {
       return;
     }
 
-    autoDeployArchiveIdRef.current = archiveId;
+    autoDeployIndexIdRef.current = indexId;
     autoDeployInFlightRef.current = true;
 
     void (async () => {
@@ -983,7 +983,7 @@ export const useIndexCreateRouteController = () => {
       setFunctionsDeploymentPending(true);
       try {
         const response = await deployIndexAdminChildFunctions({
-          archiveId,
+          indexId,
           supabasePersonalAccessToken: "",
           adminPassword
         }, {
@@ -997,7 +997,7 @@ export const useIndexCreateRouteController = () => {
         setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
         setNoticeKind("notice");
       } catch (error) {
-        autoDeployArchiveIdRef.current = null;
+        autoDeployIndexIdRef.current = null;
         setFunctionsDeploymentPending(false);
         setNotice(
           error instanceof Error ? error.message : "Could not deploy child functions."
@@ -1009,7 +1009,8 @@ export const useIndexCreateRouteController = () => {
       }
     })();
   }, [
-    archiveId,
+    adminPassword,
+    indexId,
     bridgeToken,
     deployingFunctions,
     setup?.finalization.isFinalized,
@@ -1037,7 +1038,7 @@ export const useIndexCreateRouteController = () => {
   return {
     notice,
     noticeKind,
-    archiveId,
+    indexId,
     activeStepKey,
     steps,
     statusLoading,
@@ -1078,7 +1079,7 @@ export const useIndexCreateRouteController = () => {
       void refreshStatuses();
     },
     onRefreshSetup: () => {
-      void refreshSetup(archiveId, {
+      void refreshSetup(indexId, {
         supabasePersonalAccessToken:
           activeStepKey === "github_oauth" ? supabasePersonalAccessToken : undefined
       });
@@ -1145,7 +1146,7 @@ export const useIndexCreateRouteController = () => {
     onBackToStudio: () => navigate("/studio"),
     onOpenAdvancedAdmin: () => {
       const params = new URLSearchParams();
-      params.set("archiveId", archiveId);
+      params.set("indexId", indexId);
       if (bridgeToken) {
         params.set("bridge", bridgeToken);
       }

@@ -21,7 +21,7 @@ import {
   removeIndexAdminCollaborator,
   saveIndexAdminAdvanced,
   saveIndexAdminCollaborator,
-  saveIndexAdminConnectionStatus,
+  updateIndexAdminConnectionRequest,
   saveIndexAdminGeneral,
   searchIndexAdminCollaborators
 } from "../services/index-admin";
@@ -32,17 +32,17 @@ const getFriendlyErrorMessage = (error: unknown, fallback: string) =>
 
 const buildSearchParams = ({
   current,
-  archiveId,
+  indexId,
   section,
   clearCreated = false
 }: {
   current: URLSearchParams;
-  archiveId: string;
+  indexId: string;
   section: StudioSettingsSection;
   clearCreated?: boolean;
 }) => {
   const next = new URLSearchParams(current);
-  next.set("archiveId", archiveId);
+  next.set("indexId", indexId);
   next.set("section", section);
   if (clearCreated) {
     next.delete("created");
@@ -67,29 +67,29 @@ const applyStateToFields = ({
   setSelectedSuggestion: (value: CollaboratorSearchResult | null) => void;
   setSuggestions: (value: CollaboratorSearchResult[]) => void;
 }) => {
-  setTitle(state.archive.title);
-  setDescription(state.archive.description);
-  setDomainInput(state.archive.canonicalUrl);
+  setTitle(state.index.title);
+  setDescription(state.index.description);
+  setDomainInput(state.index.canonicalUrl);
   setImageFile(null);
   setSelectedSuggestion(null);
   setSuggestions([]);
 };
 
 const buildIndexListItemFromState = (state: IndexAdminState): IndexAdminListItem => ({
-  id: state.archive.id,
-  slug: state.archive.slug,
-  title: state.archive.title,
-  description: state.archive.description,
-  imageUrl: state.archive.imageUrl,
-  canonicalUrl: state.archive.canonicalUrl,
-  repoFullName: state.archive.repoFullName,
-  repoUrl: state.archive.repoUrl,
-  supabaseProjectRef: state.archive.supabaseProjectRef,
-  supabaseDashboardUrl: state.archive.supabaseDashboardUrl,
-  indexLevel: state.archive.indexLevel,
-  parentIndexId: state.archive.parentIndexId,
-  parentIndexUrl: state.archive.parentIndexUrl,
-  parentIndexLevel: state.archive.parentIndexLevel,
+  id: state.index.id,
+  slug: state.index.slug,
+  title: state.index.title,
+  description: state.index.description,
+  imageUrl: state.index.imageUrl,
+  canonicalUrl: state.index.canonicalUrl,
+  repoFullName: state.index.repoFullName,
+  repoUrl: state.index.repoUrl,
+  supabaseProjectRef: state.index.supabaseProjectRef,
+  supabaseDashboardUrl: state.index.supabaseDashboardUrl,
+  indexLevel: state.index.indexLevel,
+  parentIndexId: state.index.parentIndexId,
+  parentIndexUrl: state.index.parentIndexUrl,
+  parentIndexLevel: state.index.parentIndexLevel,
   accessRole: state.actor.role
 });
 
@@ -121,7 +121,7 @@ export const useAdminRouteController = () => {
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
   const [updatingCollaboratorUserId, setUpdatingCollaboratorUserId] = useState<string | null>(null);
 
-  const [updatingConnectionSiteId, setUpdatingConnectionSiteId] = useState<string | null>(null);
+  const [updatingConnectionRequestId, setUpdatingConnectionRequestId] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
   const [savingAdvanced, setSavingAdvanced] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
@@ -136,24 +136,24 @@ export const useAdminRouteController = () => {
   const queryRequestIdRef = useRef(0);
   const previousFunctionsStatusRef = useRef<string | null>(null);
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
-  const requestedArchiveId = searchParams.get("archiveId")?.trim() ?? "";
+  const requestedIndexId = searchParams.get("indexId")?.trim() ?? "";
   const bridgeToken = searchParams.get("bridge")?.trim() ?? "";
   const isBridgeMode = Boolean(bridgeToken);
   const createdMode = searchParams.get("created") === "1";
 
   const selectedArchiveId = useMemo(() => {
     if (isBridgeMode) {
-      if (requestedArchiveId && indexes.some((entry) => entry.id === requestedArchiveId)) {
-        return requestedArchiveId;
+      if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
+        return requestedIndexId;
       }
-      return state?.archive.id || indexes[0]?.id || "";
+      return state?.index.id || indexes[0]?.id || "";
     }
     if (!indexes.length) return "";
-    if (requestedArchiveId && indexes.some((entry) => entry.id === requestedArchiveId)) {
-      return requestedArchiveId;
+    if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
+      return requestedIndexId;
     }
     return indexes[0]?.id ?? "";
-  }, [indexes, isBridgeMode, requestedArchiveId, state?.archive.id]);
+  }, [indexes, isBridgeMode, requestedIndexId, state?.index.id]);
 
   const buildReadOptions = useCallback(
     ({
@@ -169,14 +169,14 @@ export const useAdminRouteController = () => {
 
   useEffect(() => {
     if (!imageFile) {
-      setImagePreview(state?.archive.imageUrl || null);
+      setImagePreview(state?.index.imageUrl || null);
       return;
     }
 
     const nextUrl = URL.createObjectURL(imageFile);
     setImagePreview(nextUrl);
     return () => URL.revokeObjectURL(nextUrl);
-  }, [imageFile, state?.archive.imageUrl]);
+  }, [imageFile, state?.index.imageUrl]);
 
   useEffect(() => {
     if (isBridgeMode) {
@@ -210,18 +210,18 @@ export const useAdminRouteController = () => {
 
   useEffect(() => {
     if (!indexes.length) return;
-    if (requestedArchiveId && indexes.some((entry) => entry.id === requestedArchiveId)) {
+    if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
       return;
     }
 
     const nextArchiveId = indexes[0]?.id ?? "";
     if (!nextArchiveId) return;
-    setSearchParams(buildSearchParams({ current: searchParams, archiveId: nextArchiveId, section: activeSection }), {
+    setSearchParams(buildSearchParams({ current: searchParams, indexId: nextArchiveId, section: activeSection }), {
       replace: true
     });
-  }, [activeSection, indexes, requestedArchiveId, searchParams, setSearchParams]);
+  }, [activeSection, indexes, requestedIndexId, searchParams, setSearchParams]);
 
-  const applyResponse = (
+  const applyResponse = useCallback((
     response: IndexAdminReadResponse,
     { resetFields = true }: { resetFields?: boolean } = {}
   ) => {
@@ -243,7 +243,7 @@ export const useAdminRouteController = () => {
       setSelectedSuggestion: setSelectedCollaboratorSuggestion,
       setSuggestions: setCollaboratorSuggestions
     });
-  };
+  }, [isBridgeMode]);
 
   useEffect(() => {
     if (!selectedArchiveId && !isBridgeMode) {
@@ -284,7 +284,7 @@ export const useAdminRouteController = () => {
     return () => {
       cancelled = true;
     };
-  }, [buildReadOptions, createdMode, isBridgeMode, selectedArchiveId]);
+  }, [applyResponse, buildReadOptions, createdMode, isBridgeMode, selectedArchiveId]);
 
   useEffect(() => {
     const nextStatus = setup?.functionsDeployment.status ?? null;
@@ -352,6 +352,7 @@ export const useAdminRouteController = () => {
       window.clearInterval(intervalId);
     };
   }, [
+    applyResponse,
     selectedArchiveId,
     setup?.finalization.isRunning,
     setup?.functionsDeployment.status,
@@ -372,7 +373,7 @@ export const useAdminRouteController = () => {
       void (async () => {
         try {
           const response = await searchIndexAdminCollaborators({
-            archiveId: selectedArchiveId,
+            indexId: selectedArchiveId,
             query,
             bridgeToken: isBridgeMode ? bridgeToken : undefined
           });
@@ -420,7 +421,7 @@ export const useAdminRouteController = () => {
     setSavingGeneral(true);
     try {
       const response = await saveIndexAdminGeneral({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         title: title.trim(),
         description: description.trim(),
         imageContentB64: imageFile ? await fileToBase64(imageFile) : undefined
@@ -438,25 +439,34 @@ export const useAdminRouteController = () => {
     }
   };
 
-  const handleConnectionStatusChange = async (siteId: string, status: "tracked" | "delisted") => {
+  const handleConnectionRequestAction = async (
+    requestId: string,
+    action: "approve" | "reject" | "disconnect"
+  ) => {
     if (!selectedArchiveId) return;
-    setUpdatingConnectionSiteId(siteId);
+    setUpdatingConnectionRequestId(requestId);
     try {
-      const response = await saveIndexAdminConnectionStatus({
-        archiveId: selectedArchiveId,
-        siteId,
-        status
+      const response = await updateIndexAdminConnectionRequest({
+        indexId: selectedArchiveId,
+        requestId,
+        action
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
       applyResponse(response);
-      setNotice(status === "tracked" ? "Site reconnected to the index." : "Site disconnected from the index.");
+      setNotice(
+        action === "approve"
+          ? "Connection approved."
+          : action === "reject"
+            ? "Connection request rejected."
+            : "Connection removed."
+      );
       setNoticeKind("notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not update connection status."));
+      setNotice(getFriendlyErrorMessage(error, "Could not update connection."));
       setNoticeKind("error");
     } finally {
-      setUpdatingConnectionSiteId(null);
+      setUpdatingConnectionRequestId(null);
     }
   };
 
@@ -465,7 +475,7 @@ export const useAdminRouteController = () => {
     setUpdatingCollaboratorUserId(selectedCollaboratorSuggestion.userId);
     try {
       const response = await saveIndexAdminCollaborator({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         collaboratorUserId: selectedCollaboratorSuggestion.userId,
         role: collaboratorRole
       }, {
@@ -489,7 +499,7 @@ export const useAdminRouteController = () => {
     setUpdatingCollaboratorUserId(userId);
     try {
       const response = await saveIndexAdminCollaborator({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         collaboratorUserId: userId,
         role
       }, {
@@ -511,7 +521,7 @@ export const useAdminRouteController = () => {
     setUpdatingCollaboratorUserId(userId);
     try {
       const response = await removeIndexAdminCollaborator({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         collaboratorUserId: userId
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
@@ -532,7 +542,7 @@ export const useAdminRouteController = () => {
     setSavingAdvanced(true);
     try {
       const response = await saveIndexAdminAdvanced({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         domain
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
@@ -563,7 +573,7 @@ export const useAdminRouteController = () => {
     setStartingFinalization(true);
     try {
       const response = await finalizeIndexAdmin({
-        archiveId: selectedArchiveId
+        indexId: selectedArchiveId
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
@@ -616,7 +626,7 @@ export const useAdminRouteController = () => {
     setConfiguringStandaloneAuth(true);
     try {
       const response = await configureIndexAdminStandaloneAuth({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         githubClientId,
         githubClientSecret,
         supabasePersonalAccessToken
@@ -643,7 +653,7 @@ export const useAdminRouteController = () => {
     setDeployingFunctions(true);
     try {
       const response = await deployIndexAdminChildFunctions({
-        archiveId: selectedArchiveId,
+        indexId: selectedArchiveId,
         supabasePersonalAccessToken,
         adminPassword
       }, {
@@ -701,7 +711,7 @@ export const useAdminRouteController = () => {
     collaboratorSearchLoading,
     collaboratorsLoading,
     updatingCollaboratorUserId,
-    updatingConnectionSiteId,
+    updatingConnectionRequestId,
     domainInput,
     savingGeneral,
     savingAdvanced,
@@ -719,15 +729,15 @@ export const useAdminRouteController = () => {
       sectionButtons,
       onSectionChange: (section: StudioSettingsSection) => {
         if (!selectedArchiveId) return;
-        setSearchParams(buildSearchParams({ current: searchParams, archiveId: selectedArchiveId, section }));
+        setSearchParams(buildSearchParams({ current: searchParams, indexId: selectedArchiveId, section }));
       }
     },
-    onSelectedArchiveChange: (archiveId: string) => {
-      if (!archiveId) return;
+    onSelectedArchiveChange: (indexId: string) => {
+      if (!indexId) return;
       setSearchParams(
         buildSearchParams({
           current: searchParams,
-          archiveId,
+          indexId,
           section: activeSection,
           clearCreated: true
         })
@@ -754,8 +764,11 @@ export const useAdminRouteController = () => {
     onCollaboratorRemove: (userId: string) => {
       void handleCollaboratorRemove(userId);
     },
-    onConnectionStatusChange: (siteId: string, status: "tracked" | "delisted") => {
-      void handleConnectionStatusChange(siteId, status);
+    onConnectionRequestAction: (
+      requestId: string,
+      action: "approve" | "reject" | "disconnect"
+    ) => {
+      void handleConnectionRequestAction(requestId, action);
     },
     onDomainInputChange: setDomainInput,
     onSaveDomain: () => {

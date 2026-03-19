@@ -1,4 +1,4 @@
-import type { IndexAdminArchiveState, IndexAdminSetup } from "../services/types";
+import type { IndexAdminIndexState, IndexAdminSetup } from "../services/types";
 
 const FINALIZATION_SOURCE_STATUS_LABELS = {
   child_lineage: "Stored on child index",
@@ -24,7 +24,7 @@ const FINALIZATION_PHASE_LABELS = {
 } as const;
 
 type IndexAdminSetupPanelProps = {
-  archive: IndexAdminArchiveState;
+  index: IndexAdminIndexState;
   setup: IndexAdminSetup | null;
   highlight: boolean;
   startingFinalization: boolean;
@@ -74,7 +74,7 @@ function CopyValueRow({ label, value, onCopyValue }: CopyValueRowProps) {
 }
 
 export default function IndexAdminSetupPanel({
-  archive,
+  index,
   setup,
   highlight,
   startingFinalization,
@@ -125,34 +125,34 @@ export default function IndexAdminSetupPanel({
         <p>
           {highlight
             ? "Stay here until the child index can run on its own."
-            : "This fallback view reads the same setup state as the guided wizard."}
+            : "This admin reads the same setup state as the guided wizard."}
         </p>
       </div>
 
       <div className="admin-setup-links">
-        {archive.canonicalUrl && (
-          <a href={archive.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+        {index.canonicalUrl && (
+          <a href={index.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
             Open live index
           </a>
         )}
-        {setup?.standaloneAdminUrl && (
+        {setup?.solidaryAdminUrl && (
           <a
-            href={setup.standaloneAdminUrl}
+            href={setup.solidaryAdminUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
           >
-            Open standalone /admin
+            Open Solidary /admin
           </a>
         )}
-        {archive.repoUrl && (
-          <a href={archive.repoUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+        {index.repoUrl && (
+          <a href={index.repoUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
             Open GitHub repo
           </a>
         )}
-        {archive.supabaseDashboardUrl && (
+        {index.supabaseDashboardUrl && (
           <a
-            href={archive.supabaseDashboardUrl}
+            href={index.supabaseDashboardUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
@@ -502,8 +502,8 @@ export default function IndexAdminSetupPanel({
             <p>Open the standalone child app directly once the setup is complete.</p>
 
             <div className="admin-setup-links">
-              {archive.canonicalUrl && (
-                <a href={archive.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+              {index.canonicalUrl && (
+                <a href={index.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
                   Open index
                 </a>
               )}

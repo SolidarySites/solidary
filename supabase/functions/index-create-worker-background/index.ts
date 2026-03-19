@@ -1467,7 +1467,7 @@ async function syncChildRootArchive({
     accessToken,
     projectRef,
     query: [
-      "insert into public.archives (",
+      "insert into public.indexes (",
       "  id,",
       "  owner_user_id,",
       "  slug,",
@@ -1593,7 +1593,7 @@ async function saveParentIndexMetadata({
   parentRepoFullName: string;
   parentRepoUrl: string;
 }) {
-  const { error: archiveError } = await supabase.from("archives").upsert({
+  const { error: archiveError } = await supabase.from("indexes").upsert({
     id: archiveId,
     owner_user_id: ownerUserId,
     slug,
@@ -1631,7 +1631,7 @@ async function saveParentIndexMetadata({
   const { error: membershipError } = await supabase
     .from("index_admin_memberships")
     .upsert({
-      archive_id: archiveId,
+      index_id: archiveId,
       user_id: ownerUserId,
       role: "owner",
     });
@@ -1645,7 +1645,7 @@ async function saveParentIndexMetadata({
   const { error: credentialsError } = await supabase
     .from("index_project_credentials")
     .upsert({
-      archive_id: archiveId,
+      index_id: archiveId,
       owner_user_id: ownerUserId,
       supabase_project_ref: projectRef,
       supabase_project_url: projectUrl,
@@ -2070,7 +2070,7 @@ export const handler: Handler = async (event) => {
           supabase,
           sourceProjectUrl: projectUrl,
           sourcePublishableKey: publishableKey,
-          expectedArchiveId: archiveId,
+          expectedIndexId: archiveId,
         });
       } catch (error) {
         console.warn(
@@ -2086,10 +2086,10 @@ export const handler: Handler = async (event) => {
         status: "succeeded",
         step: "Index provisioning completed.",
         error: null,
-        archive_id: archiveId,
+        index_id: archiveId,
         repo_full_name: archivePayload.repo_full_name,
         repo_payload: repoPayload,
-        archive_payload: archivePayload,
+        index_payload: archivePayload,
         project_payload: {
           id: resolvedProject.id ?? null,
           ref: projectRef,

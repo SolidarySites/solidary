@@ -52,13 +52,13 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = parseBody(event.body);
-    const archiveId = typeof body.archive_id === "string" ? body.archive_id.trim() : "";
+    const indexId = typeof body.index_id === "string" ? body.index_id.trim() : "";
     const password = typeof body.password === "string" ? body.password.trim() : "";
 
-    if (!archiveId) {
+    if (!indexId) {
       return safeJson(400, {
-        error: "Missing archive_id.",
-        error_code: "archive_required",
+        error: "Missing index_id.",
+        error_code: "index_required",
       });
     }
     if (!ADMIN_PASSWORD.trim()) {
@@ -82,9 +82,9 @@ export const handler: Handler = async (event) => {
 
     const supabase = createServiceSupabase();
     const { data, error } = await supabase
-      .from("archives")
+      .from("indexes")
       .select("id, owner_user_id")
-      .eq("id", archiveId)
+      .eq("id", indexId)
       .eq("type", "index")
       .maybeSingle();
     if (error) {
@@ -92,15 +92,15 @@ export const handler: Handler = async (event) => {
     }
     if (!data?.id) {
       return safeJson(404, {
-        error: "Index archive not found.",
-        error_code: "archive_not_found",
+        error: "Index not found.",
+        error_code: "index_not_found",
       });
     }
 
     const ownerUserId = typeof data.owner_user_id === "string"
       ? data.owner_user_id.trim()
       : "";
-    if (!ownerUserId && archiveId !== getSolidaryRootIndexId()) {
+    if (!ownerUserId && indexId !== getSolidaryRootIndexId()) {
       return safeJson(412, {
         error: "This index is missing its owner account.",
         error_code: "owner_missing",
@@ -108,7 +108,7 @@ export const handler: Handler = async (event) => {
     }
 
     const token = createIndexAdminBridgeToken({
-      archiveId,
+      indexId,
       userId: ownerUserId || ROOT_INDEX_ADMIN_BRIDGE_USER_ID,
       role: "owner",
       expiresAt: new Date(Date.now() + LOCAL_ADMIN_TOKEN_TTL_MS).toISOString(),

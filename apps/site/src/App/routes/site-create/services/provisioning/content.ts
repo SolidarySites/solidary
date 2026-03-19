@@ -2,7 +2,10 @@ import {
   normalizeAstroSiteFeatures,
   type AstroSettings
 } from "../../../../features/site-draft/types";
-import { buildSolidaryLinksFile } from "../../../../features/site-draft/services/solidary-links";
+import {
+  buildSolidaryLinksFile,
+  type SolidaryLinksConnection
+} from "../../../../features/site-draft/services/solidary-links";
 import {
   buildSolidaryMetadataFile,
   resolveSolidaryMetadataImages
@@ -101,7 +104,8 @@ export const buildWellKnownFiles = ({
   siteDescription,
   siteUrl,
   hasSiteImage,
-  urlOverride
+  urlOverride,
+  connectionsOverride
 }: {
   templateSolidary: string;
   templateSolidaryLinks: string;
@@ -111,6 +115,7 @@ export const buildWellKnownFiles = ({
   siteUrl: string;
   hasSiteImage: boolean;
   urlOverride?: string;
+  connectionsOverride?: SolidaryLinksConnection[];
 }) => {
   const settings = buildSettingsPayload({
     siteTitle,
@@ -136,7 +141,8 @@ export const buildWellKnownFiles = ({
     solidaryLinksFile: buildSolidaryLinksFile({
       templateSolidaryLinks,
       siteId,
-      siteUrl: settings.siteUrl
+      siteUrl: settings.siteUrl,
+      connectionsOverride
     })
   };
 };

@@ -18,7 +18,7 @@ export declare const siteSchema: z.ZodObject<{
     created_at: z.ZodString;
     updated_at: z.ZodString;
 }, z.core.$strip>;
-export declare const archiveSchema: z.ZodObject<{
+export declare const indexSchema: z.ZodObject<{
     id: z.ZodString;
     owner_user_id: z.ZodNullable<z.ZodString>;
     slug: z.ZodString;
@@ -30,8 +30,8 @@ export declare const archiveSchema: z.ZodObject<{
     created_at: z.ZodString;
     updated_at: z.ZodString;
 }, z.core.$strip>;
-export declare const archiveSiteSchema: z.ZodObject<{
-    archive_id: z.ZodString;
+export declare const indexSiteSchema: z.ZodObject<{
+    index_id: z.ZodString;
     site_id: z.ZodString;
     status: z.ZodEnum<{
         tracked: "tracked";
@@ -42,5 +42,5 @@ export declare const archiveSiteSchema: z.ZodObject<{
     created_at: z.ZodString;
 }, z.core.$strip>;
 export type Site = z.infer<typeof siteSchema>;
-export type Archive = z.infer<typeof archiveSchema>;
-export type ArchiveSite = z.infer<typeof archiveSiteSchema>;
+export type Index = z.infer<typeof indexSchema>;
+export type IndexSite = z.infer<typeof indexSiteSchema>;

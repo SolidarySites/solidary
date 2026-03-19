@@ -59,7 +59,7 @@ const buildSetup = (overrides: Partial<IndexAdminSetup> = {}): IndexAdminSetup =
   authCallbackUrl: "https://example.supabase.co/auth/v1/callback",
   authProvidersDashboardUrl: "https://supabase.com/dashboard/project/example/auth/providers",
   nextSteps: [],
-  solidaryAdminUrl: "https://solidary.app/admin?archiveId=archive-1",
+  solidaryAdminUrl: "https://solidary.app/admin?indexId=archive-1",
   ...overrides
 });
 
@@ -78,7 +78,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: true,
       detailsConfirmed: false,
       supabasePatConfirmed: false,
-      archiveId: "",
+      indexId: "",
       setup: null,
       isProvisioning: false
     });
@@ -95,7 +95,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: false,
       detailsConfirmed: false,
       supabasePatConfirmed: false,
-      archiveId: "archive-1",
+      indexId: "archive-1",
       setup: buildSetup(),
       isProvisioning: false
     });
@@ -111,7 +111,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: false,
       detailsConfirmed: false,
       supabasePatConfirmed: false,
-      archiveId: "archive-1",
+      indexId: "archive-1",
       setup: {
         ...baseSetup,
         functionsDeployment: {
@@ -151,7 +151,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: false,
       detailsConfirmed: false,
       supabasePatConfirmed: true,
-      archiveId: "archive-1",
+      indexId: "archive-1",
       setup: buildSetup({
         authSetup: {
           ...buildSetup().authSetup,
@@ -181,7 +181,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: false,
       detailsConfirmed: false,
       supabasePatConfirmed: true,
-      archiveId: "archive-1",
+      indexId: "archive-1",
       setup: {
         ...baseSetup,
         finalization: {
@@ -205,7 +205,7 @@ describe("buildIndexCreateWizardSteps", () => {
       organizationConfirmed: false,
       detailsConfirmed: false,
       supabasePatConfirmed: true,
-      archiveId: "archive-1",
+      indexId: "archive-1",
       setup: {
         ...baseSetup,
         authSetup: {
