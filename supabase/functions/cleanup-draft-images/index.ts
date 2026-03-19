@@ -3,17 +3,18 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const DELETE_REPO_SUPABASE_SECRET_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 console.log("Loaded cleanup-draft-images function with config:", {
   SUPABASE_URL,
-  hasSupabaseServiceKey: Boolean(DELETE_REPO_SUPABASE_SECRET_KEY),
+  hasSupabaseServiceKey: Boolean(SOLIDARY_SECRET_KEY),
 });
 
 const requireEnv = () => {
-  if (!SUPABASE_URL || !DELETE_REPO_SUPABASE_SECRET_KEY) {
+  if (!SUPABASE_URL || !SOLIDARY_SECRET_KEY) {
     return "Missing SUPABASE_URL or Supabase service key.";
   }
   return null;
@@ -93,7 +94,7 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  const supabase = createClient(SUPABASE_URL, DELETE_REPO_SUPABASE_SECRET_KEY, {
+  const supabase = createClient(SUPABASE_URL, SOLIDARY_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 

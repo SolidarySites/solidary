@@ -8,15 +8,14 @@ const readEnv = (value: unknown): string => {
 const projectId = readEnv(import.meta.env.VITE_SUPABASE_PROJECT_ID);
 const publishableKey = readEnv(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
 const explicitSupabaseUrl = readEnv(import.meta.env.VITE_SUPABASE_URL);
-const explicitAnonKey = readEnv(import.meta.env.VITE_SUPABASE_ANON_KEY);
 const supabaseUrl =
   explicitSupabaseUrl || (projectId ? `https://${projectId}.supabase.co` : "");
-const supabaseAnonKey = explicitAnonKey || publishableKey;
+const supabasePublishableKey = publishableKey;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabasePublishableKey);
 
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return Boolean(supabaseUrl && supabasePublishableKey);
 }
 
 const normalizeFunctionName = (value: string) =>

@@ -8,8 +8,9 @@ import {
 } from "../_shared/github-auth-broker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const WORKER_PATH = "/functions/v1/github-create-repo-worker-background";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const MAX_STAGED_SITE_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -94,7 +95,7 @@ const resolveWorkerUrl = () => {
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
-  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
+  if (!SUPABASE_URL || !SOLIDARY_SECRET_KEY) {
     return safeJson(500, {
       error: "Missing SUPABASE_URL or Supabase service key."
     });
@@ -132,7 +133,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
+  const supabase = createClient(SUPABASE_URL, SOLIDARY_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   let siteImageStoragePath = "";
@@ -333,9 +334,9 @@ export const handler: Handler = async (event) => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          apikey: CREATE_SITE_SUPABASE_API_KEY,
-          Authorization: `Bearer ${CREATE_SITE_SUPABASE_API_KEY}`,
-          "x-provision-internal-key": CREATE_SITE_SUPABASE_API_KEY
+          apikey: SOLIDARY_SECRET_KEY,
+          Authorization: `Bearer ${SOLIDARY_SECRET_KEY}`,
+          "x-provision-internal-key": SOLIDARY_SECRET_KEY
         },
         body: JSON.stringify({
           jobId: job.id,

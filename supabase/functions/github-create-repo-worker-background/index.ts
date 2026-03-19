@@ -16,8 +16,9 @@ const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const STORAGE_DOWNLOAD_RETRY_DELAYS_MS = [0, 250, 500, 1000, 2000];
 const RETRYABLE_GITHUB_STATUS = new Set([404, 409, 422, 429, 500, 502, 503, 504]);
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 const SOLIDARY_CONTENT_FILE_REL_PATH = "src/content/solidary.md";
 const HEADER_CONTENT_FILE_REL_PATH = "src/content/header.md";
@@ -463,7 +464,7 @@ function applyCreateFlowOverridesToTemplateFiles({
 }
 
 const createSupabaseAdmin = () =>
-  createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
+  createClient(SUPABASE_URL, SOLIDARY_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 
@@ -905,7 +906,7 @@ async function cleanupRepo({
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
-  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
+  if (!SUPABASE_URL || !SOLIDARY_SECRET_KEY) {
     return safeJson(500, {
       error: "Missing SUPABASE_URL or Supabase service key."
     });
@@ -913,7 +914,7 @@ export const handler: Handler = async (event) => {
 
   const internalKey =
     event.headers["x-provision-internal-key"] ?? event.headers["X-Provision-Internal-Key"];
-  if (!internalKey || internalKey !== CREATE_SITE_SUPABASE_API_KEY) {
+  if (!internalKey || internalKey !== SOLIDARY_SECRET_KEY) {
     return safeJson(401, { error: "Unauthorized background worker dispatch." });
   }
 

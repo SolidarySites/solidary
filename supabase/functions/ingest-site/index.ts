@@ -4,8 +4,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 import { sha256 } from "../_shared/protocol-shim.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
 const siteIdRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,7 +26,7 @@ function resolveDiscoveryUrl(siteUrl: string) {
 }
 
 function requireEnv() {
-  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
+  if (!SUPABASE_URL || !SOLIDARY_SECRET_KEY) {
     return "Missing SUPABASE_URL or Supabase service key.";
   }
   return null;
@@ -94,7 +95,7 @@ export const handler: Handler = async (event) => {
     ? manifest.protocol_version
     : "1.0";
 
-  const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
+  const supabase = createClient(SUPABASE_URL, SOLIDARY_SECRET_KEY, {
     auth: { persistSession: false }
   });
 

@@ -39,7 +39,8 @@ import {
 } from "./index-federation.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_KEY = Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
@@ -659,8 +660,9 @@ const readCredentials = async ({
       deriveProjectRefFromSupabaseUrl(supabaseProjectUrl);
     const supabasePublishableKey =
       toTrimmedString(archive.supabase_publishable_key) ||
+      toTrimmedString(Deno.env.get("SB_PUBLISHABLE_KEY")) ||
       toTrimmedString(Deno.env.get("SUPABASE_PUBLISHABLE_KEY")) ||
-      toTrimmedString(Deno.env.get("SUPABASE_ANON_KEY"));
+      "";
 
     if (!supabaseProjectUrl || !SUPABASE_SERVICE_KEY) {
       throw new Error("Index project credentials are missing.");

@@ -3,8 +3,9 @@ import type { Handler } from "../_shared/types.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.93.3";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CREATE_SITE_SUPABASE_API_KEY = Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ??
-  "";
+const SOLIDARY_SECRET_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ??
+  Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
+  Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
 type RepoProvisionStatusBody = {
   job_id?: string;
@@ -28,7 +29,7 @@ const parseBody = (rawBody: string | null): RepoProvisionStatusBody => {
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") return { statusCode: 405, body: "Method Not Allowed" };
 
-  if (!SUPABASE_URL || !CREATE_SITE_SUPABASE_API_KEY) {
+  if (!SUPABASE_URL || !SOLIDARY_SECRET_KEY) {
     return safeJson(500, {
       error: "Missing SUPABASE_URL or Supabase service key."
     });
@@ -51,7 +52,7 @@ export const handler: Handler = async (event) => {
     });
   }
 
-  const supabase = createClient(SUPABASE_URL, CREATE_SITE_SUPABASE_API_KEY, {
+  const supabase = createClient(SUPABASE_URL, SOLIDARY_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 

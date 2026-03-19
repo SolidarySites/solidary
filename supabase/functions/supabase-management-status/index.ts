@@ -5,6 +5,7 @@ import { getSupabaseManagementConnectionStatusForUser } from "../_shared/supabas
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY =
+  Deno.env.get("SOLIDARY_SECRET_KEY") ??
   Deno.env.get("DELETE_REPO_SUPABASE_SECRET_KEY") ??
   Deno.env.get("CREATE_SITE_SUPABASE_API_KEY") ?? "";
 
