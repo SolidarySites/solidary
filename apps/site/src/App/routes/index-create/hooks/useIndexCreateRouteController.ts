@@ -197,6 +197,7 @@ export const useIndexCreateRouteController = () => {
 
   const repoCheckRequestIdRef = useRef(0);
   const autoDeployArchiveIdRef = useRef<string | null>(null);
+  const autoDeployInFlightRef = useRef(false);
   const previousFunctionsStatusRef = useRef<string | null>(null);
 
   const organizations = useMemo<IndexCreateOrganizationOption[]>(
@@ -379,6 +380,7 @@ export const useIndexCreateRouteController = () => {
   useEffect(() => {
     if (!archiveId) {
       setFunctionsDeploymentPending(false);
+      setDeployingFunctions(false);
       return;
     }
 
@@ -388,7 +390,13 @@ export const useIndexCreateRouteController = () => {
     ) {
       setFunctionsDeploymentPending(false);
     }
-  }, [archiveId, functionsDeploymentPending, setup?.functionsDeployment.status]);
+    if (
+      deployingFunctions &&
+      !shouldAwaitFunctionsDeploymentRun(setup?.functionsDeployment.status)
+    ) {
+      setDeployingFunctions(false);
+    }
+  }, [archiveId, deployingFunctions, functionsDeploymentPending, setup?.functionsDeployment.status]);
 
   useEffect(() => {
     if (archiveId || selectedOrganizationId || organizations.length !== 1) {
@@ -923,6 +931,7 @@ export const useIndexCreateRouteController = () => {
     setNotice(null);
     setNoticeKind(null);
     setDeployingFunctions(true);
+    setFunctionsDeploymentPending(true);
     try {
       const response = await deployIndexAdminChildFunctions({
         archiveId,
@@ -951,9 +960,13 @@ export const useIndexCreateRouteController = () => {
   useEffect(() => {
     if (!archiveId || !setup?.finalization.isFinalized) {
       autoDeployArchiveIdRef.current = null;
+      autoDeployInFlightRef.current = false;
       return;
     }
     if (setup.functionsDeployment.status !== "ready_to_run" || deployingFunctions) {
+      return;
+    }
+    if (autoDeployInFlightRef.current) {
       return;
     }
     if (autoDeployArchiveIdRef.current === archiveId) {
@@ -961,12 +974,13 @@ export const useIndexCreateRouteController = () => {
     }
 
     autoDeployArchiveIdRef.current = archiveId;
-    let cancelled = false;
+    autoDeployInFlightRef.current = true;
 
     void (async () => {
       setNotice("Child repo is finalized. Starting the function deployment.");
       setNoticeKind("notice");
       setDeployingFunctions(true);
+      setFunctionsDeploymentPending(true);
       try {
         const response = await deployIndexAdminChildFunctions({
           archiveId,
@@ -975,9 +989,6 @@ export const useIndexCreateRouteController = () => {
         }, {
           bridgeToken: bridgeToken || undefined
         });
-        if (cancelled) {
-          return;
-        }
         setSetup(response.setup);
         syncBridgeTokenFromSetup(response.setup);
         setFunctionsDeploymentPending(
@@ -986,9 +997,6 @@ export const useIndexCreateRouteController = () => {
         setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
         setNoticeKind("notice");
       } catch (error) {
-        if (cancelled) {
-          return;
-        }
         autoDeployArchiveIdRef.current = null;
         setFunctionsDeploymentPending(false);
         setNotice(
@@ -996,15 +1004,10 @@ export const useIndexCreateRouteController = () => {
         );
         setNoticeKind("error");
       } finally {
-        if (!cancelled) {
-          setDeployingFunctions(false);
-        }
+        autoDeployInFlightRef.current = false;
+        setDeployingFunctions(false);
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     archiveId,
     bridgeToken,
