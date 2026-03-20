@@ -34,6 +34,9 @@ const safeJson = (statusCode: number, body: unknown) => ({
   body: JSON.stringify(body),
 });
 
+const buildIndexSlugConflictMessage = (slug: string) =>
+  `Another index already uses the slug "${slug}". Choose a different title.`;
+
 const parseBody = (rawBody: string | null): IndexCreateBody => {
   try {
     return (JSON.parse(rawBody ?? "{}") ?? {}) as IndexCreateBody;
@@ -169,6 +172,27 @@ export const handler: Handler = async (event) => {
     return safeJson(412, {
       error:
         "Selected Supabase organization is missing a slug and cannot be used for project creation.",
+    });
+  }
+
+  const { data: existingIndex, error: existingIndexError } = await supabase
+    .from("indexes")
+    .select("id")
+    .eq("slug", repoName)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingIndexError) {
+    return safeJson(500, {
+      error:
+        existingIndexError.message ||
+        "Failed to check index slug availability.",
+    });
+  }
+
+  if (existingIndex?.id) {
+    return safeJson(409, {
+      error: buildIndexSlugConflictMessage(repoName),
     });
   }
 

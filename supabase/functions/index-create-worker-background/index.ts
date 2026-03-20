@@ -131,6 +131,13 @@ const safeJson = (statusCode: number, body: unknown) => ({
   body: JSON.stringify(body),
 });
 
+const buildIndexSlugConflictMessage = (slug: string) =>
+  `Another index already uses the slug "${slug}". Choose a different title.`;
+
+const isUniqueViolationError = (
+  error: { code?: string | null; message?: string | null } | null | undefined,
+) => error?.code === "23505";
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitUntil = (promise: Promise<unknown>) => {
@@ -1636,6 +1643,90 @@ async function syncChildRootArchive({
   });
 }
 
+async function reserveParentIndexMetadata({
+  supabase,
+  indexId,
+  ownerUserId,
+  slug,
+  title,
+  description,
+  indexLevel,
+  parentIndexId,
+  parentIndexUrl,
+  parentIndexLevel,
+  parentRepoFullName,
+  parentRepoUrl,
+}: {
+  supabase: ReturnType<typeof createSupabaseAdmin>;
+  indexId: string;
+  ownerUserId: string;
+  slug: string;
+  title: string;
+  description: string;
+  indexLevel: number;
+  parentIndexId: string;
+  parentIndexUrl: string;
+  parentIndexLevel: number;
+  parentRepoFullName: string;
+  parentRepoUrl: string;
+}) {
+  const { error } = await supabase.from("indexes").insert({
+    id: indexId,
+    owner_user_id: ownerUserId,
+    slug,
+    title,
+    description,
+    source: "federation_mirror",
+    type: "index",
+    is_root: false,
+    runtime_mode: "scaffold",
+    index_level: indexLevel,
+    parent_index_id: parentIndexId,
+    parent_index_url: parentIndexUrl,
+    parent_index_level: parentIndexLevel,
+    parent_repo_full_name: parentRepoFullName,
+    parent_repo_url: parentRepoUrl,
+    finalized_at: null,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  if (isUniqueViolationError(error)) {
+    throw new HttpError(409, buildIndexSlugConflictMessage(slug));
+  }
+
+  throw new HttpError(
+    500,
+    error.message || "Failed to reserve index metadata in Solidary.",
+  );
+}
+
+async function releaseReservedParentIndexMetadata({
+  supabase,
+  indexId,
+  ownerUserId,
+}: {
+  supabase: ReturnType<typeof createSupabaseAdmin>;
+  indexId: string;
+  ownerUserId: string;
+}) {
+  const { error } = await supabase
+    .from("indexes")
+    .delete()
+    .eq("id", indexId)
+    .eq("owner_user_id", ownerUserId);
+
+  if (error) {
+    console.log("[index-create-worker] failed to release reserved index metadata", {
+      indexId,
+      ownerUserId,
+      message: error.message,
+    });
+  }
+}
+
 async function saveParentIndexMetadata({
   supabase,
   archiveId,
@@ -1718,6 +1809,9 @@ async function saveParentIndexMetadata({
     finalized_at: null,
   });
   if (archiveError) {
+    if (isUniqueViolationError(archiveError)) {
+      throw new HttpError(409, buildIndexSlugConflictMessage(slug));
+    }
     throw new HttpError(
       500,
       archiveError.message || "Failed to save archive metadata in Solidary.",
@@ -1854,6 +1948,8 @@ export const handler: Handler = async (event) => {
     let createdOwner = "";
     let createdRepo = "";
     let createdProjectRef = "";
+    let reservedIndexId = "";
+    let parentIndexMetadataSaved = false;
     let userToken = "";
     const solidaryAppUrl = getSolidaryAppUrl();
     const parentIndexId = getSolidaryRootIndexId();
@@ -1921,6 +2017,26 @@ export const handler: Handler = async (event) => {
         step: "Loading index template...",
       });
       const templateFiles = loadTemplateFiles();
+
+      await updateJob({
+        step: "Reserving index slug...",
+      });
+      const archiveId = crypto.randomUUID();
+      reservedIndexId = archiveId;
+      await reserveParentIndexMetadata({
+        supabase,
+        indexId: archiveId,
+        ownerUserId,
+        slug: repoName,
+        title,
+        description,
+        indexLevel,
+        parentIndexId,
+        parentIndexUrl,
+        parentIndexLevel,
+        parentRepoFullName,
+        parentRepoUrl,
+      });
 
       await updateJob({
         step: "Creating GitHub repository...",
@@ -2035,7 +2151,6 @@ export const handler: Handler = async (event) => {
       await updateJob({
         step: "Bootstrapping database schema...",
       });
-      const archiveId = crypto.randomUUID();
       await bootstrapProjectDatabase({
         accessToken: managementAccessToken,
         projectRef,
@@ -2187,6 +2302,7 @@ export const handler: Handler = async (event) => {
         parentRepoFullName,
         parentRepoUrl,
       });
+      parentIndexMetadataSaved = true;
 
       try {
         await refreshIndexFederationMirror({
@@ -2237,6 +2353,13 @@ export const handler: Handler = async (event) => {
           userToken,
           owner: createdOwner,
           repo: createdRepo,
+        });
+      }
+      if (reservedIndexId && !parentIndexMetadataSaved) {
+        await releaseReservedParentIndexMetadata({
+          supabase,
+          indexId: reservedIndexId,
+          ownerUserId,
         });
       }
 
