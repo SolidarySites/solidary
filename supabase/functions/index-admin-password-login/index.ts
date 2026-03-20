@@ -45,6 +45,53 @@ const passwordsMatch = (expected: string, provided: string) => {
   return timingSafeEqual(expectedBytes, providedBytes);
 };
 
+const readRootIndexRecord = async (
+  supabase: ReturnType<typeof createServiceSupabase>,
+) => {
+  const { data, error } = await supabase
+    .from("indexes")
+    .select("id, owner_user_id, is_root")
+    .eq("type", "index")
+    .eq("is_root", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data;
+};
+
+const readLoginIndexRecord = async ({
+  supabase,
+  indexId,
+}: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  indexId: string;
+}) => {
+  const normalizedIndexId = indexId.trim();
+  if (!normalizedIndexId) {
+    return await readRootIndexRecord(supabase);
+  }
+
+  const { data, error } = await supabase
+    .from("indexes")
+    .select("id, owner_user_id, is_root")
+    .eq("id", normalizedIndexId)
+    .eq("type", "index")
+    .maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (data?.id) {
+    return data;
+  }
+  if (normalizedIndexId === getSolidaryRootIndexId()) {
+    return await readRootIndexRecord(supabase);
+  }
+  return null;
+};
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
@@ -52,15 +99,11 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = parseBody(event.body);
-    const indexId = typeof body.index_id === "string" ? body.index_id.trim() : "";
+    const requestedIndexId = typeof body.index_id === "string"
+      ? body.index_id.trim()
+      : "";
     const password = typeof body.password === "string" ? body.password.trim() : "";
 
-    if (!indexId) {
-      return safeJson(400, {
-        error: "Missing index_id.",
-        error_code: "index_required",
-      });
-    }
     if (!ADMIN_PASSWORD.trim()) {
       return safeJson(503, {
         error: "Local admin password is not configured for this project yet.",
@@ -81,15 +124,10 @@ export const handler: Handler = async (event) => {
     }
 
     const supabase = createServiceSupabase();
-    const { data, error } = await supabase
-      .from("indexes")
-      .select("id, owner_user_id")
-      .eq("id", indexId)
-      .eq("type", "index")
-      .maybeSingle();
-    if (error) {
-      throw new Error(error.message);
-    }
+    const data = await readLoginIndexRecord({
+      supabase,
+      indexId: requestedIndexId,
+    });
     if (!data?.id) {
       return safeJson(404, {
         error: "Index not found.",
@@ -100,7 +138,7 @@ export const handler: Handler = async (event) => {
     const ownerUserId = typeof data.owner_user_id === "string"
       ? data.owner_user_id.trim()
       : "";
-    if (!ownerUserId && indexId !== getSolidaryRootIndexId()) {
+    if (!ownerUserId && data.is_root !== true) {
       return safeJson(412, {
         error: "This index is missing its owner account.",
         error_code: "owner_missing",
@@ -108,7 +146,7 @@ export const handler: Handler = async (event) => {
     }
 
     const token = createIndexAdminBridgeToken({
-      indexId,
+      indexId: data.id,
       userId: ownerUserId || ROOT_INDEX_ADMIN_BRIDGE_USER_ID,
       role: "owner",
       expiresAt: new Date(Date.now() + LOCAL_ADMIN_TOKEN_TTL_MS).toISOString(),

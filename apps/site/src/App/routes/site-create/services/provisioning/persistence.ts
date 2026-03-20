@@ -1,23 +1,13 @@
 import type { Session } from "@supabase/supabase-js";
 import type { AstroPageDraft } from "../../../../features/site-draft/types";
 import { supabase } from "../../../../lib/supabase";
+import { loadRootIndex, type RootIndexRow } from "../../../../services/root-index";
 import { normalizeSiteTitle } from "../../../../services/site-metadata";
 import { buildSettingsPayload, FILE_KEYS } from "./content";
 import type { DbWriteStage, ProvisioningDiagnostics } from "./types";
 
-export type RootIndexRow = {
-  id: string;
-  canonical_url: string | null;
-  index_level: number | null;
-};
-
-type RootIndexFederationStateResponse = {
-  index?: {
-    id?: string;
-    canonical_url?: string | null;
-    index_level?: number | null;
-  } | null;
-};
+export type { RootIndexRow };
+export { loadRootIndex };
 
 const getSessionExpiresAt = (session: Session) => {
   if (typeof session.expires_at === "number") {
@@ -109,35 +99,6 @@ const verifyLiveAuthUser = async ({
   return {
     liveAuthUserId,
     diagnostics
-  };
-};
-
-export const loadRootIndex = async (): Promise<RootIndexRow> => {
-  const { data, error } = await supabase.rpc("rpc_index_federation_state");
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const rootIndex = (data as RootIndexFederationStateResponse | null)?.index;
-  const rootIndexId = typeof rootIndex?.id === "string" ? rootIndex.id.trim() : "";
-  const rootIndexCanonicalUrl =
-    typeof rootIndex?.canonical_url === "string" && rootIndex.canonical_url.trim()
-      ? rootIndex.canonical_url.trim()
-      : null;
-
-  if (!rootIndexId) {
-    throw new Error("Root index is missing.");
-  }
-
-  if (!rootIndexCanonicalUrl) {
-    throw new Error("Root index canonical URL is missing.");
-  }
-
-  return {
-    id: rootIndexId,
-    canonical_url: rootIndexCanonicalUrl,
-    index_level: typeof rootIndex?.index_level === "number" ? rootIndex.index_level : null
   };
 };
 

@@ -1,6 +1,7 @@
 type RootAdminUnlockPanelProps = {
   password: string;
   unlocking: boolean;
+  disabled: boolean;
   onPasswordChange: (value: string) => void;
   onUnlock: () => void;
 };
@@ -8,6 +9,7 @@ type RootAdminUnlockPanelProps = {
 export default function RootAdminUnlockPanel({
   password,
   unlocking,
+  disabled,
   onPasswordChange,
   onUnlock
 }: RootAdminUnlockPanelProps) {
@@ -28,12 +30,18 @@ export default function RootAdminUnlockPanel({
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
           autoComplete="current-password"
+          disabled={disabled}
         />
       </label>
 
       <div className="studio-settings-save-row admin-save-row-inline">
-        <button className="primary" type="button" onClick={onUnlock} disabled={unlocking || !password.trim()}>
-          {unlocking ? "Unlocking..." : "Unlock /admin"}
+        <button
+          className="primary"
+          type="button"
+          onClick={onUnlock}
+          disabled={disabled || unlocking || !password.trim()}
+        >
+          {disabled ? "Loading root index..." : unlocking ? "Unlocking..." : "Unlock /admin"}
         </button>
       </div>
     </section>

@@ -5,7 +5,6 @@ import {
   type StudioSettingsSection
 } from "../../studio/routes/site-settings/services/settings-sections";
 import {
-  getRootIndexAdminIndexId,
   loginIndexAdminWithPassword,
   readIndexAdmin,
   updateIndexAdminConnectionRequest
@@ -48,27 +47,37 @@ const writeStoredRootAdminToken = (value: string) => {
   }
 };
 
-export const useRootAdminRouteController = () => {
-  const indexId = getRootIndexAdminIndexId();
+export const useRootAdminRouteController = ({
+  indexId,
+  indexIdLoading
+}: {
+  indexId: string;
+  indexIdLoading: boolean;
+}) => {
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
   const [password, setPassword] = useState("");
   const [bridgeToken, setBridgeToken] = useState(() => readStoredRootAdminToken());
   const [unlocking, setUnlocking] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [stateLoading, setStateLoading] = useState(false);
   const [state, setState] = useState<IndexAdminState | null>(null);
   const [updatingConnectionRequestId, setUpdatingConnectionRequestId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<StudioSettingsSection>("general");
 
   useEffect(() => {
+    if (indexIdLoading || !indexId.trim()) {
+      setStateLoading(false);
+      return;
+    }
+
     if (!bridgeToken) {
       setState(null);
-      setLoading(false);
+      setStateLoading(false);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
+    setStateLoading(true);
 
     void (async () => {
       try {
@@ -86,7 +95,7 @@ export const useRootAdminRouteController = () => {
         setNoticeKind("error");
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setStateLoading(false);
         }
       }
     })();
@@ -94,7 +103,7 @@ export const useRootAdminRouteController = () => {
     return () => {
       cancelled = true;
     };
-  }, [indexId, bridgeToken]);
+  }, [bridgeToken, indexId, indexIdLoading]);
 
   const sectionButtons = useMemo(
     () =>
@@ -110,6 +119,10 @@ export const useRootAdminRouteController = () => {
   );
 
   const handleUnlock = async () => {
+    if (indexIdLoading || !indexId.trim()) {
+      return;
+    }
+
     setNotice(null);
     setNoticeKind(null);
     setUnlocking(true);
@@ -171,10 +184,11 @@ export const useRootAdminRouteController = () => {
     indexId,
     password,
     unlocking,
-    loading,
+    loading: indexIdLoading || stateLoading,
     state,
     activeSection,
     updatingConnectionRequestId,
+    indexIdReady: !indexIdLoading && Boolean(indexId.trim()),
     isUnlocked: Boolean(bridgeToken),
     settingsTopbarProps: {
       activeSection,

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useSyncRouteNotice } from "../../features/site-notice/hooks/useSyncRouteNotice";
 import SettingsTopbar from "../studio/routes/site-settings/components/SettingsTopbar";
@@ -10,7 +11,7 @@ import RootAdminOverviewSection from "./components/RootAdminOverviewSection";
 import RootAdminUnlockPanel from "./components/RootAdminUnlockPanel";
 import { useAdminRouteController } from "./hooks/useAdminRouteController";
 import { useRootAdminRouteController } from "./hooks/useRootAdminRouteController";
-import { getRootIndexAdminIndexId } from "./services/index-admin";
+import { getRootIndexAdminIndexId, resolveRootIndexAdminIndexId } from "./services/index-admin";
 import "../studio/routes/site-builder/SiteBuilderRoute.css";
 import "../studio/routes/site-settings/StudioSettingsRoute.css";
 import "./AdminRoute.css";
@@ -26,8 +27,17 @@ const LoadingState = ({ label }: { label: string }) => (
   </div>
 );
 
-function RootAdminRoutePage() {
-  const controller = useRootAdminRouteController();
+function RootAdminRoutePage({
+  rootIndexId,
+  rootIndexLoading
+}: {
+  rootIndexId: string;
+  rootIndexLoading: boolean;
+}) {
+  const controller = useRootAdminRouteController({
+    indexId: rootIndexId,
+    indexIdLoading: rootIndexLoading
+  });
   useSyncRouteNotice({
     notice: controller.notice,
     noticeKind: controller.noticeKind
@@ -43,7 +53,9 @@ function RootAdminRoutePage() {
           </div>
 
           <div className="admin-route-header-controls">
-            <p className="builder-collaborator-hint">Index ID: {controller.indexId}</p>
+            {controller.indexIdReady && (
+              <p className="builder-collaborator-hint">Index ID: {controller.indexId}</p>
+            )}
           </div>
         </div>
 
@@ -53,6 +65,7 @@ function RootAdminRoutePage() {
               <RootAdminUnlockPanel
                 password={controller.password}
                 unlocking={controller.unlocking}
+                disabled={!controller.indexIdReady}
                 onPasswordChange={controller.onPasswordChange}
                 onUnlock={controller.onUnlock}
               />
@@ -243,8 +256,41 @@ function ManagedIndexAdminRoutePage() {
 export default function AdminRoute() {
   const location = useLocation();
   const requestedIndexId = new URLSearchParams(location.search).get("indexId")?.trim() ?? "";
-  const rootIndexId = getRootIndexAdminIndexId();
+  const [rootIndexId, setRootIndexId] = useState(() => getRootIndexAdminIndexId());
+  const [rootIndexLoading, setRootIndexLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const resolvedRootIndexId = await resolveRootIndexAdminIndexId();
+      if (cancelled) return;
+      setRootIndexId(resolvedRootIndexId);
+      setRootIndexLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (requestedIndexId && rootIndexLoading) {
+    return (
+      <div className="app-shell builder-shell studio-settings-route admin-route">
+        <main className="main-content">
+          <div className="builder-body is-settings-full">
+            <section className="builder-settings-full">
+              <LoadingState label="Loading admin..." />
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   const isManagedIndexRoute = Boolean(requestedIndexId) && requestedIndexId !== rootIndexId;
 
-  return isManagedIndexRoute ? <ManagedIndexAdminRoutePage /> : <RootAdminRoutePage />;
+  return isManagedIndexRoute
+    ? <ManagedIndexAdminRoutePage />
+    : <RootAdminRoutePage rootIndexId={rootIndexId} rootIndexLoading={rootIndexLoading} />;
 }

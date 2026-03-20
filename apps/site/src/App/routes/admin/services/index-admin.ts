@@ -1,5 +1,6 @@
 import { githubRequest } from "../../../services/github";
 import { toBase64 } from "../../../lib/base64";
+import { getConfiguredRootIndexId, resolveRootIndexId } from "../../../services/root-index";
 import type {
   CollaboratorRole,
   CollaboratorSearchResult,
@@ -509,17 +510,9 @@ type IndexAdminWriteOptions = {
   bridgeToken?: string;
 };
 
-const DEFAULT_SOLIDARY_ROOT_INDEX_ID = "00000000-0000-4000-8000-000000000001";
+export const getRootIndexAdminIndexId = () => getConfiguredRootIndexId();
 
-const readConfiguredRootIndexId = () => {
-  const explicitRootIndexId =
-    typeof import.meta.env.VITE_SOLIDARY_ROOT_INDEX_ID === "string"
-      ? import.meta.env.VITE_SOLIDARY_ROOT_INDEX_ID.trim()
-      : "";
-  return explicitRootIndexId || DEFAULT_SOLIDARY_ROOT_INDEX_ID;
-};
-
-export const getRootIndexAdminIndexId = () => readConfiguredRootIndexId();
+export const resolveRootIndexAdminIndexId = async () => resolveRootIndexId();
 
 export const listAccessibleIndexAdmins = async (): Promise<IndexAdminListItem[]> => {
   const payload = await githubRequest<{ items?: IndexAdminListItem[] }>("index-admin-list", {});

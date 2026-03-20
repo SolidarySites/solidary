@@ -428,8 +428,8 @@ const isSolidaryRootParent = (
 };
 
 const isSolidaryRootArchive = (
-  archive: Pick<IndexArchiveRow, "id"> | null | undefined,
-) => toTrimmedString(archive?.id) === getSolidaryRootIndexId();
+  archive: Pick<IndexArchiveRow, "id" | "is_root"> | null | undefined,
+) => archive?.is_root === true || toTrimmedString(archive?.id) === getSolidaryRootIndexId();
 
 const isRootPasswordAdminUserId = (value: string) =>
   value.trim() === ROOT_INDEX_ADMIN_BRIDGE_USER_ID;
@@ -571,37 +571,36 @@ const readArchive = async ({
   supabase: ReturnType<typeof createServiceSupabase>;
   archiveId: string;
 }) => {
+  const archiveSelect = [
+    "id",
+    "owner_user_id",
+    "type",
+    "is_root",
+    "runtime_mode",
+    "slug",
+    "title",
+    "description",
+    "image_url",
+    "canonical_url",
+    "repo_full_name",
+    "repo_url",
+    "supabase_project_id",
+    "supabase_project_ref",
+    "supabase_project_name",
+    "supabase_project_url",
+    "supabase_publishable_key",
+    "supabase_dashboard_url",
+    "index_level",
+    "parent_index_id",
+    "parent_index_url",
+    "parent_index_level",
+    "parent_repo_full_name",
+    "parent_repo_url",
+    "finalized_at",
+  ].join(", ");
   const { data, error } = await supabase
     .from("indexes")
-    .select(
-      [
-        "id",
-        "owner_user_id",
-        "type",
-        "is_root",
-        "runtime_mode",
-        "slug",
-        "title",
-        "description",
-        "image_url",
-        "canonical_url",
-        "repo_full_name",
-        "repo_url",
-        "supabase_project_id",
-        "supabase_project_ref",
-        "supabase_project_name",
-        "supabase_project_url",
-        "supabase_publishable_key",
-        "supabase_dashboard_url",
-        "index_level",
-        "parent_index_id",
-        "parent_index_url",
-        "parent_index_level",
-        "parent_repo_full_name",
-        "parent_repo_url",
-        "finalized_at",
-      ].join(", "),
-    )
+    .select(archiveSelect)
     .eq("id", archiveId)
     .eq("type", "index")
     .maybeSingle();
@@ -609,11 +608,29 @@ const readArchive = async ({
   if (error) {
     throw new Error(error.message);
   }
-  if (!data) {
-    throw new Error("Index not found.");
+  if (data) {
+    return data as unknown as IndexArchiveRow;
   }
 
-  return data as unknown as IndexArchiveRow;
+  if (archiveId === getSolidaryRootIndexId()) {
+    const { data: rootData, error: rootError } = await supabase
+      .from("indexes")
+      .select(archiveSelect)
+      .eq("type", "index")
+      .eq("is_root", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (rootError) {
+      throw new Error(rootError.message);
+    }
+    if (rootData) {
+      return rootData as unknown as IndexArchiveRow;
+    }
+  }
+
+  throw new Error("Index not found.");
 };
 
 const readCredentials = async ({
