@@ -12,7 +12,7 @@ vi.mock("../../../lib/supabase", () => ({
   },
 }));
 
-import { loadExplorerData } from "./explorer-data";
+import { isExplorerRootIndexNode, loadExplorerData } from "./explorer-data";
 
 describe("loadExplorerData", () => {
   beforeEach(() => {
@@ -127,5 +127,23 @@ describe("loadExplorerData", () => {
     });
 
     await expect(loadExplorerData()).rejects.toThrow("boom");
+  });
+
+  it("treats level-zero indexes as the root index", () => {
+    expect(
+      isExplorerRootIndexNode({
+        id: "root-index",
+        nodeType: "index",
+        title: "Root",
+        description: "",
+        canonicalUrl: "https://solidary.example/",
+        imageUrl: "",
+        updatedAt: null,
+        indexLevel: 0,
+        parentIndexId: null,
+        parentIndexUrl: null,
+        parentIndexLevel: null,
+      })
+    ).toBe(true);
   });
 });

@@ -69,7 +69,7 @@ export type ExplorerData = {
 };
 
 export const isExplorerRootIndexNode = (site: ExplorerSite) =>
-  site.nodeType === "index" && site.parentIndexId === site.id;
+  site.nodeType === "index" && (site.indexLevel === 0 || site.parentIndexId === site.id);
 
 const toTrimmedString = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";

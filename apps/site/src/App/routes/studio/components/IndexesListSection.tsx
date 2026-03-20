@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { SiteAssetImage } from "../../../components/SiteAssetImage";
 
 type IndexListItem = {
   id: string;
   title: string;
   description: string;
   slug: string;
+  imageUrl: string;
   canonicalUrl: string;
   repoFullName: string | null;
   repoUrl: string | null;
@@ -23,6 +24,26 @@ type IndexesListSectionProps = {
   onCreate: () => void;
 };
 
+type IndexCardThumbnailProps = {
+  indexUrl: string;
+  imageUrl: string;
+  title: string;
+};
+
+function IndexCardThumbnail({ indexUrl, imageUrl, title }: IndexCardThumbnailProps) {
+  return (
+    <SiteAssetImage
+      siteUrl={indexUrl}
+      thumbnailUrl={imageUrl}
+      alt={`${title} thumbnail`}
+      containerClassName="site-card-thumbnail-shell"
+      imageClassName="site-card-thumbnail"
+      placeholderClassName="site-card-thumbnail-placeholder"
+      placeholderContent="No image"
+    />
+  );
+}
+
 const formatUpdatedAt = (value: string | undefined) => {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -32,6 +53,22 @@ const formatUpdatedAt = (value: string | undefined) => {
     month: "short",
     day: "numeric"
   });
+};
+
+const buildIndexAdminUrl = (canonicalUrl: string) => {
+  const trimmed = canonicalUrl.trim();
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(trimmed);
+    const normalizedPath = url.pathname.replace(/\/+$/, "");
+    url.pathname = normalizedPath ? `${normalizedPath}/admin` : "/admin";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
 };
 
 export default function IndexesListSection({
@@ -101,10 +138,16 @@ export default function IndexesListSection({
       <div className="site-list-grid">
         {items.map((item) => {
           const updatedAtLabel = formatUpdatedAt(item.updatedAt);
+          const settingsUrl = buildIndexAdminUrl(item.canonicalUrl);
 
           return (
             <article key={item.id} className="site-card">
               <div className="site-card-main">
+                <IndexCardThumbnail
+                  indexUrl={item.canonicalUrl}
+                  imageUrl={item.imageUrl}
+                  title={item.title}
+                />
                 <div className="site-card-body">
                   <p className="site-card-role">Owner</p>
                   <h3 className="site-card-title" title={item.title}>
@@ -120,6 +163,11 @@ export default function IndexesListSection({
                   </div>
                   {item.description ? <p className="site-card-description">{item.description}</p> : null}
                   <div className="site-card-actions">
+                    {settingsUrl ? (
+                      <a href={settingsUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
+                        Settings
+                      </a>
+                    ) : null}
                     {item.canonicalUrl ? (
                       <a
                         href={item.canonicalUrl}
@@ -127,7 +175,7 @@ export default function IndexesListSection({
                         rel="noreferrer"
                         className="site-card-action-link"
                       >
-                        Visit index
+                        Visit site
                       </a>
                     ) : null}
                     {item.repoUrl ? (
@@ -140,22 +188,6 @@ export default function IndexesListSection({
                         GitHub repo
                       </a>
                     ) : null}
-                    {item.supabaseDashboardUrl ? (
-                      <a
-                        href={item.supabaseDashboardUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="site-card-action-link"
-                      >
-                        Supabase project
-                      </a>
-                    ) : null}
-                    <Link to={`/admin?indexId=${item.id}`} className="site-card-action-link">
-                      Admin
-                    </Link>
-                    <Link to="/index-create" className="site-card-action-link">
-                      Create another
-                    </Link>
                   </div>
                 </div>
               </div>

@@ -31,9 +31,9 @@ describe("loadPublicNetwork", () => {
           imageUrl: "",
           updatedAt: "2026-03-01T00:00:00Z",
           indexLevel: 0,
-          parentIndexId: "root-index",
-          parentIndexUrl: "https://solidary.example/",
-          parentIndexLevel: 0,
+          parentIndexId: null,
+          parentIndexUrl: null,
+          parentIndexLevel: null,
         },
         {
           id: "child-index",

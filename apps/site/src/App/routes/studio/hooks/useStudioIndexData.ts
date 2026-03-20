@@ -8,6 +8,7 @@ export type StudioIndexItem = {
   title: string;
   slug: string;
   description: string;
+  imageUrl: string;
   canonicalUrl: string;
   repoFullName: string | null;
   repoUrl: string | null;
@@ -28,6 +29,7 @@ type IndexRow = {
   title: string | null;
   slug: string | null;
   description: string | null;
+  image_url: string | null;
   canonical_url: string | null;
   repo_full_name: string | null;
   repo_url: string | null;
@@ -62,6 +64,7 @@ export const useStudioIndexData = ({
             "title",
             "slug",
             "description",
+            "image_url",
             "canonical_url",
             "repo_full_name",
             "repo_url",
@@ -93,6 +96,7 @@ export const useStudioIndexData = ({
           title: typeof row.title === "string" ? row.title : "Untitled index",
           slug: typeof row.slug === "string" ? row.slug : "",
           description: typeof row.description === "string" ? row.description : "",
+          imageUrl: typeof row.image_url === "string" ? row.image_url : "",
           canonicalUrl: typeof row.canonical_url === "string" ? row.canonical_url : "",
           repoFullName: typeof row.repo_full_name === "string" ? row.repo_full_name : null,
           repoUrl: typeof row.repo_url === "string" ? row.repo_url : null,
