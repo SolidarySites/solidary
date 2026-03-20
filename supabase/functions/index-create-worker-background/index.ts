@@ -17,9 +17,7 @@ import {
 import { indexBootstrapSql } from "../_shared/index-bootstrap-sql.ts";
 import { createIndexAdminBootstrapSql } from "../_shared/index-admin-bootstrap-sql.ts";
 import {
-  getDefaultChildIndexLevel,
   getSolidaryAppUrl,
-  getSolidaryRootIndexId,
   getSolidaryRootIndexLevel,
   getSolidaryRootIndexUrl,
   getSolidaryRootRepoFullName,
@@ -226,6 +224,55 @@ const createSupabaseAdmin = () =>
   createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+const resolveSolidaryRootIndexContext = async (
+  supabase: ReturnType<typeof createSupabaseAdmin>,
+) => {
+  const { data, error } = await supabase
+    .from("indexes")
+    .select("id, canonical_url, index_level, repo_full_name, repo_url")
+    .eq("type", "index")
+    .eq("is_root", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new HttpError(
+      500,
+      error.message || "Failed to resolve the Solidary root index.",
+    );
+  }
+
+  const parentIndexId = typeof data?.id === "string" ? data.id.trim() : "";
+  if (!parentIndexId) {
+    throw new HttpError(500, "Solidary root index row is missing.");
+  }
+
+  const parentIndexUrl =
+    typeof data?.canonical_url === "string" && data.canonical_url.trim()
+      ? data.canonical_url.trim()
+      : getSolidaryRootIndexUrl();
+  const parentIndexLevel = typeof data?.index_level === "number"
+    ? data.index_level
+    : getSolidaryRootIndexLevel();
+  const parentRepoFullName =
+    typeof data?.repo_full_name === "string" && data.repo_full_name.trim()
+      ? data.repo_full_name.trim()
+      : getSolidaryRootRepoFullName();
+  const parentRepoUrl =
+    typeof data?.repo_url === "string" && data.repo_url.trim()
+      ? data.repo_url.trim()
+      : getSolidaryRootRepoUrl();
+
+  return {
+    parentIndexId,
+    parentIndexUrl,
+    parentIndexLevel,
+    parentRepoFullName,
+    parentRepoUrl,
+  };
+};
 
 const createDatabasePassword = () => {
   const bytes = new Uint8Array(24);
@@ -1952,12 +1999,12 @@ export const handler: Handler = async (event) => {
     let parentIndexMetadataSaved = false;
     let userToken = "";
     const solidaryAppUrl = getSolidaryAppUrl();
-    const parentIndexId = getSolidaryRootIndexId();
-    const parentIndexUrl = getSolidaryRootIndexUrl();
-    const parentIndexLevel = getSolidaryRootIndexLevel();
-    const parentRepoFullName = getSolidaryRootRepoFullName();
-    const parentRepoUrl = getSolidaryRootRepoUrl();
-    const indexLevel = getDefaultChildIndexLevel();
+    let parentIndexId = "";
+    let parentIndexUrl = "";
+    let parentIndexLevel = getSolidaryRootIndexLevel();
+    let parentRepoFullName = getSolidaryRootRepoFullName();
+    let parentRepoUrl = getSolidaryRootRepoUrl();
+    let indexLevel = parentIndexLevel + 1;
 
     await updateJob({
       status: "running",
@@ -1967,6 +2014,17 @@ export const handler: Handler = async (event) => {
     });
 
     try {
+      await updateJob({
+        step: "Resolving Solidary root index...",
+      });
+      const rootIndex = await resolveSolidaryRootIndexContext(supabase);
+      parentIndexId = rootIndex.parentIndexId;
+      parentIndexUrl = rootIndex.parentIndexUrl;
+      parentIndexLevel = rootIndex.parentIndexLevel;
+      parentRepoFullName = rootIndex.parentRepoFullName;
+      parentRepoUrl = rootIndex.parentRepoUrl;
+      indexLevel = parentIndexLevel + 1;
+
       if (!isValidRepoFullName(parentRepoFullName)) {
         throw new HttpError(
           500,
