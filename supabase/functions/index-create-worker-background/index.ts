@@ -1334,7 +1334,7 @@ async function runProjectQuery({
 async function bootstrapProjectDatabase({
   accessToken,
   projectRef,
-  archiveId,
+  indexId,
   slug,
   title,
   description,
@@ -1351,7 +1351,7 @@ async function bootstrapProjectDatabase({
 }: {
   accessToken: string;
   projectRef: string;
-  archiveId: string;
+  indexId: string;
   slug: string;
   title: string;
   description: string;
@@ -1374,7 +1374,7 @@ async function bootstrapProjectDatabase({
     {
       label: "index admin bootstrap",
       query: createIndexAdminBootstrapSql({
-        archiveId,
+        indexId,
         slug,
         title,
         description,
@@ -1916,7 +1916,7 @@ export const handler: Handler = async (event) => {
       await bootstrapProjectDatabase({
         accessToken: managementAccessToken,
         projectRef,
-        archiveId,
+        indexId: archiveId,
         slug: repoName,
         title,
         description,

@@ -31,7 +31,12 @@ export const createIndexAdminBootstrapSql = ({
   parentRepoFullName: string;
   parentRepoUrl: string;
 }) => {
-  const escapedIndexId = escapeSqlLiteral(indexId);
+  const normalizedIndexId = indexId.trim();
+  if (!normalizedIndexId) {
+    throw new Error("createIndexAdminBootstrapSql requires indexId.");
+  }
+
+  const escapedIndexId = escapeSqlLiteral(normalizedIndexId);
   const escapedSlug = escapeSqlLiteral(slug);
   const escapedTitle = escapeSqlLiteral(title);
   const escapedDescription = escapeSqlLiteral(description);
