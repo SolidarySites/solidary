@@ -977,3 +977,52 @@ export const updateSupabaseProjectGitHubAuthConfig = async ({
     uriAllowList,
   };
 };
+
+export const updateSupabaseProjectFunctionSecrets = async ({
+  accessToken,
+  projectRef,
+  secrets,
+}: {
+  accessToken: string;
+  projectRef: string;
+  secrets: Array<{ name: string; value: string }>;
+}) => {
+  const normalizedProjectRef = normalizeTrimmedString(projectRef);
+  if (!normalizedProjectRef) {
+    throw new Error("Supabase project ref is required.");
+  }
+
+  const normalizedSecrets = secrets
+    .map((entry) => ({
+      name: normalizeTrimmedString(entry.name),
+      value: normalizeTrimmedString(entry.value),
+    }))
+    .filter((entry) => entry.name);
+  if (!normalizedSecrets.length) {
+    return;
+  }
+
+  const response = await fetch(
+    `${SUPABASE_MANAGEMENT_API}/v1/projects/${normalizedProjectRef}/secrets`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${normalizeTrimmedString(accessToken)}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(normalizedSecrets),
+    },
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | SupabaseManagementApiErrorPayload
+    | null;
+  if (!response.ok) {
+    throw new Error(
+      getSupabaseManagementApiErrorMessage(
+        payload,
+        "Failed to update Supabase function secrets.",
+      ),
+    );
+  }
+};

@@ -10,7 +10,6 @@ import {
   readStoredLocalAdminToken,
   rememberBridgeToken,
   rememberLocalAdminToken,
-  renderLink,
 } from "../shared.js";
 
 const FINALIZATION_POLL_INTERVAL_MS = 2500;
@@ -183,10 +182,6 @@ const renderHeroLinks = () => {
     href: state.setup.supabaseDashboardUrl,
     label: "Supabase project",
   });
-  renderLink(links, {
-    href: state.setup.solidaryAdminUrl,
-    label: "Open Solidary /admin",
-  });
 };
 
 const getOwner = () =>
@@ -271,11 +266,7 @@ const renderTabs = () => {
   });
 };
 
-const renderGuard = ({
-  message,
-  allowAdminLink = true,
-  showLocalPasswordForm = false,
-}) => {
+const renderGuard = ({ message, showLocalPasswordForm = false }) => {
   const guard = byId("admin-guard");
   const shell = byId("admin-shell");
   const finalizationCard = byId("admin-finalization");
@@ -293,18 +284,6 @@ const renderGuard = ({
   guard.querySelectorAll(".hero-actions").forEach((element) =>
     element.remove()
   );
-
-  if (allowAdminLink && state.config) {
-    const actionRow = document.createElement("div");
-    actionRow.className = "hero-actions";
-    renderLink(actionRow, {
-      href:
-        `${state.config.solidaryAppUrl}/admin?indexId=${state.config.indexId}`,
-      label: "Open Solidary /admin",
-      primary: true,
-    });
-    guard.append(actionRow);
-  }
 
   if (showLocalPasswordForm) {
     const form = document.createElement("form");
@@ -1122,25 +1101,68 @@ const boot = async () => {
   try {
     state.config = await loadConfig("../config/index.json");
     const bridgeTokenFromUrl = extractBridgeTokenFromUrl();
-    const nextParams = new URLSearchParams();
-    nextParams.set("indexId", state.config.indexId);
     if (bridgeTokenFromUrl) {
-      nextParams.set("bridge", bridgeTokenFromUrl);
+      rememberBridgeToken({
+        indexId: state.config.indexId,
+        token: bridgeTokenFromUrl,
+      });
     }
-    const destination = `${state.config.solidaryAppUrl}/admin?${nextParams.toString()}`;
+    const storedBridgeToken = readStoredBridgeToken(state.config.indexId);
+    const storedLocalToken = readStoredLocalAdminToken(state.config.indexId);
+    const bridgedToken = bridgeTokenFromUrl || storedBridgeToken;
+    const localAvailability = await probeLocalAdminAvailability();
+    state.localAdminAvailable = localAvailability.available;
+
+    if (storedLocalToken) {
+      state.bridgeToken = storedLocalToken;
+      state.adminMode = "local";
+      try {
+        const payload = await readAdminState();
+        applyPayload(payload);
+        renderAll();
+        setNotice("Local admin unlocked.");
+        return;
+      } catch {
+        clearStoredLocalAdminToken(state.config.indexId);
+        state.bridgeToken = "";
+        state.adminMode = "bridge";
+      }
+    }
+
+    if (bridgedToken) {
+      state.bridgeToken = bridgedToken;
+      state.adminMode = "bridge";
+      try {
+        const payload = await readAdminState();
+        applyPayload(payload);
+        renderAll();
+        if (state.localAdminAvailable) {
+          setNotice(
+            "This child /admin is open locally and using a temporary bridge session. Unlock locally when ready.",
+          );
+        }
+        return;
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not open the bridged child admin session.",
+          "error",
+        );
+      }
+    }
 
     renderGuard({
-      message: "Index admin has moved to Solidary /admin. Redirecting now...",
-      allowAdminLink: false,
-      showLocalPasswordForm: false,
+      message: state.localAdminAvailable
+        ? localAvailability.message
+        : "This child /admin is not ready for local unlock yet.",
+      showLocalPasswordForm: state.localAdminAvailable,
     });
-    window.location.replace(destination);
   } catch (error) {
     renderGuard({
       message: error instanceof Error
         ? error.message
         : "Could not load standalone admin.",
-      allowAdminLink: state.adminMode !== "local",
       showLocalPasswordForm: state.localAdminAvailable,
     });
     setNotice(

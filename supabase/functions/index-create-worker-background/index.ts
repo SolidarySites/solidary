@@ -26,6 +26,7 @@ import {
   getSolidaryRootRepoUrl,
 } from "../_shared/solidary-root-index.ts";
 import { refreshIndexFederationMirror } from "../_shared/index-federation.ts";
+import { buildIndexParentConnectionUuid } from "../_shared/index-parent-connection.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
 
 const GITHUB_API = "https://api.github.com";
@@ -48,8 +49,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const PROJECT_FUNCTION_SECRET_NAMES = {
+  projectId: "SOLIDARY_PROJECT_ID",
   publishableKey: "SOLIDARY_PUBLISHABLE_KEY",
   secretKey: "SOLIDARY_SECRET_KEY",
+  tokenEncryptionKey: "TOKEN_ENCRYPTION_KEY",
+  githubTokenDebug: "GITHUB_TOKEN_DEBUG",
+  githubOauthClientId: "GITHUB_OAUTH_CLIENT_ID",
+  githubOauthClientSecret: "GITHUB_OAUTH_CLIENT_SECRET",
 } as const;
 
 type GhErrorPayload = { message?: string; documentation_url?: string };
@@ -189,6 +195,12 @@ const resolveAbsoluteAssetUrl = ({
   } catch {
     return assetPath.trim();
   }
+};
+
+const createProjectTokenEncryptionKey = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes).map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
 };
 
 const resolveSiteUrlForRepo = (owner: string, repo: string) => {
@@ -845,6 +857,60 @@ const createTemplateConfigFile = ({
     )
   }\n`;
 
+const createTemplateSolidaryLinksFile = ({
+  indexId,
+  siteUrl,
+  parentIndexId,
+  parentIndexUrl,
+}: {
+  indexId: string;
+  siteUrl: string;
+  parentIndexId: string;
+  parentIndexUrl: string;
+}) => {
+  const connectionUuid = buildIndexParentConnectionUuid({
+    sourceIndexId: indexId,
+    targetIndexId: parentIndexId,
+  });
+  const hasParentConnection = Boolean(connectionUuid && parentIndexUrl.trim());
+
+  return `${
+    JSON.stringify(
+      {
+        "@context": {
+          site: "urn:solidary:type:site",
+          index: "urn:solidary:type:index",
+          connection: "urn:solidary:type:connection",
+          site_id: "urn:solidary:term:site_id",
+          connections: {
+            "@id": "urn:solidary:term:connections",
+            "@container": "@set",
+          },
+          connected_site: "urn:solidary:term:connected_site",
+        },
+        "@id": siteUrl,
+        "@type": "index",
+        site_id: indexId,
+        connections: hasParentConnection
+          ? [
+            {
+              "@id": `urn:uuid:${connectionUuid}`,
+              "@type": "connection",
+              connected_site: {
+                "@id": parentIndexUrl.trim(),
+                "@type": "index",
+                site_id: parentIndexId,
+              },
+            },
+          ]
+          : [],
+      },
+      null,
+      2,
+    )
+  }\n`;
+};
+
 const loadTemplateFiles = () => {
   if (!bundledTemplateFiles.length) {
     throw new Error(
@@ -937,6 +1003,16 @@ const applyIndexTemplateOverrides = ({
       parentIndexId,
       parentIndexUrl,
       parentIndexLevel,
+      }),
+  });
+  upsertTemplateFile({
+    filesByPath,
+    relPath: "site/.well-known/solidary-links.json",
+    content: createTemplateSolidaryLinksFile({
+      indexId: archiveId,
+      siteUrl,
+      parentIndexId,
+      parentIndexUrl,
     }),
   });
 
@@ -1280,12 +1356,32 @@ async function ensureProjectFunctionSecrets({
       body: JSON.stringify(
         [
           {
+            name: PROJECT_FUNCTION_SECRET_NAMES.projectId,
+            value: projectRef,
+          },
+          {
             name: PROJECT_FUNCTION_SECRET_NAMES.publishableKey,
             value: publishableKey,
           },
           {
             name: PROJECT_FUNCTION_SECRET_NAMES.secretKey,
             value: secretKey,
+          },
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.tokenEncryptionKey,
+            value: createProjectTokenEncryptionKey(),
+          },
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.githubTokenDebug,
+            value: "false",
+          },
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.githubOauthClientId,
+            value: "",
+          },
+          {
+            name: PROJECT_FUNCTION_SECRET_NAMES.githubOauthClientSecret,
+            value: "",
           },
         ],
       ),
@@ -1662,6 +1758,33 @@ async function saveParentIndexMetadata({
       500,
       credentialsError.message || "Failed to save child project credentials.",
     );
+  }
+
+  const parentConnectionUuid = buildIndexParentConnectionUuid({
+    sourceIndexId: archiveId,
+    targetIndexId: parentIndexId,
+  });
+  if (parentConnectionUuid) {
+    const nowIso = new Date().toISOString();
+    const { error: connectionError } = await supabase.from("connections").upsert(
+      {
+        connection_uuid: parentConnectionUuid,
+        source_index_id: archiveId,
+        target_site_id: null,
+        target_index_id: parentIndexId,
+        source_requested_by_user_id: ownerUserId,
+        responded_by_user_id: ownerUserId,
+        status: "approved",
+        responded_at: nowIso,
+      },
+      { onConflict: "connection_uuid" },
+    );
+    if (connectionError) {
+      throw new HttpError(
+        500,
+        connectionError.message || "Failed to save parent index connection.",
+      );
+    }
   }
 }
 

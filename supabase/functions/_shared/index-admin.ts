@@ -27,6 +27,7 @@ import {
   splitSupabaseManagementScopes,
   SupabaseManagementReauthError,
   updateSupabaseProjectAuthConfig,
+  updateSupabaseProjectFunctionSecrets,
   updateSupabaseProjectGitHubAuthConfig,
 } from "./supabase-management-auth/index.ts";
 import {
@@ -37,6 +38,7 @@ import {
   notifyIndexFederationRefresh,
   refreshIndexFederationMirror,
 } from "./index-federation.ts";
+import { buildIndexParentConnectionUuid } from "./index-parent-connection.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
@@ -1539,6 +1541,7 @@ const buildSolidaryLinksManifest = ({
   rootId: string;
   siteUrl: string;
   connections: {
+    connectionUuid?: string;
     connectedSiteId: string;
     connectedSiteUrl: string;
     connectedSiteType?: "site" | "index";
@@ -1562,7 +1565,7 @@ const buildSolidaryLinksManifest = ({
         "@type": "index",
         site_id: rootId,
         connections: connections.map((entry) => ({
-          "@id": `urn:uuid:${entry.connectedSiteId}`,
+          "@id": `urn:uuid:${entry.connectionUuid || entry.connectedSiteId}`,
           "@type": "connection",
           connected_site: {
             "@id": entry.connectedSiteUrl,
@@ -1824,10 +1827,44 @@ const buildStandaloneIndexConnectionEntries = (
   connections
     .filter((entry) => entry.status === "approved" && entry.sourceSiteUrl)
     .map((entry) => ({
+      connectionUuid: entry.connectionUuid,
       connectedSiteId: entry.sourceSiteId,
       connectedSiteUrl: entry.sourceSiteUrl,
       connectedSiteType: "site" as const,
     }));
+
+const buildStandaloneParentIndexConnectionEntry = ({
+  indexId,
+  parentIndexId,
+  parentIndexUrl,
+}: {
+  indexId: string;
+  parentIndexId: string | null;
+  parentIndexUrl: string | null;
+}) => {
+  const normalizedParentIndexId = toTrimmedString(parentIndexId);
+  const normalizedParentIndexUrl = toTrimmedString(parentIndexUrl);
+  if (!normalizedParentIndexId || !normalizedParentIndexUrl) {
+    return [];
+  }
+
+  const connectionUuid = buildIndexParentConnectionUuid({
+    sourceIndexId: indexId,
+    targetIndexId: normalizedParentIndexId,
+  });
+  if (!connectionUuid) {
+    return [];
+  }
+
+  return [
+    {
+      connectionUuid,
+      connectedSiteId: normalizedParentIndexId,
+      connectedSiteUrl: normalizedParentIndexUrl,
+      connectedSiteType: "index" as const,
+    },
+  ];
+};
 
 const readIndexConnectionRecords = async ({
   context,
@@ -2361,9 +2398,14 @@ const syncStandaloneIndexConnectionsMetadata = async ({
   const linksManifest = buildSolidaryLinksManifest({
     rootId: updatedState.index.id,
     siteUrl: updatedState.index.canonicalUrl,
-    connections: buildStandaloneIndexConnectionEntries(
-      updatedState.connections,
-    ),
+    connections: [
+      ...buildStandaloneParentIndexConnectionEntry({
+        indexId: updatedState.index.id,
+        parentIndexId: updatedState.index.parentIndexId,
+        parentIndexUrl: updatedState.index.parentIndexUrl,
+      }),
+      ...buildStandaloneIndexConnectionEntries(updatedState.connections),
+    ],
   });
   const githubToken = await resolveOwnerGitHubToken(context);
   await writeRepoFile({
@@ -2713,9 +2755,14 @@ export const updateIndexAdvancedSettings = async ({
   const linksManifest = buildSolidaryLinksManifest({
     rootId: currentState.index.id,
     siteUrl: nextSiteUrl,
-    connections: buildStandaloneIndexConnectionEntries(
-      currentState.connections,
-    ),
+    connections: [
+      ...buildStandaloneParentIndexConnectionEntry({
+        indexId: currentState.index.id,
+        parentIndexId: currentState.index.parentIndexId,
+        parentIndexUrl: currentState.index.parentIndexUrl,
+      }),
+      ...buildStandaloneIndexConnectionEntries(currentState.connections),
+    ],
   });
   await writeRepoFile({
     githubToken,
@@ -2777,6 +2824,20 @@ export const configureIndexStandaloneAuth = async ({
       siteUrl,
       githubClientId: normalizedGithubClientId,
       githubClientSecret: normalizedGithubClientSecret,
+    });
+    await updateSupabaseProjectFunctionSecrets({
+      accessToken: managementAccessToken,
+      projectRef: context.credentials.supabase_project_ref,
+      secrets: [
+        {
+          name: "GITHUB_OAUTH_CLIENT_ID",
+          value: normalizedGithubClientId,
+        },
+        {
+          name: "GITHUB_OAUTH_CLIENT_SECRET",
+          value: normalizedGithubClientSecret,
+        },
+      ],
     });
   } catch (error) {
     if (

@@ -16,6 +16,7 @@ import {
   type IndexFinalizationSourceManifestEntry,
   parseIndexFinalizationPayload,
 } from "../_shared/index-finalization.ts";
+import { buildIndexParentConnectionUuid } from "../_shared/index-parent-connection.ts";
 import { resolveGitHubTokenForUser } from "../_shared/github-auth-broker.ts";
 import {
   buildFinalizationStepLabel,
@@ -611,10 +612,12 @@ async function createCommitFromTreeEntries({
 }
 
 const createEnvFile = ({
+  siteUrl,
   projectRef,
   projectUrl,
   publishableKey,
 }: {
+  siteUrl: string;
   projectRef: string;
   projectUrl: string;
   publishableKey: string;
@@ -623,44 +626,37 @@ const createEnvFile = ({
     `SOLIDARY_PROJECT_ID=${projectRef}`,
     `SUPABASE_URL=${projectUrl}`,
     `SOLIDARY_PUBLISHABLE_KEY=${publishableKey}`,
+    `SOLIDARY_VITE_BASE=${resolveViteBaseFromSiteUrl(siteUrl)}`,
     `VITE_SUPABASE_PROJECT_ID=${projectRef}`,
     `VITE_SUPABASE_PUBLISHABLE_KEY=${publishableKey}`,
     "",
   ].join("\n");
 
+const resolveViteBaseFromSiteUrl = (siteUrl: string) => {
+  try {
+    const parsed = new URL(siteUrl.trim());
+    const pathname = parsed.pathname.trim();
+    if (!pathname || pathname === "/") {
+      return "/";
+    }
+    return pathname.endsWith("/") ? pathname : `${pathname}/`;
+  } catch {
+    return "/";
+  }
+};
+
 const applyVitePagesPatch = (source: string) => {
-  if (source.includes('base: "./"')) {
+  if (source.includes("SOLIDARY_VITE_BASE")) {
     return source;
   }
-
-  const replaced = source.replace(
-    /export default defineConfig\(\{\s*/m,
-    'export default defineConfig({\n  base: "./",\n  ',
-  );
-  return replaced === source ? source : replaced;
+  return source;
 };
 
 const applyRouterBasenamePatch = (source: string) => {
-  if (source.includes("resolveRouterBasename")) {
+  if (source.includes("resolveGitHubPagesBasename")) {
     return source;
   }
-
-  const helper = "const resolveRouterBasename = () => {\n" +
-    '  if (typeof window === "undefined") return "";\n' +
-    '  if (!/github\\.io$/i.test(window.location.hostname)) return "";\n' +
-    '  const segments = window.location.pathname.split("/").filter(Boolean);\n' +
-    '  return segments[0] ? `/${segments[0]}` : "";\n' +
-    "};\n\n";
-
-  let next = source.replace(
-    "const StudioLockExitGuard = () => {",
-    `${helper}const StudioLockExitGuard = () => {`,
-  );
-  next = next.replace(
-    "<BrowserRouter>",
-    "<BrowserRouter basename={resolveRouterBasename()}>",
-  );
-  return next;
+  return source;
 };
 
 const createDeployWorkflow = () =>
@@ -863,9 +859,13 @@ const createStandaloneSolidaryFile = ({
 const createStandaloneSolidaryLinksFile = ({
   archiveId,
   siteUrl,
+  parentIndexId,
+  parentIndexUrl,
 }: {
   archiveId: string;
   siteUrl: string;
+  parentIndexId: string;
+  parentIndexUrl: string;
 }) =>
   `${
     JSON.stringify(
@@ -884,7 +884,22 @@ const createStandaloneSolidaryLinksFile = ({
         "@id": siteUrl,
         "@type": "index",
         site_id: archiveId,
-        connections: [],
+        connections: parentIndexId.trim() && parentIndexUrl.trim()
+          ? [
+            {
+              "@id": `urn:uuid:${buildIndexParentConnectionUuid({
+                sourceIndexId: archiveId,
+                targetIndexId: parentIndexId,
+              })}`,
+              "@type": "connection",
+              connected_site: {
+                "@id": parentIndexUrl.trim(),
+                "@type": "index",
+                site_id: parentIndexId.trim(),
+              },
+            },
+          ]
+          : [],
       },
       null,
       2,
@@ -1113,6 +1128,8 @@ const createStandalonePublicGeneratedEntries = ({
       content: createStandaloneSolidaryLinksFile({
         archiveId: archive.id,
         siteUrl,
+        parentIndexId,
+        parentIndexUrl,
       }),
     }),
   ];
@@ -1130,10 +1147,12 @@ const createStandalonePublicGeneratedEntries = ({
 };
 
 const createGeneratedManifestEntries = ({
+  siteUrl,
   projectRef,
   projectUrl,
   publishableKey,
 }: {
+  siteUrl: string;
   projectRef: string;
   projectUrl: string;
   publishableKey: string;
@@ -1142,11 +1161,12 @@ const createGeneratedManifestEntries = ({
     kind: "generated",
     path: ".env.production",
     mode: "100644",
-    contentB64: Buffer.from(
-      createEnvFile({
-        projectRef,
-        projectUrl,
-        publishableKey,
+      contentB64: Buffer.from(
+        createEnvFile({
+          siteUrl,
+          projectRef,
+          projectUrl,
+          publishableKey,
       }),
       "utf8",
     ).toString("base64"),
@@ -1882,6 +1902,7 @@ const runPrepareManifestPhase = async ({
     resolveSiteUrlForRepo(context.targetRepo.owner, context.targetRepo.repo);
   const generatedEntries = [
     ...createGeneratedManifestEntries({
+      siteUrl,
       projectRef: context.credentials.supabase_project_ref,
       projectUrl: context.credentials.supabase_project_url,
       publishableKey,

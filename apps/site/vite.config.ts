@@ -4,6 +4,13 @@ import react from "@vitejs/plugin-react";
 
 const envDir = fileURLToPath(new URL("../..", import.meta.url));
 const readEnv = (value: string | undefined) => value?.trim() ?? "";
+const normalizeBasePath = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "/";
+  if (trimmed === "./") return "./";
+  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+};
 const deriveProjectIdFromUrl = (supabaseUrl: string) => {
   const match = supabaseUrl.match(/^https:\/\/([a-z0-9-]+)\.supabase\.co\/?$/i);
   return match?.[1]?.trim() ?? "";
@@ -22,6 +29,7 @@ export default defineConfig(({ mode }) => {
     readEnv(env.SOLIDARY_PUBLISHABLE_KEY) ||
     readEnv(env.VITE_SUPABASE_PUBLISHABLE_KEY) ||
     "";
+  const viteBase = normalizeBasePath(readEnv(env.SOLIDARY_VITE_BASE));
   const supabaseUrl =
     explicitSupabaseUrl ||
     (projectId ? `https://${projectId}.supabase.co` : "");
@@ -41,6 +49,7 @@ export default defineConfig(({ mode }) => {
     build: {
       cssMinify: "lightningcss",
     },
+    base: viteBase,
     plugins: [react()],
     server: {
       host: "127.0.0.1",

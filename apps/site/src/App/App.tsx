@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import "./styles/site.css";
 import { AuthProvider } from "./features/auth/providers/AuthProvider";
 import RequireAuth from "./features/auth/components/RequireAuth";
+import { resolveGitHubPagesBasename } from "./features/auth/services/redirect-paths";
 import { useGlobalExternalImageLoading } from "./hooks/useGlobalExternalImageLoading";
 import SiteHeader from "./components/SiteHeader";
 import { supabase } from "./lib/supabase";
@@ -61,6 +62,13 @@ const StudioLockExitGuard = () => {
 export default function App() {
   useGlobalExternalImageLoading();
   const headerShellRef = useRef<HTMLDivElement | null>(null);
+  const routerBasename =
+    typeof window === "undefined"
+      ? ""
+      : resolveGitHubPagesBasename({
+        hostname: window.location.hostname,
+        pathname: import.meta.env.BASE_URL || window.location.pathname
+      });
 
   useEffect(() => {
     const headerShell = headerShellRef.current;
@@ -111,7 +119,7 @@ export default function App() {
   return (
     <AuthProvider>
       <SiteNoticeProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={routerBasename}>
           <div className="app-global-header-shell" ref={headerShellRef}>
             <SiteHeader />
           </div>

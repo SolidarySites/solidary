@@ -113,7 +113,7 @@ const loadSiteState = async (config) => {
   }
 
   const siteById = new Map((connectionSiteRows || []).map((entry) => [entry.id, entry]));
-  const connections = (archiveSiteRows || []).map((entry) => {
+  const connections = (indexSiteRows || []).map((entry) => {
     const connectedSite = siteById.get(entry.site_id) || {};
     return {
       siteId: entry.site_id,
