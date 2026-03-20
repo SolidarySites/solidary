@@ -1,11 +1,33 @@
 import {
+  callRestRpc,
   clearChildren,
   loadConfig,
   renderLink,
-  selectFromTable,
   setHref,
   setText
 } from "./shared.js";
+
+const toTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
+
+const getUpdatedAtTimestamp = (value) => {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+};
+
+const compareNetworkNodes = (left, right) => {
+  const leftUpdatedAt = getUpdatedAtTimestamp(left.updatedAt);
+  const rightUpdatedAt = getUpdatedAtTimestamp(right.updatedAt);
+  if (leftUpdatedAt !== rightUpdatedAt) {
+    return rightUpdatedAt > leftUpdatedAt ? 1 : -1;
+  }
+
+  if (left.connectionCount !== right.connectionCount) {
+    return right.connectionCount - left.connectionCount;
+  }
+
+  return left.title.localeCompare(right.title);
+};
 
 const renderConnectedSites = (container, connections) => {
   clearChildren(container);
@@ -14,7 +36,7 @@ const renderConnectedSites = (container, connections) => {
   if (!connections.length) {
     const empty = document.createElement("p");
     empty.className = "empty-state";
-    empty.textContent = "No connected sites are stored for this index yet.";
+    empty.textContent = "No mirrored sites or indexes are visible from this index yet.";
     container.append(empty);
     return;
   }
@@ -23,8 +45,13 @@ const renderConnectedSites = (container, connections) => {
     const article = document.createElement("article");
     article.className = "connected-site-card";
 
+    const badge = document.createElement("p");
+    badge.className = "connected-site-badge";
+    badge.textContent = connection.nodeType === "index" ? "Index" : "Site";
+    article.append(badge);
+
     const title = document.createElement("h3");
-    title.textContent = connection.title || connection.siteId;
+    title.textContent = connection.title || connection.nodeId;
     article.append(title);
 
     if (connection.description) {
@@ -36,7 +63,8 @@ const renderConnectedSites = (container, connections) => {
     const meta = document.createElement("dl");
     meta.className = "connected-site-meta";
     [
-      ["Site URL", connection.canonicalUrl || "-"],
+      ["Public URL", connection.canonicalUrl || "-"],
+      ["Connections", String(connection.connectionCount)],
       ["Parent index URL", connection.parentIndexUrl || "-"],
       [
         "Parent index level",
@@ -58,7 +86,7 @@ const renderConnectedSites = (container, connections) => {
       link.href = connection.canonicalUrl;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = "Visit site";
+      link.textContent = connection.nodeType === "index" ? "Visit index" : "Visit site";
       article.append(link);
     }
 
@@ -67,68 +95,47 @@ const renderConnectedSites = (container, connections) => {
 };
 
 const loadSiteState = async (config) => {
-  const [indexRows, indexSiteRows] = await Promise.all([
-    selectFromTable({
-      config,
-      table: "indexes",
-      select:
-        "id,type,canonical_url,title,description,image_url,index_level,parent_index_id,parent_index_url,parent_index_level",
-      filters: {
-        id: `eq.${config.indexId}`
-      }
-    }),
-    selectFromTable({
-      config,
-      table: "index_sites",
-      select: "site_id,status,created_at,delist_reason_code,delist_note",
-      filters: {
-        index_id: `eq.${config.indexId}`,
-        status: "eq.tracked"
-      },
-      order: {
-        column: "created_at",
-        ascending: false
-      }
-    })
-  ]);
-
-  const index = Array.isArray(indexRows) ? indexRows[0] || null : null;
-  const connectionSiteIds = Array.isArray(indexSiteRows)
-    ? indexSiteRows
-        .map((row) => (typeof row.site_id === "string" ? row.site_id : ""))
-        .filter(Boolean)
-    : [];
-
-  let connectionSiteRows = [];
-  if (connectionSiteIds.length) {
-    connectionSiteRows = await selectFromTable({
-      config,
-      table: "sites",
-      select:
-        "id,canonical_url,title,description,image_url,parent_index_id,parent_index_url,parent_index_level",
-      filters: {
-        id: `in.(${connectionSiteIds.join(",")})`
-      }
-    });
-  }
-
-  const siteById = new Map((connectionSiteRows || []).map((entry) => [entry.id, entry]));
-  const connections = (indexSiteRows || []).map((entry) => {
-    const connectedSite = siteById.get(entry.site_id) || {};
-    return {
-      siteId: entry.site_id,
-      title: typeof connectedSite.title === "string" ? connectedSite.title : entry.site_id,
-      description: typeof connectedSite.description === "string" ? connectedSite.description : "",
-      canonicalUrl:
-        typeof connectedSite.canonical_url === "string" ? connectedSite.canonical_url : "",
-      parentIndexUrl:
-        typeof connectedSite.parent_index_url === "string" ? connectedSite.parent_index_url : "",
-      parentIndexLevel:
-        typeof connectedSite.parent_index_level === "number"
-          ? connectedSite.parent_index_level
-          : null
-    };
+  const graph = await callRestRpc({
+    config,
+    rpcName: "rpc_public_explorer_graph"
   });
+  const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  const rawEdges = Array.isArray(graph?.edges) ? graph.edges : [];
+
+  const edgeCounts = {};
+  rawEdges.forEach((edge) => {
+    const sourceId = toTrimmedString(edge?.source_id);
+    const targetId = toTrimmedString(edge?.target_id);
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    edgeCounts[sourceId] = (edgeCounts[sourceId] || 0) + 1;
+    edgeCounts[targetId] = (edgeCounts[targetId] || 0) + 1;
+  });
+
+  const index = rawNodes.find((node) => toTrimmedString(node?.id) === config.indexId) || null;
+  const connections = rawNodes
+    .map((node) => {
+      const nodeId = toTrimmedString(node?.id);
+      const canonicalUrl = toTrimmedString(node?.canonical_url);
+      if (!nodeId || nodeId === config.indexId || !canonicalUrl) {
+        return null;
+      }
+
+      const nodeType = toTrimmedString(node?.node_type) === "index" ? "index" : "site";
+      return {
+        nodeId,
+        nodeType,
+        title: toTrimmedString(node?.title) || (nodeType === "index" ? "Untitled index" : "Untitled site"),
+        description: toTrimmedString(node?.description),
+        canonicalUrl,
+        parentIndexUrl: toTrimmedString(node?.parent_index_url),
+        parentIndexLevel:
+          typeof node?.parent_index_level === "number" ? node.parent_index_level : null,
+        connectionCount: edgeCounts[nodeId] || 0,
+        updatedAt: toTrimmedString(node?.updated_at) || null
+      };
+    })
+    .filter(Boolean)
+    .sort(compareNetworkNodes);
 
   return {
     index,
@@ -220,7 +227,7 @@ const boot = async () => {
 
     setText(
       "runtime-status",
-      "This standalone index is reading live data from its own Supabase project. Configure local OAuth before onboarding external admins directly."
+      "This standalone index is reading the mirrored public network from its own Supabase project."
     );
 
     renderConnectedSites(document.getElementById("connected-site-list"), connections);

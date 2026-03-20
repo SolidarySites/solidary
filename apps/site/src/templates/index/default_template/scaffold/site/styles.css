@@ -194,6 +194,17 @@ body {
   gap: 0.65rem;
 }
 
+.connected-site-badge {
+  margin: 0;
+  width: fit-content;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 .connected-site-card h3,
 .connected-site-card p {
   margin: 0;

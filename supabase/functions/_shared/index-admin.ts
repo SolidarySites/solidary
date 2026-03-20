@@ -34,10 +34,6 @@ import {
   type IndexFinalizationPhase,
   parseIndexFinalizationPayload,
 } from "./index-finalization.ts";
-import {
-  notifyIndexFederationRefresh,
-  refreshIndexFederationMirror,
-} from "./index-federation.ts";
 import { buildIndexParentConnectionUuid } from "./index-parent-connection.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -1579,117 +1575,6 @@ const buildSolidaryLinksManifest = ({
     )
   }\n`;
 
-const refreshLocalFederationMirrorForContext = async ({
-  context,
-}: {
-  context: IndexAdminContext;
-}) => {
-  await refreshIndexFederationMirror({
-    supabase: context.supabase,
-    sourceProjectUrl: context.credentials.supabase_project_url,
-    sourcePublishableKey: context.credentials.supabase_publishable_key ?? "",
-    expectedIndexId: context.archive.id,
-  });
-};
-
-const listRelatedIndexFederationTargets = async ({
-  context,
-}: {
-  context: IndexAdminContext;
-}) => {
-  const relatedArchiveIds = new Set<string>();
-  const parentIndexId = toTrimmedString(context.archive.parent_index_id);
-  if (parentIndexId && parentIndexId !== context.archive.id) {
-    relatedArchiveIds.add(parentIndexId);
-  }
-
-  const { data: childArchives, error: childArchivesError } = await context
-    .supabase
-    .from("indexes")
-    .select("id")
-    .eq("type", "index")
-    .eq("parent_index_id", context.archive.id);
-  if (childArchivesError) {
-    throw new Error(childArchivesError.message);
-  }
-
-  ((childArchives ?? []) as Array<{ id?: unknown }>).forEach((row) => {
-    const archiveId = toTrimmedString(row.id);
-    if (archiveId && archiveId !== context.archive.id) {
-      relatedArchiveIds.add(archiveId);
-    }
-  });
-
-  if (!relatedArchiveIds.size) {
-    return [] as Array<{
-      id: string;
-      projectUrl: string;
-      publishableKey: string;
-    }>;
-  }
-
-  const { data: relatedArchives, error: relatedArchivesError } = await context
-    .supabase
-    .from("indexes")
-    .select("id, supabase_project_url, supabase_publishable_key")
-    .in("id", Array.from(relatedArchiveIds))
-    .eq("type", "index");
-  if (relatedArchivesError) {
-    throw new Error(relatedArchivesError.message);
-  }
-
-  return ((relatedArchives ?? []) as Array<Record<string, unknown>>)
-    .map((archive) => ({
-      id: toTrimmedString(archive.id),
-      projectUrl: toTrimmedString(archive.supabase_project_url),
-      publishableKey: toTrimmedString(archive.supabase_publishable_key),
-    }))
-    .filter((archive) =>
-      archive.id &&
-      archive.id !== context.archive.id &&
-      archive.projectUrl &&
-      archive.publishableKey
-    );
-};
-
-const notifyRelatedIndexesOfFederationChange = async ({
-  context,
-}: {
-  context: IndexAdminContext;
-}) => {
-  const targets = await listRelatedIndexFederationTargets({ context });
-  if (!targets.length) {
-    return;
-  }
-
-  const results = await Promise.allSettled(
-    targets.map((target) =>
-      notifyIndexFederationRefresh({
-        targetProjectUrl: target.projectUrl,
-        targetPublishableKey: target.publishableKey,
-        sourceIndexId: context.archive.id,
-        sourceProjectUrl: context.credentials.supabase_project_url,
-        sourcePublishableKey: context.credentials.supabase_publishable_key ??
-          "",
-      })
-    ),
-  );
-
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") {
-      return;
-    }
-
-    const target = targets[index];
-    console.warn("[index-federation] failed to notify related index", {
-      archiveId: target?.id ?? null,
-      message: result.reason instanceof Error
-        ? result.reason.message
-        : String(result.reason),
-    });
-  });
-};
-
 export const listAccessibleIndexesForUser = async ({
   supabaseAccessToken,
 }: {
@@ -2128,9 +2013,6 @@ const updateChildIndexMetadata = async ({
   if (archiveError) {
     throw new Error(archiveError.message);
   }
-
-  await refreshLocalFederationMirrorForContext({ context });
-  await notifyRelatedIndexesOfFederationChange({ context });
 };
 
 const resolveOwnerGitHubToken = async (context: IndexAdminContext) => {
@@ -2390,7 +2272,6 @@ const syncStandaloneIndexConnectionsMetadata = async ({
   message: string;
 }) => {
   if (isRootPasswordAdminContext(context)) {
-    await notifyRelatedIndexesOfFederationChange({ context });
     return;
   }
 
@@ -2416,9 +2297,6 @@ const syncStandaloneIndexConnectionsMetadata = async ({
     contentB64: Buffer.from(linksManifest, "utf8").toString("base64"),
     message,
   });
-
-  await refreshLocalFederationMirrorForContext({ context });
-  await notifyRelatedIndexesOfFederationChange({ context });
 };
 
 export const updateIndexConnectionRequest = async ({

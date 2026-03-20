@@ -88,6 +88,22 @@ export const selectFromTable = async ({
   });
 };
 
+export const callRestRpc = async ({
+  config,
+  rpcName,
+  body = {}
+}) => {
+  const url = new URL(`/rest/v1/rpc/${rpcName}`, config.projectUrl);
+  return fetchJson(url.toString(), {
+    method: "POST",
+    headers: {
+      ...buildRestHeaders(config),
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+};
+
 export const callSupabaseFunction = async ({
   supabaseUrl,
   functionName,

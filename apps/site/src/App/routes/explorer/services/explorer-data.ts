@@ -16,6 +16,8 @@ export type ExplorerNode = {
   updatedAt: string | null;
   indexLevel: number | null;
   parentIndexId: string | null;
+  parentIndexUrl: string | null;
+  parentIndexLevel: number | null;
 };
 
 export type ExplorerSite = ExplorerNode;
@@ -49,6 +51,8 @@ type PublicExplorerGraphNodeRow = {
   updated_at?: unknown;
   index_level?: unknown;
   parent_index_id?: unknown;
+  parent_index_url?: unknown;
+  parent_index_level?: unknown;
 };
 
 type PublicExplorerGraphEdgeRow = {
@@ -110,6 +114,8 @@ const mapGraphNodes = (rows: unknown): ExplorerSite[] =>
         updatedAt: toNullableString(entry.updated_at),
         indexLevel: toNullableInt(entry.index_level),
         parentIndexId: toNullableString(entry.parent_index_id),
+        parentIndexUrl: toNullableString(entry.parent_index_url),
+        parentIndexLevel: toNullableInt(entry.parent_index_level),
       } satisfies ExplorerSite;
     })
     .filter((node): node is ExplorerSite => Boolean(node));

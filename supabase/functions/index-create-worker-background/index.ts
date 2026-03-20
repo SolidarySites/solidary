@@ -23,7 +23,11 @@ import {
   getSolidaryRootRepoFullName,
   getSolidaryRootRepoUrl,
 } from "../_shared/solidary-root-index.ts";
-import { refreshIndexFederationMirror } from "../_shared/index-federation.ts";
+import {
+  dispatchFederationQueueNow,
+  enqueueAuthoritativeFederationSnapshot,
+  ensureFederationPeerPair,
+} from "../_shared/index-federation.ts";
 import { buildIndexParentConnectionUuid } from "../_shared/index-parent-connection.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
 
@@ -225,12 +229,27 @@ const createSupabaseAdmin = () =>
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+const createProjectAdmin = (projectUrl: string, secretKey: string) =>
+  createClient(projectUrl, secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
 const resolveSolidaryRootIndexContext = async (
   supabase: ReturnType<typeof createSupabaseAdmin>,
 ) => {
   const { data, error } = await supabase
     .from("indexes")
-    .select("id, canonical_url, index_level, repo_full_name, repo_url")
+    .select(
+      [
+        "id",
+        "canonical_url",
+        "index_level",
+        "repo_full_name",
+        "repo_url",
+        "supabase_project_url",
+        "supabase_publishable_key",
+      ].join(", "),
+    )
     .eq("type", "index")
     .eq("is_root", true)
     .order("created_at", { ascending: true })
@@ -244,26 +263,47 @@ const resolveSolidaryRootIndexContext = async (
     );
   }
 
-  const parentIndexId = typeof data?.id === "string" ? data.id.trim() : "";
+  const row = (data ?? null) as {
+    id?: unknown;
+    canonical_url?: unknown;
+    index_level?: unknown;
+    repo_full_name?: unknown;
+    repo_url?: unknown;
+    supabase_project_url?: unknown;
+    supabase_publishable_key?: unknown;
+  } | null;
+
+  const parentIndexId = typeof row?.id === "string" ? row.id.trim() : "";
   if (!parentIndexId) {
     throw new HttpError(500, "Solidary root index row is missing.");
   }
 
   const parentIndexUrl =
-    typeof data?.canonical_url === "string" && data.canonical_url.trim()
-      ? data.canonical_url.trim()
+    typeof row?.canonical_url === "string" && row.canonical_url.trim()
+      ? row.canonical_url.trim()
       : getSolidaryRootIndexUrl();
-  const parentIndexLevel = typeof data?.index_level === "number"
-    ? data.index_level
+  const parentIndexLevel = typeof row?.index_level === "number"
+    ? row.index_level
     : getSolidaryRootIndexLevel();
   const parentRepoFullName =
-    typeof data?.repo_full_name === "string" && data.repo_full_name.trim()
-      ? data.repo_full_name.trim()
+    typeof row?.repo_full_name === "string" && row.repo_full_name.trim()
+      ? row.repo_full_name.trim()
       : getSolidaryRootRepoFullName();
   const parentRepoUrl =
-    typeof data?.repo_url === "string" && data.repo_url.trim()
-      ? data.repo_url.trim()
+    typeof row?.repo_url === "string" && row.repo_url.trim()
+      ? row.repo_url.trim()
       : getSolidaryRootRepoUrl();
+  const parentProjectUrl =
+    typeof row?.supabase_project_url === "string" &&
+      row.supabase_project_url.trim()
+      ? row.supabase_project_url.trim()
+      : SUPABASE_URL;
+  const parentPublishableKey =
+    typeof row?.supabase_publishable_key === "string" &&
+      row.supabase_publishable_key.trim()
+      ? row.supabase_publishable_key.trim()
+      : (Deno.env.get("SOLIDARY_PUBLISHABLE_KEY") ??
+        Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "").trim();
 
   return {
     parentIndexId,
@@ -271,6 +311,8 @@ const resolveSolidaryRootIndexContext = async (
     parentIndexLevel,
     parentRepoFullName,
     parentRepoUrl,
+    parentProjectUrl,
+    parentPublishableKey,
   };
 };
 
@@ -2004,6 +2046,10 @@ export const handler: Handler = async (event) => {
     let parentIndexLevel = getSolidaryRootIndexLevel();
     let parentRepoFullName = getSolidaryRootRepoFullName();
     let parentRepoUrl = getSolidaryRootRepoUrl();
+    let parentProjectUrl = SUPABASE_URL;
+    let parentPublishableKey =
+      (Deno.env.get("SOLIDARY_PUBLISHABLE_KEY") ??
+        Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "").trim();
     let indexLevel = parentIndexLevel + 1;
 
     await updateJob({
@@ -2023,12 +2069,20 @@ export const handler: Handler = async (event) => {
       parentIndexLevel = rootIndex.parentIndexLevel;
       parentRepoFullName = rootIndex.parentRepoFullName;
       parentRepoUrl = rootIndex.parentRepoUrl;
+      parentProjectUrl = rootIndex.parentProjectUrl;
+      parentPublishableKey = rootIndex.parentPublishableKey;
       indexLevel = parentIndexLevel + 1;
 
       if (!isValidRepoFullName(parentRepoFullName)) {
         throw new HttpError(
           500,
           "Solidary root source repository is not configured as owner/repo.",
+        );
+      }
+      if (!parentProjectUrl || !parentPublishableKey) {
+        throw new HttpError(
+          500,
+          "Solidary root federation credentials are not configured.",
         );
       }
 
@@ -2360,24 +2414,34 @@ export const handler: Handler = async (event) => {
         parentRepoFullName,
         parentRepoUrl,
       });
-      parentIndexMetadataSaved = true;
 
-      try {
-        await refreshIndexFederationMirror({
+      const childSupabase = createProjectAdmin(projectUrl, secretKey);
+      await ensureFederationPeerPair({
+        parentSupabase: supabase,
+        parentIndexId,
+        parentProjectUrl,
+        parentPublishableKey,
+        childProjectUrl: projectUrl,
+        childPublishableKey: publishableKey,
+        childSecretKey: secretKey,
+        childIndexId: archiveId,
+      });
+
+      await Promise.all([
+        enqueueAuthoritativeFederationSnapshot({
           supabase,
-          sourceProjectUrl: projectUrl,
-          sourcePublishableKey: publishableKey,
-          expectedIndexId: archiveId,
-        });
-      } catch (error) {
-        console.warn(
-          "[index-create-worker] failed to refresh local federation mirror",
-          {
-            archiveId,
-            message: error instanceof Error ? error.message : String(error),
-          },
-        );
-      }
+          targetRemoteIndexId: archiveId,
+        }),
+        enqueueAuthoritativeFederationSnapshot({
+          supabase: childSupabase,
+          targetRemoteIndexId: parentIndexId,
+        }),
+      ]);
+      await Promise.all([
+        dispatchFederationQueueNow({ supabase }),
+        dispatchFederationQueueNow({ supabase: childSupabase }),
+      ]);
+      parentIndexMetadataSaved = true;
 
       await updateJob({
         status: "succeeded",

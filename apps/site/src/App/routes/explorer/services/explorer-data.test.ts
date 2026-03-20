@@ -34,6 +34,8 @@ describe("loadExplorerData", () => {
             updated_at: "2026-03-04T00:00:00Z",
             index_level: null,
             parent_index_id: null,
+            parent_index_url: null,
+            parent_index_level: null,
           },
           {
             id: "index-1",
@@ -45,6 +47,8 @@ describe("loadExplorerData", () => {
             updated_at: "2026-03-05T00:00:00Z",
             index_level: 1,
             parent_index_id: null,
+            parent_index_url: null,
+            parent_index_level: null,
           },
         ],
         edges: [
@@ -88,6 +92,8 @@ describe("loadExplorerData", () => {
         updatedAt: "2026-03-04T00:00:00Z",
         indexLevel: null,
         parentIndexId: null,
+        parentIndexUrl: null,
+        parentIndexLevel: null,
       },
       {
         id: "index-1",
@@ -99,6 +105,8 @@ describe("loadExplorerData", () => {
         updatedAt: "2026-03-05T00:00:00Z",
         indexLevel: 1,
         parentIndexId: null,
+        parentIndexUrl: null,
+        parentIndexLevel: null,
       },
     ]);
     expect(data.connections).toEqual([
