@@ -53,14 +53,14 @@ export default function IndexAdminAdvancedSection({
             Supabase project
           </a>
         )}
-        {setup?.solidaryAdminUrl && (
+        {setup?.standaloneAdminUrl && (
           <a
-            href={setup.solidaryAdminUrl}
+            href={setup.standaloneAdminUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
           >
-            Solidary /admin
+            Child /admin
           </a>
         )}
       </div>

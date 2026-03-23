@@ -42,7 +42,7 @@ const GITHUB_API = "https://api.github.com";
 const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
 const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 2;
-const INDEX_FUNCTIONS_WORKFLOW_FILE = "deploy-supabase-functions.yml";
+const INDEX_LIVE_DEPLOY_WORKFLOW_FILE = "deploy.yml";
 const INDEX_FUNCTIONS_WORKFLOW_BRANCH = "main";
 const INDEX_AUTH_CONFIG_REQUIRED_SCOPES = ["auth:write"] as const;
 const GITHUB_OAUTH_APP_CREATE_URL =
@@ -1291,7 +1291,7 @@ const buildRepoSecretRequirements = (
     isConfigured: configuredSecretNames?.has("SUPABASE_ACCESS_TOKEN") ?? false,
     value: null,
     description:
-      "Add a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_... here. The CLI token still starts with sbp_ and lets the child repo's GitHub Actions workflow run supabase functions deploy.",
+      "Add a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_... here. The CLI token still starts with sbp_ and lets the child repo's GitHub Actions deploy workflow run supabase functions deploy.",
   },
   {
     name: "SUPABASE_PROJECT_REF_PROD",
@@ -1299,7 +1299,7 @@ const buildRepoSecretRequirements = (
       false,
     value: projectRef,
     description:
-      "Set this to the child Supabase project ref so the workflow deploys functions into the right project.",
+      "Set this to the child Supabase project ref so the deploy workflow targets the right project.",
   },
   {
     name: "ADMIN_PASSWORD",
@@ -1321,23 +1321,23 @@ const buildFunctionsDeployStatusMessage = ({
 }) => {
   switch (status) {
     case "not_ready":
-      return "Finalize the repo before checking child function deployment.";
+      return "Finalize the repo before checking the child deploy workflow.";
     case "needs_secrets":
       return `Add the missing GitHub repo secrets (${
         missingSecretNames.join(", ")
-      }) and then rerun the child function deploy workflow.`;
+      }) and then rerun the child deploy workflow.`;
     case "ready_to_run":
-      return "The required GitHub repo secrets are configured. Run the child function deploy workflow to publish the copied Edge Functions.";
+      return "The required GitHub repo secrets are configured. Run the child deploy workflow to publish the copied app and Edge Functions.";
     case "running":
-      return "The child function deploy workflow is running. This page updates automatically while GitHub Actions works through the deploy steps.";
+      return "The child deploy workflow is running. This page updates automatically while GitHub Actions works through the deploy steps.";
     case "failed":
       return latestRunConclusion
-        ? `The child function deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....`
-        : "The child function deploy workflow failed. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....";
+        ? `The child deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....`
+        : "The child deploy workflow failed. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....";
     case "deployed":
-      return "The child function deploy workflow completed successfully.";
+      return "The child deploy workflow completed successfully.";
     default:
-      return "Could not verify the child function deployment state from GitHub Actions.";
+      return "Could not verify the child deploy workflow state from GitHub Actions.";
   }
 };
 
@@ -2049,7 +2049,7 @@ const resolveOwnerGitHubActionsToken = async (context: IndexAdminContext) => {
   const token = toTrimmedString(resolved?.token);
   if (!token) {
     throw new Error(
-      "Sign in with GitHub from Profile before configuring child function deployment.",
+      "Sign in with GitHub from Profile before configuring the child deploy workflow.",
     );
   }
 
@@ -2751,7 +2751,7 @@ export const deployIndexChildFunctions = async ({
   dispatchWorkflow?: boolean;
 }) => {
   if (isRootPasswordAdminContext(context)) {
-    throw new Error("Root /admin does not deploy child functions.");
+    throw new Error("Root /admin does not run the child deploy workflow.");
   }
   assertIndexAdminRole(context.actorRole, "owner");
   const normalizedSupabasePersonalAccessToken = toTrimmedString(
@@ -2759,7 +2759,7 @@ export const deployIndexChildFunctions = async ({
   );
   const normalizedAdminPassword = toTrimmedString(adminPassword);
   if (dispatchWorkflow && context.archive.runtime_mode !== "finalized") {
-    throw new Error("Finalize the index before deploying child functions.");
+    throw new Error("Finalize the index before running the child deploy workflow.");
   }
 
   const githubToken = await resolveOwnerGitHubActionsToken(context);
@@ -2827,17 +2827,17 @@ export const deployIndexChildFunctions = async ({
     githubToken,
     owner: context.credentials.repo_owner,
     repo: context.credentials.repo_name,
-    workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+    workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
   });
   if (isGitHubWorkflowRunActive(latestRun?.status ?? null)) {
-    throw new Error("The child function deployment is already running.");
+    throw new Error("The child deploy workflow is already running.");
   }
 
   await dispatchGitHubWorkflowRun({
     githubToken,
     owner: context.credentials.repo_owner,
     repo: context.credentials.repo_name,
-    workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+    workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
     ref: INDEX_FUNCTIONS_WORKFLOW_BRANCH,
   });
 };
@@ -2967,7 +2967,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
   const workflowUrl = buildGitHubWorkflowUrl({
     owner: context.credentials.repo_owner,
     repo: context.credentials.repo_name,
-    workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+    workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
   });
 
   try {
@@ -2982,7 +2982,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
         githubToken,
         owner: context.credentials.repo_owner,
         repo: context.credentials.repo_name,
-        workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+        workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
       }),
     ]);
 
@@ -3043,7 +3043,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
       status: "unknown" as const,
       message: error instanceof Error
         ? error.message
-        : "Could not verify the child function deployment state from GitHub Actions.",
+        : "Could not verify the child deploy workflow state from GitHub Actions.",
       workflowUrl,
       runUrl: null,
       latestRun: null,
@@ -3107,7 +3107,7 @@ const buildFinalizationSetup = async ({
       workflowUrl: buildGitHubWorkflowUrl({
         owner: context.credentials.repo_owner,
         repo: context.credentials.repo_name,
-        workflowFile: INDEX_FUNCTIONS_WORKFLOW_FILE,
+        workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
       }),
     });
 
@@ -3128,8 +3128,8 @@ const buildFinalizationSetup = async ({
         parentSource.sourceKind !== "missing",
       step: isFinalized
         ? functionsDeployment.status === "deployed"
-          ? "Standalone app finalized and child functions deployed."
-          : "Repo finalized. Finish the child function deployment setup below."
+          ? "Standalone app finalized and child deploy workflow completed."
+          : "Repo finalized. Finish the child deploy workflow setup below."
         : jobStatus === "succeeded"
         ? "Finishing child setup..."
         : toTrimmedString(effectiveJob?.step) || null,
@@ -3184,23 +3184,24 @@ export const buildStandaloneAdminSetup = async ({
     state,
     latestJob,
   });
-  const standaloneAdminUrl = context.archive.runtime_mode === "finalized" &&
-      functionsDeployment.status === "deployed"
-    ? buildStandaloneAdminBaseUrl(state.index.canonicalUrl)
+  const standaloneAdminUrl = context.archive.runtime_mode === "finalized"
+    ? functionsDeployment.status === "deployed"
+      ? buildStandaloneAdminBaseUrl(state.index.canonicalUrl)
+      : ""
     : state.index.standaloneAdminUrl;
 
   const nextSteps = context.archive.runtime_mode === "finalized"
     ? functionsDeployment.status === "deployed"
       ? [
-        "Open Search, Explorer, and Studio from the links below to verify the copied app is live.",
-        "Use Solidary /admin for ongoing index management.",
+        "Open the child /admin, Search, Explorer, and Studio from the links below to verify the copied app is live.",
+        "Use the child /admin for ongoing index management.",
         "If you want the finalized repo to spawn sites or indexes, make sure the child project's GitHub App and Supabase OAuth secrets are configured too.",
       ]
       : [
         "Add the required GitHub repo secrets shown below to the child repository.",
         "Set SUPABASE_PROJECT_REF_PROD to the child project ref and set SUPABASE_ACCESS_TOKEN to a Supabase account personal access token from Dashboard -> Account -> Access Tokens. Do not use a project API key like sb_secret_....",
-        "Open the child repo's Deploy Supabase Functions workflow and rerun it after the secrets are saved.",
-        "Until the child function deployment succeeds, keep using Solidary /admin.",
+        "Open the child repo's Deploy workflow and rerun it after the secrets are saved.",
+        "Until the child deploy workflow succeeds, keep using Solidary /admin.",
       ]
     : [
       "Create a GitHub OAuth application for the standalone index.",

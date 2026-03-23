@@ -46,8 +46,10 @@ const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const EMPTY_GIT_BLOB_SHA = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
 const LEGACY_STANDALONE_SITE_ROOT = "site";
 const STANDALONE_PUBLIC_ROOT = "apps/site/public";
-const STANDALONE_TEMPLATE_ROOT =
-  "apps/site/src/templates/index/default_template/scaffold/site";
+const LIVE_DEPLOY_WORKFLOW_TEMPLATE_PATH =
+  "apps/site/src/templates/index/deploy.yml";
+const LEGACY_INDEX_FUNCTIONS_WORKFLOW_PATH =
+  ".github/workflows/deploy-supabase-functions.yml";
 const STANDALONE_INDEX_IMAGE_ASSET_PATH = "/assets/index-image.jpg";
 const STANDALONE_PUBLIC_CONFIG_PATH =
   `${STANDALONE_PUBLIC_ROOT}/config/index.json`;
@@ -59,24 +61,6 @@ const STANDALONE_PUBLIC_INDEX_IMAGE_PATH =
   `${STANDALONE_PUBLIC_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
 const LEGACY_STANDALONE_INDEX_IMAGE_PATH =
   `${LEGACY_STANDALONE_SITE_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
-const STANDALONE_PUBLIC_TEMPLATE_MAPPINGS = [
-  {
-    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/admin/index.html`,
-    targetPath: `${STANDALONE_PUBLIC_ROOT}/admin/index.html`,
-  },
-  {
-    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/admin/app.js`,
-    targetPath: `${STANDALONE_PUBLIC_ROOT}/admin/app.js`,
-  },
-  {
-    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/styles.css`,
-    targetPath: `${STANDALONE_PUBLIC_ROOT}/styles.css`,
-  },
-  {
-    sourcePath: `${STANDALONE_TEMPLATE_ROOT}/shared.js`,
-    targetPath: `${STANDALONE_PUBLIC_ROOT}/shared.js`,
-  },
-] as const;
 
 type GhErrorPayload = {
   message?: string;
@@ -658,59 +642,6 @@ const applyRouterBasenamePatch = (source: string) => {
   return source;
 };
 
-const createDeployWorkflow = () =>
-  `name: Deploy GitHub Pages
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: \${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build site
-        run: npm run build
-
-      - name: Prepare GitHub Pages fallback
-        run: |
-          cp apps/site/dist/index.html apps/site/dist/404.html
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./apps/site/dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-`;
-
 const getProjectDashboardUrl = (projectRef: string) =>
   `https://supabase.com/dashboard/project/${projectRef}`;
 
@@ -916,6 +847,7 @@ const stripStandaloneManagedSourceEntries = (
     const path = entry.path;
     return !(
       path.startsWith(`${LEGACY_STANDALONE_SITE_ROOT}/`) ||
+      path === LEGACY_INDEX_FUNCTIONS_WORKFLOW_PATH ||
       path.startsWith(`${STANDALONE_PUBLIC_ROOT}/admin/`) ||
       path.startsWith(`${STANDALONE_PUBLIC_ROOT}/config/`) ||
       path.startsWith(`${STANDALONE_PUBLIC_ROOT}/.well-known/`) ||
@@ -993,35 +925,29 @@ const resolveArchiveParentIndexUrl = (archive: IndexArchiveRow) => {
   return value;
 };
 
-const buildStandalonePublicTemplateEntries = async ({
+const readRequiredSourceBlobBase64 = async ({
   sourceTree,
+  sourcePath,
   loadSourceBlobBase64,
 }: {
   sourceTree: GhTreeEntry[];
+  sourcePath: string;
   loadSourceBlobBase64: (blobSha: string) => Promise<string>;
-}) =>
-  Promise.all(
-    STANDALONE_PUBLIC_TEMPLATE_MAPPINGS.map(
-      async ({ sourcePath, targetPath }) => {
-        const sourceEntry = findSourceTreeBlobEntryByPath({
-          treeEntries: sourceTree,
-          path: sourcePath,
-        });
-        const sourceSha = toTrimmedString(sourceEntry?.sha);
-        if (!sourceSha) {
-          throw new HttpError(
-            412,
-            `Finalization source repo is missing required template file ${sourcePath}.`,
-          );
-        }
+}) => {
+  const sourceEntry = findSourceTreeBlobEntryByPath({
+    treeEntries: sourceTree,
+    path: sourcePath,
+  });
+  const sourceSha = toTrimmedString(sourceEntry?.sha);
+  if (!sourceSha) {
+    throw new HttpError(
+      412,
+      `Finalization source repo is missing required file ${sourcePath}.`,
+    );
+  }
 
-        return createGeneratedBase64Entry({
-          path: targetPath,
-          contentB64: await loadSourceBlobBase64(sourceSha),
-        });
-      },
-    ),
-  );
+  return await loadSourceBlobBase64(sourceSha);
+};
 
 const readCurrentIndexImageContentB64 = async ({
   targetTree,
@@ -1146,35 +1072,23 @@ const createStandalonePublicGeneratedEntries = ({
 };
 
 const createGeneratedManifestEntries = ({
-  siteUrl,
-  projectRef,
-  projectUrl,
-  publishableKey,
+  envFileContent,
+  deployWorkflowContentB64,
 }: {
-  siteUrl: string;
-  projectRef: string;
-  projectUrl: string;
-  publishableKey: string;
+  envFileContent: string;
+  deployWorkflowContentB64: string;
 }): IndexFinalizationSourceManifestEntry[] => [
   {
     kind: "generated",
     path: ".env.production",
     mode: "100644",
-      contentB64: Buffer.from(
-        createEnvFile({
-          siteUrl,
-          projectRef,
-          projectUrl,
-          publishableKey,
-      }),
-      "utf8",
-    ).toString("base64"),
+    contentB64: Buffer.from(envFileContent, "utf8").toString("base64"),
   },
   {
     kind: "generated",
     path: ".github/workflows/deploy.yml",
     mode: "100644",
-    contentB64: Buffer.from(createDeployWorkflow(), "utf8").toString("base64"),
+    contentB64: deployWorkflowContentB64,
   },
 ];
 
@@ -1877,16 +1791,13 @@ const runPrepareManifestPhase = async ({
     );
   }
 
-  const templateEntries = await buildStandalonePublicTemplateEntries({
-    sourceTree,
-    loadSourceBlobBase64: (blobSha) =>
-      getBlobBase64({
-        userToken: context.githubToken,
-        owner: context.sourceRepo.owner,
-        repo: context.sourceRepo.repo,
-        blobSha,
-      }),
-  });
+  const loadSourceBlobBase64 = (blobSha: string) =>
+    getBlobBase64({
+      userToken: context.githubToken,
+      owner: context.sourceRepo.owner,
+      repo: context.sourceRepo.repo,
+      blobSha,
+    });
   const currentIndexImageContentB64 = await readCurrentIndexImageContentB64({
     targetTree,
     loadTargetBlobBase64: (blobSha) =>
@@ -1899,14 +1810,21 @@ const runPrepareManifestPhase = async ({
   });
   const siteUrl = toTrimmedString(context.archive.canonical_url) ||
     resolveSiteUrlForRepo(context.targetRepo.owner, context.targetRepo.repo);
+  const deployWorkflowContentB64 = await readRequiredSourceBlobBase64({
+    sourceTree,
+    sourcePath: LIVE_DEPLOY_WORKFLOW_TEMPLATE_PATH,
+    loadSourceBlobBase64,
+  });
   const generatedEntries = [
     ...createGeneratedManifestEntries({
-      siteUrl,
-      projectRef: context.credentials.supabase_project_ref,
-      projectUrl: context.credentials.supabase_project_url,
-      publishableKey,
+      envFileContent: createEnvFile({
+        siteUrl,
+        projectRef: context.credentials.supabase_project_ref,
+        projectUrl: context.credentials.supabase_project_url,
+        publishableKey,
+      }),
+      deployWorkflowContentB64,
     }),
-    ...templateEntries,
     ...createStandalonePublicGeneratedEntries({
       archive: context.archive,
       credentials: context.credentials,
@@ -1919,13 +1837,7 @@ const runPrepareManifestPhase = async ({
     await prepareSourceManifest({
       treeEntries: sourceTree,
       generatedEntries,
-      loadBlobBase64: (blobSha) =>
-        getBlobBase64({
-          userToken: context.githubToken,
-          owner: context.sourceRepo.owner,
-          repo: context.sourceRepo.repo,
-          blobSha,
-        }),
+      loadBlobBase64: loadSourceBlobBase64,
     }),
   );
 

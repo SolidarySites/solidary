@@ -73,8 +73,8 @@ const getStepSummary = ({
         : controller.setup?.finalization.step || "Copy the standalone app into the child repo.";
     case "functions":
       return controller.functionsDeploymentDisplayStatus === "deployed"
-        ? "Child functions deployed."
-        : controller.functionsDeploymentDisplayMessage || "Deploy the child Supabase functions.";
+        ? "Child deploy workflow completed."
+        : controller.functionsDeploymentDisplayMessage || "Run the child deploy workflow.";
     case "launch":
       return "Open the standalone index and start using the child app directly.";
     default:
@@ -574,12 +574,12 @@ const renderStepContent = ({
       return (
         <>
           <p className="index-create-step-lead">
-            Solidary uses the deployment token you already provided to run the child function
-            deployment workflow automatically after finalization.
+            After finalization, the child repo uses its own deploy workflow to build the site and
+            deploy its Supabase functions.
           </p>
           <ol className="index-create-step-instructions">
-            <li>Wait here while Solidary checks the child workflow.</li>
-            <li>This page updates automatically while GitHub Actions runs.</li>
+            <li>Wait here while Solidary checks the child deploy workflow.</li>
+            <li>If GitHub has not started it yet, use the button below to run it manually.</li>
           </ol>
           <div className="index-create-status-grid">
             <div>
@@ -655,8 +655,8 @@ const renderStepContent = ({
                 Open latest run
               </a>
             ) : null}
-            {functionsDeploymentStatus === "ready_to_run" ||
-            functionsDeploymentStatus === "failed" ? (
+            {functionsDeployment?.status === "ready_to_run" ||
+            functionsDeployment?.status === "failed" ? (
               <button
                 type="button"
                 className="primary"
@@ -665,9 +665,9 @@ const renderStepContent = ({
               >
                 {controller.deployingFunctions
                   ? "Deploying..."
-                  : functionsDeploymentStatus === "failed"
-                    ? "Retry deployment"
-                    : "Deploy child functions"}
+                  : functionsDeployment?.status === "failed"
+                    ? "Retry deploy"
+                    : "Run child deploy"}
               </button>
             ) : null}
             {functionsDeploymentStatus !== "running" ? (
@@ -693,6 +693,16 @@ const renderStepContent = ({
             {controller.setup?.liveUrl ? (
               <a href={controller.setup.liveUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
                 Open standalone index
+              </a>
+            ) : null}
+            {controller.setup?.standaloneAdminUrl ? (
+              <a
+                href={controller.setup.standaloneAdminUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="site-card-action-link"
+              >
+                Open child /admin
               </a>
             ) : null}
             {finalization?.targetSearchUrl ? (
@@ -725,20 +735,10 @@ const renderStepContent = ({
                 Open Studio
               </a>
             ) : null}
-            {controller.setup?.solidaryAdminUrl ? (
-              <a
-                href={controller.setup.solidaryAdminUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open Solidary /admin
-              </a>
-            ) : null}
           </div>
           <div className="form-actions">
             <button type="button" className="ghost" onClick={controller.onOpenAdvancedAdmin}>
-              Open index admin
+              {controller.setup?.standaloneAdminUrl ? "Open child /admin" : "Open index admin"}
             </button>
           </div>
         </>

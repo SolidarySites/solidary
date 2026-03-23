@@ -27,7 +27,7 @@ const FUNCTIONS_DEPLOY_STATUS_LABELS = {
   ready_to_run: "Ready to deploy",
   running: "Workflow running",
   failed: "Workflow failed",
-  deployed: "Functions deployed",
+  deployed: "Deployment complete",
   unknown: "Status unavailable",
 };
 
@@ -350,7 +350,7 @@ const renderFinalizationCard = () => {
     ? "Once standalone auth is working, copy the parent index app into this child repo."
     : functionsReady
     ? "The child repo now runs its own Search, Explorer, Studio, and Edge Functions."
-    : "The child repo has been copied. Add the required repo secrets and run the Deploy Supabase Functions workflow to make the copied runtime operational.";
+    : "The child repo has been copied. Add the required repo secrets and run the Deploy workflow to make the copied runtime operational.";
   card.hidden = false;
   card.innerHTML = `
     <div class="details-head">
@@ -367,7 +367,7 @@ const renderFinalizationCard = () => {
         <dd>${finalization.step || "-"}</dd>
       </div>
       <div>
-        <dt>Functions deploy</dt>
+        <dt>Deploy workflow</dt>
         <dd>${
     FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus] ||
     "Not ready"
@@ -501,7 +501,7 @@ const renderFinalizationCard = () => {
   if (showFunctionsSetup) {
     renderLink(actions, {
       href: finalization.functionsDeployWorkflowUrl,
-      label: "Open Deploy Functions workflow",
+      label: "Open Deploy workflow",
       primary: true,
     });
     renderLink(actions, {
@@ -512,6 +512,7 @@ const renderFinalizationCard = () => {
   }
 
   [
+    [state.setup?.standaloneAdminUrl, "Open child /admin"],
     [finalization.targetSearchUrl, "Open Search"],
     [finalization.targetExplorerUrl, "Open Explorer"],
     [finalization.targetStudioUrl, "Open Studio"],

@@ -196,8 +196,6 @@ export const useIndexCreateRouteController = () => {
   const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
 
   const repoCheckRequestIdRef = useRef(0);
-  const autoDeployIndexIdRef = useRef<string | null>(null);
-  const autoDeployInFlightRef = useRef(false);
   const previousFunctionsStatusRef = useRef<string | null>(null);
 
   const organizations = useMemo<IndexCreateOrganizationOption[]>(
@@ -254,7 +252,7 @@ export const useIndexCreateRouteController = () => {
   const functionsDeploymentDisplayMessage =
     functionsDeploymentPending &&
       shouldAwaitFunctionsDeploymentRun(setup?.functionsDeployment.status)
-      ? "Deployment requested. Waiting for GitHub Actions to report the child workflow run."
+      ? "Waiting for GitHub Actions to report the child deploy workflow run."
       : setup?.functionsDeployment.message ?? null;
 
   useEffect(() => {
@@ -363,13 +361,13 @@ export const useIndexCreateRouteController = () => {
         (previousStatus === "running" || functionsDeploymentPending) &&
         nextStatus === "deployed"
       ) {
-        setNotice("Child functions deployed. The standalone index is ready.");
+        setNotice("Child deploy workflow completed. The standalone index is ready.");
         setNoticeKind("notice");
       } else if (
         (previousStatus === "running" || functionsDeploymentPending) &&
         nextStatus === "failed"
       ) {
-        setNotice("Child function deployment failed. Review the latest workflow output below.");
+        setNotice("Child deploy workflow failed. Review the latest workflow output below.");
         setNoticeKind("error");
       }
     }
@@ -946,11 +944,11 @@ export const useIndexCreateRouteController = () => {
         shouldAwaitFunctionsDeploymentRun(response.setup.functionsDeployment.status)
       );
       setSupabasePersonalAccessToken("");
-      setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
+      setNotice("Child deploy workflow started. Solidary is checking GitHub Actions now.");
       setNoticeKind("notice");
     } catch (error) {
       setFunctionsDeploymentPending(false);
-      setNotice(error instanceof Error ? error.message : "Could not deploy child functions.");
+      setNotice(error instanceof Error ? error.message : "Could not run the child deploy workflow.");
       setNoticeKind("error");
     } finally {
       setDeployingFunctions(false);
@@ -959,63 +957,28 @@ export const useIndexCreateRouteController = () => {
 
   useEffect(() => {
     if (!indexId || !setup?.finalization.isFinalized) {
-      autoDeployIndexIdRef.current = null;
-      autoDeployInFlightRef.current = false;
       return;
     }
-    if (setup.functionsDeployment.status !== "ready_to_run" || deployingFunctions) {
+    if (deployingFunctions || functionsDeploymentPending) {
       return;
     }
-    if (autoDeployInFlightRef.current) {
+    if (setup.functionsDeployment.latestRun) {
       return;
     }
-    if (autoDeployIndexIdRef.current === indexId) {
+    if (!shouldAwaitFunctionsDeploymentRun(setup.functionsDeployment.status)) {
       return;
     }
 
-    autoDeployIndexIdRef.current = indexId;
-    autoDeployInFlightRef.current = true;
-
-    void (async () => {
-      setNotice("Child repo is finalized. Starting the function deployment.");
-      setNoticeKind("notice");
-      setDeployingFunctions(true);
-      setFunctionsDeploymentPending(true);
-      try {
-        const response = await deployIndexAdminChildFunctions({
-          indexId,
-          supabasePersonalAccessToken: "",
-          adminPassword
-        }, {
-          bridgeToken: bridgeToken || undefined
-        });
-        setSetup(response.setup);
-        syncBridgeTokenFromSetup(response.setup);
-        setFunctionsDeploymentPending(
-          shouldAwaitFunctionsDeploymentRun(response.setup.functionsDeployment.status)
-        );
-        setNotice("Child function deployment started. Solidary is checking GitHub Actions now.");
-        setNoticeKind("notice");
-      } catch (error) {
-        autoDeployIndexIdRef.current = null;
-        setFunctionsDeploymentPending(false);
-        setNotice(
-          error instanceof Error ? error.message : "Could not deploy child functions."
-        );
-        setNoticeKind("error");
-      } finally {
-        autoDeployInFlightRef.current = false;
-        setDeployingFunctions(false);
-      }
-    })();
+    setFunctionsDeploymentPending(true);
+    setNotice("Child repo is finalized. Waiting for GitHub Actions to start the child deploy workflow.");
+    setNoticeKind("notice");
   }, [
-    adminPassword,
     indexId,
-    bridgeToken,
     deployingFunctions,
+    functionsDeploymentPending,
     setup?.finalization.isFinalized,
+    setup?.functionsDeployment.latestRun,
     setup?.functionsDeployment.status,
-    syncBridgeTokenFromSetup
   ]);
 
   const handleCopyValue = async (value: string, successMessage: string) => {
@@ -1145,6 +1108,10 @@ export const useIndexCreateRouteController = () => {
     },
     onBackToStudio: () => navigate("/studio"),
     onOpenAdvancedAdmin: () => {
+      if (setup?.standaloneAdminUrl) {
+        window.open(setup.standaloneAdminUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
       const params = new URLSearchParams();
       params.set("indexId", indexId);
       if (bridgeToken) {

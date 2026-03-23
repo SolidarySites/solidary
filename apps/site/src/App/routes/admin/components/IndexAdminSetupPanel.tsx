@@ -13,7 +13,7 @@ const FUNCTIONS_DEPLOY_STATUS_LABELS = {
   ready_to_run: "Ready to deploy",
   running: "Workflow running",
   failed: "Workflow failed",
-  deployed: "Functions deployed",
+  deployed: "Deployment complete",
   unknown: "Status unavailable"
 } as const;
 
@@ -135,14 +135,14 @@ export default function IndexAdminSetupPanel({
             Open live index
           </a>
         )}
-        {setup?.solidaryAdminUrl && (
+        {setup?.standaloneAdminUrl && (
           <a
-            href={setup.solidaryAdminUrl}
+            href={setup.standaloneAdminUrl}
             target="_blank"
             rel="noreferrer"
             className="site-card-action-link"
           >
-            Open Solidary /admin
+            Open child /admin
           </a>
         )}
         {index.repoUrl && (
@@ -349,10 +349,10 @@ export default function IndexAdminSetupPanel({
           </div>
 
           <div className="admin-setup-card">
-            <h3>Deploy child functions</h3>
+            <h3>Run child deploy workflow</h3>
             <p>
-              Solidary writes the child repo secrets and then runs the same GitHub Actions deploy
-              workflow used by the parent index.
+              Solidary writes the child repo secrets and then checks the child repo&apos;s single
+              deploy workflow, which builds the site and deploys the child functions.
             </p>
 
             <dl>
@@ -437,7 +437,7 @@ export default function IndexAdminSetupPanel({
               />
               <span className="admin-field-hint">
                 Use a long-lived Supabase Personal Access Token. GitHub Actions uses it again for
-                future child function deploys.
+                future child deploy runs.
               </span>
             </label>
 
@@ -492,7 +492,7 @@ export default function IndexAdminSetupPanel({
                 onClick={onDeployFunctions}
                 disabled={!canDeployFunctions}
               >
-                {deployingFunctions ? "Deploying..." : "Deploy child functions"}
+                {deployingFunctions ? "Deploying..." : "Run child deploy"}
               </button>
             </div>
           </div>
@@ -505,6 +505,16 @@ export default function IndexAdminSetupPanel({
               {index.canonicalUrl && (
                 <a href={index.canonicalUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
                   Open index
+                </a>
+              )}
+              {setup?.standaloneAdminUrl && (
+                <a
+                  href={setup.standaloneAdminUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="site-card-action-link"
+                >
+                  Open child /admin
                 </a>
               )}
               {finalization?.targetSearchUrl && (
