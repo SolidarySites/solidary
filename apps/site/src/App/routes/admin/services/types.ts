@@ -205,6 +205,7 @@ export type IndexAdminGeneralPayload = {
   title: string;
   description: string;
   imageContentB64?: string;
+  imageThumbContentB64?: string;
 };
 
 export type IndexAdminConnectionRequestPayload = {

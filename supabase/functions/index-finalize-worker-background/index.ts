@@ -50,7 +50,10 @@ const LIVE_DEPLOY_WORKFLOW_TEMPLATE_PATH =
   "apps/site/src/templates/index/deploy.yml";
 const LEGACY_INDEX_FUNCTIONS_WORKFLOW_PATH =
   ".github/workflows/deploy-supabase-functions.yml";
-const STANDALONE_INDEX_IMAGE_ASSET_PATH = "/assets/index-image.jpg";
+const STANDALONE_INDEX_IMAGE_ASSET_PATH =
+  "/solidary-media/images/site-image.jpg";
+const STANDALONE_INDEX_IMAGE_THUMB_ASSET_PATH =
+  "/solidary-media/images/site-image_thumb.jpg";
 const STANDALONE_PUBLIC_CONFIG_PATH =
   `${STANDALONE_PUBLIC_ROOT}/config/index.json`;
 const STANDALONE_PUBLIC_SOLIDARY_PATH =
@@ -59,8 +62,13 @@ const STANDALONE_PUBLIC_SOLIDARY_LINKS_PATH =
   `${STANDALONE_PUBLIC_ROOT}/.well-known/solidary-links.json`;
 const STANDALONE_PUBLIC_INDEX_IMAGE_PATH =
   `${STANDALONE_PUBLIC_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
-const LEGACY_STANDALONE_INDEX_IMAGE_PATH =
+const STANDALONE_PUBLIC_INDEX_IMAGE_THUMB_PATH =
+  `${STANDALONE_PUBLIC_ROOT}${STANDALONE_INDEX_IMAGE_THUMB_ASSET_PATH}`;
+const BOOTSTRAP_INDEX_IMAGE_PATH =
   `${LEGACY_STANDALONE_SITE_ROOT}${STANDALONE_INDEX_IMAGE_ASSET_PATH}`;
+const BOOTSTRAP_INDEX_IMAGE_THUMB_PATH =
+  `${LEGACY_STANDALONE_SITE_ROOT}${STANDALONE_INDEX_IMAGE_THUMB_ASSET_PATH}`;
+const LEGACY_STANDALONE_INDEX_IMAGE_PATH = "site/assets/index-image.jpg";
 
 type GhErrorPayload = {
   message?: string;
@@ -749,6 +757,7 @@ const createStandaloneSolidaryFile = ({
   parentIndexUrl,
   parentIndexLevel,
   hasImage,
+  hasImageThumb,
 }: {
   archiveId: string;
   title: string;
@@ -759,6 +768,7 @@ const createStandaloneSolidaryFile = ({
   parentIndexUrl: string;
   parentIndexLevel: number;
   hasImage: boolean;
+  hasImageThumb: boolean;
 }) =>
   `${
     JSON.stringify(
@@ -774,7 +784,12 @@ const createStandaloneSolidaryFile = ({
             assetPath: STANDALONE_INDEX_IMAGE_ASSET_PATH,
           })
           : "",
-        site_image_thumb: "",
+        site_image_thumb: hasImageThumb
+          ? resolveAbsoluteAssetUrl({
+            siteUrl,
+            assetPath: STANDALONE_INDEX_IMAGE_THUMB_ASSET_PATH,
+          })
+          : "",
         description,
         index_level: indexLevel,
         parent_index_id: parentIndexId,
@@ -853,7 +868,8 @@ const stripStandaloneManagedSourceEntries = (
       path.startsWith(`${STANDALONE_PUBLIC_ROOT}/.well-known/`) ||
       path === `${STANDALONE_PUBLIC_ROOT}/shared.js` ||
       path === `${STANDALONE_PUBLIC_ROOT}/styles.css` ||
-      path === STANDALONE_PUBLIC_INDEX_IMAGE_PATH
+      path === STANDALONE_PUBLIC_INDEX_IMAGE_PATH ||
+      path === STANDALONE_PUBLIC_INDEX_IMAGE_THUMB_PATH
     );
   });
 
@@ -949,22 +965,27 @@ const readRequiredSourceBlobBase64 = async ({
   return await loadSourceBlobBase64(sourceSha);
 };
 
-const readCurrentIndexImageContentB64 = async ({
+const readCurrentIndexAssetContentB64 = async ({
   targetTree,
   loadTargetBlobBase64,
+  candidatePaths,
 }: {
   targetTree: GhTreeEntry[];
   loadTargetBlobBase64: (blobSha: string) => Promise<string>;
+  candidatePaths: string[];
 }) => {
-  const currentImageEntry = findSourceTreeBlobEntryByPath({
-    treeEntries: targetTree,
-    path: STANDALONE_PUBLIC_INDEX_IMAGE_PATH,
-  }) ?? findSourceTreeBlobEntryByPath({
-    treeEntries: targetTree,
-    path: LEGACY_STANDALONE_INDEX_IMAGE_PATH,
-  });
-  const currentImageSha = toTrimmedString(currentImageEntry?.sha);
-  return currentImageSha ? loadTargetBlobBase64(currentImageSha) : null;
+  for (const path of candidatePaths) {
+    const currentAssetEntry = findSourceTreeBlobEntryByPath({
+      treeEntries: targetTree,
+      path,
+    });
+    const currentAssetSha = toTrimmedString(currentAssetEntry?.sha);
+    if (currentAssetSha) {
+      return loadTargetBlobBase64(currentAssetSha);
+    }
+  }
+
+  return null;
 };
 
 const splitRepoFullName = (repoFullName: string) => {
@@ -980,11 +1001,13 @@ const createStandalonePublicGeneratedEntries = ({
   credentials,
   siteUrl,
   indexImageContentB64,
+  indexImageThumbContentB64,
 }: {
   archive: IndexArchiveRow;
   credentials: IndexProjectCredentialsRow;
   siteUrl: string;
   indexImageContentB64: string | null;
+  indexImageThumbContentB64: string | null;
 }): IndexFinalizationSourceManifestEntry[] => {
   const repoFullName = toTrimmedString(credentials.repo_full_name);
   const repoUrl = toTrimmedString(credentials.repo_url);
@@ -1046,6 +1069,7 @@ const createStandalonePublicGeneratedEntries = ({
         parentIndexUrl,
         parentIndexLevel,
         hasImage: Boolean(indexImageContentB64),
+        hasImageThumb: Boolean(indexImageThumbContentB64),
       }),
     }),
     createGeneratedContentEntry({
@@ -1064,6 +1088,15 @@ const createStandalonePublicGeneratedEntries = ({
       createGeneratedBase64Entry({
         path: STANDALONE_PUBLIC_INDEX_IMAGE_PATH,
         contentB64: indexImageContentB64,
+      }),
+    );
+  }
+
+  if (indexImageThumbContentB64) {
+    generatedEntries.push(
+      createGeneratedBase64Entry({
+        path: STANDALONE_PUBLIC_INDEX_IMAGE_THUMB_PATH,
+        contentB64: indexImageThumbContentB64,
       }),
     );
   }
@@ -1798,7 +1831,7 @@ const runPrepareManifestPhase = async ({
       repo: context.sourceRepo.repo,
       blobSha,
     });
-  const currentIndexImageContentB64 = await readCurrentIndexImageContentB64({
+  const currentIndexImageContentB64 = await readCurrentIndexAssetContentB64({
     targetTree,
     loadTargetBlobBase64: (blobSha) =>
       getBlobBase64({
@@ -1807,6 +1840,25 @@ const runPrepareManifestPhase = async ({
         repo: context.targetRepo.repo,
         blobSha,
       }),
+    candidatePaths: [
+      STANDALONE_PUBLIC_INDEX_IMAGE_PATH,
+      BOOTSTRAP_INDEX_IMAGE_PATH,
+      LEGACY_STANDALONE_INDEX_IMAGE_PATH,
+    ],
+  });
+  const currentIndexImageThumbContentB64 = await readCurrentIndexAssetContentB64({
+    targetTree,
+    loadTargetBlobBase64: (blobSha) =>
+      getBlobBase64({
+        userToken: context.githubToken,
+        owner: context.targetRepo.owner,
+        repo: context.targetRepo.repo,
+        blobSha,
+      }),
+    candidatePaths: [
+      STANDALONE_PUBLIC_INDEX_IMAGE_THUMB_PATH,
+      BOOTSTRAP_INDEX_IMAGE_THUMB_PATH,
+    ],
   });
   const siteUrl = toTrimmedString(context.archive.canonical_url) ||
     resolveSiteUrlForRepo(context.targetRepo.owner, context.targetRepo.repo);
@@ -1830,6 +1882,7 @@ const runPrepareManifestPhase = async ({
       credentials: context.credentials,
       siteUrl,
       indexImageContentB64: currentIndexImageContentB64,
+      indexImageThumbContentB64: currentIndexImageThumbContentB64,
     }),
   ];
 

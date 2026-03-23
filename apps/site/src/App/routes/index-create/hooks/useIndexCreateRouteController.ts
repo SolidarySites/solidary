@@ -16,7 +16,6 @@ import {
   SUPABASE_MANAGEMENT_CONNECT_RESULT_MESSAGE_TYPE,
   type SupabaseManagementConnectionStatus
 } from "../../../features/supabase-management/services/supabase-management";
-import { toBase64 } from "../../../lib/base64";
 import { slugify } from "../../../lib/slugify";
 import { supabaseFunctionUrl } from "../../../lib/supabase";
 import type { NoticeKind } from "../../../types/notice";
@@ -827,17 +826,16 @@ export const useIndexCreateRouteController = () => {
     }
 
     setIsProvisioning(true);
-    setProvisionStep(INITIAL_PROVISION_STEP);
+    setProvisionStep(image ? "Optimizing index image..." : INITIAL_PROVISION_STEP);
 
     try {
-      const imageContentB64 = image ? toBase64(await image.arrayBuffer()) : undefined;
       const { jobId, initialStep } = await startIndexProvisioning({
         supabaseAccessToken: freshAuth.supabaseAccessToken,
         slug: computedSlug,
         title: title.trim(),
         description: description.trim(),
         organizationId: selectedOrganizationId,
-        imageContentB64
+        image
       });
       setProvisionStep(initialStep);
       const completedJob = await waitForIndexProvisioningJob({

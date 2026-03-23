@@ -5,6 +5,14 @@ import {
 } from "./provision-progress";
 
 describe("getIndexProvisionProgress", () => {
+  it("starts the progress bar when client-side image optimization is running", () => {
+    const progress = getIndexProvisionProgress("Optimizing index image...");
+
+    expect(progress.segmentCount).toBe(INDEX_PROVISION_PROGRESS_SEGMENT_COUNT);
+    expect(progress.percent).toBe(0);
+    expect(progress.percent).toBeLessThan(15);
+  });
+
   it("starts at zero when no step is available", () => {
     expect(getIndexProvisionProgress("")).toEqual({
       percent: 0,

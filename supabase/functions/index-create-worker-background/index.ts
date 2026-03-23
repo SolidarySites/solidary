@@ -49,7 +49,7 @@ const RETRYABLE_GITHUB_STATUS = new Set([
 ]);
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
-const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
+const DEFAULT_INDEX_IMAGE_PATH = "/solidary-media/images/site-image.jpg";
 const PROJECT_FUNCTION_SECRET_NAMES = {
   projectId: "SOLIDARY_PROJECT_ID",
   publishableKey: "SOLIDARY_PUBLISHABLE_KEY",
@@ -115,6 +115,7 @@ type WorkerBody = {
   organizationSlug?: string;
   organizationName?: string;
   imageContentB64?: string;
+  imageThumbContentB64?: string;
 };
 
 class HttpError extends Error {
@@ -1054,6 +1055,7 @@ const applyIndexTemplateOverrides = ({
   parentIndexUrl,
   parentIndexLevel,
   imageContentB64,
+  imageThumbContentB64,
 }: {
   files: TemplateFile[];
   title: string;
@@ -1074,6 +1076,7 @@ const applyIndexTemplateOverrides = ({
   parentIndexUrl: string;
   parentIndexLevel: number;
   imageContentB64?: string;
+  imageThumbContentB64?: string;
 }) => {
   const filesByPath = new Map(
     files.map((file) => [file.relPath, file] as const),
@@ -1114,10 +1117,19 @@ const applyIndexTemplateOverrides = ({
 
   const normalizedImage = normalizeRepoImageContent(imageContentB64);
   if (normalizedImage) {
-    filesByPath.set("site/assets/index-image.jpg", {
-      relPath: "site/assets/index-image.jpg",
+    filesByPath.set("site/solidary-media/images/site-image.jpg", {
+      relPath: "site/solidary-media/images/site-image.jpg",
       mode: "100644",
       contentB64: normalizedImage,
+    });
+  }
+
+  const normalizedImageThumb = normalizeRepoImageContent(imageThumbContentB64);
+  if (normalizedImageThumb) {
+    filesByPath.set("site/solidary-media/images/site-image_thumb.jpg", {
+      relPath: "site/solidary-media/images/site-image_thumb.jpg",
+      mode: "100644",
+      contentB64: normalizedImageThumb,
     });
   }
 
@@ -2329,6 +2341,7 @@ export const handler: Handler = async (event) => {
         parentIndexUrl,
         parentIndexLevel,
         imageContentB64: payload.imageContentB64?.trim(),
+        imageThumbContentB64: payload.imageThumbContentB64?.trim(),
       });
       await createTemplateSeedCommit({
         userToken,

@@ -1,6 +1,11 @@
 import { githubRequest } from "../../../services/github";
 import { toBase64 } from "../../../lib/base64";
 import { getConfiguredRootIndexId, resolveRootIndexId } from "../../../services/root-index";
+import {
+  BYTES_100_KB,
+  BYTES_1_MB,
+  processImageVariantsFromOriginal
+} from "../../../services/image-processing/picsquish";
 import type {
   CollaboratorRole,
   CollaboratorSearchResult,
@@ -32,6 +37,19 @@ import type {
   IndexAdminState,
   IndexAdminWriteResponse
 } from "./types";
+
+const INDEX_ADMIN_IMAGE_VARIANTS = [
+  {
+    key: "indexImage",
+    label: "Index image",
+    maxBytes: BYTES_1_MB
+  },
+  {
+    key: "indexImageThumb",
+    label: "Index thumbnail",
+    maxBytes: BYTES_100_KB
+  }
+] as const;
 
 type RawIndexAdminActor = {
   userId?: string;
@@ -593,14 +611,16 @@ export const saveIndexAdminGeneral = async ({
   indexId,
   title,
   description,
-  imageContentB64
+  imageContentB64,
+  imageThumbContentB64
 }: IndexAdminGeneralPayload, options: IndexAdminWriteOptions = {}) =>
   writeIndexAdmin({
     index_id: indexId,
     action: "update_general",
     title,
     description,
-    image_content_b64: imageContentB64
+    image_content_b64: imageContentB64,
+    image_thumb_content_b64: imageThumbContentB64
   }, options);
 
 export const updateIndexAdminConnectionRequest = async ({
@@ -691,7 +711,23 @@ export const deployIndexAdminChildFunctions = async ({
     dispatch_workflow: dispatchWorkflow
   }, options);
 
-export const fileToBase64 = async (file: File) => toBase64(await file.arrayBuffer());
+export const processIndexAdminImage = async (file: File) => {
+  if (file.type && !file.type.startsWith("image/")) {
+    throw new Error("Index image must be an image file.");
+  }
+
+  const processedImages = await processImageVariantsFromOriginal({
+    sourceImage: file,
+    variants: INDEX_ADMIN_IMAGE_VARIANTS,
+    jpegQuality: 0.9,
+    jpegDpi: 72
+  });
+
+  return {
+    imageContentB64: toBase64(await processedImages.indexImage.arrayBuffer()),
+    imageThumbContentB64: toBase64(await processedImages.indexImageThumb.arrayBuffer())
+  };
+};
 
 export const collaboratorRoleLabel = (role: ManagedCollaborator["role"]) =>
   role.slice(0, 1).toUpperCase() + role.slice(1);

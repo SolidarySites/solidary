@@ -39,7 +39,9 @@ import { buildIndexParentConnectionUuid } from "./index-parent-connection.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const GITHUB_API = "https://api.github.com";
-const DEFAULT_INDEX_IMAGE_PATH = "/assets/index-image.jpg";
+const DEFAULT_INDEX_IMAGE_PATH = "/solidary-media/images/site-image.jpg";
+const DEFAULT_INDEX_IMAGE_THUMB_PATH = "/solidary-media/images/site-image_thumb.jpg";
+const INDEX_IMAGE_REPO_PATH = "site/solidary-media/images/site-image.jpg";
 const BRIDGE_TOKEN_TTL_MS = 1000 * 60 * 60 * 2;
 const INDEX_FINALIZATION_STALE_WINDOW_MS = 1000 * 60 * 2;
 const INDEX_LIVE_DEPLOY_WORKFLOW_FILE = "deploy.yml";
@@ -1493,6 +1495,7 @@ const buildSolidaryManifest = ({
   title,
   description,
   imageUrl,
+  imageThumbUrl,
   indexLevel,
   parentIndexId,
   parentIndexUrl,
@@ -1503,6 +1506,7 @@ const buildSolidaryManifest = ({
   title: string;
   description: string;
   imageUrl: string;
+  imageThumbUrl: string;
   indexLevel: number;
   parentIndexId: string;
   parentIndexUrl: string;
@@ -1517,7 +1521,7 @@ const buildSolidaryManifest = ({
         site_url: siteUrl,
         title,
         site_image: imageUrl,
-        site_image_thumb: "",
+        site_image_thumb: imageThumbUrl,
         description,
         index_level: indexLevel,
         parent_index_id: parentIndexId,
@@ -2094,11 +2098,13 @@ export const updateIndexGeneralSettings = async ({
   title,
   description,
   imageContentB64,
+  imageThumbContentB64,
 }: {
   context: IndexAdminContext;
   title: string;
   description: string;
   imageContentB64?: string;
+  imageThumbContentB64?: string;
 }) => {
   if (isRootPasswordAdminContext(context)) {
     throw new Error(
@@ -2116,10 +2122,20 @@ export const updateIndexGeneralSettings = async ({
       githubToken,
       owner: context.credentials.repo_owner,
       repo: context.credentials.repo_name,
-      path: "site/assets/index-image.jpg",
+      path: INDEX_IMAGE_REPO_PATH,
       contentB64: toTrimmedString(imageContentB64),
       message: "Update standalone index image",
     });
+    if (toTrimmedString(imageThumbContentB64)) {
+      await writeRepoFile({
+        githubToken,
+        owner: context.credentials.repo_owner,
+        repo: context.credentials.repo_name,
+        path: "site/solidary-media/images/site-image_thumb.jpg",
+        contentB64: toTrimmedString(imageThumbContentB64),
+        message: "Update standalone index image thumbnail",
+      });
+    }
     nextImageUrl = buildAbsoluteAssetUrl({
       siteUrl: currentState.index.canonicalUrl,
       assetPath: DEFAULT_INDEX_IMAGE_PATH,
@@ -2132,6 +2148,12 @@ export const updateIndexGeneralSettings = async ({
     title,
     description,
     imageUrl: nextImageUrl,
+    imageThumbUrl: nextImageUrl
+      ? buildAbsoluteAssetUrl({
+        siteUrl: currentState.index.canonicalUrl,
+        assetPath: DEFAULT_INDEX_IMAGE_THUMB_PATH,
+      })
+      : "",
     indexLevel: currentState.index.indexLevel ?? 1,
     parentIndexId: currentState.index.parentIndexId ?? "",
     parentIndexUrl: currentState.index.parentIndexUrl ?? "",
@@ -2617,6 +2639,12 @@ export const updateIndexAdvancedSettings = async ({
     title: currentState.index.title,
     description: currentState.index.description,
     imageUrl,
+    imageThumbUrl: imageUrl
+      ? buildAbsoluteAssetUrl({
+        siteUrl: nextSiteUrl,
+        assetPath: DEFAULT_INDEX_IMAGE_THUMB_PATH,
+      })
+      : "",
     indexLevel: currentState.index.indexLevel ?? 1,
     parentIndexId: currentState.index.parentIndexId ?? "",
     parentIndexUrl: currentState.index.parentIndexUrl ?? "",

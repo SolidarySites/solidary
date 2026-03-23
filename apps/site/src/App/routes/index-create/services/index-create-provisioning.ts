@@ -1,10 +1,29 @@
 import { githubRequest } from "../../../services/github";
+import { toBase64 } from "../../../lib/base64";
 import { supabaseFunctionUrl } from "../../../lib/supabase";
+import {
+  BYTES_100_KB,
+  BYTES_1_MB,
+  processImageVariantsFromOriginal
+} from "../../../services/image-processing/picsquish";
 import type { IndexProvisionStartResponse, IndexProvisionStatusResponse } from "./types";
 
 const POLL_DELAYS_MS = [1500, 1500, 2000, 2500, 3000, 4000, 5000];
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const INDEX_CREATE_IMAGE_VARIANTS = [
+  {
+    key: "indexImage",
+    label: "Index image",
+    maxBytes: BYTES_1_MB
+  },
+  {
+    key: "indexImageThumb",
+    label: "Index thumbnail",
+    maxBytes: BYTES_100_KB
+  }
+] as const;
 
 export const REQUIRED_SUPABASE_MANAGEMENT_SCOPES = [
   "organizations:read",
@@ -33,15 +52,32 @@ export const startIndexProvisioning = async ({
   title,
   description,
   organizationId,
-  imageContentB64
+  image
 }: {
   supabaseAccessToken: string;
   slug: string;
   title: string;
   description: string;
   organizationId: string;
-  imageContentB64?: string;
+  image?: File | null;
 }) => {
+  if (image && image.type && !image.type.startsWith("image/")) {
+    throw new Error("Index image must be an image file.");
+  }
+
+  let imageContentB64: string | undefined;
+  let imageThumbContentB64: string | undefined;
+  if (image) {
+    const processedImages = await processImageVariantsFromOriginal({
+      sourceImage: image,
+      variants: INDEX_CREATE_IMAGE_VARIANTS,
+      jpegQuality: 0.9,
+      jpegDpi: 72
+    });
+    imageContentB64 = toBase64(await processedImages.indexImage.arrayBuffer());
+    imageThumbContentB64 = toBase64(await processedImages.indexImageThumb.arrayBuffer());
+  }
+
   const response = await fetch(supabaseFunctionUrl("index-create"), {
     method: "POST",
     headers: {
@@ -53,7 +89,8 @@ export const startIndexProvisioning = async ({
       title,
       description,
       organization_id: organizationId,
-      image_content_b64: imageContentB64
+      image_content_b64: imageContentB64,
+      image_thumb_content_b64: imageThumbContentB64
     })
   });
 

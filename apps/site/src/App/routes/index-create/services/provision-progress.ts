@@ -1,4 +1,5 @@
 const PROVISION_STAGES = [
+  "Optimizing index image...",
   "Preparing index provisioning...",
   "Resolving Solidary root index...",
   "Resolving Supabase management access...",

@@ -26,6 +26,7 @@ type IndexCreateBody = {
   description?: string;
   organization_id?: string;
   image_content_b64?: string;
+  image_thumb_content_b64?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -99,6 +100,7 @@ export const handler: Handler = async (event) => {
   const description = body.description?.trim() ?? "";
   const organizationId = body.organization_id?.trim() ?? "";
   const imageContentB64 = body.image_content_b64?.trim() ?? "";
+  const imageThumbContentB64 = body.image_thumb_content_b64?.trim() ?? "";
 
   if (!repoName || !title || !description || !organizationId) {
     return safeJson(400, {
@@ -232,6 +234,7 @@ export const handler: Handler = async (event) => {
         organizationSlug: selectedOrganization.slug,
         organizationName: selectedOrganization.name,
         imageContentB64,
+        imageThumbContentB64,
       }),
     });
   } catch (error) {

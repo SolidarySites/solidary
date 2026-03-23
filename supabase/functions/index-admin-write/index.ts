@@ -102,6 +102,9 @@ export const handler: Handler = async (event) => {
         imageContentB64: typeof body.image_content_b64 === "string"
           ? body.image_content_b64.trim()
           : undefined,
+        imageThumbContentB64: typeof body.image_thumb_content_b64 === "string"
+          ? body.image_thumb_content_b64.trim()
+          : undefined,
       });
     } else if (action === "update_connection_request") {
       const requestId = typeof body.request_id === "string"

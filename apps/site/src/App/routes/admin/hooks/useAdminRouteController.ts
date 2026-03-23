@@ -14,9 +14,9 @@ import {
 import {
   configureIndexAdminStandaloneAuth,
   deployIndexAdminChildFunctions,
-  fileToBase64,
   finalizeIndexAdmin,
   listAccessibleIndexAdmins,
+  processIndexAdminImage,
   readIndexAdmin,
   removeIndexAdminCollaborator,
   saveIndexAdminAdvanced,
@@ -420,11 +420,13 @@ export const useAdminRouteController = () => {
     if (!state || !selectedArchiveId) return;
     setSavingGeneral(true);
     try {
+      const processedImage = imageFile ? await processIndexAdminImage(imageFile) : null;
       const response = await saveIndexAdminGeneral({
         indexId: selectedArchiveId,
         title: title.trim(),
         description: description.trim(),
-        imageContentB64: imageFile ? await fileToBase64(imageFile) : undefined
+        imageContentB64: processedImage?.imageContentB64,
+        imageThumbContentB64: processedImage?.imageThumbContentB64
       }, {
         bridgeToken: isBridgeMode ? bridgeToken : undefined
       });
