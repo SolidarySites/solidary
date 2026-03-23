@@ -30,7 +30,7 @@ const STEP_TITLES: Record<IndexCreateWizardStepKey, string> = {
   supabase_pat: "Create Supabase personal access token",
   github_oauth: "Create GitHub sign-in app",
   finalization: "Finish child setup",
-  functions: "Run child deploy workflow",
+  functions: "Wait for GitHub deploy",
   launch: "Open your standalone index"
 };
 

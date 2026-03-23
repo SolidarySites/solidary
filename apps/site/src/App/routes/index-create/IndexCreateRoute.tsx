@@ -3,21 +3,30 @@ import {
   MAX_SITE_TITLE_LENGTH
 } from "../../services/site-metadata";
 import { useSyncRouteNotice } from "../../features/site-notice/hooks/useSyncRouteNotice";
-import IndexCreateCopyField from "./components/IndexCreateCopyField";
+import IndexCreateInlineCopyValue from "./components/IndexCreateInlineCopyValue";
+import IndexCreateProgressBar from "./components/IndexCreateProgressBar";
 import IndexCreateWizardStep from "./components/IndexCreateWizardStep";
 import { useIndexCreateRouteController } from "./hooks/useIndexCreateRouteController";
+import {
+  getIndexProvisionProgress,
+  INDEX_PROVISION_PROGRESS_SEGMENT_COUNT
+} from "./services/provision-progress";
 import type { IndexCreateWizardStepKey, IndexCreateWizardStepStatus } from "./services/wizard-progress";
 import "./IndexCreateRoute.css";
 
 const SUPABASE_ACCOUNT_TOKENS_URL = "https://supabase.com/dashboard/account/tokens";
 const SUPABASE_DASHBOARD_URL = "https://supabase.com/dashboard";
-const FINALIZATION_PHASE_LABELS = {
-  prepare_manifest: "Preparing manifest",
-  materialize_blobs: "Writing files",
-  commit_finalize: "Finishing setup"
-} as const;
 
 type Controller = ReturnType<typeof useIndexCreateRouteController>;
+
+const getVisibleAuthSetupMessage = (value: string | null | undefined) => {
+  const trimmedValue = value?.trim() ?? "";
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return /^forbidden resource\.?$/i.test(trimmedValue) ? null : trimmedValue;
+};
 
 const getStepSummary = ({
   controller,
@@ -64,7 +73,8 @@ const getStepSummary = ({
     case "github_oauth":
       return controller.setup?.authSetup.localAuthReady
         ? "GitHub sign-in is configured for the child project."
-        : controller.setup?.authSetup.message || "Create the GitHub OAuth app and paste its credentials here.";
+        : getVisibleAuthSetupMessage(controller.setup?.authSetup.message) ||
+            "Create the GitHub OAuth app and paste its credentials here.";
     case "finalization":
       return controller.setup?.finalization.isFinalized
         ? "Standalone app copied into the child repo."
@@ -74,9 +84,9 @@ const getStepSummary = ({
     case "functions":
       return controller.functionsDeploymentDisplayStatus === "deployed"
         ? "Child deploy workflow completed."
-        : controller.functionsDeploymentDisplayMessage || "Run the child deploy workflow.";
+        : controller.functionsDeploymentDisplayMessage || "Waiting for GitHub to finish the child deploy workflow.";
     case "launch":
-      return "Open the standalone index and start using the child app directly.";
+      return "Your site is live.";
     default:
       return null;
   }
@@ -92,11 +102,22 @@ const renderStepContent = ({
   const authSetup = controller.setup?.authSetup ?? null;
   const finalization = controller.setup?.finalization ?? null;
   const functionsDeployment = controller.setup?.functionsDeployment ?? null;
+  const visibleAuthSetupMessage = getVisibleAuthSetupMessage(authSetup?.message);
   const functionsDeploymentStatus = controller.functionsDeploymentDisplayStatus;
   const functionsDeploymentMessage = controller.functionsDeploymentDisplayMessage;
-  const finalizationProgressLabel = finalization?.progressTotal
-    ? `${finalization.progressCurrent ?? 0} / ${finalization.progressTotal}`
-    : "Waiting to start.";
+  const provisionProgress = getIndexProvisionProgress(controller.provisionStep);
+  const finalizationProgressCurrent = finalization?.progressCurrent ?? 0;
+  const finalizationProgressTotal = finalization?.progressTotal ?? 0;
+  const finalizationProgressPercent = finalization?.isFinalized
+    ? 100
+    : finalizationProgressTotal > 0
+      ? (finalizationProgressCurrent / finalizationProgressTotal) * 100
+      : 0;
+  const finalizationProgressLabel = finalization?.isFinalized
+    ? "Completed"
+    : finalizationProgressTotal > 0
+      ? `${finalizationProgressCurrent} / ${finalizationProgressTotal} files`
+      : "Waiting to start";
 
   switch (stepKey) {
     case "github_app":
@@ -231,7 +252,7 @@ const renderStepContent = ({
       return (
         <>
           <p className="index-create-step-lead">
-            Solidary checks the repo name for conflicts before anything is created.
+            All fields are required.
           </p>
           <div className="form-grid index-create-details-grid">
             <label>
@@ -324,16 +345,14 @@ const renderStepContent = ({
             Solidary now creates the child GitHub repo, Supabase project, and the initial index
             records for you.
           </p>
-          <ol className="index-create-step-instructions">
-            <li>Click Create index once.</li>
-            <li>Keep this page open while the setup finishes.</li>
-          </ol>
           <div className="index-create-provision-card">
-            <div className="spinner" aria-hidden="true" />
-            <div>
-              <strong>{controller.isProvisioning ? "Creating your index" : "Ready to create"}</strong>
-              <p>{controller.provisionStep}</p>
-            </div>
+            <IndexCreateProgressBar
+              label={controller.isProvisioning ? "Creating your index" : "Ready to create"}
+              value={controller.isProvisioning ? provisionProgress.percent : 0}
+              valueLabel={controller.isProvisioning ? `${Math.round(provisionProgress.percent)}%` : "0%"}
+              segmentCount={INDEX_PROVISION_PROGRESS_SEGMENT_COUNT}
+              detail={controller.provisionStep}
+            />
           </div>
           <div className="form-actions">
             <button
@@ -355,30 +374,42 @@ const renderStepContent = ({
             settings for you and verifies them.
           </p>
           <ol className="index-create-step-instructions">
-            <li>Open GitHub&apos;s OAuth app page.</li>
-            <li>Use the copied name, homepage URL, and callback URL exactly as shown.</li>
-            <li>Paste the new client id and client secret here, then click Check and continue.</li>
+            <li>
+              Open GitHub&apos;s{" "}
+              {authSetup?.githubOauthAppUrl ? (
+                <a href={authSetup.githubOauthAppUrl} rel="noreferrer" target="_blank">
+                  OAuth app page
+                </a>
+              ) : (
+                "OAuth app page"
+              )}
+              .
+            </li>
+            <li>
+              Use these exact values:
+              <div className="index-create-inline-copy-list">
+                <IndexCreateInlineCopyValue
+                  label="Name"
+                  value={authSetup?.githubOauthAppName || ""}
+                  copyLabel="Copy"
+                  onCopy={controller.onCopyValue}
+                />
+                <IndexCreateInlineCopyValue
+                  label="Homepage"
+                  value={authSetup?.siteUrl || ""}
+                  copyLabel="Copy"
+                  onCopy={controller.onCopyValue}
+                />
+                <IndexCreateInlineCopyValue
+                  label="Callback"
+                  value={authSetup?.callbackUrl || ""}
+                  copyLabel="Copy"
+                  onCopy={controller.onCopyValue}
+                />
+              </div>
+            </li>
+            <li>Paste the new client id and client secret here, then continue.</li>
           </ol>
-          <div className="index-create-copy-grid">
-            <IndexCreateCopyField
-              label="Suggested app name"
-              value={authSetup?.githubOauthAppName || ""}
-              copyLabel="Copy name"
-              onCopy={controller.onCopyValue}
-            />
-            <IndexCreateCopyField
-              label="Homepage URL"
-              value={authSetup?.siteUrl || ""}
-              copyLabel="Copy URL"
-              onCopy={controller.onCopyValue}
-            />
-            <IndexCreateCopyField
-              label="Authorization callback URL"
-              value={authSetup?.callbackUrl || ""}
-              copyLabel="Copy callback"
-              onCopy={controller.onCopyValue}
-            />
-          </div>
           <div className="form-grid index-create-details-grid">
             <label>
               GitHub client id
@@ -398,28 +429,10 @@ const renderStepContent = ({
               />
             </label>
           </div>
-          {authSetup?.message ? <p className="index-create-step-note">{authSetup.message}</p> : null}
+          {visibleAuthSetupMessage ? (
+            <p className="index-create-step-note">{visibleAuthSetupMessage}</p>
+          ) : null}
           <div className="form-actions">
-            {authSetup?.githubOauthAppUrl ? (
-              <a
-                href={authSetup.githubOauthAppUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open GitHub OAuth apps
-              </a>
-            ) : null}
-            {authSetup?.providerSettingsUrl ? (
-              <a
-                href={authSetup.providerSettingsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open provider settings
-              </a>
-            ) : null}
             <button
               type="button"
               className="primary"
@@ -430,15 +443,7 @@ const renderStepContent = ({
                 !controller.githubClientSecret.trim()
               }
             >
-              {controller.configuringStandaloneAuth ? "Configuring..." : "Check and continue"}
-            </button>
-            <button
-              type="button"
-              className="ghost"
-              onClick={controller.onRefreshSetup}
-              disabled={controller.setupLoading || controller.configuringStandaloneAuth}
-            >
-              {controller.setupLoading ? "Checking..." : "Check setup"}
+              {controller.configuringStandaloneAuth ? "Configuring..." : "Continue"}
             </button>
           </div>
         </>
@@ -451,7 +456,7 @@ const renderStepContent = ({
             and later stores it as the child repo&apos;s deployment secret for GitHub Actions.
           </p>
           <ol className="index-create-step-instructions">
-            <li>Open the Supabase token page.</li>
+            <li>Open the Supabase <a href={SUPABASE_ACCOUNT_TOKENS_URL} target="_blank" rel="noreferrer">token page</a>.</li>
             <li>Create a Personal Access Token for your account.</li>
             <li>Paste it here, then click Continue.</li>
           </ol>
@@ -471,14 +476,6 @@ const renderStepContent = ({
             </label>
           </div>
           <div className="form-actions">
-            <a
-              href={SUPABASE_ACCOUNT_TOKENS_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="site-card-action-link"
-            >
-              Open token page
-            </a>
             <button
               type="button"
               className="primary"
@@ -503,48 +500,19 @@ const renderStepContent = ({
             <li>Click Finish child setup to start the copy.</li>
             <li>Wait here while Solidary updates the repo.</li>
           </ol>
-          <div className="index-create-status-grid">
-            <div>
-              <strong>Status</strong>
-              <span>{finalization?.status || "idle"}</span>
-            </div>
-            <div>
-              <strong>Phase</strong>
-              <span>
-                {finalization?.phase ? FINALIZATION_PHASE_LABELS[finalization.phase] : "Waiting to start."}
-              </span>
-            </div>
-            <div>
-              <strong>Current step</strong>
-              <span>{finalization?.step || "Waiting to start."}</span>
-            </div>
-            <div>
-              <strong>Progress</strong>
-              <span>{finalizationProgressLabel}</span>
-            </div>
-            <div>
-              <strong>Source repo</strong>
-              <span>{finalization?.sourceRepoFullName || "Unavailable"}</span>
-            </div>
-            <div>
-              <strong>Source note</strong>
-              <span>{finalization?.sourceRepoMessage || "Parent index source is ready."}</span>
-            </div>
+          <div className="index-create-provision-card">
+            <IndexCreateProgressBar
+              label="Progress"
+              value={finalizationProgressPercent}
+              valueLabel={finalizationProgressLabel}
+              segmentCount={finalizationProgressTotal || 1}
+              detail={`Current step: ${finalization?.step || "Waiting to start."}`}
+            />
           </div>
           {finalization?.error ? (
             <p className="site-create-field-error">{finalization.error}</p>
           ) : null}
           <div className="form-actions">
-            {controller.setup?.repoUrl ? (
-              <a
-                href={controller.setup.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open child repo
-              </a>
-            ) : null}
             <button
               type="button"
               className="primary"
@@ -557,16 +525,6 @@ const renderStepContent = ({
                   ? "Retry child setup"
                   : "Finish child setup"}
             </button>
-            {!finalization?.isRunning ? (
-              <button
-                type="button"
-                className="ghost"
-                onClick={controller.onRefreshSetup}
-                disabled={controller.setupLoading || controller.startingFinalization}
-              >
-                {controller.setupLoading ? "Checking..." : "Check status"}
-              </button>
-            ) : null}
           </div>
         </>
       );
@@ -579,7 +537,7 @@ const renderStepContent = ({
           </p>
           <ol className="index-create-step-instructions">
             <li>Wait here while Solidary checks the child deploy workflow.</li>
-            <li>If GitHub has not started it yet, use the button below to run it manually.</li>
+            <li>Open the workflow if you want to inspect the live GitHub Actions logs directly.</li>
           </ol>
           <div className="index-create-status-grid">
             <div>
@@ -655,31 +613,6 @@ const renderStepContent = ({
                 Open latest run
               </a>
             ) : null}
-            {functionsDeployment?.status === "ready_to_run" ||
-            functionsDeployment?.status === "failed" ? (
-              <button
-                type="button"
-                className="primary"
-                onClick={controller.onDeployFunctions}
-                disabled={controller.deployingFunctions}
-              >
-                {controller.deployingFunctions
-                  ? "Deploying..."
-                  : functionsDeployment?.status === "failed"
-                    ? "Retry deploy"
-                    : "Run child deploy"}
-              </button>
-            ) : null}
-            {functionsDeploymentStatus !== "running" ? (
-              <button
-                type="button"
-                className="ghost"
-                onClick={controller.onRefreshSetup}
-                disabled={controller.setupLoading || controller.deployingFunctions}
-              >
-                {controller.setupLoading ? "Checking..." : "Check deployment"}
-              </button>
-            ) : null}
           </div>
         </>
       );
@@ -687,12 +620,16 @@ const renderStepContent = ({
       return (
         <>
           <p className="index-create-step-lead">
-            The standalone index is ready. Open the child app directly from now on.
+            Your site is live.
+          </p>
+          <p className="index-create-step-note">
+            Use the admin password you created earlier in this wizard to unlock the live{" "}
+            <code>/admin</code> page.
           </p>
           <div className="index-create-launch-grid">
             {controller.setup?.liveUrl ? (
               <a href={controller.setup.liveUrl} target="_blank" rel="noreferrer" className="site-card-action-link">
-                Open standalone index
+                Open live index
               </a>
             ) : null}
             {controller.setup?.standaloneAdminUrl ? (
@@ -705,41 +642,6 @@ const renderStepContent = ({
                 Open child /admin
               </a>
             ) : null}
-            {finalization?.targetSearchUrl ? (
-              <a
-                href={finalization.targetSearchUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open Search
-              </a>
-            ) : null}
-            {finalization?.targetExplorerUrl ? (
-              <a
-                href={finalization.targetExplorerUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open Explorer
-              </a>
-            ) : null}
-            {finalization?.targetStudioUrl ? (
-              <a
-                href={finalization.targetStudioUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="site-card-action-link"
-              >
-                Open Studio
-              </a>
-            ) : null}
-          </div>
-          <div className="form-actions">
-            <button type="button" className="ghost" onClick={controller.onOpenAdvancedAdmin}>
-              {controller.setup?.standaloneAdminUrl ? "Open child /admin" : "Open index admin"}
-            </button>
           </div>
         </>
       );
@@ -766,10 +668,9 @@ export default function IndexCreateRoute() {
         <section className="index-create-hero">
           <div className="index-create-hero-copy">
             <p className="index-create-masthead-label">Index Setup Wizard</p>
-            <h1>Create a standalone index, one step at a time.</h1>
+            <h1>Create your own publishing platform with with a Supabase postgREST backend</h1>
             <p>
-              Solidary handles everything it can automatically. You only see the next action that
-              still needs your input.
+              Your platform will be free to run and fully customizable within Supabase free tier limits.
             </p>
           </div>
           <div className="index-create-hero-actions">
@@ -781,7 +682,7 @@ export default function IndexCreateRoute() {
             </button>
             {controller.indexId ? (
               <button type="button" className="ghost" onClick={controller.onOpenAdvancedAdmin}>
-                Open index admin
+                {controller.setup?.standaloneAdminUrl ? "Open child /admin" : "Open index admin"}
               </button>
             ) : null}
           </div>

@@ -170,6 +170,31 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.index-create-inline-copy-list {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.index-create-inline-copy-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.index-create-inline-copy-item strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.index-create-inline-copy-item code {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(31, 34, 28, 0.12);
+  background: rgba(246, 247, 242, 0.96);
+  overflow-wrap: anywhere;
+}
+
 .index-create-copy-field textarea {
   min-height: 4.8rem;
 }
@@ -212,9 +237,55 @@
 
 .index-create-provision-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.9rem;
   align-items: center;
+}
+
+.index-create-progress-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.index-create-progress-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.index-create-progress-header strong {
+  font-family: var(--site-font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.index-create-progress-track {
+  position: relative;
+  height: 0.95rem;
+  border: 1px solid rgba(31, 34, 28, 0.14);
+  background: rgba(231, 235, 224, 0.96);
+  overflow: hidden;
+}
+
+.index-create-progress-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(31, 34, 28, 0.12) 1px, transparent 1px);
+  background-size: calc(100% / var(--segment-count)) 100%;
+  pointer-events: none;
+}
+
+.index-create-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(69, 116, 55, 0.96), rgba(131, 171, 92, 0.96));
+}
+
+.index-create-progress-detail {
+  margin: 0;
+  color: rgba(31, 34, 28, 0.74);
 }
 
 .site-create-input-error {
@@ -241,6 +312,11 @@
   .index-create-copy-grid,
   .index-create-status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .index-create-inline-copy-item {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .index-create-step-header,
