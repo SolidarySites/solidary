@@ -1316,10 +1316,12 @@ const buildFunctionsDeployStatusMessage = ({
   status,
   missingSecretNames,
   latestRunConclusion,
+  latestRunHasJobs,
 }: {
   status: IndexFunctionsDeploymentStatus;
   missingSecretNames: string[];
   latestRunConclusion: string | null;
+  latestRunHasJobs: boolean;
 }) => {
   switch (status) {
     case "not_ready":
@@ -1333,6 +1335,9 @@ const buildFunctionsDeployStatusMessage = ({
     case "running":
       return "The child deploy workflow is running. This page updates automatically while GitHub Actions works through the deploy steps.";
     case "failed":
+      if (!latestRunHasJobs) {
+        return "The child deploy workflow failed before any jobs started. This usually means the generated workflow file is invalid. Open the workflow run, update the workflow, and rerun it.";
+      }
       return latestRunConclusion
         ? `The child deploy workflow last finished with ${latestRunConclusion}. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....`
         : "The child deploy workflow failed. Open the run details, fix the issue, and rerun it. If GitHub Actions says the access token format is invalid, use a Supabase account personal access token (sbp_...) for SUPABASE_ACCESS_TOKEN, not a project API key like sb_secret_....";
@@ -2963,6 +2968,7 @@ const buildNotReadyFunctionsDeploymentSetup = ({
     status: "not_ready",
     missingSecretNames: [],
     latestRunConclusion: null,
+    latestRunHasJobs: false,
   }),
   workflowUrl,
   runUrl: null,
@@ -3051,6 +3057,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
         status,
         missingSecretNames,
         latestRunConclusion,
+        latestRunHasJobs: latestRunJobs.length > 0,
       }),
       workflowUrl,
       runUrl: latestRun?.htmlUrl ?? null,
