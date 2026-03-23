@@ -2772,6 +2772,35 @@ const isGitHubWorkflowRunActive = (status: string | null) =>
   status === "requested" ||
   status === "pending";
 
+const FINALIZATION_DEPLOY_RUN_GRACE_MS = 1000 * 60 * 2;
+
+const toTimestampMs = (value: string | null | undefined) => {
+  const parsed = Date.parse(toTrimmedString(value));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isWorkflowRunFreshForFinalization = ({
+  finalizedAt,
+  startedAt,
+  updatedAt,
+}: {
+  finalizedAt: string | null | undefined;
+  startedAt: string | null | undefined;
+  updatedAt: string | null | undefined;
+}) => {
+  const finalizedAtMs = toTimestampMs(finalizedAt);
+  if (finalizedAtMs === null) {
+    return true;
+  }
+
+  const runTimestampMs = toTimestampMs(startedAt) ?? toTimestampMs(updatedAt);
+  if (runTimestampMs === null) {
+    return true;
+  }
+
+  return runTimestampMs >= finalizedAtMs - FINALIZATION_DEPLOY_RUN_GRACE_MS;
+};
+
 export const deployIndexChildFunctions = async ({
   context,
   supabasePersonalAccessToken,
@@ -3006,7 +3035,7 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
 
   try {
     const githubToken = await resolveOwnerGitHubActionsToken(context);
-    const [configuredSecretNames, latestRun] = await Promise.all([
+    const [configuredSecretNames, rawLatestRun] = await Promise.all([
       readGitHubRepoSecretNames({
         githubToken,
         owner: context.credentials.repo_owner,
@@ -3019,6 +3048,15 @@ const buildFinalizedFunctionsDeploymentSetup = async ({
         workflowFile: INDEX_LIVE_DEPLOY_WORKFLOW_FILE,
       }),
     ]);
+    const latestRun =
+      rawLatestRun &&
+        isWorkflowRunFreshForFinalization({
+          finalizedAt: context.archive.finalized_at,
+          startedAt: rawLatestRun.startedAt,
+          updatedAt: rawLatestRun.updatedAt,
+        })
+      ? rawLatestRun
+      : null;
 
     const requiredSecrets = buildRepoSecretRequirements(
       configuredSecretNames,
