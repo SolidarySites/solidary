@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-23T23:24:50.917Z",
-  "latest_commit_sha": "b6d80f4acbfafee5d711f2a19de0f920297fdcf1",
+  "generated_at": "2026-03-24T00:24:12.712Z",
+  "latest_commit_sha": "9ebc2d13f3e800cac970260085faf446b51f0358",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -1742,7 +1742,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useConnectionExplorerController.ts",
                                     "description": "Controller hook for embedded connection explorer state, context loading, search, invite, and request-response actions.",
-                                    "LOC": 386
+                                    "LOC": 393
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/hooks/useStudioSettingsRouteController.ts",
@@ -1779,7 +1779,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/services/site-connections.ts",
                                     "description": "Supabase RPC service layer for embedded connection explorer context, search, invites, and request responses.",
-                                    "LOC": 463
+                                    "LOC": 513
                                   }
                                 ]
                               }
@@ -2080,7 +2080,7 @@
                               {
                                 "path": "src/templates/index/default_template/scaffold/site/app.js",
                                 "description": "?",
-                                "LOC": 242
+                                "LOC": 243
                               },
                               {
                                 "path": "src/templates/index/default_template/scaffold/site/index.html",

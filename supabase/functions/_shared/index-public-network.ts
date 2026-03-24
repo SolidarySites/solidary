@@ -165,6 +165,25 @@ const createOwnerGithubLogin = (userMetadata: Record<string, unknown> | null) =>
   toNullableString(userMetadata?.user_name) ||
   toNullableString(userMetadata?.preferred_username);
 
+export const isIgnorableOwnerLookupErrorMessage = (message: string) => {
+  const normalized = toTrimmedString(message).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.includes("invalid schema: auth") ||
+    (
+      normalized.includes("schema") &&
+      normalized.includes("auth") &&
+      normalized.includes("not exposed")
+    ) ||
+    (
+      normalized.includes("schema") &&
+      normalized.includes("auth") &&
+      normalized.includes("must be one of")
+    );
+};
+
 const normalizeDepth = ({
   requestedDepth,
   defaultDepth,
@@ -392,12 +411,21 @@ const readLocalSites = async ({
       .from("users")
       .select("id, email, raw_user_meta_data")
       .in("id", ownerUserIds);
-    if (ownerError) {
+
+    if (ownerError && !isIgnorableOwnerLookupErrorMessage(ownerError.message)) {
       throw new Error(ownerError.message);
     }
-    ownerById = new Map(
-      ((ownerRows ?? []) as OwnerUserRow[]).map((row) => [row.id, row] as const),
-    );
+
+    if (ownerError) {
+      console.warn(
+        "Skipping auth.users owner lookup for public network read:",
+        ownerError.message,
+      );
+    } else {
+      ownerById = new Map(
+        ((ownerRows ?? []) as OwnerUserRow[]).map((row) => [row.id, row] as const),
+      );
+    }
   }
 
   return visibleSites.map((row) => {
