@@ -20,8 +20,8 @@ export type Index = {
     title: string;
     canonical_url: string | null;
     availability_window_days: number;
-    default_ui_depth: number;
-    max_ui_depth: number;
+    default_connection_depth: number;
+    max_connection_depth: number;
     created_at: string;
     updated_at: string;
 };

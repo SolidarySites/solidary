@@ -16,6 +16,7 @@ import {
   type IndexAdminBridgeRole,
   parseIndexAdminBridgeToken,
 } from "./index-admin-bridge.ts";
+import { syncLocalConnectionSiteLinksIfPresent } from "./connection-site-links.ts";
 import {
   resolveGitHubTokenForUser,
   resolveGitHubTokenForUserByMode,
@@ -137,8 +138,8 @@ type ChildSiteRow = {
 
 type ChildConnectionRow = {
   id: string;
-  connection_uuid: string;
-  source_site_id: string;
+  requester_entity_id: string | null;
+  requester_entity_url: string | null;
   status: string | null;
   created_at: string | null;
   responded_at: string | null;
@@ -1772,14 +1773,16 @@ const readIndexConnectionRecords = async ({
     .select(
       [
         "id",
-        "connection_uuid",
-        "source_site_id",
+        "requester_entity_id",
+        "requester_entity_url",
         "status",
         "created_at",
         "responded_at",
       ].join(", "),
     )
-    .eq("target_index_id", context.archive.id)
+    .eq("requester_type", "site")
+    .eq("requested_type", "index")
+    .eq("requested_index_id", context.archive.id)
     .in("status", ["pending", "approved"])
     .order("created_at", { ascending: false });
   if (connectionsError) {
@@ -1794,7 +1797,7 @@ const readIndexConnectionRecords = async ({
 
   const siteIds = Array.from(
     new Set(
-      rawConnections.map((row) => toTrimmedString(row.source_site_id)).filter(
+      rawConnections.map((row) => toTrimmedString(row.requester_entity_id)).filter(
         Boolean,
       ),
     ),
@@ -1856,7 +1859,8 @@ const readIndexConnectionRecords = async ({
   const ownerSummaryByUserId = new Map(ownerSummaryEntries);
 
   return rawConnections.map((row) => {
-    const sourceSiteId = toTrimmedString(row.source_site_id);
+    const sourceSiteId = toTrimmedString(row.requester_entity_id);
+    const sourceSiteUrl = toTrimmedString(row.requester_entity_url);
     const childSite = connectedSiteById.get(sourceSiteId);
     const ownerDraft = ownerDraftBySiteId.get(sourceSiteId);
     const ownerSummary = ownerDraft
@@ -1869,13 +1873,13 @@ const readIndexConnectionRecords = async ({
 
     return {
       requestId: toTrimmedString(row.id),
-      connectionUuid: toTrimmedString(row.connection_uuid),
+      connectionUuid: toTrimmedString(row.id),
       status: row.status === "approved" ? "approved" : "pending",
       createdAt: row.created_at,
       respondedAt: row.responded_at,
       sourceSiteId,
       sourceSiteTitle: childSite?.title ?? fallbackTitle,
-      sourceSiteUrl: childSite?.canonical_url ?? "",
+      sourceSiteUrl: childSite?.canonical_url ?? sourceSiteUrl,
       sourceSiteImageUrl: childSite?.image_url ?? "",
       sourceOwnerDisplayName: ownerSummary?.displayName ||
         ownerSummary?.email || "Unknown",
@@ -2342,35 +2346,43 @@ export const updateIndexConnectionRequest = async ({
   }
 
   const child = createChildProjectClient(context.credentials);
-  const manifestActorUserId =
-    isRootPasswordAdminContext(context) && context.archive.owner_user_id
-      ? context.archive.owner_user_id
-      : context.actorUserId;
   const { data: requestRowData, error: requestRowError } = await child
     .from("connections")
     .select(
-      "id, connection_uuid, source_site_id, status, created_at, responded_at, target_index_id",
+      [
+        "id",
+        "requester_entity_id",
+        "requester_type",
+        "status",
+        "created_at",
+        "responded_at",
+        "requested_index_id",
+        "requested_type",
+      ].join(", "),
     )
     .eq("id", normalizedRequestId)
-    .eq("target_index_id", context.archive.id)
+    .eq("requester_type", "site")
+    .eq("requested_type", "index")
+    .eq("requested_index_id", context.archive.id)
     .maybeSingle();
   if (requestRowError) {
     throw new Error(requestRowError.message);
   }
   const requestRow = requestRowData as {
     id: string;
-    connection_uuid: string;
-    source_site_id: string;
+    requester_entity_id: string | null;
+    requester_type: string | null;
     status: string | null;
     created_at: string | null;
     responded_at: string | null;
-    target_index_id: string;
+    requested_index_id: string | null;
+    requested_type: string | null;
   } | null;
   if (!requestRow) {
     throw new Error("Connection request not found.");
   }
 
-  const normalizedSourceSiteId = toTrimmedString(requestRow.source_site_id);
+  const normalizedSourceSiteId = toTrimmedString(requestRow.requester_entity_id);
   if (!normalizedSourceSiteId) {
     throw new Error("Connection request is missing a source site.");
   }
@@ -2384,8 +2396,10 @@ export const updateIndexConnectionRequest = async ({
       await child
         .from("connections")
         .select("id")
-        .eq("source_site_id", normalizedSourceSiteId)
-        .eq("target_index_id", context.archive.id)
+        .eq("requester_type", "site")
+        .eq("requested_type", "index")
+        .eq("requester_entity_id", normalizedSourceSiteId)
+        .eq("requested_index_id", context.archive.id)
         .eq("status", "approved")
         .neq("id", normalizedRequestId)
         .limit(1);
@@ -2408,29 +2422,36 @@ export const updateIndexConnectionRequest = async ({
       throw new Error(approveError.message);
     }
 
-    const { error: trackError } = await child.from("index_sites").upsert({
-      index_id: context.archive.id,
-      site_id: normalizedSourceSiteId,
-      status: "tracked",
-      delist_reason_code: null,
-      delist_note: null,
-    });
-    if (trackError) {
-      throw new Error(trackError.message);
+    const { data: sourceSiteData, error: sourceSiteError } = await child
+      .from("sites")
+      .select("parent_index_id")
+      .eq("id", normalizedSourceSiteId)
+      .maybeSingle();
+    if (sourceSiteError) {
+      throw new Error(sourceSiteError.message);
     }
 
-    if (manifestActorUserId) {
-      const { error: syncSourceError } = await child.rpc(
-        "connection_sync_site_links_internal",
-        {
-          p_site_id: normalizedSourceSiteId,
-          p_actor_user_id: manifestActorUserId,
-        },
-      );
-      if (syncSourceError) {
-        throw new Error(syncSourceError.message);
+    const sourceSiteParentIndexId = toTrimmedString(
+      (sourceSiteData as { parent_index_id?: string | null } | null)
+        ?.parent_index_id,
+    );
+    if (sourceSiteParentIndexId === context.archive.id) {
+      const { error: trackError } = await child.from("index_sites").upsert({
+        index_id: context.archive.id,
+        site_id: normalizedSourceSiteId,
+        status: "tracked",
+        delist_reason_code: null,
+        delist_note: null,
+      });
+      if (trackError) {
+        throw new Error(trackError.message);
       }
     }
+
+    await syncLocalConnectionSiteLinksIfPresent({
+      supabase: child,
+      siteId: normalizedSourceSiteId,
+    });
 
     await syncStandaloneIndexConnectionsMetadata({
       context,
@@ -2489,19 +2510,6 @@ export const updateIndexConnectionRequest = async ({
         ?.parent_index_id,
     );
     if (sourceSiteParentIndexId === context.archive.id) {
-      const { error: preserveMembershipError } = await child.from(
-        "index_sites",
-      ).upsert({
-        index_id: context.archive.id,
-        site_id: normalizedSourceSiteId,
-        status: "tracked",
-        delist_reason_code: null,
-        delist_note: null,
-      });
-      if (preserveMembershipError) {
-        throw new Error(preserveMembershipError.message);
-      }
-    } else {
       const { error: delistError } = await child
         .from("index_sites")
         .update({
@@ -2516,18 +2524,10 @@ export const updateIndexConnectionRequest = async ({
       }
     }
 
-    if (manifestActorUserId) {
-      const { error: syncSourceError } = await child.rpc(
-        "connection_sync_site_links_internal",
-        {
-          p_site_id: normalizedSourceSiteId,
-          p_actor_user_id: manifestActorUserId,
-        },
-      );
-      if (syncSourceError) {
-        throw new Error(syncSourceError.message);
-      }
-    }
+    await syncLocalConnectionSiteLinksIfPresent({
+      supabase: child,
+      siteId: normalizedSourceSiteId,
+    });
 
     await syncStandaloneIndexConnectionsMetadata({
       context,

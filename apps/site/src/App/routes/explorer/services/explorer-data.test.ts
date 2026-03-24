@@ -1,28 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const explorerMocks = vi.hoisted(() => ({
-  from: vi.fn(),
-  rpc: vi.fn(),
+  supabaseFunctionUrl: vi.fn(() => "https://example.supabase.co/functions/v1/index-public-network"),
 }));
 
 vi.mock("../../../lib/supabase", () => ({
-  supabase: {
-    from: explorerMocks.from,
-    rpc: explorerMocks.rpc,
-  },
+  supabaseFunctionUrl: explorerMocks.supabaseFunctionUrl,
 }));
 
 import { isExplorerRootIndexNode, loadExplorerData } from "./explorer-data";
 
 describe("loadExplorerData", () => {
   beforeEach(() => {
-    explorerMocks.from.mockReset();
-    explorerMocks.rpc.mockReset();
+    explorerMocks.supabaseFunctionUrl.mockClear();
+    vi.restoreAllMocks();
   });
 
   it("loads shared public graph nodes and keeps only valid edges", async () => {
-    explorerMocks.rpc.mockResolvedValue({
-      data: {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
         nodes: [
           {
             id: "site-1",
@@ -74,13 +71,12 @@ describe("loadExplorerData", () => {
             happened_at: "2026-03-05T00:00:00Z",
           },
         ],
-      },
-      error: null,
-    });
+      }),
+    }));
 
     const data = await loadExplorerData();
 
-    expect(explorerMocks.rpc).toHaveBeenCalledWith("rpc_public_explorer_graph");
+    expect(explorerMocks.supabaseFunctionUrl).toHaveBeenCalledWith("index-public-network");
     expect(data.sites).toEqual([
       {
         id: "site-1",
@@ -120,11 +116,11 @@ describe("loadExplorerData", () => {
     ]);
   });
 
-  it("throws when the public graph rpc fails", async () => {
-    explorerMocks.rpc.mockResolvedValue({
-      data: null,
-      error: { message: "boom" },
-    });
+  it("throws when the public network function fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "boom" }),
+    }));
 
     await expect(loadExplorerData()).rejects.toThrow("boom");
   });

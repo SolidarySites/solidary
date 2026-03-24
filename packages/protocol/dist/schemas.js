@@ -21,8 +21,8 @@ export const indexSchema = z.object({
     title: z.string(),
     canonical_url: z.string().nullable(),
     availability_window_days: z.number(),
-    default_ui_depth: z.number(),
-    max_ui_depth: z.number(),
+    default_connection_depth: z.number(),
+    max_connection_depth: z.number(),
     created_at: z.string(),
     updated_at: z.string()
 });

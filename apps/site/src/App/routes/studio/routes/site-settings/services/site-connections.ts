@@ -1,5 +1,7 @@
 import { supabase } from "../../../../../lib/supabase";
 import { resolveSiteImageUrl } from "../../../../../lib/site-image-url";
+import { supabaseFunctionUrl } from "../../../../../lib/supabase";
+import { getFreshSupabaseAuthSnapshot } from "../../../../../features/auth/services/github-auth";
 
 export type ConnectionAccessRole = "owner" | "admin" | "editor" | "contributor";
 export type SearchMode = "site" | "user";
@@ -72,12 +74,14 @@ type SiteConnectionSearchRow = {
   target_owner_email: string | null;
   target_owner_github_login: string | null;
   existing_state: string | null;
+  existing_connection_id?: string | null;
   existing_connection_uuid: string | null;
   existing_request_id: string | null;
 };
 
 type SiteConnectionRequestRow = {
   request_id: string | null;
+  connection_id?: string | null;
   connection_uuid: string | null;
   status: string | null;
   created_at: string | null;
@@ -99,6 +103,7 @@ type SiteConnectionRequestRow = {
 
 type SiteConnectionMutationRow = {
   request_id: string | null;
+  connection_id?: string | null;
   connection_uuid: string | null;
   status: string | null;
 };
@@ -186,8 +191,10 @@ const mapSearchRows = (rows: SiteConnectionSearchRow[] | null | undefined): Conn
             : null,
         existingState: normalizeExistingState(row.existing_state),
         existingConnectionUuid:
-          typeof row.existing_connection_uuid === "string" && row.existing_connection_uuid.trim()
-            ? row.existing_connection_uuid.trim()
+          typeof row.existing_connection_id === "string" && row.existing_connection_id.trim()
+            ? row.existing_connection_id.trim()
+            : typeof row.existing_connection_uuid === "string" && row.existing_connection_uuid.trim()
+              ? row.existing_connection_uuid.trim()
             : null,
         existingRequestId:
           typeof row.existing_request_id === "string" && row.existing_request_id.trim()
@@ -201,7 +208,10 @@ const mapRequestRows = (rows: SiteConnectionRequestRow[] | null | undefined): Si
   (rows ?? [])
     .map((row) => {
       const requestId = typeof row.request_id === "string" ? row.request_id.trim() : "";
-      const connectionUuid = typeof row.connection_uuid === "string" ? row.connection_uuid.trim() : "";
+      const connectionUuid =
+        typeof row.connection_id === "string" && row.connection_id.trim()
+          ? row.connection_id.trim()
+          : typeof row.connection_uuid === "string" ? row.connection_uuid.trim() : "";
       const sourceSiteId = typeof row.source_site_id === "string" ? row.source_site_id.trim() : "";
       const targetType: ConnectionTargetType =
         row.target_type === "index"
@@ -262,10 +272,48 @@ const mapMutationRows = (rows: SiteConnectionMutationRow[] | null | undefined) =
   const first = (rows ?? [])[0];
   if (!first) return null;
   const requestId = typeof first.request_id === "string" ? first.request_id.trim() : "";
-  const connectionUuid = typeof first.connection_uuid === "string" ? first.connection_uuid.trim() : "";
+  const connectionUuid =
+    typeof first.connection_id === "string" && first.connection_id.trim()
+      ? first.connection_id.trim()
+      : typeof first.connection_uuid === "string" ? first.connection_uuid.trim() : "";
   const status = normalizeRequestStatus(first.status);
   if (!requestId || !connectionUuid) return null;
   return { requestId, connectionUuid, status };
+};
+
+const callAuthenticatedConnectionFunction = async <T>({
+  functionName,
+  body,
+  fallbackError
+}: {
+  functionName: string;
+  body: Record<string, unknown>;
+  fallbackError: string;
+}): Promise<T> => {
+  const snapshot = await getFreshSupabaseAuthSnapshot();
+  const accessToken = snapshot.supabaseAccessToken?.trim() ?? "";
+  if (!accessToken) {
+    throw new Error("Missing Supabase session token.");
+  }
+
+  const response = await fetch(supabaseFunctionUrl(functionName), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && typeof payload.error === "string"
+        ? payload.error
+        : fallbackError;
+    throw new Error(message);
+  }
+
+  return payload as T;
 };
 
 export const resolveConnectionExplorerContext = async ({
@@ -340,18 +388,39 @@ export const searchConnectionTargets = async ({
   query: string;
   limit?: number;
 }): Promise<ConnectionTarget[]> => {
-  const { data, error } = await supabase.rpc("site_connection_search_targets", {
-    p_source_site_id: sourceSiteId,
-    p_query: query,
-    p_mode: mode,
-    p_limit: limit
-  });
-
-  if (error) {
-    throw new Error(error.message);
+  const snapshot = await getFreshSupabaseAuthSnapshot();
+  const accessToken = snapshot.supabaseAccessToken?.trim() ?? "";
+  if (!accessToken) {
+    throw new Error("Missing Supabase session token.");
   }
 
-  return mapSearchRows((data ?? []) as SiteConnectionSearchRow[]);
+  const response = await fetch(supabaseFunctionUrl("site-connection-search"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({
+      source_site_id: sourceSiteId,
+      query,
+      mode,
+      limit
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && typeof payload.error === "string"
+        ? payload.error
+        : "Could not search connection targets.";
+    throw new Error(message);
+  }
+
+  const results =
+    payload && typeof payload === "object" && Array.isArray(payload.results)
+      ? payload.results
+      : [];
+  return mapSearchRows(results as SiteConnectionSearchRow[]);
 };
 
 export const listSiteConnectionRequests = async ({
@@ -359,15 +428,13 @@ export const listSiteConnectionRequests = async ({
 }: {
   siteId: string;
 }): Promise<SiteConnectionRequest[]> => {
-  const { data, error } = await supabase.rpc("site_connection_list_requests", {
-    p_site_id: siteId
+  const payload = await callAuthenticatedConnectionFunction<{ requests?: SiteConnectionRequestRow[] }>({
+    functionName: "site-connection-requests",
+    body: { site_id: siteId },
+    fallbackError: "Could not load connection requests."
   });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return mapRequestRows((data ?? []) as SiteConnectionRequestRow[]);
+  return mapRequestRows(payload.requests ?? []);
 };
 
 export const sendSiteConnectionInvite = async ({
@@ -379,17 +446,17 @@ export const sendSiteConnectionInvite = async ({
   targetSiteId?: string | null;
   targetIndexId?: string | null;
 }) => {
-  const { data, error } = await supabase.rpc("site_connection_send_invite", {
-    p_source_site_id: sourceSiteId,
-    p_target_site_id: targetSiteId?.trim() || null,
-    p_target_index_id: targetIndexId?.trim() || null
+  const payload = await callAuthenticatedConnectionFunction<SiteConnectionMutationRow>({
+    functionName: "site-connection-write",
+    body: {
+      action: "send_invite",
+      source_site_id: sourceSiteId,
+      target_site_id: targetSiteId?.trim() || null,
+      target_index_id: targetIndexId?.trim() || null
+    },
+    fallbackError: "Connection invite could not be created."
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const row = mapMutationRows((data ?? []) as SiteConnectionMutationRow[]);
+  const row = mapMutationRows([payload]);
   if (!row) {
     throw new Error("Connection invite could not be created.");
   }
@@ -397,22 +464,25 @@ export const sendSiteConnectionInvite = async ({
 };
 
 export const respondToSiteConnectionRequest = async ({
+  siteId,
   requestId,
   action
 }: {
+  siteId: string;
   requestId: string;
   action: "approve" | "reject";
 }) => {
-  const { data, error } = await supabase.rpc("site_connection_respond", {
-    p_request_id: requestId,
-    p_action: action
+  const payload = await callAuthenticatedConnectionFunction<SiteConnectionMutationRow>({
+    functionName: "site-connection-write",
+    body: {
+      action: "respond",
+      source_site_id: siteId,
+      request_id: requestId,
+      response_action: action
+    },
+    fallbackError: "Connection request could not be updated."
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const row = mapMutationRows((data ?? []) as SiteConnectionMutationRow[]);
+  const row = mapMutationRows([payload]);
   if (!row) {
     throw new Error("Connection request could not be updated.");
   }
@@ -420,19 +490,22 @@ export const respondToSiteConnectionRequest = async ({
 };
 
 export const disconnectSiteConnection = async ({
-  requestId
+  requestId,
+  siteId
 }: {
   requestId: string;
+  siteId: string;
 }) => {
-  const { data, error } = await supabase.rpc("site_connection_disconnect", {
-    p_request_id: requestId
+  const payload = await callAuthenticatedConnectionFunction<SiteConnectionMutationRow>({
+    functionName: "site-connection-write",
+    body: {
+      action: "disconnect",
+      source_site_id: siteId,
+      request_id: requestId
+    },
+    fallbackError: "Connection could not be removed."
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const row = mapMutationRows((data ?? []) as SiteConnectionMutationRow[]);
+  const row = mapMutationRows([payload]);
   if (!row) {
     throw new Error("Connection could not be removed.");
   }

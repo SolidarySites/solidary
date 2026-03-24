@@ -1,4 +1,4 @@
-import { supabase } from "../../../lib/supabase";
+import { supabase, supabaseFunctionUrl } from "../../../lib/supabase";
 
 export type ExplorerNodeType = "site" | "index";
 export type ExplorerEdgeType =
@@ -37,6 +37,7 @@ type ViewerSiteRow = {
 };
 
 type PublicExplorerGraphRow = {
+  meta?: unknown;
   nodes?: unknown;
   edges?: unknown;
 };
@@ -148,16 +149,27 @@ const mapGraphEdges = (rows: unknown): ExplorerConnection[] =>
     .filter((edge): edge is ExplorerConnection => Boolean(edge));
 
 export const loadExplorerData = async (): Promise<ExplorerData> => {
-  const { data, error } = await supabase.rpc("rpc_public_explorer_graph");
+  const response = await fetch(supabaseFunctionUrl("index-public-network"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({})
+  });
 
-  if (error) {
-    throw new Error(error.message);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && typeof payload.error === "string"
+        ? payload.error
+        : "Failed to load explorer data.";
+    throw new Error(message);
   }
 
-  const payload = (data ?? {}) as PublicExplorerGraphRow;
-  const sites = mapGraphNodes(payload.nodes);
+  const graphPayload = (payload ?? {}) as PublicExplorerGraphRow;
+  const sites = mapGraphNodes(graphPayload.nodes);
   const siteIds = new Set(sites.map((site) => site.id));
-  const connections = mapGraphEdges(payload.edges).filter(
+  const connections = mapGraphEdges(graphPayload.edges).filter(
     (edge) => siteIds.has(edge.sourceId) && siteIds.has(edge.targetId),
   );
 

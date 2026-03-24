@@ -1,5 +1,5 @@
 import {
-  callRestRpc,
+  callLocalFunction,
   clearChildren,
   loadConfig,
   renderLink,
@@ -95,9 +95,10 @@ const renderConnectedSites = (container, connections) => {
 };
 
 const loadSiteState = async (config) => {
-  const graph = await callRestRpc({
+  const graph = await callLocalFunction({
     config,
-    rpcName: "rpc_public_explorer_graph"
+    functionName: "index-public-network",
+    body: {}
   });
   const rawNodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const rawEdges = Array.isArray(graph?.edges) ? graph.edges : [];

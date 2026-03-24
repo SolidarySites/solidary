@@ -1963,16 +1963,23 @@ async function saveParentIndexMetadata({
     const nowIso = new Date().toISOString();
     const { error: connectionError } = await supabase.from("connections").upsert(
       {
-        connection_uuid: parentConnectionUuid,
-        source_index_id: archiveId,
-        target_site_id: null,
-        target_index_id: parentIndexId,
+        id: parentConnectionUuid,
         source_requested_by_user_id: ownerUserId,
         responded_by_user_id: ownerUserId,
         status: "approved",
         responded_at: nowIso,
+        requester_index_id: archiveId,
+        requester_index_url: siteUrl,
+        requester_entity_id: null,
+        requester_entity_url: null,
+        requester_type: "index",
+        requested_index_id: parentIndexId,
+        requested_index_url: parentIndexUrl,
+        requested_entity_id: null,
+        requested_entity_url: null,
+        requested_type: "index",
       },
-      { onConflict: "connection_uuid" },
+      { onConflict: "id" },
     );
     if (connectionError) {
       throw new HttpError(

@@ -313,7 +313,11 @@ export const useConnectionExplorerController = ({
     setNotice(null);
     setNoticeKind(null);
     try {
-      const result = await respondToSiteConnectionRequest({ requestId, action });
+      const result = await respondToSiteConnectionRequest({
+        siteId: context.siteId,
+        requestId,
+        action
+      });
       if (result.status === "approved") {
         setNotice(`Connection approved. UUID: ${result.connectionUuid}`);
       } else {
@@ -336,7 +340,10 @@ export const useConnectionExplorerController = ({
     setNotice(null);
     setNoticeKind(null);
     try {
-      await disconnectSiteConnection({ requestId });
+      await disconnectSiteConnection({
+        siteId: context.siteId,
+        requestId
+      });
       setNotice("Connection removed.");
       setNoticeKind("notice");
       await Promise.all([loadRequests(context), refreshSearchResults()]);

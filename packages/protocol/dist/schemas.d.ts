@@ -25,8 +25,8 @@ export declare const indexSchema: z.ZodObject<{
     title: z.ZodString;
     canonical_url: z.ZodNullable<z.ZodString>;
     availability_window_days: z.ZodNumber;
-    default_ui_depth: z.ZodNumber;
-    max_ui_depth: z.ZodNumber;
+    default_connection_depth: z.ZodNumber;
+    max_connection_depth: z.ZodNumber;
     created_at: z.ZodString;
     updated_at: z.ZodString;
 }, z.core.$strip>;
