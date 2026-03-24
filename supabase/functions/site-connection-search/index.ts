@@ -270,9 +270,7 @@ export const handler: Handler = async (event) => {
         return {
           target_type: targetType,
           target_site_id: targetType === "site" ? node.id : null,
-          target_index_id: targetType === "index"
-            ? node.id
-            : toTrimmedString(node.parent_index_id) || null,
+          target_index_id: targetType === "index" ? node.id : null,
           target_title: node.title,
           target_description: node.description,
           target_url: node.canonical_url,

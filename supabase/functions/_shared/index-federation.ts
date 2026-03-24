@@ -130,11 +130,29 @@ export const dispatchFederationQueueNow = async ({
 }: {
   supabase: SupabaseClientLike;
 }) => {
-  const { data, error } = await supabase.rpc("index_federation_wake_dispatcher");
-
-  if (error) {
-    throw new Error(error.message);
+  const { error: recoverError } = await supabase.rpc(
+    "index_federation_recover_orphaned_deliveries",
+  );
+  if (recoverError) {
+    throw new Error(recoverError.message);
   }
 
-  return data === true;
+  const { error: dispatchError } = await supabase.rpc(
+    "index_federation_dispatch_due_deliveries",
+    {
+      p_limit: 50,
+    },
+  );
+  if (dispatchError) {
+    throw new Error(dispatchError.message);
+  }
+
+  const { error: reconcileError } = await supabase.rpc(
+    "index_federation_reconcile_deliveries",
+  );
+  if (reconcileError) {
+    throw new Error(reconcileError.message);
+  }
+
+  return true;
 };

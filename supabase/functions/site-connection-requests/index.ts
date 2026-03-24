@@ -318,7 +318,16 @@ export const handler: Handler = async (event) => {
           (requestedType === "site" ? requestedEntityUrl : requestedIndexUrl) ||
           "",
         target_image_url: requestedNode?.image_url || "",
-        target_owner_display_name: requestedNode?.owner_display_name || "Unknown",
+        target_owner_display_name: requestedType === "index"
+          ? (
+            requestedNode?.title ||
+            getFallbackTitle({
+              nodeType: requestedType,
+              entityUrl: requestedIndexUrl,
+              entityId: requestedIndexId,
+            })
+          )
+          : (requestedNode?.owner_display_name || "Unknown"),
         is_incoming:
           requestedType === "site" &&
           requestedEntityId === siteId,

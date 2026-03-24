@@ -243,7 +243,12 @@ const ConnectionExplorer = ({
                           </h4>
                           <span>{formatShortDate(request.createdAt)}</span>
                         </div>
-                        <p>Waiting on {request.targetOwnerDisplayName}</p>
+                        <p>
+                          Waiting on{" "}
+                          {request.targetType === "index"
+                            ? request.targetTitle
+                            : request.targetOwnerDisplayName}
+                        </p>
                         <p className="connection-request-uuid">
                           Connection UUID: {request.connectionUuid}
                         </p>

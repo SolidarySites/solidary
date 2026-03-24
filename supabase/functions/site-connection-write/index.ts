@@ -6,6 +6,7 @@ import {
   loadRecursivePublicNetwork,
   type NetworkNode,
 } from "../_shared/index-public-network.ts";
+import { dispatchFederationQueueNow } from "../_shared/index-federation.ts";
 import { syncLocalConnectionSiteLinksIfPresent } from "../_shared/connection-site-links.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -158,6 +159,49 @@ const resolveTargetNode = ({
   return node;
 };
 
+const normalizeConnectionTarget = ({
+  nodeLookup,
+  targetSiteId,
+  targetIndexId,
+}: {
+  nodeLookup: ReturnType<typeof createNodeLookup>;
+  targetSiteId: string;
+  targetIndexId: string;
+}) => {
+  if (targetSiteId) {
+    const node = nodeLookup.byId.get(targetSiteId);
+    if (!node || node.node_type !== "site") {
+      throw new Error("Target site is not reachable from this site.");
+    }
+
+    const resolvedParentIndexId = toTrimmedString(node.parent_index_id);
+    if (
+      targetIndexId &&
+      resolvedParentIndexId &&
+      targetIndexId !== resolvedParentIndexId
+    ) {
+      throw new Error("Target site and target index do not match.");
+    }
+
+    return {
+      targetSiteId,
+      targetIndexId: "",
+    };
+  }
+
+  if (targetIndexId) {
+    return {
+      targetSiteId: "",
+      targetIndexId,
+    };
+  }
+
+  return {
+    targetSiteId: "",
+    targetIndexId: "",
+  };
+};
+
 const createMutationPayload = ({
   requestId,
   status,
@@ -272,13 +316,15 @@ export const handler: Handler = async (event) => {
         throw new Error(existingRowsResult.error.message);
       }
 
-      const targetSiteId = toTrimmedString(body.target_site_id);
-      const targetIndexId = toTrimmedString(body.target_index_id);
+      const normalizedTarget = normalizeConnectionTarget({
+        nodeLookup: createNodeLookup(network.nodes),
+        targetSiteId: toTrimmedString(body.target_site_id),
+        targetIndexId: toTrimmedString(body.target_index_id),
+      });
+      const targetSiteId = normalizedTarget.targetSiteId;
+      const targetIndexId = normalizedTarget.targetIndexId;
       if (!targetSiteId && !targetIndexId) {
         throw new Error("Missing connection target.");
-      }
-      if (targetSiteId && targetIndexId) {
-        throw new Error("Choose either a site target or an index target.");
       }
       if (targetSiteId === siteId) {
         throw new Error("A site cannot connect to itself.");
@@ -367,6 +413,8 @@ export const handler: Handler = async (event) => {
         });
       }
 
+      await dispatchFederationQueueNow({ supabase });
+
       return safeJson(200, createMutationPayload({
         requestId: connectionId,
         status: autoApprove ? "approved" : "pending",
@@ -443,6 +491,8 @@ export const handler: Handler = async (event) => {
         });
       }
 
+      await dispatchFederationQueueNow({ supabase });
+
       return safeJson(200, createMutationPayload({
         requestId: requestRow.id,
         status: approvedAction,
@@ -508,6 +558,8 @@ export const handler: Handler = async (event) => {
         siteId: requestedEntityId,
       });
     }
+
+    await dispatchFederationQueueNow({ supabase });
 
     return safeJson(200, createMutationPayload({
       requestId: requestRow.id,

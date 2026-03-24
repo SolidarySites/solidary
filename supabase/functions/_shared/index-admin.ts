@@ -21,6 +21,7 @@ import {
   resolveGitHubTokenForUser,
   resolveGitHubTokenForUserByMode,
 } from "./github-auth-broker.ts";
+import { dispatchFederationQueueNow } from "./index-federation.ts";
 import {
   buildSupabaseManagementUriAllowList,
   readSupabaseProjectAuthConfig,
@@ -2452,6 +2453,7 @@ export const updateIndexConnectionRequest = async ({
       supabase: child,
       siteId: normalizedSourceSiteId,
     });
+    await dispatchFederationQueueNow({ supabase: child });
 
     await syncStandaloneIndexConnectionsMetadata({
       context,
@@ -2476,6 +2478,7 @@ export const updateIndexConnectionRequest = async ({
     if (rejectError) {
       throw new Error(rejectError.message);
     }
+    await dispatchFederationQueueNow({ supabase: child });
     return;
   }
 
@@ -2523,17 +2526,19 @@ export const updateIndexConnectionRequest = async ({
         throw new Error(delistError.message);
       }
     }
-
-    await syncLocalConnectionSiteLinksIfPresent({
-      supabase: child,
-      siteId: normalizedSourceSiteId,
-    });
-
-    await syncStandaloneIndexConnectionsMetadata({
-      context,
-      message: "Update standalone index connections metadata",
-    });
   }
+
+  await dispatchFederationQueueNow({ supabase: child });
+
+  await syncLocalConnectionSiteLinksIfPresent({
+    supabase: child,
+      siteId: normalizedSourceSiteId,
+  });
+
+  await syncStandaloneIndexConnectionsMetadata({
+    context,
+    message: "Update standalone index connections metadata",
+  });
 };
 
 const updateGitHubPagesDomain = async ({

@@ -1,4 +1,5 @@
 import { createIndexAdminBootstrapSql } from "./index-admin-bootstrap-sql.ts";
+import { indexBootstrapSql } from "./index-bootstrap-sql.ts";
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) {
@@ -57,5 +58,20 @@ Deno.test("createIndexAdminBootstrapSql throws a helpful error when indexId is m
   assert(
     message === "createIndexAdminBootstrapSql requires indexId.",
     `Expected helpful missing-indexId error, received: ${message || "<none>"}`,
+  );
+});
+
+Deno.test("createIndexAdminBootstrapSql includes the connection-identity federation cleanup fix", () => {
+  const migrationBlock = indexBootstrapSql.split(
+    "-- 0056_fix_federation_dispatcher_for_connection_identity.sql",
+  )[1] ?? "";
+
+  assert(
+    migrationBlock.includes("connection.requester_index_id = peer.remote_index_id"),
+    "Expected generated SQL to use requester_index_id in stale peer cleanup.",
+  );
+  assert(
+    migrationBlock.includes("connection.requested_index_id = peer.local_index_id"),
+    "Expected generated SQL to use requested_index_id in stale peer cleanup.",
   );
 });

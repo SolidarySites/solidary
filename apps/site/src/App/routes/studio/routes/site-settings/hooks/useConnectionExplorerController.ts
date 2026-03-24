@@ -292,8 +292,8 @@ export const useConnectionExplorerController = ({
     try {
       const result = await sendSiteConnectionInvite({
         sourceSiteId: context.siteId,
-        targetSiteId: target.siteId,
-        targetIndexId: target.indexId
+        targetSiteId: target.targetType === "site" ? target.siteId : null,
+        targetIndexId: target.targetType === "index" ? target.indexId : null
       });
       setNotice(`Connection invite sent. Connection UUID: ${result.connectionUuid}`);
       setNoticeKind("notice");
