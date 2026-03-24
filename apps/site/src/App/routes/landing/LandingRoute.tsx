@@ -11,7 +11,7 @@ export default function LandingRoute() {
       <main className="main-content landing-main-content">
         <LandingMasthead />
         <PublicNetworkSection
-          nodes={controller.nodes}
+          sites={controller.sites}
           loading={controller.loading}
           error={controller.error}
         />

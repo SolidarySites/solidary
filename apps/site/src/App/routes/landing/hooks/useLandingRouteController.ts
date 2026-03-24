@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
-import {
-  loadPublicNetwork,
-  type PublicNetworkNode,
-} from "../../../services/public-network";
+import { loadPublicSites, type PublicSite } from "../../../services/public-sites";
 
 export const useLandingRouteController = () => {
-  const [nodes, setNodes] = useState<PublicNetworkNode[]>([]);
+  const [sites, setSites] = useState<PublicSite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,15 +13,15 @@ export const useLandingRouteController = () => {
 
     void (async () => {
       try {
-        const nextNodes = await loadPublicNetwork();
+        const nextSites = await loadPublicSites();
         if (cancelled) return;
-        setNodes(nextNodes);
+        setSites(nextSites);
       } catch (caught) {
         if (cancelled) return;
         const message =
           caught instanceof Error && caught.message.trim()
             ? caught.message
-            : "Failed to load the public network.";
+            : "Failed to load published sites.";
         setError(message);
       } finally {
         if (!cancelled) {
@@ -39,7 +36,7 @@ export const useLandingRouteController = () => {
   }, []);
 
   return {
-    nodes,
+    sites,
     loading,
     error,
   };

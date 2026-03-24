@@ -31,8 +31,8 @@ export function LandingMasthead() {
         <p className="landing-lead">
           are independently published sites that have a shared public infrastructure 
           without centralized ownership. Invite others to collaborate on your sites and 
-          connect with other Solidary sites. Scroll down to discover what is currently 
-          live on the network.
+          connect with other Solidary sites. Scroll down to discover the sites currently
+          published from this index.
         </p>
         <div className="landing-actions">
           <Link to="/support" className="landing-primary-link">
