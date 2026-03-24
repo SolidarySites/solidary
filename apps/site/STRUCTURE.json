@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-24T00:24:12.712Z",
-  "latest_commit_sha": "9ebc2d13f3e800cac970260085faf446b51f0358",
+  "generated_at": "2026-03-24T10:31:52.730Z",
+  "latest_commit_sha": "391086376e33924df1055b0b5afbf9474014ea77",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -1705,7 +1705,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionExplorer.tsx",
                                     "description": "Embedded connection explorer UI for searching sites, sending invites, and reviewing connection requests.",
-                                    "LOC": 349
+                                    "LOC": 354
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-settings/components/ConnectionsSettingsSection.tsx",
