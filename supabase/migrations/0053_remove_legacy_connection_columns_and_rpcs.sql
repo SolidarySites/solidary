@@ -340,6 +340,8 @@ $$;
 revoke all on function public.connection_create_site_index(uuid, uuid, uuid) from public;
 grant execute on function public.connection_create_site_index(uuid, uuid, uuid) to authenticated;
 
+drop function if exists public.connection_create_index_index(uuid, uuid, uuid);
+
 create or replace function public.connection_create_index_index(
   p_source_index_id uuid,
   p_target_index_id uuid,
