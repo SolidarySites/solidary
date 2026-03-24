@@ -10,6 +10,7 @@ import { supabase } from "./lib/supabase";
 import { SiteNoticeProvider } from "./features/site-notice/providers/SiteNoticeProvider";
 
 const LandingRoute = lazy(() => import("./routes/landing/LandingRoute"));
+const AboutRoute = lazy(() => import("./routes/about/AboutRoute"));
 const SupportRoute = lazy(() => import("./routes/support/SupportRoute"));
 const ContactRoute = lazy(() => import("./routes/contact/ContactRoute"));
 const ExplorerRoute = lazy(() => import("./routes/explorer/ExplorerRoute"));
@@ -127,6 +128,7 @@ export default function App() {
           <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<LandingRoute />} />
+              <Route path="/about" element={<AboutRoute />} />
               <Route path="/support" element={<SupportRoute />} />
               <Route path="/contact" element={<ContactRoute />} />
               <Route path="/explorer" element={<ExplorerRoute />} />

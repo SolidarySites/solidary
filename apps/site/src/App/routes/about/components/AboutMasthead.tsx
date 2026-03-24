@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { useLandingTitleTooltipBounds } from "../hooks/useLandingTitleTooltipBounds";
+import { useAboutTitleTooltipBounds } from "../hooks/useAboutTitleTooltipBounds";
 
-export function LandingMasthead() {
-  const { mastheadRef, termRef } = useLandingTitleTooltipBounds();
+export default function AboutMasthead() {
+  const { mastheadRef, termRef } = useAboutTitleTooltipBounds();
 
   return (
     <section ref={mastheadRef} className="landing-masthead" aria-labelledby="landing-home-title">
@@ -29,10 +29,9 @@ export function LandingMasthead() {
           </span>
         </h1>
         <p className="landing-lead">
-          are independently published sites that have a shared public infrastructure 
-          without centralized ownership. Invite others to collaborate on your sites and 
-          connect with other Solidary sites. Scroll down to discover the sites currently
-          published from this index.
+          are independently published sites that have a shared public infrastructure
+          without centralized ownership. Invite others to collaborate on your sites and
+          connect with other Solidary sites.
         </p>
         <div className="landing-actions">
           <Link to="/support" className="landing-primary-link">

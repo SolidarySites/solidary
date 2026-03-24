@@ -71,6 +71,12 @@ export default function SiteHeader() {
 
         <nav className="site-header-nav" aria-label="Primary">
           <Link
+            className={`site-header-nav-link ${location.pathname === "/about" ? "is-active" : ""}`.trim()}
+            to="/about"
+          >
+            About
+          </Link>
+          <Link
             className={`site-header-nav-link ${location.pathname === "/explorer" ? "is-active" : ""}`.trim()}
             to="/explorer"
           >

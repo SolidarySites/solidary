@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef } from "react";
 
-const LANDING_MASTHEAD_COLUMNS = 12;
+const MASTHEAD_COLUMNS = 12;
 const RESERVED_MASTHEAD_COLUMNS = 4;
 const TOOLTIP_OFFSET_PX = 14;
 const MOBILE_BREAKPOINT_PX = 760;
 
-export function useLandingTitleTooltipBounds() {
+export function useAboutTitleTooltipBounds() {
   const mastheadRef = useRef<HTMLElement | null>(null);
   const termRef = useRef<HTMLSpanElement | null>(null);
 
@@ -27,15 +27,15 @@ export function useLandingTitleTooltipBounds() {
       const termRect = term.getBoundingClientRect();
       const styles = window.getComputedStyle(masthead);
       const columnGap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
-      const usableWidth = mastheadRect.width - columnGap * (LANDING_MASTHEAD_COLUMNS - 1);
+      const usableWidth = mastheadRect.width - columnGap * (MASTHEAD_COLUMNS - 1);
 
       if (usableWidth <= 0) {
         term.style.removeProperty("--landing-home-title-tooltip-max-width");
         return;
       }
 
-      const columnWidth = usableWidth / LANDING_MASTHEAD_COLUMNS;
-      const leadingColumns = LANDING_MASTHEAD_COLUMNS - RESERVED_MASTHEAD_COLUMNS;
+      const columnWidth = usableWidth / MASTHEAD_COLUMNS;
+      const leadingColumns = MASTHEAD_COLUMNS - RESERVED_MASTHEAD_COLUMNS;
       const reservedColumnsLeftEdge =
         mastheadRect.left + leadingColumns * columnWidth + leadingColumns * columnGap;
       const availableWidth = Math.max(

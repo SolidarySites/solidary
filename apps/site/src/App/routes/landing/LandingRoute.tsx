@@ -1,4 +1,3 @@
-import { LandingMasthead } from "./components/LandingMasthead";
 import { PublicNetworkSection } from "./components/PublicNetworkSection";
 import { useLandingRouteController } from "./hooks/useLandingRouteController";
 import "./LandingRoute.css";
@@ -9,7 +8,6 @@ export default function LandingRoute() {
   return (
     <div className="app-shell landing-app-shell">
       <main className="main-content landing-main-content">
-        <LandingMasthead />
         <PublicNetworkSection
           sites={controller.sites}
           loading={controller.loading}
