@@ -1,8 +1,9 @@
 import { Buffer } from "node:buffer";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { bundledTemplateFiles } from "../../../../../../supabase/functions/github-create-repo-worker-background/template-files";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 
@@ -12,6 +13,39 @@ describe("default site template integrity", () => {
     "apps/site/src/templates/site/default_template/scaffold"
   );
   const deployWorkflowPath = path.join(scaffoldRoot, ".github/workflows/deploy.yml");
+  const collectScaffoldFiles = (directoryPath: string, parentRelativePath = ""): Array<{
+    relPath: string;
+    mode: "100644" | "100755";
+    contentB64: string;
+  }> => {
+    const entries = readdirSync(directoryPath, { withFileTypes: true });
+    const files: Array<{
+      relPath: string;
+      mode: "100644" | "100755";
+      contentB64: string;
+    }> = [];
+
+    entries.forEach((entry) => {
+      if (entry.name === ".DS_Store") return;
+
+      const absolutePath = path.join(directoryPath, entry.name);
+      const relativePath = parentRelativePath ? `${parentRelativePath}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        files.push(...collectScaffoldFiles(absolutePath, relativePath));
+        return;
+      }
+
+      const stat = statSync(absolutePath);
+      files.push({
+        relPath: relativePath,
+        mode: (stat.mode & 0o111) !== 0 ? "100755" : "100644",
+        contentB64: readFileSync(absolutePath).toString("base64")
+      });
+    });
+
+    return files;
+  };
 
   it("uses the expected scaffold package name", () => {
     const scaffoldPackage = JSON.parse(
@@ -86,5 +120,22 @@ describe("default site template integrity", () => {
     expect(bundledTemplateFile).toContain(
       `contentB64: ${JSON.stringify(Buffer.from(deployWorkflow, "utf8").toString("base64"))}`
     );
+  });
+
+  it("keeps the generated site template bundle synced with the scaffold source", () => {
+    const expectedFiles = collectScaffoldFiles(scaffoldRoot).sort((left, right) =>
+      left.relPath.localeCompare(right.relPath)
+    );
+    const actualFiles = [...bundledTemplateFiles].sort((left, right) =>
+      left.relPath.localeCompare(right.relPath)
+    );
+
+    expect(actualFiles.map((entry) => entry.relPath)).toEqual(
+      expectedFiles.map((entry) => entry.relPath)
+    );
+
+    expectedFiles.forEach((expectedFile, index) => {
+      expect(actualFiles[index]).toEqual(expectedFile);
+    });
   });
 });

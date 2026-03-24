@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-24T10:31:52.730Z",
-  "latest_commit_sha": "391086376e33924df1055b0b5afbf9474014ea77",
+  "generated_at": "2026-03-24T10:52:18.996Z",
+  "latest_commit_sha": "ad6ded8dbda41837047130f566ec4c08d5291cc8",
   "root": "apps/site",
   "notes": [
     "Descriptions are refined incrementally from code inspection; route modules now include active-vs-legacy context where relevant.",
@@ -1495,7 +1495,7 @@
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.test.ts",
                                     "description": "Unit tests for builder file generation, validating simple-vs-advanced style outputs and tokens import behavior.",
-                                    "LOC": 235
+                                    "LOC": 267
                                   },
                                   {
                                     "path": "src/App/routes/studio/routes/site-builder/services/build-files.ts",
@@ -2517,7 +2517,7 @@
                       {
                         "path": "src/templates/site/default_template/template-integrity.test.ts",
                         "description": "?",
-                        "LOC": 90
+                        "LOC": 141
                       }
                     ]
                   }

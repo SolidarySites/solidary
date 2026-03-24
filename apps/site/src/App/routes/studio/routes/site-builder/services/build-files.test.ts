@@ -131,6 +131,38 @@ describe("buildFiles styles output", () => {
     expect(files["src/content/pages/home.md"]).toContain('javascript: "console.log(\'home\')"');
   });
 
+  it("writes header and footer visibility options into the published markdown files", () => {
+    const files = buildFiles({
+      siteId: "site-1",
+      ogImageUrl: "/og.jpg",
+      settingsInput: {
+        ...settingsInput,
+        header: {
+          disabled: true,
+          fixed: true,
+          brandText: "Hidden Header",
+          disableBrand: true
+        },
+        footer: {
+          disabled: true,
+          fixed: true,
+          modules: settingsInput.footer.modules
+        }
+      },
+      styles: baseStyles,
+      templateSolidary,
+      templateSolidaryLinks,
+      pages,
+      defaultHomeContent: "Default home"
+    });
+
+    expect(files[FILE_KEYS.headerContent]).toContain("disabled: true");
+    expect(files[FILE_KEYS.headerContent]).toContain("fixed: true");
+    expect(files[FILE_KEYS.headerContent]).toContain("disableBrand: true");
+    expect(files[FILE_KEYS.footerContent]).toContain("disabled: true");
+    expect(files[FILE_KEYS.footerContent]).toContain("fixed: true");
+  });
+
   it("keeps page uploads at the site root for custom domains", () => {
     const files = buildFiles({
       siteId: "site-1",
