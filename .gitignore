@@ -29,3 +29,6 @@ lerna-debug.log*
 .mcp.json
 CLAUDE.md
 .claude/
+
+# local structure snapshots
+apps/site/STRUCTURE.json
