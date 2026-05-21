@@ -9,11 +9,10 @@ type UseStudioSupabaseConnectionStatusArgs = {
 export const useStudioSupabaseConnectionStatus = ({
   session
 }: UseStudioSupabaseConnectionStatusArgs) => {
-  const [connected, setConnected] = useState(false);
+  const [connectedForSession, setConnectedForSession] = useState(false);
 
   useEffect(() => {
     if (!session) {
-      setConnected(false);
       return;
     }
 
@@ -22,12 +21,12 @@ export const useStudioSupabaseConnectionStatus = ({
     void getSupabaseManagementStatusForCurrentUser()
       .then((status) => {
         if (!cancelled) {
-          setConnected(status.connected);
+          setConnectedForSession(status.connected);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setConnected(false);
+          setConnectedForSession(false);
         }
       });
 
@@ -36,5 +35,5 @@ export const useStudioSupabaseConnectionStatus = ({
     };
   }, [session]);
 
-  return connected;
+  return Boolean(session) && connectedForSession;
 };

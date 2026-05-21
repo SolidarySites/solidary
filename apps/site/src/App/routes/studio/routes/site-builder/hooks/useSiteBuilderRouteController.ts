@@ -32,10 +32,13 @@ import { useBuilderCollaborators } from "./useBuilderCollaborators";
 import { useBuilderPageEditing } from "./useBuilderPageEditing";
 import { useBuilderPreviewEditor } from "./useBuilderPreviewEditor";
 import { useSiteBuilderAccessAndLocks } from "./useSiteBuilderAccessAndLocks";
-import { buildSiteBuilderViewModels } from "./controller/buildSiteBuilderViewModels";
 import { useBuilderDocumentState } from "./controller/useBuilderDocumentState";
 import { useBuilderRouteEffects } from "./controller/useBuilderRouteEffects";
 import { useDeleteDraftPageAction } from "./controller/useDeleteDraftPageAction";
+import { buildContentSectionProps } from "./controller/view-models/buildContentSectionProps";
+import { buildSettingsRouteContext } from "./controller/view-models/buildSettingsRouteContext";
+import { buildTopbarProps } from "./controller/view-models/buildTopbarProps";
+import type { SiteBuilderViewModels } from "./controller/view-models/types";
 import { useSiteBuilderDraftLifecycle } from "./useSiteBuilderDraftLifecycle";
 import { defaultStyleMode, useSiteBuilderStyleMediaManager } from "./useSiteBuilderStyleMediaManager";
 import {
@@ -177,7 +180,24 @@ export const useSiteBuilderRouteController = ({
     setNoticeKind,
     setDraftImages
   });
-  const { clearSelectedEditorImage, setSelectedEditorElement } = previewEditor;
+  const {
+    previewRef,
+    selectedEditorImage,
+    selectedEditorElement,
+    setSelectedEditorImage,
+    setSelectedEditorElement,
+    uploadingInlineImage,
+    runPreviewCommand,
+    runPreviewLink,
+    capturePreviewSelection,
+    handleInlineImageUpload,
+    handleSelectedEditorImageAltChange,
+    handleSelectedEditorImageCaptionChange,
+    handleSelectedEditorImageSizeChange,
+    handleSelectedEditorElementClassNameChange,
+    handleSelectedEditorElementInlineStyleChange,
+    clearSelectedEditorImage
+  } = previewEditor;
   const sessionDisplayName = useMemo(() => {
     const metadata = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
     const candidates = [
@@ -528,61 +548,269 @@ export const useSiteBuilderRouteController = ({
     navigate
   });
 
-  const viewModels = buildSiteBuilderViewModels({
-    draftId: draftState?.id ?? null,
-    draftState,
-    canDeleteSite,
-    deleteSiteRepoFullName,
-    sessionUserId,
-    canEditDraft,
-    sessionDisplayName,
-    sessionAvatarUrl,
-    siteAccessRole,
-    hasUnsavedChanges,
-    savingDraft,
-    activeSection,
-    activeSettingsSection,
-    isPageEditingMode,
+  const isMediaManagerView =
+    activeSection === "settings" && activeSettingsSection === "media";
+  const canFormatText =
+    !(shouldLoadDraft && isDraftLoading) && !draftLoadError && canEditPageContent;
+  const canSaveDraft =
+    Boolean(draftState) &&
+    canEditDraft &&
+    !savingDraft &&
+    hasUnsavedChanges &&
+    Boolean(activeEditableSection) &&
+    !activeSectionLockedByOther;
+  const hasSavedPendingPublishChanges = Boolean(draftState?.hasPublishPendingChanges);
+  const canPublish =
+    !isProvisioning &&
+    Boolean(draftState) &&
+    canPublishByRole &&
+    publishFeedback?.kind !== "progress" &&
+    !hasUnsavedChanges &&
+    hasSavedPendingPublishChanges &&
+    (!canDirectPublish || !hasForeignSectionLocks);
+  const canEditPageJavaScript = siteAccessRole === "owner" || siteAccessRole === "admin";
+  const publishMode: "direct" | "pull_request" = canDirectPublish ? "direct" : "pull_request";
+  const publishButtonLabel = canDirectPublish ? "Publish Site" : "Suggest Edits";
+  const showTopbar =
+    activeSection === "settings" &&
+    activeSettingsSection === "pages" &&
+    isPageEditingMode &&
+    canFormatText;
+  const showPreviewPanel = !isMediaManagerView;
+  const showFullFrameSidebar = showMetadataFullView || isMediaManagerView;
+  const isAdvancedStylesView =
+    activeSection === "settings" &&
+    activeSettingsSection === "styles" &&
+    styleMedia.styleMode === "advanced" &&
+    !showFullFrameSidebar;
+  const isSidebarCollapsed = !isMediaManagerView && isPreviewFullscreen;
+  const bodyClassName = `builder-body ${isSidebarCollapsed ? "is-preview-fullscreen" : ""} ${
+    showFullFrameSidebar ? "is-settings-full" : ""
+  } ${isAdvancedStylesView ? "is-advanced-styles" : ""}`.trim();
+
+  const viewModels: SiteBuilderViewModels = {
+    settingsRouteContext: buildSettingsRouteContext({
+      draftId: draftState?.id ?? null,
+      sessionUserId,
+      canEditDraft,
+      sessionDisplayName,
+      sessionAvatarUrl,
+      siteAccessRole,
+      hasUnsavedChanges,
+      savingDraft,
+      liveSettings
+    }),
     showMetadataFullView,
     metadataLockedByOther,
     metadataLockHolderName: metadataLock?.holderName ?? "Another user",
-    canEditPageContent,
-    canPublishByRole,
-    canDirectPublish,
-    hasForeignSectionLocks,
-    activeEditableSection,
-    activeSectionLockedByOther,
-    isProvisioning,
-    provisionStep,
-    publishFeedback,
-    shouldLoadDraft,
-    isDraftLoading,
-    draftLoadError,
-    isPreviewFullscreen,
-    setIsPreviewFullscreen,
-    documentState,
-    pageTitleRef,
-    collaborators,
-    collaboratorPresenceNames,
-    previewEditor,
-    pageEditing,
-    styleMedia,
-    liveSettings,
-    pageLocksBySlug,
-    sidebarSectionLocks,
-    publishedSiteBaseUrl,
-    defaultHomeContent,
-    pageDeleteBusy: deletePageBusy,
-    handleDeletePage,
-    handleEnterPageEditingMode,
-    handleSaveDraft,
-    handlePublish,
-    handleSectionChange,
-    handleSettingsSectionChange,
-    handleExitPageEditingMode,
-    handleActivePreviewSlugChange,
-    maxFormatImageUploadBytes: MAX_IMAGE_UPLOAD_BYTES
-  });
+    showTopbar,
+    showPreviewPanel,
+    bodyClassName,
+    topbarProps: buildTopbarProps({
+      onRunFormatCommand: runPreviewCommand,
+      onRunFormatLink: runPreviewLink,
+      onUploadFormatImage: handleInlineImageUpload,
+      onCaptureFormatSelection: capturePreviewSelection,
+      isFormatImageUploading: uploadingInlineImage,
+      maxFormatImageUploadBytes: MAX_IMAGE_UPLOAD_BYTES
+    }),
+    contentSectionProps: buildContentSectionProps({
+      documentState,
+      collaborators,
+      canDeleteSite,
+      deleteSiteRepoFullName,
+      liveSettings,
+      hasUnsavedChanges
+    }),
+    sidebarProps: {
+      activeSection,
+      activeSettingsSection,
+      isPageEditingMode,
+      canEditDraft,
+      accessRole: siteAccessRole,
+      activeCollaborators: collaboratorPresenceNames,
+      isPreviewFullscreen: isSidebarCollapsed,
+      canSaveDraft,
+      savingDraft,
+      pages: documentState.pages,
+      activePreviewSlug: documentState.activePreviewSlug,
+      pageTitleRef,
+      tokensCss: styleMedia.tokensCss,
+      styleMode: styleMedia.styleMode,
+      advancedStructureCss: styleMedia.advancedStructureCss,
+      availableFonts: styleMedia.availableFontsForControls,
+      fontsLoading: styleMedia.fontsLoading,
+      fontsError: styleMedia.fontsError,
+      mobilePreviewEnabled: styleMedia.mobilePreviewEnabled,
+      mediaWarning: styleMedia.mediaWarning,
+      mediaError: styleMedia.mediaError,
+      mediaLoading: styleMedia.mediaLoading,
+      mediaCanonicalBaseUrl: styleMedia.mediaCanonicalBaseUrl,
+      mediaRootFolderNode: styleMedia.mediaRootFolderNode,
+      mediaFolderNodes: styleMedia.mediaFolderNodes,
+      mediaImageUsageByKey: styleMedia.mediaImageUsageByKey,
+      repoFontAssets: styleMedia.repoFontAssets,
+      selectedMediaImageFileNames: styleMedia.selectedMediaImageFileNames,
+      mediaUploadingImages: styleMedia.mediaUploadingImages,
+      mediaRemovingImageKey: styleMedia.mediaRemovingImageKey,
+      mediaRenamingImageKey: styleMedia.mediaRenamingImageKey,
+      selectedMediaFontFileName: styleMedia.selectedMediaFontFileName,
+      mediaFontFamilyName: styleMedia.mediaFontFamilyName,
+      mediaUploadingFont: styleMedia.mediaUploadingFont,
+      mediaRemovingFontPath: styleMedia.mediaRemovingFontPath,
+      headerDisabled: documentState.headerDisabled,
+      headerFixed: documentState.headerFixed,
+      headerBrandText: documentState.headerBrandText,
+      headerBrandDisabled: documentState.headerBrandDisabled,
+      headerNavItems: pageEditing.headerNavItems,
+      footerDisabled: documentState.footerDisabled,
+      footerFixed: documentState.footerFixed,
+      footerModules: documentState.footerModules,
+      headHtml: documentState.headHtml,
+      seoLocale: documentState.seoLocale,
+      seoTwitter: documentState.seoTwitter,
+      seoOpenGraph: documentState.seoOpenGraph,
+      seoStructuredData: documentState.seoStructuredData,
+      seoIndexFollow: documentState.seoIndexFollow,
+      pageLocksBySlug,
+      sectionLocks: sidebarSectionLocks,
+      canPublish,
+      isProvisioning,
+      provisionStep,
+      publishFeedback,
+      publishButtonLabel,
+      publishMode,
+      onTogglePreviewFullscreen: () => {
+        setIsPreviewFullscreen((value) => !value);
+      },
+      onBackToMenu: () => {
+        if (
+          activeSection === "settings" &&
+          activeSettingsSection === "pages" &&
+          isPageEditingMode
+        ) {
+          void handleExitPageEditingMode();
+          return;
+        }
+        void handleSectionChange("menu");
+      },
+      onSettingsSectionChange: (section) => {
+        void handleSettingsSectionChange(section);
+      },
+      onSaveDraft: () => {
+        void handleSaveDraft();
+      },
+      onPublish: () => {
+        void handlePublish();
+      },
+      onAddPage: pageEditing.addPage,
+      onEnterPageEditingMode: (slug) => {
+        void handleEnterPageEditingMode(slug);
+      },
+      onPageTitleChange: pageEditing.handlePageTitleChange,
+      onPageSlugChange: pageEditing.handlePageSlugChange,
+      pageDeleteBusy: deletePageBusy,
+      onDeletePage: (safeSlug) => {
+        void handleDeletePage(safeSlug);
+      },
+      onPageJavaScriptChange: (safeSlug, value) => {
+        if (!canEditPageJavaScript) return;
+        pageEditing.updatePageJavaScript(safeSlug, value);
+      },
+      onTokensCssChange: styleMedia.setTokensCss,
+      onStyleModeChange: styleMedia.handleStyleModeChange,
+      onAdvancedStructureCssChange: styleMedia.setAdvancedStructureCss,
+      onMobilePreviewEnabledChange: styleMedia.setMobilePreviewEnabled,
+      onRefreshMediaAssets: () => {
+        void styleMedia.refreshMediaAssets();
+      },
+      onEnsureMediaFolderLoaded: styleMedia.ensureMediaFolderLoaded,
+      onImageFilesChange: styleMedia.setSelectedMediaImageFiles,
+      onUploadImages: () => {
+        void styleMedia.handleUploadMediaImages();
+      },
+      onRemoveImageObject: (imageObject) => {
+        void styleMedia.handleRemoveMediaImageObject(imageObject);
+      },
+      onRenameImageObject: (imageObject, nextTitle) => {
+        void styleMedia.handleRenameMediaImageObject(imageObject, nextTitle);
+      },
+      onMediaFontFileChange: styleMedia.setSelectedMediaFontFile,
+      onMediaFontFamilyNameChange: styleMedia.setMediaFontFamilyName,
+      onUploadMediaFont: () => {
+        void styleMedia.handleUploadMediaFont();
+      },
+      onRemoveMediaFont: (entry) => {
+        void styleMedia.handleRemoveMediaFont(entry);
+      },
+      onHeaderDisabledChange: documentState.setHeaderDisabled,
+      onHeaderFixedChange: documentState.setHeaderFixed,
+      onHeaderBrandTextChange: documentState.setHeaderBrandText,
+      onHeaderBrandDisabledChange: documentState.setHeaderBrandDisabled,
+      onMoveHeaderNavItemUp: (slug) => pageEditing.moveHeaderNavItem(slug, -1),
+      onMoveHeaderNavItemDown: (slug) => pageEditing.moveHeaderNavItem(slug, 1),
+      onFooterDisabledChange: documentState.setFooterDisabled,
+      onFooterFixedChange: documentState.setFooterFixed,
+      onFooterModuleContentChange: pageEditing.updateFooterModuleContent,
+      onFooterModuleAlignmentChange: pageEditing.updateFooterModuleAlignment,
+      onMoveFooterModuleUp: (index) => pageEditing.moveFooterModule(index, -1),
+      onMoveFooterModuleDown: (index) => pageEditing.moveFooterModule(index, 1),
+      onSeoLocaleChange: documentState.setSeoLocale,
+      onSeoTwitterChange: documentState.setSeoTwitter,
+      onSeoOpenGraphChange: documentState.setSeoOpenGraph,
+      onSeoStructuredDataChange: documentState.setSeoStructuredData,
+      onSeoIndexFollowChange: documentState.setSeoIndexFollow,
+      onHeadHtmlChange: documentState.setHeadHtml,
+      selectedEditorImage,
+      selectedEditorElement,
+      onSelectedEditorImageAltChange: handleSelectedEditorImageAltChange,
+      onSelectedEditorImageCaptionChange: handleSelectedEditorImageCaptionChange,
+      onSelectedEditorImageSizeChange: handleSelectedEditorImageSizeChange,
+      onSelectedEditorElementClassNameChange: handleSelectedEditorElementClassNameChange,
+      onSelectedEditorElementInlineStyleChange: handleSelectedEditorElementInlineStyleChange
+    },
+    previewPanelProps: {
+      shouldLoadDraft,
+      isDraftLoading,
+      draftLoadError,
+      canEditContent: canEditPageContent,
+      showStylesHoverInspector:
+        activeSection === "settings" && activeSettingsSection === "styles",
+      mobilePreviewEnabled: styleMedia.mobilePreviewEnabled,
+      previewRef,
+      headHtml: documentState.headHtml,
+      previewBrand: documentState.siteTitle,
+      pages: documentState.pages,
+      draftImages: documentState.draftImages,
+      repoFontsCss: styleMedia.repoFontsCss,
+      tokensCss: styleMedia.tokensCss,
+      styleMode: styleMedia.styleMode,
+      advancedStructureCss: styleMedia.advancedStructureCss,
+      previewStylesCss: styleMedia.previewStylesCss,
+      dynamicImageLoadingEnabled: documentState.dynamicImageLoadingEnabled,
+      homeFallbackBody: defaultHomeContent,
+      activePreviewSlug: documentState.activePreviewSlug,
+      publishedSiteBaseUrl,
+      previewAssetBaseUrl: styleMedia.previewAssetBaseUrl,
+      header: {
+        disabled: documentState.headerDisabled,
+        fixed: documentState.headerFixed,
+        brandText: documentState.headerBrandText,
+        disableBrand: documentState.headerBrandDisabled
+      },
+      footer: {
+        disabled: documentState.footerDisabled,
+        fixed: documentState.footerFixed,
+        modules: documentState.footerModules
+      },
+      onActivePreviewSlugChange: (slug: string) => {
+        void handleActivePreviewSlugChange(slug);
+      },
+      onPageBodyChange: pageEditing.updatePageBody,
+      onSelectedImageChange: setSelectedEditorImage,
+      onSelectedElementChange: setSelectedEditorElement
+    }
+  };
 
   return {
     session,

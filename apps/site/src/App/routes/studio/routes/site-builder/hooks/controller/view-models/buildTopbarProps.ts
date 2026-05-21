@@ -1,19 +1,25 @@
 import type { BuilderTopbarProps } from "../../../chrome/BuilderTopbar";
-import type { BuildSiteBuilderViewModelsOptions } from "./types";
-
-type BuildTopbarPropsOptions = Pick<
-  BuildSiteBuilderViewModelsOptions,
-  "previewEditor" | "maxFormatImageUploadBytes"
->;
+type BuildTopbarPropsOptions = {
+  onRunFormatCommand: BuilderTopbarProps["onRunFormatCommand"];
+  onRunFormatLink: BuilderTopbarProps["onRunFormatLink"];
+  onUploadFormatImage: BuilderTopbarProps["onUploadFormatImage"];
+  onCaptureFormatSelection: BuilderTopbarProps["onCaptureFormatSelection"];
+  isFormatImageUploading: boolean;
+  maxFormatImageUploadBytes: number;
+};
 
 export const buildTopbarProps = ({
-  previewEditor,
+  onRunFormatCommand,
+  onRunFormatLink,
+  onUploadFormatImage,
+  onCaptureFormatSelection,
+  isFormatImageUploading,
   maxFormatImageUploadBytes
 }: BuildTopbarPropsOptions): BuilderTopbarProps => ({
-  onRunFormatCommand: previewEditor.runPreviewCommand,
-  onRunFormatLink: previewEditor.runPreviewLink,
-  onUploadFormatImage: previewEditor.handleInlineImageUpload,
-  onCaptureFormatSelection: previewEditor.capturePreviewSelection,
-  isFormatImageUploading: previewEditor.uploadingInlineImage,
+  onRunFormatCommand,
+  onRunFormatLink,
+  onUploadFormatImage,
+  onCaptureFormatSelection,
+  isFormatImageUploading,
   maxFormatImageUploadBytes
 });

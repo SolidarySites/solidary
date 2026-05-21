@@ -8,6 +8,11 @@ import {
 } from "../_shared/github-auth-broker.ts";
 import { auditGitHubRepoAction } from "../_shared/github-repo-guardrails.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
+import {
+  assertSupportedCreationImageMimeType,
+  downloadStagedCreationImageBytes,
+  processCreationImageVariantsOnServer,
+} from "../_shared/server-image-processing.ts";
 
 const GITHUB_API = "https://api.github.com";
 const TARGET_DEFAULT_BRANCH = "main";
@@ -25,7 +30,29 @@ const SOLIDARY_FILE_REL_PATH = "public/.well-known/solidary.json";
 const SOLIDARY_LINKS_FILE_REL_PATH = "public/.well-known/solidary-links.json";
 const SOLIDARY_MEDIA_IMAGE_ROOT = "public/solidary-media/images/";
 const DEFAULT_OG_IMAGE_URL = "/solidary-media/images/og/og-home.jpg";
+const BYTES_100_KB = 100 * 1024 - 1;
+const BYTES_500_KB = 500 * 1024 - 1;
+const BYTES_1_MB = 1024 * 1024 - 1;
 const SOLIDARY_LINKS_SITE_TYPE = "site";
+
+const SITE_CREATE_SERVER_IMAGE_VARIANTS = [
+  {
+    key: "siteImage",
+    label: "Site image",
+    maxBytes: BYTES_1_MB,
+  },
+  {
+    key: "siteImageThumb",
+    label: "Site thumbnail",
+    maxBytes: BYTES_100_KB,
+  },
+  {
+    key: "ogImage",
+    label: "OG image",
+    maxBytes: BYTES_500_KB,
+    maxDimensionLimit: 1200,
+  },
+] as const;
 
 const DEFAULT_FOOTER_MODULES = [
   { content: "%copyright%", alignment: "left" },
@@ -72,6 +99,8 @@ type ProvisionWorkerBody = {
   siteImagePath?: string;
   siteImageStoragePath?: string;
   siteImageContentB64?: string;
+  siteImageOriginalStoragePath?: string;
+  siteImageOriginalMimeType?: string;
   siteImageThumbPath?: string;
   siteImageThumbStoragePath?: string;
   siteImageThumbContentB64?: string;
@@ -930,6 +959,8 @@ export const handler: Handler = async (event) => {
   const parsedName = payload.name?.trim() ?? "";
   const rawSiteImageStoragePath = payload.siteImageStoragePath?.trim() ?? "";
   const rawSiteImageThumbStoragePath = payload.siteImageThumbStoragePath?.trim() ?? "";
+  const rawSiteImageOriginalStoragePath = payload.siteImageOriginalStoragePath?.trim() ?? "";
+  const siteImageOriginalMimeType = payload.siteImageOriginalMimeType?.trim() ?? "";
   const rawOgImageStoragePath = payload.ogImageStoragePath?.trim() ?? "";
 
   if (!jobId || !ownerUserId || !parsedName) {
@@ -940,6 +971,7 @@ export const handler: Handler = async (event) => {
 
   let siteImageStoragePath = "";
   let siteImageThumbStoragePath = "";
+  let siteImageOriginalStoragePath = "";
   let ogImageStoragePath = "";
   if (rawSiteImageStoragePath) {
     try {
@@ -953,6 +985,21 @@ export const handler: Handler = async (event) => {
     if (!siteImageStoragePath.startsWith(`${ownerUserId}/`)) {
       return safeJson(403, {
         error: "siteImageStoragePath must be scoped to the job owner."
+      });
+    }
+  }
+  if (rawSiteImageOriginalStoragePath) {
+    try {
+      siteImageOriginalStoragePath = normalizeStoragePath(rawSiteImageOriginalStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid siteImageOriginalStoragePath."
+      });
+    }
+
+    if (!siteImageOriginalStoragePath.startsWith(`${ownerUserId}/`)) {
+      return safeJson(403, {
+        error: "siteImageOriginalStoragePath must be scoped to the job owner."
       });
     }
   }
@@ -1047,8 +1094,24 @@ export const handler: Handler = async (event) => {
       const siteImageContentB64Raw = payload.siteImageContentB64?.trim() ?? "";
       const siteImageThumbContentB64Raw = payload.siteImageThumbContentB64?.trim() ?? "";
       const ogImageContentB64Raw = payload.ogImageContentB64?.trim() ?? "";
+      let serverProcessedImages: Record<"siteImage" | "siteImageThumb" | "ogImage", string> | null = null;
+      if (siteImageOriginalStoragePath && (!siteImageContentB64Raw || !siteImageThumbContentB64Raw || !ogImageContentB64Raw)) {
+        await updateJob({
+          step: "Optimizing site image on server..."
+        });
+        assertSupportedCreationImageMimeType(siteImageOriginalMimeType, "Site image");
+        const sourceBytes = await downloadStagedCreationImageBytes({
+          supabase,
+          storagePath: siteImageOriginalStoragePath,
+        });
+        serverProcessedImages = await processCreationImageVariantsOnServer({
+          sourceBytes,
+          variants: SITE_CREATE_SERVER_IMAGE_VARIANTS,
+        });
+      }
       const siteImageContentB64 =
         siteImageContentB64Raw ||
+        serverProcessedImages?.siteImage ||
         (siteImageStoragePath
           ? await loadStagedSiteImageContentB64({
               supabase,
@@ -1057,6 +1120,7 @@ export const handler: Handler = async (event) => {
           : "");
       const siteImageThumbContentB64 =
         siteImageThumbContentB64Raw ||
+        serverProcessedImages?.siteImageThumb ||
         (siteImageThumbStoragePath
           ? await loadStagedSiteImageContentB64({
               supabase,
@@ -1065,6 +1129,7 @@ export const handler: Handler = async (event) => {
           : "");
       const ogImageContentB64 =
         ogImageContentB64Raw ||
+        serverProcessedImages?.ogImage ||
         (ogImageStoragePath
           ? await loadStagedSiteImageContentB64({
               supabase,
@@ -1266,7 +1331,7 @@ export const handler: Handler = async (event) => {
         });
       }
     } finally {
-      for (const storagePath of [siteImageStoragePath, siteImageThumbStoragePath, ogImageStoragePath]) {
+      for (const storagePath of [siteImageStoragePath, siteImageThumbStoragePath, siteImageOriginalStoragePath, ogImageStoragePath]) {
         if (!storagePath) {
           continue;
         }

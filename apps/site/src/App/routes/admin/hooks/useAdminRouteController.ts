@@ -1,131 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import type { NoticeKind } from "../../../types/notice";
-import type {
-  CollaboratorRole,
-  CollaboratorSearchResult
-} from "../../studio/routes/site-builder/services/types";
-import {
-  parseStudioSettingsSection,
-  STUDIO_SETTINGS_SECTION_LABELS,
-  STUDIO_SETTINGS_SECTION_ORDER,
-  type StudioSettingsSection
-} from "../../studio/routes/site-settings/services/settings-sections";
+import type { CollaboratorRole } from "../../studio/routes/site-builder/services/types";
+import type { StudioSettingsSection } from "../../studio/routes/site-settings/services/settings-sections";
 import {
   configureIndexAdminStandaloneAuth,
   deployIndexAdminChildFunctions,
   finalizeIndexAdmin,
-  listAccessibleIndexAdmins,
   processIndexAdminImage,
-  readIndexAdmin,
-  removeIndexAdminCollaborator,
   saveIndexAdminAdvanced,
-  saveIndexAdminCollaborator,
-  updateIndexAdminConnectionRequest,
   saveIndexAdminGeneral,
-  searchIndexAdminCollaborators
+  updateIndexAdminConnectionRequest
 } from "../services/index-admin";
-import type { IndexAdminListItem, IndexAdminReadResponse, IndexAdminSetup, IndexAdminState } from "../services/types";
-
-const getFriendlyErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error && error.message.trim() ? error.message : fallback;
-
-const buildSearchParams = ({
-  current,
-  indexId,
-  section,
-  clearCreated = false
-}: {
-  current: URLSearchParams;
-  indexId: string;
-  section: StudioSettingsSection;
-  clearCreated?: boolean;
-}) => {
-  const next = new URLSearchParams(current);
-  next.set("indexId", indexId);
-  next.set("section", section);
-  if (clearCreated) {
-    next.delete("created");
-  }
-  return next;
-};
-
-const applyStateToFields = ({
-  state,
-  setTitle,
-  setDescription,
-  setDomainInput,
-  setImageFile,
-  setSelectedSuggestion,
-  setSuggestions
-}: {
-  state: IndexAdminState;
-  setTitle: (value: string) => void;
-  setDescription: (value: string) => void;
-  setDomainInput: (value: string) => void;
-  setImageFile: (value: File | null) => void;
-  setSelectedSuggestion: (value: CollaboratorSearchResult | null) => void;
-  setSuggestions: (value: CollaboratorSearchResult[]) => void;
-}) => {
-  setTitle(state.index.title);
-  setDescription(state.index.description);
-  setDomainInput(state.index.canonicalUrl);
-  setImageFile(null);
-  setSelectedSuggestion(null);
-  setSuggestions([]);
-};
-
-const buildIndexListItemFromState = (state: IndexAdminState): IndexAdminListItem => ({
-  id: state.index.id,
-  slug: state.index.slug,
-  title: state.index.title,
-  description: state.index.description,
-  imageUrl: state.index.imageUrl,
-  canonicalUrl: state.index.canonicalUrl,
-  repoFullName: state.index.repoFullName,
-  repoUrl: state.index.repoUrl,
-  supabaseProjectRef: state.index.supabaseProjectRef,
-  supabaseDashboardUrl: state.index.supabaseDashboardUrl,
-  indexLevel: state.index.indexLevel,
-  parentIndexId: state.index.parentIndexId,
-  parentIndexUrl: state.index.parentIndexUrl,
-  parentIndexLevel: state.index.parentIndexLevel,
-  accessRole: state.actor.role
-});
+import { buildSearchParams, getFriendlyErrorMessage } from "./adminRouteShared";
+import { useAdminCollaborators } from "./useAdminCollaborators";
+import { useAdminRouteData } from "./useAdminRouteData";
 
 export const useAdminRouteController = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeKind, setNoticeKind] = useState<NoticeKind>(null);
-
-  const [indexes, setIndexes] = useState<IndexAdminListItem[]>([]);
-  const [indexesLoading, setIndexesLoading] = useState(true);
-  const [stateLoading, setStateLoading] = useState(false);
-  const [state, setState] = useState<IndexAdminState | null>(null);
-  const [setup, setSetup] = useState<IndexAdminSetup | null>(null);
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [savingGeneral, setSavingGeneral] = useState(false);
-
-  const [collaboratorQuery, setCollaboratorQuery] = useState("");
-  const [collaboratorRole, setCollaboratorRole] = useState<CollaboratorRole>("editor");
-  const [collaboratorSuggestions, setCollaboratorSuggestions] = useState<CollaboratorSearchResult[]>(
-    []
-  );
-  const [selectedCollaboratorSuggestion, setSelectedCollaboratorSuggestion] =
-    useState<CollaboratorSearchResult | null>(null);
-  const [collaboratorSearchLoading, setCollaboratorSearchLoading] = useState(false);
-  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
-  const [updatingCollaboratorUserId, setUpdatingCollaboratorUserId] = useState<string | null>(null);
-
   const [updatingConnectionRequestId, setUpdatingConnectionRequestId] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
   const [savingAdvanced, setSavingAdvanced] = useState(false);
   const [startingFinalization, setStartingFinalization] = useState(false);
-  const [setupLoading, setSetupLoading] = useState(false);
   const [configuringStandaloneAuth, setConfiguringStandaloneAuth] = useState(false);
   const [deployingFunctions, setDeployingFunctions] = useState(false);
   const [githubClientId, setGithubClientId] = useState("");
@@ -133,309 +34,62 @@ export const useAdminRouteController = () => {
   const [adminPassword, setAdminPassword] = useState("");
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
 
-  const queryRequestIdRef = useRef(0);
-  const previousFunctionsStatusRef = useRef<string | null>(null);
-  const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
-  const requestedIndexId = searchParams.get("indexId")?.trim() ?? "";
-  const bridgeToken = searchParams.get("bridge")?.trim() ?? "";
-  const isBridgeMode = Boolean(bridgeToken);
-  const createdMode = searchParams.get("created") === "1";
+  const setRouteNotice = useCallback((message: string | null, kind: NoticeKind) => {
+    setNotice(message);
+    setNoticeKind(kind);
+  }, []);
 
-  const selectedArchiveId = useMemo(() => {
-    if (isBridgeMode) {
-      if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
-        return requestedIndexId;
-      }
-      return state?.index.id || indexes[0]?.id || "";
-    }
-    if (!indexes.length) return "";
-    if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
-      return requestedIndexId;
-    }
-    return indexes[0]?.id ?? "";
-  }, [indexes, isBridgeMode, requestedIndexId, state?.index.id]);
+  const data = useAdminRouteData({
+    setRouteNotice,
+    setTitle,
+    setDescription,
+    setDomainInput,
+    setImageFile,
+    setSelectedSuggestion: () => {},
+    setSuggestions: () => {}
+  });
 
-  const buildReadOptions = useCallback(
-    ({
-      supabasePersonalAccessToken: nextSupabasePersonalAccessToken
-    }: {
-      supabasePersonalAccessToken?: string;
-    } = {}) => ({
-      bridgeToken: isBridgeMode ? bridgeToken : undefined,
-      supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
-    }),
-    [bridgeToken, isBridgeMode]
-  );
+  const collaborators = useAdminCollaborators({
+    selectedArchiveId: data.selectedArchiveId,
+    state: data.state,
+    bridgeToken: data.bridgeToken,
+    isBridgeMode: data.isBridgeMode,
+    setRouteNotice,
+    applyResponse: data.applyResponse
+  });
 
   useEffect(() => {
     if (!imageFile) {
-      setImagePreview(state?.index.imageUrl || null);
+      setImagePreview(data.state?.index.imageUrl || null);
       return;
     }
 
     const nextUrl = URL.createObjectURL(imageFile);
     setImagePreview(nextUrl);
     return () => URL.revokeObjectURL(nextUrl);
-  }, [imageFile, state?.index.imageUrl]);
-
-  useEffect(() => {
-    if (isBridgeMode) {
-      return;
-    }
-
-    let cancelled = false;
-    setIndexesLoading(true);
-
-    void (async () => {
-      try {
-        const items = await listAccessibleIndexAdmins();
-        if (cancelled) return;
-        setIndexes(items);
-      } catch (error) {
-        if (cancelled) return;
-        setIndexes([]);
-        setNotice(getFriendlyErrorMessage(error, "Could not load your index admin list."));
-        setNoticeKind("error");
-      } finally {
-        if (!cancelled) {
-          setIndexesLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isBridgeMode]);
-
-  useEffect(() => {
-    if (!indexes.length) return;
-    if (requestedIndexId && indexes.some((entry) => entry.id === requestedIndexId)) {
-      return;
-    }
-
-    const nextArchiveId = indexes[0]?.id ?? "";
-    if (!nextArchiveId) return;
-    setSearchParams(buildSearchParams({ current: searchParams, indexId: nextArchiveId, section: activeSection }), {
-      replace: true
-    });
-  }, [activeSection, indexes, requestedIndexId, searchParams, setSearchParams]);
-
-  const applyResponse = useCallback((
-    response: IndexAdminReadResponse,
-    { resetFields = true }: { resetFields?: boolean } = {}
-  ) => {
-    setState(response.state);
-    setSetup(response.setup);
-    if (isBridgeMode) {
-      setIndexes([buildIndexListItemFromState(response.state)]);
-      setIndexesLoading(false);
-    }
-    if (!resetFields) {
-      return;
-    }
-    applyStateToFields({
-      state: response.state,
-      setTitle,
-      setDescription,
-      setDomainInput,
-      setImageFile,
-      setSelectedSuggestion: setSelectedCollaboratorSuggestion,
-      setSuggestions: setCollaboratorSuggestions
-    });
-  }, [isBridgeMode]);
-
-  useEffect(() => {
-    if (!selectedArchiveId && !isBridgeMode) {
-      setState(null);
-      setSetup(null);
-      previousFunctionsStatusRef.current = null;
-      return;
-    }
-
-    let cancelled = false;
-    setStateLoading(true);
-    setCollaboratorsLoading(true);
-
-    void (async () => {
-      try {
-        const response = await readIndexAdmin(selectedArchiveId, buildReadOptions());
-        if (cancelled) return;
-        applyResponse(response);
-        setNotice(createdMode ? "Index created. Finish the standalone OAuth setup below." : null);
-        setNoticeKind(createdMode ? "notice" : null);
-      } catch (error) {
-        if (cancelled) return;
-        setState(null);
-        setSetup(null);
-        setNotice(getFriendlyErrorMessage(error, "Could not load index admin."));
-        setNoticeKind("error");
-      } finally {
-        if (!cancelled) {
-          if (isBridgeMode) {
-            setIndexesLoading(false);
-          }
-          setStateLoading(false);
-          setCollaboratorsLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [applyResponse, buildReadOptions, createdMode, isBridgeMode, selectedArchiveId]);
-
-  useEffect(() => {
-    const nextStatus = setup?.functionsDeployment.status ?? null;
-    const previousStatus = previousFunctionsStatusRef.current;
-
-    if (!selectedArchiveId) {
-      previousFunctionsStatusRef.current = null;
-      return;
-    }
-
-    if (nextStatus && previousStatus && nextStatus !== previousStatus) {
-      if (previousStatus === "running" && nextStatus === "deployed") {
-        setNotice("Child functions deployed. The standalone index is ready.");
-        setNoticeKind("notice");
-      } else if (previousStatus === "running" && nextStatus === "failed") {
-        setNotice("Child function deployment failed. Review the latest workflow output below.");
-        setNoticeKind("error");
-      }
-    }
-
-    previousFunctionsStatusRef.current = nextStatus;
-  }, [selectedArchiveId, setup?.functionsDeployment.status]);
-
-  useEffect(() => {
-    if (
-      !selectedArchiveId ||
-      (!setup?.finalization.isRunning && setup?.functionsDeployment.status !== "running")
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-    let refreshInFlight = false;
-    const intervalId = window.setInterval(() => {
-      if (cancelled || refreshInFlight) {
-        return;
-      }
-
-      refreshInFlight = true;
-      void (async () => {
-        setSetupLoading(true);
-        try {
-          const response = await readIndexAdmin(selectedArchiveId, buildReadOptions());
-          if (cancelled) {
-            return;
-          }
-          applyResponse(response, { resetFields: false });
-        } catch (error) {
-          if (cancelled) {
-            return;
-          }
-          setNotice(getFriendlyErrorMessage(error, "Could not refresh finalization status."));
-          setNoticeKind("error");
-        } finally {
-          refreshInFlight = false;
-          if (!cancelled) {
-            setSetupLoading(false);
-          }
-        }
-      })();
-    }, 2500);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [
-    applyResponse,
-    selectedArchiveId,
-    setup?.finalization.isRunning,
-    setup?.functionsDeployment.status,
-    buildReadOptions
-  ]);
-
-  useEffect(() => {
-    const query = collaboratorQuery.trim();
-    if (!state?.actor.canManageCollaborators || query.length < 2 || !selectedArchiveId) {
-      setCollaboratorSuggestions([]);
-      setCollaboratorSearchLoading(false);
-      return;
-    }
-
-    const requestId = ++queryRequestIdRef.current;
-    const timeoutId = window.setTimeout(() => {
-      setCollaboratorSearchLoading(true);
-      void (async () => {
-        try {
-          const response = await searchIndexAdminCollaborators({
-            indexId: selectedArchiveId,
-            query,
-            bridgeToken: isBridgeMode ? bridgeToken : undefined
-          });
-          if (queryRequestIdRef.current !== requestId) {
-            return;
-          }
-          setCollaboratorSuggestions(response.results);
-        } catch (error) {
-          if (queryRequestIdRef.current !== requestId) {
-            return;
-          }
-          setCollaboratorSuggestions([]);
-          setNotice(getFriendlyErrorMessage(error, "Could not search collaborators."));
-          setNoticeKind("error");
-        } finally {
-          if (queryRequestIdRef.current === requestId) {
-            setCollaboratorSearchLoading(false);
-          }
-        }
-      })();
-    }, 220);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [bridgeToken, collaboratorQuery, isBridgeMode, selectedArchiveId, state?.actor.canManageCollaborators]);
-
-  const sectionButtons = useMemo(
-    () =>
-      STUDIO_SETTINGS_SECTION_ORDER.map((section) => ({
-        section,
-        label: STUDIO_SETTINGS_SECTION_LABELS[section],
-        disabled: false,
-        lockedByOther: false,
-        lockHolderName: null,
-        lockHolderAvatarUrl: null
-      })),
-    []
-  );
-
-  const selectedIndex = indexes.find((entry) => entry.id === selectedArchiveId) ?? null;
+  }, [data.state?.index.imageUrl, imageFile]);
 
   const handleSaveGeneral = async () => {
-    if (!state || !selectedArchiveId) return;
+    if (!data.state || !data.selectedArchiveId) return;
     setSavingGeneral(true);
     try {
       const processedImage = imageFile ? await processIndexAdminImage(imageFile) : null;
-      const response = await saveIndexAdminGeneral({
-        indexId: selectedArchiveId,
-        title: title.trim(),
-        description: description.trim(),
-        imageContentB64: processedImage?.imageContentB64,
-        imageThumbContentB64: processedImage?.imageThumbContentB64
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setNotice("General settings saved.");
-      setNoticeKind("notice");
+      const response = await saveIndexAdminGeneral(
+        {
+          indexId: data.selectedArchiveId,
+          title: title.trim(),
+          description: description.trim(),
+          imageContentB64: processedImage?.imageContentB64,
+          imageThumbContentB64: processedImage?.imageThumbContentB64
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response);
+      setRouteNotice("General settings saved.", "notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not save general settings."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not save general settings."), "error");
     } finally {
       setSavingGeneral(false);
     }
@@ -445,123 +99,59 @@ export const useAdminRouteController = () => {
     requestId: string,
     action: "approve" | "reject" | "disconnect"
   ) => {
-    if (!selectedArchiveId) return;
+    if (!data.selectedArchiveId) return;
     setUpdatingConnectionRequestId(requestId);
     try {
-      const response = await updateIndexAdminConnectionRequest({
-        indexId: selectedArchiveId,
-        requestId,
-        action
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setNotice(
+      const response = await updateIndexAdminConnectionRequest(
+        {
+          indexId: data.selectedArchiveId,
+          requestId,
+          action
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response);
+      setRouteNotice(
         action === "approve"
           ? "Connection approved."
           : action === "reject"
             ? "Connection request rejected."
-            : "Connection removed."
+            : "Connection removed.",
+        "notice"
       );
-      setNoticeKind("notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not update connection."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not update connection."), "error");
     } finally {
       setUpdatingConnectionRequestId(null);
     }
   };
 
-  const handleInviteCollaborator = async () => {
-    if (!selectedArchiveId || !selectedCollaboratorSuggestion) return;
-    setUpdatingCollaboratorUserId(selectedCollaboratorSuggestion.userId);
-    try {
-      const response = await saveIndexAdminCollaborator({
-        indexId: selectedArchiveId,
-        collaboratorUserId: selectedCollaboratorSuggestion.userId,
-        role: collaboratorRole
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setCollaboratorQuery("");
-      setSelectedCollaboratorSuggestion(null);
-      setNotice("Collaborator added.");
-      setNoticeKind("notice");
-    } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not add collaborator."));
-      setNoticeKind("error");
-    } finally {
-      setUpdatingCollaboratorUserId(null);
-    }
-  };
-
-  const handleCollaboratorRoleUpdate = async (userId: string, role: CollaboratorRole) => {
-    if (!selectedArchiveId) return;
-    setUpdatingCollaboratorUserId(userId);
-    try {
-      const response = await saveIndexAdminCollaborator({
-        indexId: selectedArchiveId,
-        collaboratorUserId: userId,
-        role
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setNotice("Collaborator role updated.");
-      setNoticeKind("notice");
-    } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not update collaborator role."));
-      setNoticeKind("error");
-    } finally {
-      setUpdatingCollaboratorUserId(null);
-    }
-  };
-
-  const handleCollaboratorRemove = async (userId: string) => {
-    if (!selectedArchiveId) return;
-    setUpdatingCollaboratorUserId(userId);
-    try {
-      const response = await removeIndexAdminCollaborator({
-        indexId: selectedArchiveId,
-        collaboratorUserId: userId
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setNotice("Collaborator removed.");
-      setNoticeKind("notice");
-    } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not remove collaborator."));
-      setNoticeKind("error");
-    } finally {
-      setUpdatingCollaboratorUserId(null);
-    }
-  };
-
   const handleSaveDomain = async (domain: string | null) => {
-    if (!selectedArchiveId) return;
+    if (!data.selectedArchiveId) return;
     setSavingAdvanced(true);
     try {
-      const response = await saveIndexAdminAdvanced({
-        indexId: selectedArchiveId,
-        domain
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response);
-      setNotice(domain ? "Custom domain updated." : "Reset back to GitHub Pages.");
-      setNoticeKind("notice");
+      const response = await saveIndexAdminAdvanced(
+        {
+          indexId: data.selectedArchiveId,
+          domain
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response);
+      setRouteNotice(domain ? "Custom domain updated." : "Reset back to GitHub Pages.", "notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not update custom domain."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not update custom domain."), "error");
     } finally {
       setSavingAdvanced(false);
     }
   };
 
   const handleFinalizeIndex = async () => {
-    if (!selectedArchiveId || !setup?.finalization.available) {
+    if (!data.selectedArchiveId || !data.setup?.finalization.available) {
       return;
     }
 
@@ -574,100 +164,90 @@ export const useAdminRouteController = () => {
 
     setStartingFinalization(true);
     try {
-      const response = await finalizeIndexAdmin({
-        indexId: selectedArchiveId
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response, { resetFields: false });
-      setNotice("Index finalization started. This page will keep refreshing until the copy finishes.");
-      setNoticeKind("notice");
+      const response = await finalizeIndexAdmin(
+        {
+          indexId: data.selectedArchiveId
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response, { resetFields: false });
+      setRouteNotice(
+        "Index finalization started. This page will keep refreshing until the copy finishes.",
+        "notice"
+      );
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not start index finalization."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not start index finalization."), "error");
     } finally {
       setStartingFinalization(false);
     }
   };
 
   const handleRefreshSetup = async () => {
-    if (!selectedArchiveId) {
-      return;
-    }
-
     const shouldUseSupabasePersonalAccessToken =
-      !setup?.authSetup.localAuthReady &&
-      !setup?.finalization.isRunning &&
-      setup?.functionsDeployment.status !== "running" &&
+      !data.setup?.authSetup.localAuthReady &&
+      !data.setup?.finalization.isRunning &&
+      data.setup?.functionsDeployment.status !== "running" &&
       Boolean(supabasePersonalAccessToken.trim());
 
-    setSetupLoading(true);
-    try {
-      const response = await readIndexAdmin(
-        selectedArchiveId,
-        buildReadOptions({
-          supabasePersonalAccessToken: shouldUseSupabasePersonalAccessToken
-            ? supabasePersonalAccessToken
-            : undefined
-        })
-      );
-      applyResponse(response, { resetFields: false });
-    } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not refresh setup status."));
-      setNoticeKind("error");
-    } finally {
-      setSetupLoading(false);
-    }
+    await data.refreshSetup({
+      supabasePersonalAccessToken: shouldUseSupabasePersonalAccessToken
+        ? supabasePersonalAccessToken
+        : undefined
+    });
   };
 
   const handleConfigureStandaloneAuth = async () => {
-    if (!selectedArchiveId) {
+    if (!data.selectedArchiveId) {
       return;
     }
 
     setConfiguringStandaloneAuth(true);
     try {
-      const response = await configureIndexAdminStandaloneAuth({
-        indexId: selectedArchiveId,
-        githubClientId,
-        githubClientSecret,
-        supabasePersonalAccessToken
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response, { resetFields: false });
+      const response = await configureIndexAdminStandaloneAuth(
+        {
+          indexId: data.selectedArchiveId,
+          githubClientId,
+          githubClientSecret,
+          supabasePersonalAccessToken
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response, { resetFields: false });
       setGithubClientSecret("");
-      setNotice("GitHub sign-in configured for the child project.");
-      setNoticeKind("notice");
+      setRouteNotice("GitHub sign-in configured for the child project.", "notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not configure child GitHub auth."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not configure child GitHub auth."), "error");
     } finally {
       setConfiguringStandaloneAuth(false);
     }
   };
 
   const handleDeployFunctions = async () => {
-    if (!selectedArchiveId) {
+    if (!data.selectedArchiveId) {
       return;
     }
 
     setDeployingFunctions(true);
     try {
-      const response = await deployIndexAdminChildFunctions({
-        indexId: selectedArchiveId,
-        supabasePersonalAccessToken,
-        adminPassword
-      }, {
-        bridgeToken: isBridgeMode ? bridgeToken : undefined
-      });
-      applyResponse(response, { resetFields: false });
+      const response = await deployIndexAdminChildFunctions(
+        {
+          indexId: data.selectedArchiveId,
+          supabasePersonalAccessToken,
+          adminPassword
+        },
+        {
+          bridgeToken: data.isBridgeMode ? data.bridgeToken : undefined
+        }
+      );
+      data.applyResponse(response, { resetFields: false });
       setSupabasePersonalAccessToken("");
-      setNotice("Child function deployment started.");
-      setNoticeKind("notice");
+      setRouteNotice("Child function deployment started.", "notice");
     } catch (error) {
-      setNotice(getFriendlyErrorMessage(error, "Could not deploy child functions."));
-      setNoticeKind("error");
+      setRouteNotice(getFriendlyErrorMessage(error, "Could not deploy child functions."), "error");
     } finally {
       setDeployingFunctions(false);
     }
@@ -676,71 +256,74 @@ export const useAdminRouteController = () => {
   const handleCopyValue = async (value: string, successMessage: string) => {
     const trimmedValue = value.trim();
     if (!trimmedValue || typeof navigator === "undefined" || !navigator.clipboard) {
-      setNotice("Clipboard access is not available in this browser.");
-      setNoticeKind("error");
+      setRouteNotice("Clipboard access is not available in this browser.", "error");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(trimmedValue);
-      setNotice(successMessage);
-      setNoticeKind("notice");
+      setRouteNotice(successMessage, "notice");
     } catch {
-      setNotice("Could not copy that value.");
-      setNoticeKind("error");
+      setRouteNotice("Could not copy that value.", "error");
     }
   };
 
   return {
     notice,
     noticeKind,
-    indexes,
-    selectedIndex,
-    selectedArchiveId,
-    indexesLoading,
-    stateLoading,
-    state,
-    setup,
-    activeSection,
-    createdMode,
+    indexes: data.indexes,
+    selectedIndex: data.selectedIndex,
+    selectedArchiveId: data.selectedArchiveId,
+    indexesLoading: data.indexesLoading,
+    stateLoading: data.stateLoading,
+    state: data.state,
+    setup: data.setup,
+    activeSection: data.activeSection,
+    createdMode: data.createdMode,
     title,
     description,
     imagePreview,
-    collaboratorQuery,
-    collaboratorRole,
-    collaboratorSuggestions,
-    selectedCollaboratorSuggestion,
-    collaboratorSearchLoading,
-    collaboratorsLoading,
-    updatingCollaboratorUserId,
+    collaboratorQuery: collaborators.collaboratorQuery,
+    collaboratorRole: collaborators.collaboratorRole,
+    collaboratorSuggestions: collaborators.collaboratorSuggestions,
+    selectedCollaboratorSuggestion: collaborators.selectedCollaboratorSuggestion,
+    collaboratorSearchLoading: collaborators.collaboratorSearchLoading,
+    collaboratorsLoading: data.collaboratorsLoading,
+    updatingCollaboratorUserId: collaborators.updatingCollaboratorUserId,
     updatingConnectionRequestId,
     domainInput,
     savingGeneral,
     savingAdvanced,
     startingFinalization,
-    setupLoading,
+    setupLoading: data.setupLoading,
     configuringStandaloneAuth,
     deployingFunctions,
     githubClientId,
     githubClientSecret,
     adminPassword,
     supabasePersonalAccessToken,
-    bridgeMode: isBridgeMode,
+    bridgeMode: data.isBridgeMode,
     settingsTopbarProps: {
-      activeSection,
-      sectionButtons,
+      activeSection: data.activeSection,
+      sectionButtons: data.sectionButtons,
       onSectionChange: (section: StudioSettingsSection) => {
-        if (!selectedArchiveId) return;
-        setSearchParams(buildSearchParams({ current: searchParams, indexId: selectedArchiveId, section }));
+        if (!data.selectedArchiveId) return;
+        data.setSearchParams(
+          buildSearchParams({
+            current: data.searchParams,
+            indexId: data.selectedArchiveId,
+            section
+          })
+        );
       }
     },
     onSelectedArchiveChange: (indexId: string) => {
       if (!indexId) return;
-      setSearchParams(
+      data.setSearchParams(
         buildSearchParams({
-          current: searchParams,
+          current: data.searchParams,
           indexId,
-          section: activeSection,
+          section: data.activeSection,
           clearCreated: true
         })
       );
@@ -752,19 +335,19 @@ export const useAdminRouteController = () => {
       void handleSaveGeneral();
     },
     onCollaboratorQueryChange: (value: string) => {
-      setCollaboratorQuery(value);
-      setSelectedCollaboratorSuggestion(null);
+      collaborators.setCollaboratorQuery(value);
+      collaborators.setSelectedCollaboratorSuggestion(null);
     },
-    onCollaboratorRoleChange: setCollaboratorRole,
-    onCollaboratorSuggestionSelect: setSelectedCollaboratorSuggestion,
+    onCollaboratorRoleChange: collaborators.setCollaboratorRole,
+    onCollaboratorSuggestionSelect: collaborators.setSelectedCollaboratorSuggestion,
     onInviteCollaborator: () => {
-      void handleInviteCollaborator();
+      void collaborators.handleInviteCollaborator();
     },
     onCollaboratorRoleUpdate: (userId: string, role: CollaboratorRole) => {
-      void handleCollaboratorRoleUpdate(userId, role);
+      void collaborators.handleCollaboratorRoleUpdate(userId, role);
     },
     onCollaboratorRemove: (userId: string) => {
-      void handleCollaboratorRemove(userId);
+      void collaborators.handleCollaboratorRemove(userId);
     },
     onConnectionRequestAction: (
       requestId: string,

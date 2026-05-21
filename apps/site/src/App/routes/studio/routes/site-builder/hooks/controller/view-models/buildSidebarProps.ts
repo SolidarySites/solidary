@@ -13,7 +13,6 @@ type BuildSidebarPropsOptions = Pick<
   | "pageTitleRef"
   | "documentState"
   | "pageEditing"
-  | "previewEditor"
   | "styleMedia"
   | "pageLocksBySlug"
   | "sidebarSectionLocks"
@@ -36,6 +35,13 @@ type BuildSidebarPropsOptions = Pick<
   publishButtonLabel: string;
   publishMode: "direct" | "pull_request";
   isSidebarCollapsed: boolean;
+  selectedEditorImage: BuilderSidebarProps["selectedEditorImage"];
+  selectedEditorElement: BuilderSidebarProps["selectedEditorElement"];
+  onSelectedEditorImageAltChange: BuilderSidebarProps["onSelectedEditorImageAltChange"];
+  onSelectedEditorImageCaptionChange: BuilderSidebarProps["onSelectedEditorImageCaptionChange"];
+  onSelectedEditorImageSizeChange: BuilderSidebarProps["onSelectedEditorImageSizeChange"];
+  onSelectedEditorElementClassNameChange: BuilderSidebarProps["onSelectedEditorElementClassNameChange"];
+  onSelectedEditorElementInlineStyleChange: BuilderSidebarProps["onSelectedEditorElementInlineStyleChange"];
 };
 
 export const buildSidebarProps = ({
@@ -49,7 +55,6 @@ export const buildSidebarProps = ({
   pageTitleRef,
   documentState,
   pageEditing,
-  previewEditor,
   styleMedia,
   pageLocksBySlug,
   sidebarSectionLocks,
@@ -70,7 +75,14 @@ export const buildSidebarProps = ({
   canEditPageJavaScript,
   publishButtonLabel,
   publishMode,
-  isSidebarCollapsed
+  isSidebarCollapsed,
+  selectedEditorImage,
+  selectedEditorElement,
+  onSelectedEditorImageAltChange,
+  onSelectedEditorImageCaptionChange,
+  onSelectedEditorImageSizeChange,
+  onSelectedEditorElementClassNameChange,
+  onSelectedEditorElementInlineStyleChange
 }: BuildSidebarPropsOptions): BuilderSidebarProps => ({
   activeSection,
   activeSettingsSection,
@@ -206,11 +218,11 @@ export const buildSidebarProps = ({
   onSeoStructuredDataChange: documentState.setSeoStructuredData,
   onSeoIndexFollowChange: documentState.setSeoIndexFollow,
   onHeadHtmlChange: documentState.setHeadHtml,
-  selectedEditorImage: previewEditor.selectedEditorImage,
-  selectedEditorElement: previewEditor.selectedEditorElement,
-  onSelectedEditorImageAltChange: previewEditor.handleSelectedEditorImageAltChange,
-  onSelectedEditorImageCaptionChange: previewEditor.handleSelectedEditorImageCaptionChange,
-  onSelectedEditorImageSizeChange: previewEditor.handleSelectedEditorImageSizeChange,
-  onSelectedEditorElementClassNameChange: previewEditor.handleSelectedEditorElementClassNameChange,
-  onSelectedEditorElementInlineStyleChange: previewEditor.handleSelectedEditorElementInlineStyleChange
+  selectedEditorImage,
+  selectedEditorElement,
+  onSelectedEditorImageAltChange,
+  onSelectedEditorImageCaptionChange,
+  onSelectedEditorImageSizeChange,
+  onSelectedEditorElementClassNameChange,
+  onSelectedEditorElementInlineStyleChange
 });

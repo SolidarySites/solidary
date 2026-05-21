@@ -4,13 +4,12 @@ import {
   buildSolidaryLinksConnection,
   SOLIDARY_LINKS_INDEX_TYPE
 } from "../../../features/site-draft/services/solidary-links";
-import { toBase64 } from "../../../lib/base64";
 import {
   BYTES_100_KB,
   BYTES_1_MB,
-  BYTES_500_KB,
-  processImageVariantsFromOriginal
+  BYTES_500_KB
 } from "../../../services/image-processing/picsquish";
+import { prepareCreationImage } from "../../../services/image-processing/creation-images";
 import {
   buildWellKnownFiles,
   DEFAULT_OG_IMAGE_PATH,
@@ -81,18 +80,29 @@ export const provisionSiteDraft = async ({
   let siteImageContentB64: string | undefined;
   let siteImageThumbContentB64: string | undefined;
   let ogImageContentB64: string | undefined;
+  let siteImageOriginalStoragePath: string | undefined;
+  let siteImageOriginalMimeType: string | undefined;
 
   if (siteImage) {
     onStep("Optimizing site image...");
-    const processedImages = await processImageVariantsFromOriginal({
-      sourceImage: siteImage,
+    const preparedImage = await prepareCreationImage({
+      file: siteImage,
+      ownerUserId: session.user.id,
+      stagingFolder: "create-site",
+      stagingId: siteId,
       variants: SITE_CREATE_IMAGE_VARIANTS,
       jpegQuality: 0.9,
       jpegDpi: 72
     });
-    siteImageContentB64 = toBase64(await processedImages.siteImage.arrayBuffer());
-    siteImageThumbContentB64 = toBase64(await processedImages.siteImageThumb.arrayBuffer());
-    ogImageContentB64 = toBase64(await processedImages.ogImage.arrayBuffer());
+
+    if (preparedImage.mode === "optimized") {
+      siteImageContentB64 = preparedImage.imagesB64.siteImage;
+      siteImageThumbContentB64 = preparedImage.imagesB64.siteImageThumb;
+      ogImageContentB64 = preparedImage.imagesB64.ogImage;
+    } else {
+      siteImageOriginalStoragePath = preparedImage.originalStoragePath;
+      siteImageOriginalMimeType = preparedImage.originalMimeType;
+    }
   }
 
   const provisionedRepo = await provisionGitHubRepository({
@@ -103,6 +113,8 @@ export const provisionSiteDraft = async ({
     slug,
     siteImagePath: siteImage ? SITE_IMAGE_PATH : undefined,
     siteImageContentB64,
+    siteImageOriginalStoragePath,
+    siteImageOriginalMimeType,
     siteImageThumbPath: siteImage ? SITE_IMAGE_THUMB_PATH : undefined,
     siteImageThumbContentB64,
     ogImagePath: siteImage ? DEFAULT_OG_IMAGE_PATH : undefined,

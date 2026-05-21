@@ -119,7 +119,11 @@ export const buildSiteBuilderViewModels = ({
     showPreviewPanel,
     bodyClassName,
     topbarProps: buildTopbarProps({
-      previewEditor,
+      onRunFormatCommand: previewEditor.runPreviewCommand,
+      onRunFormatLink: previewEditor.runPreviewLink,
+      onUploadFormatImage: previewEditor.handleInlineImageUpload,
+      onCaptureFormatSelection: previewEditor.capturePreviewSelection,
+      isFormatImageUploading: previewEditor.uploadingInlineImage,
       maxFormatImageUploadBytes
     }),
     contentSectionProps: buildContentSectionProps({
@@ -141,7 +145,6 @@ export const buildSiteBuilderViewModels = ({
       pageTitleRef,
       documentState,
       pageEditing,
-      previewEditor,
       styleMedia,
       pageLocksBySlug,
       sidebarSectionLocks,
@@ -162,7 +165,16 @@ export const buildSiteBuilderViewModels = ({
       canEditPageJavaScript,
       publishButtonLabel,
       publishMode,
-      isSidebarCollapsed
+      isSidebarCollapsed,
+      selectedEditorImage: previewEditor.selectedEditorImage,
+      selectedEditorElement: previewEditor.selectedEditorElement,
+      onSelectedEditorImageAltChange: previewEditor.handleSelectedEditorImageAltChange,
+      onSelectedEditorImageCaptionChange: previewEditor.handleSelectedEditorImageCaptionChange,
+      onSelectedEditorImageSizeChange: previewEditor.handleSelectedEditorImageSizeChange,
+      onSelectedEditorElementClassNameChange:
+        previewEditor.handleSelectedEditorElementClassNameChange,
+      onSelectedEditorElementInlineStyleChange:
+        previewEditor.handleSelectedEditorElementInlineStyleChange
     }),
     previewPanelProps: buildPreviewPanelProps({
       shouldLoadDraft,

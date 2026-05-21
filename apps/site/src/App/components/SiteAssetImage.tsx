@@ -1,6 +1,6 @@
 import {
+  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -61,13 +61,17 @@ export function SiteAssetImage({
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
   const fullImageRef = useRef<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
-  const [thumbLoaded, setThumbLoaded] = useState(false);
-  const [thumbError, setThumbError] = useState(false);
-  const [fullLoaded, setFullLoaded] = useState(false);
-  const [fullError, setFullError] = useState(false);
+  const [thumbLoadedSrc, setThumbLoadedSrc] = useState("");
+  const [thumbErrorSrc, setThumbErrorSrc] = useState("");
+  const [fullLoadedSrc, setFullLoadedSrc] = useState("");
+  const [fullErrorSrc, setFullErrorSrc] = useState("");
 
   const normalizedThumbnailUrl = thumbnailUrl.trim();
   const fullImageUrl = useMemo(() => resolveSitePrimaryImageUrl(siteUrl).trim(), [siteUrl]);
+  const thumbLoaded = thumbLoadedSrc === normalizedThumbnailUrl;
+  const thumbError = thumbErrorSrc === normalizedThumbnailUrl;
+  const fullLoaded = fullLoadedSrc === fullImageUrl;
+  const fullError = fullErrorSrc === fullImageUrl;
   const hasThumbnail = Boolean(normalizedThumbnailUrl) && !thumbError;
   const shouldLoadFull =
     Boolean(fullImageUrl) &&
@@ -84,28 +88,45 @@ export function SiteAssetImage({
     (!hasThumbnail && Boolean(fullImageUrl) && !fullLoaded && !fullError) ||
     (thumbError && shouldLoadFull && !fullLoaded && !fullError);
 
-  useLayoutEffect(() => {
-    setThumbLoaded(false);
-    setThumbError(false);
-    setFullLoaded(false);
-    setFullError(false);
-  }, [normalizedThumbnailUrl, fullImageUrl]);
+  const syncImageState = useCallback(
+    (kind: "thumb" | "full", node: HTMLImageElement | null) => {
+      const state = getImageElementLoadState(node);
+      const source = kind === "thumb" ? normalizedThumbnailUrl : fullImageUrl;
+      if (!source) {
+        return;
+      }
+      if (state === "loaded") {
+        if (kind === "thumb") {
+          setThumbLoadedSrc(source);
+        } else {
+          setFullLoadedSrc(source);
+        }
+      } else if (state === "error") {
+        if (kind === "thumb") {
+          setThumbErrorSrc(source);
+        } else {
+          setFullErrorSrc(source);
+        }
+      }
+    },
+    [fullImageUrl, normalizedThumbnailUrl]
+  );
 
-  useLayoutEffect(() => {
-    const thumbnailState = getImageElementLoadState(thumbnailImageRef.current);
-    if (thumbnailState === "loaded") {
-      setThumbLoaded(true);
-    } else if (thumbnailState === "error") {
-      setThumbError(true);
-    }
+  const setThumbnailImageNode = useCallback(
+    (node: HTMLImageElement | null) => {
+      thumbnailImageRef.current = node;
+      syncImageState("thumb", node);
+    },
+    [syncImageState]
+  );
 
-    const fullState = getImageElementLoadState(fullImageRef.current);
-    if (fullState === "loaded") {
-      setFullLoaded(true);
-    } else if (fullState === "error") {
-      setFullError(true);
-    }
-  }, [normalizedThumbnailUrl, fullImageUrl, shouldRenderFull]);
+  const setFullImageNode = useCallback(
+    (node: HTMLImageElement | null) => {
+      fullImageRef.current = node;
+      syncImageState("full", node);
+    },
+    [syncImageState]
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -143,7 +164,7 @@ export function SiteAssetImage({
       {showSpinner && <ImageLoadSpinner />}
       {hasThumbnail ? (
         <img
-          ref={thumbnailImageRef}
+          ref={setThumbnailImageNode}
           {...{ [EXTERNAL_IMAGE_SKIP_ATTR]: "true" }}
           className={imageClassName}
           src={normalizedThumbnailUrl}
@@ -151,8 +172,8 @@ export function SiteAssetImage({
           aria-hidden={shouldRenderFull ? "true" : undefined}
           loading={loading}
           decoding="async"
-          onLoad={() => setThumbLoaded(true)}
-          onError={() => setThumbError(true)}
+          onLoad={() => setThumbLoadedSrc(normalizedThumbnailUrl)}
+          onError={() => setThumbErrorSrc(normalizedThumbnailUrl)}
           style={
             shouldBlurThumb
               ? thumbLoadingStyle
@@ -167,15 +188,15 @@ export function SiteAssetImage({
 
       {shouldRenderFull && (
         <img
-          ref={fullImageRef}
+          ref={setFullImageNode}
           {...{ [EXTERNAL_IMAGE_SKIP_ATTR]: "true" }}
           className={imageClassName}
           src={fullImageUrl}
           alt={alt}
           loading={loading}
           decoding="async"
-          onLoad={() => setFullLoaded(true)}
-          onError={() => setFullError(true)}
+          onLoad={() => setFullLoadedSrc(fullImageUrl)}
+          onError={() => setFullErrorSrc(fullImageUrl)}
           style={fullImageStyle(fullLoaded)}
         />
       )}

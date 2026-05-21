@@ -4,26 +4,26 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
-  type CSSProperties
+  useRef
 } from "react";
 import siteBuilderStylesRaw from "../SiteBuilderRoute.css?raw";
 import imageLoadSpinnerStylesRaw from "../../../../../styles/partials/spinner.css?raw";
-import { normalizePageSlug } from "../services/utils";
-import {
-  extractCssVariables as extractStyleVariables,
-  extractCustomCssFromTokens
-} from "../services/style-editor";
-import { scopePreviewCss } from "./astro-preview/css-scope-utils";
-import { markdownToHtml, parseFooterLineSegments } from "./astro-preview/content-utils";
 import { mapHtmlImageSources } from "./astro-preview/image-source-utils";
+import {
+  buildPreviewFrameState,
+  type PreviewFrameState
+} from "./astro-preview/frame-state";
+import {
+  PREVIEW_BRIDGE_CHANNEL,
+  PREVIEW_IMAGE_ASPECT_RATIO_ATTR,
+  type PreviewBridgeMessage,
+  type PreviewCommandPayload
+} from "./astro-preview/preview-bridge";
 import type {
   AstroTemplatePreviewHandle,
   AstroTemplatePreviewProps,
-  ParsedPage,
   PreviewSelectedImage,
-  PreviewSelectedElement,
-  PreviewNavItem
+  PreviewSelectedElement
 } from "./astro-preview/types";
 
 export type {
@@ -32,154 +32,10 @@ export type {
   PreviewSelectedElement
 } from "./astro-preview/types";
 
-const PREVIEW_BRIDGE_CHANNEL = "solidary:builder-preview";
-const PREVIEW_IMAGE_ASPECT_RATIO_ATTR = "data-builder-image-aspect-ratio";
-
-type PreviewFooterModule = {
-  alignment: "left" | "center" | "right";
-  html: string;
-  hidden: boolean;
-};
-
-type PreviewFrameState = {
-  editable: boolean;
-  styleMode: "simple" | "advanced";
-  previewStyleVars: Record<string, string>;
-  previewInlineCss: string;
-  previewBrand: string;
-  homePageSlug: string;
-  activeSlug: string;
-  activeBodyHtml: string;
-  activePageJavaScript: string;
-  navItems: PreviewNavItem[];
-  header: {
-    disabled: boolean;
-    fixed: boolean;
-    brandText: string;
-    disableBrand: boolean;
-  };
-  footer: {
-    disabled: boolean;
-    fixed: boolean;
-    modules: PreviewFooterModule[];
-    visibleModuleCount: number;
-  };
-};
-
-type PreviewBridgeMessage = {
-  channel: string;
-  type: string;
-  token?: string;
-  payload?: unknown;
-};
-
-type PreviewCommandPayload =
-  | {
-      kind: "execCommand";
-      command: string;
-      value?: string;
-    }
-  | {
-      kind: "focusEditor";
-    }
-  | {
-      kind: "captureSelection";
-    }
-  | {
-      kind: "replaceImageSource";
-      previousSrc: string;
-      nextSrc: string | null;
-      aspectRatioOverride?: number;
-    }
-  | {
-      kind: "setImageAspectRatioBySource";
-      source: string;
-      aspectRatio: number;
-    }
-  | {
-      kind: "updateSelectedImageAlt";
-      value: string;
-    }
-  | {
-      kind: "updateSelectedImageCaption";
-      value: string;
-    }
-  | {
-      kind: "updateSelectedImageSize";
-      value: number;
-    }
-  | {
-      kind: "updateSelectedElementClassName";
-      value: string;
-      elementId?: string;
-    }
-  | {
-      kind: "updateSelectedElementInlineStyle";
-      value: string;
-      elementId?: string;
-    }
-  | {
-      kind: "clearSelectedImage";
-    };
-
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-
 const escapeInlineTagContent = (value: string) =>
   value
     .replace(/<\/script/gi, "<\\/script")
     .replace(/<\/style/gi, "<\\/style");
-
-const rewriteCssUrlsForPreview = (css: string, previewAssetBaseUrl: string | null) => {
-  const baseUrl = previewAssetBaseUrl?.trim() ?? "";
-  if (!baseUrl) return css;
-
-  let parsedBase: URL;
-  try {
-    parsedBase = new URL(baseUrl);
-  } catch {
-    return css;
-  }
-
-  const origin = parsedBase.origin;
-  const normalizedBasePath = (() => {
-    const pathname = parsedBase.pathname.trim();
-    if (!pathname || pathname === "/") return "";
-    return `/${pathname.replace(/^\/+|\/+$/g, "")}`;
-  })();
-  const baseHref = `${origin}${normalizedBasePath ? `${normalizedBasePath}/` : "/"}`;
-
-  return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (fullMatch, _quote, rawUrl: string) => {
-    const urlValue = rawUrl.trim();
-    if (!urlValue) return fullMatch;
-
-    if (
-      /^(?:data:|blob:|https?:|mailto:|tel:|\/\/|#)/i.test(urlValue) ||
-      /^[a-z][a-z0-9+.-]*:/i.test(urlValue)
-    ) {
-      return fullMatch;
-    }
-
-    if (urlValue.startsWith("/")) {
-      const resolvedPath =
-        normalizedBasePath && urlValue.startsWith("/fonts/")
-          ? `${normalizedBasePath}${urlValue}`
-          : urlValue;
-      return `url("${origin}${resolvedPath}")`;
-    }
-
-    try {
-      return `url("${new URL(urlValue, baseHref).toString()}")`;
-    } catch {
-      return fullMatch;
-    }
-  });
-};
 
 const createBridgeToken = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -2745,8 +2601,6 @@ const buildPreviewFrameSrcDoc = (headHtml: string) => {
 </html>`;
 };
 
-const footerModuleAlignmentFallback: Array<"left" | "center" | "right"> = ["left", "center", "right"];
-
 const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplatePreviewProps>(
   function AstroTemplatePreview(
     {
@@ -2781,226 +2635,43 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     });
     const srcDoc = useMemo(() => buildPreviewFrameSrcDoc(headHtml), [headHtml]);
 
-    const parsedPages = useMemo<ParsedPage[]>(
-      () =>
-        pages.map((page, index) => {
-          const safeSlug =
-            page.isHome ? "home" : normalizePageSlug(page.slug || page.title) || `page-${index + 1}`;
-          return {
-            ...page,
-            safeSlug
-          };
-        }),
-      [pages]
-    );
-
-    const homePage = useMemo<ParsedPage>(
-      () =>
-        parsedPages.find((page) => page.isHome || page.safeSlug === "home") ?? {
-          title: "Home",
-          slug: "home",
-          body: homeFallbackBody,
-          javascript: "",
-          showInNav: false,
-          isHome: true,
-          safeSlug: "home"
-        },
-      [homeFallbackBody, parsedPages]
-    );
-
-    const navItems = useMemo(() => {
-      const combined = parsedPages
-        .filter((page) => page.showInNav !== false)
-        .map((page) => ({
-          label: page.title.trim() || "Untitled page",
-          slug: page.safeSlug,
-          href: page.safeSlug === homePage.safeSlug ? "/" : `/${page.safeSlug}`
-        }));
-
-      const seen = new Set<string>();
-      return combined.filter((item) => {
-        if (seen.has(item.href)) return false;
-        seen.add(item.href);
-        return true;
-      });
-    }, [homePage.safeSlug, parsedPages]);
-
-    const allPageSlugs = useMemo(
-      () => new Set([homePage.safeSlug, ...parsedPages.map((page) => page.safeSlug)]),
-      [homePage.safeSlug, parsedPages]
-    );
-
-    const activeSlug = allPageSlugs.has(activePageSlug) ? activePageSlug : homePage.safeSlug;
-
-    const activePage = useMemo(
-      () => parsedPages.find((page) => page.safeSlug === activeSlug) ?? homePage,
-      [activeSlug, homePage, parsedPages]
-    );
-
-    const activeBodyRaw =
-      activePage.safeSlug === homePage.safeSlug
-        ? (activePage.body || "").trim() || homeFallbackBody
-        : (activePage.body || "").trim();
-
-    const activeBodyHtml = useMemo(() => markdownToHtml(activeBodyRaw), [activeBodyRaw]);
-
-    const displayBodyHtml = useMemo(
-      () =>
-        mapHtmlImageSources(
-          activeBodyHtml,
-          draftImages,
-          publishedSiteBaseUrl,
-          "display",
-          dynamicImageLoadingEnabled
-        ),
-      [activeBodyHtml, draftImages, dynamicImageLoadingEnabled, publishedSiteBaseUrl]
-    );
-
-    const effectivePreviewCss = useMemo(() => {
-      if (styleMode === "advanced") {
-        const advancedCss = advancedStructureCss.trim();
-        return advancedCss || previewStylesCss.trim();
-      }
-      return previewStylesCss.trim();
-    }, [advancedStructureCss, previewStylesCss, styleMode]);
-
-    const previewStyle = useMemo(
-      () => extractStyleVariables(effectivePreviewCss) as CSSProperties,
-      [effectivePreviewCss]
-    );
-
-    const previewStyleVars = useMemo(() => {
-      const styleRecord = previewStyle as Record<string, unknown>;
-      const result: Record<string, string> = {};
-
-      Object.entries(styleRecord).forEach(([key, value]) => {
-        if (!key) return;
-        if (typeof value === "string" || typeof value === "number") {
-          result[key] = String(value);
-        }
-      });
-
-      return result;
-    }, [previewStyle]);
-
-    const previewInlineCss = useMemo(() => {
-      const baseCss =
-        styleMode === "advanced"
-          ? effectivePreviewCss
-          : extractCustomCssFromTokens(tokensCss).trim();
-      const combinedCss = [repoFontsCss.trim(), baseCss.trim()].filter(Boolean).join("\n\n");
-      const rewrittenCss = rewriteCssUrlsForPreview(combinedCss, previewAssetBaseUrl);
-      return scopePreviewCss(rewrittenCss);
-    }, [effectivePreviewCss, previewAssetBaseUrl, repoFontsCss, styleMode, tokensCss]);
-
-    const currentYear = new Date().getFullYear();
-    const footerCopyright = `© ${currentYear}`;
-
-    const normalizedFooterModules = useMemo(() => {
-      const normalized = Array.isArray(footer.modules)
-        ? footer.modules
-            .slice(0, 3)
-            .map((module, index) => {
-              const fallbackAlignment = footerModuleAlignmentFallback[index] ?? "left";
-              if (!module || typeof module !== "object") {
-                return {
-                  content: "",
-                  alignment: fallbackAlignment
-                };
-              }
-              const record = module as Record<string, unknown>;
-              const alignment =
-                record.alignment === "left" ||
-                record.alignment === "center" ||
-                record.alignment === "right"
-                  ? record.alignment
-                  : fallbackAlignment;
-              return {
-                content: typeof record.content === "string" ? record.content : "",
-                alignment
-              };
-            })
-        : [];
-
-      while (normalized.length < 3) {
-        const fallbackAlignment = footerModuleAlignmentFallback[normalized.length] ?? "left";
-        normalized.push({
-          content: "",
-          alignment: fallbackAlignment
-        });
-      }
-
-      return normalized;
-    }, [footer.modules]);
-
-    const footerModulesForFrame = useMemo<PreviewFooterModule[]>(() => {
-      const renderFooterSegmentsToHtml = (line: string) =>
-        parseFooterLineSegments(line)
-          .map((segment) => {
-            if (segment.type === "link") {
-              const href = segment.href?.trim() ?? "";
-              if (!href) return "";
-              return `<a class="footer__link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(segment.text)}</a>`;
-            }
-            return `<span>${escapeHtml(segment.text)}</span>`;
-          })
-          .join("");
-
-      return normalizedFooterModules.map((module) => {
-        const resolvedModule = module.content
-          .replaceAll("%copyright%", footerCopyright)
-          .replace(/\r/g, "");
-        const html = resolvedModule
-          .split("\n")
-          .map((line) => renderFooterSegmentsToHtml(line))
-          .join("<br />");
-
-        return {
-          alignment: module.alignment,
-          html,
-          hidden: module.content.trim().length === 0
-        };
-      });
-    }, [footerCopyright, normalizedFooterModules]);
-
-    const visibleFooterModuleCount = footerModulesForFrame.filter((module) => !module.hidden).length;
-
     const frameState = useMemo<PreviewFrameState>(
-      () => ({
-        editable,
-        styleMode,
-        previewStyleVars,
-        previewInlineCss,
-        previewBrand,
-        homePageSlug: homePage.safeSlug,
-        activeSlug,
-        activeBodyHtml: displayBodyHtml,
-        activePageJavaScript: (activePage.javascript ?? "").trim(),
-        navItems,
-        header,
-        footer: {
-          disabled: footer.disabled,
-          fixed: footer.fixed,
-          modules: footerModulesForFrame,
-          visibleModuleCount: Math.min(3, visibleFooterModuleCount)
-        }
-      }),
+      () =>
+        buildPreviewFrameState({
+          editable,
+          previewBrand,
+          pages,
+          draftImages,
+          repoFontsCss,
+          tokensCss,
+          styleMode,
+          advancedStructureCss,
+          previewStylesCss,
+          dynamicImageLoadingEnabled,
+          homeFallbackBody,
+          activePageSlug,
+          publishedSiteBaseUrl,
+          previewAssetBaseUrl,
+          header,
+          footer
+        }),
       [
-        activePage.javascript,
-        activeSlug,
-        displayBodyHtml,
+        activePageSlug,
+        advancedStructureCss,
+        draftImages,
+        dynamicImageLoadingEnabled,
         editable,
-        footer.disabled,
-        footer.fixed,
-        footerModulesForFrame,
+        footer,
         header,
-        homePage.safeSlug,
-        navItems,
+        homeFallbackBody,
+        pages,
+        previewAssetBaseUrl,
         previewBrand,
-        previewInlineCss,
-        previewStyleVars,
+        previewStylesCss,
+        publishedSiteBaseUrl,
+        repoFontsCss,
         styleMode,
-        visibleFooterModuleCount
+        tokensCss
       ]
     );
 

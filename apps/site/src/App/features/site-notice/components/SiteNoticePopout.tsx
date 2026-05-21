@@ -66,23 +66,33 @@ export default function SiteNoticePopout({ notice, onDismiss }: SiteNoticePopout
   );
 
   useEffect(() => {
+    let animationFrame: number | null = null;
+
     if (!notice) {
       clearDismissTimer();
-      setIsVisible(false);
-      return;
+      animationFrame = window.requestAnimationFrame(() => {
+        setIsVisible(false);
+      });
+      return () => {
+        if (animationFrame !== null) {
+          window.cancelAnimationFrame(animationFrame);
+        }
+      };
     }
 
     clearExitTimer();
-    setRenderedNotice(notice);
     remainingTimeRef.current = AUTO_DISMISS_MS;
 
-    const animationFrame = window.requestAnimationFrame(() => {
+    animationFrame = window.requestAnimationFrame(() => {
+      setRenderedNotice(notice);
       setIsVisible(true);
       scheduleDismiss(AUTO_DISMISS_MS, notice.signature);
     });
 
     return () => {
-      window.cancelAnimationFrame(animationFrame);
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
     };
   }, [clearDismissTimer, clearExitTimer, notice, scheduleDismiss]);
 

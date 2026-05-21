@@ -10,6 +10,7 @@ import { getSupabaseManagementConnectionStatusForUser } from "../_shared/supabas
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SOLIDARY_SECRET_KEY") ?? "";
 const WORKER_PATH = "/functions/v1/index-create-worker-background";
+const SITE_DRAFT_IMAGES_BUCKET = "site-draft-images";
 
 const REQUIRED_SUPABASE_MANAGEMENT_SCOPES = [
   "organizations:read",
@@ -27,6 +28,8 @@ type IndexCreateBody = {
   organization_id?: string;
   image_content_b64?: string;
   image_thumb_content_b64?: string;
+  image_original_storage_path?: string;
+  image_original_mime_type?: string;
 };
 
 const safeJson = (statusCode: number, body: unknown) => ({
@@ -44,6 +47,17 @@ const parseBody = (rawBody: string | null): IndexCreateBody => {
   } catch {
     throw new Error("Invalid JSON payload.");
   }
+};
+
+const normalizeStoragePath = (pathValue: string) => {
+  const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Image storage path is empty.");
+  }
+  if (normalized.split("/").includes("..")) {
+    throw new Error("Image storage path contains invalid segments.");
+  }
+  return normalized;
 };
 
 const parseBearerToken = (authorizationHeader: string | undefined) => {
@@ -101,6 +115,8 @@ export const handler: Handler = async (event) => {
   const organizationId = body.organization_id?.trim() ?? "";
   const imageContentB64 = body.image_content_b64?.trim() ?? "";
   const imageThumbContentB64 = body.image_thumb_content_b64?.trim() ?? "";
+  const rawImageOriginalStoragePath = body.image_original_storage_path?.trim() ?? "";
+  const imageOriginalMimeType = body.image_original_mime_type?.trim() ?? "";
 
   if (!repoName || !title || !description || !organizationId) {
     return safeJson(400, {
@@ -118,6 +134,23 @@ export const handler: Handler = async (event) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  let imageOriginalStoragePath = "";
+  const cleanupStagedImage = async () => {
+    if (!imageOriginalStoragePath) return;
+    const { error } = await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove([
+      imageOriginalStoragePath,
+    ]);
+    if (error) {
+      console.log("[index-create] failed to delete staged image", {
+        storagePath: imageOriginalStoragePath,
+        message: error.message,
+      });
+    }
+  };
+  const failWithCleanup = async (statusCode: number, body: unknown) => {
+    await cleanupStagedImage();
+    return safeJson(statusCode, body);
+  };
 
   const {
     data: { user },
@@ -125,6 +158,22 @@ export const handler: Handler = async (event) => {
   } = await supabase.auth.getUser(supabaseAccessToken);
   if (userError || !user) {
     return safeJson(401, { error: "Invalid Supabase session." });
+  }
+
+  if (rawImageOriginalStoragePath) {
+    try {
+      imageOriginalStoragePath = normalizeStoragePath(rawImageOriginalStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid image_original_storage_path.",
+      });
+    }
+
+    if (!imageOriginalStoragePath.startsWith(`${user.id}/`)) {
+      return safeJson(403, {
+        error: "image_original_storage_path must be scoped to the authenticated user.",
+      });
+    }
   }
 
   const resolvedGitHubAuth = await resolveGitHubTokenForUser({
@@ -136,7 +185,7 @@ export const handler: Handler = async (event) => {
       supabase,
       userId: user.id,
     }).catch(() => null);
-    return safeJson(412, {
+    return failWithCleanup(412, {
       error: credentialPresence?.hasGitHubRow
         ? "GitHub App authorization is required for index provisioning. Reconnect GitHub App from Profile and retry."
         : "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry.",
@@ -148,13 +197,13 @@ export const handler: Handler = async (event) => {
     userId: user.id,
   });
   if (!supabaseStatus.connected) {
-    return safeJson(412, {
+    return failWithCleanup(412, {
       error:
         "Supabase account connection is required before creating an index.",
     });
   }
   if (!hasRequiredScopes(supabaseStatus.grantedScopes)) {
-    return safeJson(412, {
+    return failWithCleanup(412, {
       error:
         "Reconnect your Supabase account from Profile so Solidary can create projects and bootstrap the database.",
     });
@@ -165,13 +214,13 @@ export const handler: Handler = async (event) => {
       organization.id === organizationId
     ) ?? null;
   if (!selectedOrganization) {
-    return safeJson(403, {
+    return failWithCleanup(403, {
       error:
         "Selected Supabase organization is not available for the connected account.",
     });
   }
   if (!selectedOrganization.slug) {
-    return safeJson(412, {
+    return failWithCleanup(412, {
       error:
         "Selected Supabase organization is missing a slug and cannot be used for project creation.",
     });
@@ -185,7 +234,7 @@ export const handler: Handler = async (event) => {
     .maybeSingle();
 
   if (existingIndexError) {
-    return safeJson(500, {
+    return failWithCleanup(500, {
       error:
         existingIndexError.message ||
         "Failed to check index slug availability.",
@@ -193,7 +242,7 @@ export const handler: Handler = async (event) => {
   }
 
   if (existingIndex?.id) {
-    return safeJson(409, {
+    return failWithCleanup(409, {
       error: buildIndexSlugConflictMessage(repoName),
     });
   }
@@ -209,6 +258,7 @@ export const handler: Handler = async (event) => {
     .single();
 
   if (insertError || !job?.id) {
+    await cleanupStagedImage();
     return safeJson(500, {
       error: insertError?.message ?? "Failed to create index provisioning job.",
     });
@@ -235,6 +285,8 @@ export const handler: Handler = async (event) => {
         organizationName: selectedOrganization.name,
         imageContentB64,
         imageThumbContentB64,
+        imageOriginalStoragePath,
+        imageOriginalMimeType,
       }),
     });
   } catch (error) {
@@ -251,6 +303,7 @@ export const handler: Handler = async (event) => {
       })
       .eq("id", job.id)
       .eq("owner_user_id", user.id);
+    await cleanupStagedImage();
     return safeJson(500, { error: message });
   }
 
@@ -279,6 +332,7 @@ export const handler: Handler = async (event) => {
       })
       .eq("id", job.id)
       .eq("owner_user_id", user.id);
+    await cleanupStagedImage();
     return safeJson(500, { error: message });
   }
 

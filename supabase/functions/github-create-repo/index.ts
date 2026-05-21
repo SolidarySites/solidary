@@ -24,6 +24,8 @@ type StartRepoProvisionBody = {
   site_image_path?: string;
   site_image_storage_path?: string;
   site_image_content_b64?: string;
+  site_image_original_storage_path?: string;
+  site_image_original_mime_type?: string;
   site_image_thumb_path?: string;
   site_image_thumb_storage_path?: string;
   site_image_thumb_content_b64?: string;
@@ -118,6 +120,8 @@ export const handler: Handler = async (event) => {
   const siteImagePath = body.site_image_path?.trim();
   const rawSiteImageStoragePath = body.site_image_storage_path?.trim();
   const siteImageContentB64 = body.site_image_content_b64?.trim();
+  const rawSiteImageOriginalStoragePath = body.site_image_original_storage_path?.trim();
+  const siteImageOriginalMimeType = body.site_image_original_mime_type?.trim();
   const siteImageThumbPath = body.site_image_thumb_path?.trim();
   const rawSiteImageThumbStoragePath = body.site_image_thumb_storage_path?.trim();
   const siteImageThumbContentB64 = body.site_image_thumb_content_b64?.trim();
@@ -136,6 +140,7 @@ export const handler: Handler = async (event) => {
   });
   let siteImageStoragePath = "";
   let siteImageThumbStoragePath = "";
+  let siteImageOriginalStoragePath = "";
   let ogImageStoragePath = "";
   const stagedStoragePaths = new Set<string>();
   const cleanupStagedSiteImages = async () => {
@@ -167,6 +172,23 @@ export const handler: Handler = async (event) => {
           ? "GitHub App authorization is required for owner repository actions. Solidary OAuth fallback is disabled for owner repositories. Reconnect GitHub App from Profile and retry."
           : "GitHub authorization missing. Sign in with GitHub again from Profile settings and retry."
       });
+    }
+
+    if (rawSiteImageOriginalStoragePath) {
+      try {
+        siteImageOriginalStoragePath = normalizeStoragePath(rawSiteImageOriginalStoragePath);
+      } catch (error) {
+        return safeJson(400, {
+          error: error instanceof Error ? error.message : "Invalid site_image_original_storage_path."
+        });
+      }
+
+      if (!siteImageOriginalStoragePath.startsWith(`${user.id}/`)) {
+        return safeJson(403, {
+          error: "site_image_original_storage_path must be scoped to the authenticated user."
+        });
+      }
+      stagedStoragePaths.add(siteImageOriginalStoragePath);
     }
 
     if (rawSiteImageStoragePath) {
@@ -347,6 +369,8 @@ export const handler: Handler = async (event) => {
           siteDescription,
           siteImagePath,
           siteImageStoragePath,
+          siteImageOriginalStoragePath,
+          siteImageOriginalMimeType,
           siteImageThumbPath,
           siteImageThumbStoragePath,
           siteImageThumbContentB64: siteImageThumbStoragePath ? undefined : siteImageThumbContentB64,

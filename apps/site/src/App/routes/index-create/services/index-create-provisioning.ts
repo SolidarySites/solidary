@@ -1,16 +1,21 @@
 import { githubRequest } from "../../../services/github";
-import { toBase64 } from "../../../lib/base64";
 import { supabaseFunctionUrl } from "../../../lib/supabase";
 import {
   BYTES_100_KB,
-  BYTES_1_MB,
-  processImageVariantsFromOriginal
+  BYTES_1_MB
 } from "../../../services/image-processing/picsquish";
+import { prepareCreationImage } from "../../../services/image-processing/creation-images";
 import type { IndexProvisionStartResponse, IndexProvisionStatusResponse } from "./types";
 
 const POLL_DELAYS_MS = [1500, 1500, 2000, 2500, 3000, 4000, 5000];
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const createImageStagingId = (slug: string) => {
+  const randomPart =
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${slug}-${randomPart}`;
+};
 
 const INDEX_CREATE_IMAGE_VARIANTS = [
   {
@@ -52,6 +57,7 @@ export const startIndexProvisioning = async ({
   title,
   description,
   organizationId,
+  ownerUserId,
   image
 }: {
   supabaseAccessToken: string;
@@ -59,6 +65,7 @@ export const startIndexProvisioning = async ({
   title: string;
   description: string;
   organizationId: string;
+  ownerUserId: string;
   image?: File | null;
 }) => {
   if (image && image.type && !image.type.startsWith("image/")) {
@@ -67,15 +74,26 @@ export const startIndexProvisioning = async ({
 
   let imageContentB64: string | undefined;
   let imageThumbContentB64: string | undefined;
+  let imageOriginalStoragePath: string | undefined;
+  let imageOriginalMimeType: string | undefined;
   if (image) {
-    const processedImages = await processImageVariantsFromOriginal({
-      sourceImage: image,
+    const preparedImage = await prepareCreationImage({
+      file: image,
+      ownerUserId,
+      stagingFolder: "create-index",
+      stagingId: createImageStagingId(slug),
       variants: INDEX_CREATE_IMAGE_VARIANTS,
       jpegQuality: 0.9,
       jpegDpi: 72
     });
-    imageContentB64 = toBase64(await processedImages.indexImage.arrayBuffer());
-    imageThumbContentB64 = toBase64(await processedImages.indexImageThumb.arrayBuffer());
+
+    if (preparedImage.mode === "optimized") {
+      imageContentB64 = preparedImage.imagesB64.indexImage;
+      imageThumbContentB64 = preparedImage.imagesB64.indexImageThumb;
+    } else {
+      imageOriginalStoragePath = preparedImage.originalStoragePath;
+      imageOriginalMimeType = preparedImage.originalMimeType;
+    }
   }
 
   const response = await fetch(supabaseFunctionUrl("index-create"), {
@@ -90,7 +108,9 @@ export const startIndexProvisioning = async ({
       description,
       organization_id: organizationId,
       image_content_b64: imageContentB64,
-      image_thumb_content_b64: imageThumbContentB64
+      image_thumb_content_b64: imageThumbContentB64,
+      image_original_storage_path: imageOriginalStoragePath,
+      image_original_mime_type: imageOriginalMimeType
     })
   });
 

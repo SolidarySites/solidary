@@ -214,6 +214,8 @@ export const provisionGitHubRepository = async ({
   slug,
   siteImagePath,
   siteImageContentB64,
+  siteImageOriginalStoragePath,
+  siteImageOriginalMimeType,
   siteImageThumbPath,
   siteImageThumbContentB64,
   ogImagePath,
@@ -227,6 +229,8 @@ export const provisionGitHubRepository = async ({
   slug: string;
   siteImagePath?: string;
   siteImageContentB64?: string;
+  siteImageOriginalStoragePath?: string;
+  siteImageOriginalMimeType?: string;
   siteImageThumbPath?: string;
   siteImageThumbContentB64?: string;
   ogImagePath?: string;
@@ -244,6 +248,8 @@ export const provisionGitHubRepository = async ({
     site_description: siteDescription.trim(),
     site_image_path: siteImagePath,
     site_image_content_b64: siteImageContentB64,
+    site_image_original_storage_path: siteImageOriginalStoragePath,
+    site_image_original_mime_type: siteImageOriginalMimeType,
     site_image_thumb_path: siteImageThumbPath,
     site_image_thumb_content_b64: siteImageThumbContentB64,
     og_image_path: ogImagePath,

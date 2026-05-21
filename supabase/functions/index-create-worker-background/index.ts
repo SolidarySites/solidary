@@ -30,6 +30,12 @@ import {
 } from "../_shared/index-federation.ts";
 import { buildIndexParentConnectionUuid } from "../_shared/index-parent-connection.ts";
 import { bundledTemplateFiles } from "./template-files.ts";
+import {
+  assertSupportedCreationImageMimeType,
+  cleanupStagedCreationImage,
+  downloadStagedCreationImageBytes,
+  processCreationImageVariantsOnServer,
+} from "../_shared/server-image-processing.ts";
 
 const GITHUB_API = "https://api.github.com";
 const SUPABASE_MANAGEMENT_API = "https://api.supabase.com";
@@ -37,6 +43,8 @@ const TARGET_DEFAULT_BRANCH = "main";
 const BRANCH_READY_RETRY_DELAYS_MS = [0, 500, 1000, 2000, 4000, 8000];
 const GITHUB_WRITE_RETRY_DELAYS_MS = [0, 200, 500, 1000, 2000, 4000];
 const PAGES_ENABLE_RETRY_DELAYS_MS = [0, 1000, 2000, 4000];
+const BYTES_100_KB = 100 * 1024 - 1;
+const BYTES_1_MB = 1024 * 1024 - 1;
 const RETRYABLE_GITHUB_STATUS = new Set([
   404,
   409,
@@ -105,6 +113,19 @@ type TemplateFile = {
   mode: "100644" | "100755";
   contentB64: string;
 };
+const INDEX_CREATE_SERVER_IMAGE_VARIANTS = [
+  {
+    key: "indexImage",
+    label: "Index image",
+    maxBytes: BYTES_1_MB,
+  },
+  {
+    key: "indexImageThumb",
+    label: "Index thumbnail",
+    maxBytes: BYTES_100_KB,
+  },
+] as const;
+
 type WorkerBody = {
   jobId?: string;
   ownerUserId?: string;
@@ -116,6 +137,8 @@ type WorkerBody = {
   organizationName?: string;
   imageContentB64?: string;
   imageThumbContentB64?: string;
+  imageOriginalStoragePath?: string;
+  imageOriginalMimeType?: string;
 };
 
 class HttpError extends Error {
@@ -162,6 +185,17 @@ const waitUntil = (promise: Promise<unknown>) => {
       message: error instanceof Error ? error.message : String(error),
     });
   });
+};
+
+const normalizeStoragePath = (pathValue: string) => {
+  const normalized = pathValue.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized) {
+    throw new Error("Image storage path is empty.");
+  }
+  if (normalized.split("/").includes("..")) {
+    throw new Error("Image storage path contains invalid segments.");
+  }
+  return normalized;
 };
 
 const parseBody = (rawBody: string | null): WorkerBody => {
@@ -1077,6 +1111,8 @@ const applyIndexTemplateOverrides = ({
   parentIndexLevel: number;
   imageContentB64?: string;
   imageThumbContentB64?: string;
+  imageOriginalStoragePath?: string;
+  imageOriginalMimeType?: string;
 }) => {
   const filesByPath = new Map(
     files.map((file) => [file.relPath, file] as const),
@@ -2024,6 +2060,9 @@ export const handler: Handler = async (event) => {
   const organizationId = payload.organizationId?.trim() ?? "";
   const organizationSlug = payload.organizationSlug?.trim() ?? "";
   const organizationName = payload.organizationName?.trim() ?? "";
+  const rawImageOriginalStoragePath = payload.imageOriginalStoragePath?.trim() ?? "";
+  const imageOriginalMimeType = payload.imageOriginalMimeType?.trim() ?? "";
+  let imageOriginalStoragePath = "";
 
   if (
     !jobId || !ownerUserId || !repoName || !title || !description ||
@@ -2031,6 +2070,22 @@ export const handler: Handler = async (event) => {
   ) {
     return safeJson(400, {
       error: "Missing required worker payload values.",
+    });
+  }
+
+  if (rawImageOriginalStoragePath) {
+    try {
+      imageOriginalStoragePath = normalizeStoragePath(rawImageOriginalStoragePath);
+    } catch (error) {
+      return safeJson(400, {
+        error: error instanceof Error ? error.message : "Invalid imageOriginalStoragePath.",
+      });
+    }
+  }
+
+  if (imageOriginalStoragePath && !imageOriginalStoragePath.startsWith(`${ownerUserId}/`)) {
+    return safeJson(403, {
+      error: "imageOriginalStoragePath must be scoped to the job owner.",
     });
   }
 
@@ -2246,8 +2301,27 @@ export const handler: Handler = async (event) => {
 
       const projectDashboardUrl = getProjectDashboardUrl(projectRef);
       const projectUrl = getProjectUrl(projectRef);
+      let imageContentB64 = payload.imageContentB64?.trim() ?? "";
+      let imageThumbContentB64 = payload.imageThumbContentB64?.trim() ?? "";
+      if (imageOriginalStoragePath && (!imageContentB64 || !imageThumbContentB64)) {
+        await updateJob({
+          step: "Optimizing index image on server...",
+        });
+        assertSupportedCreationImageMimeType(imageOriginalMimeType, "Index image");
+        const sourceBytes = await downloadStagedCreationImageBytes({
+          supabase,
+          storagePath: imageOriginalStoragePath,
+        });
+        const processedImages = await processCreationImageVariantsOnServer({
+          sourceBytes,
+          variants: INDEX_CREATE_SERVER_IMAGE_VARIANTS,
+        });
+        imageContentB64 ||= processedImages.indexImage;
+        imageThumbContentB64 ||= processedImages.indexImageThumb;
+      }
+
       const defaultImageUrl =
-        normalizeRepoImageContent(payload.imageContentB64?.trim())
+        normalizeRepoImageContent(imageContentB64)
           ? resolveAbsoluteAssetUrl({
             siteUrl,
             assetPath: DEFAULT_INDEX_IMAGE_PATH,
@@ -2347,8 +2421,8 @@ export const handler: Handler = async (event) => {
         parentIndexId,
         parentIndexUrl,
         parentIndexLevel,
-        imageContentB64: payload.imageContentB64?.trim(),
-        imageThumbContentB64: payload.imageThumbContentB64?.trim(),
+        imageContentB64,
+        imageThumbContentB64,
       });
       await createTemplateSeedCommit({
         userToken,
@@ -2514,6 +2588,14 @@ export const handler: Handler = async (event) => {
           : message,
         completed_at: new Date().toISOString(),
       });
+    } finally {
+      if (imageOriginalStoragePath) {
+        await cleanupStagedCreationImage({
+          supabase,
+          storagePath: imageOriginalStoragePath,
+          logPrefix: "[index-create-worker]",
+        });
+      }
     }
   })());
 

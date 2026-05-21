@@ -24,8 +24,9 @@ export const useSyncRouteNotice = ({ notice, noticeKind }: UseSyncRouteNoticeOpt
   }
 
   useEffect(() => {
+    const sourceId = sourceIdRef.current;
     return () => {
-      context.setRouteNotice(sourceIdRef.current, null);
+      context.setRouteNotice(sourceId, null);
     };
   }, [context]);
 
