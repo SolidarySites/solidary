@@ -216,6 +216,16 @@ export const parseSupabaseManagementConnectResultFromSearch = (
   };
 };
 
+
+const normalizeTrustedHttpsUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
 const navigateToSupabaseManagementConnectUrl = ({
   url,
   openMode,
@@ -290,9 +300,9 @@ export const connectSupabaseManagementForCurrentUser = async ({
     };
   }
 
-  const url = normalizeTrimmedString(payload.url);
+  const url = normalizeTrustedHttpsUrl(normalizeTrimmedString(payload.url));
   if (!url) {
-    throw new Error("Supabase connection URL is missing.");
+    throw new Error("Supabase connection URL is missing or invalid.");
   }
 
   navigateToSupabaseManagementConnectUrl({

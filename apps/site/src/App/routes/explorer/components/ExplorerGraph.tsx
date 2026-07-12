@@ -11,6 +11,7 @@ import {
 import { SiteAssetImage } from "../../../components/SiteAssetImage";
 import type { ExplorerConnection, ExplorerSite } from "../services/explorer-data";
 import { buildConnectedSiteLookup } from "../services/explorer-graph";
+import ExplorerSitesList from "./ExplorerSitesList";
 
 type ExplorerGraphProps = {
   sites: ExplorerSite[];
@@ -258,6 +259,7 @@ export default function ExplorerGraph({
     nonce: number;
   } | null>(null);
   const [isPointHovered, setIsPointHovered] = useState(false);
+  const [accessibleSearchQuery, setAccessibleSearchQuery] = useState("");
 
   const siteById = useMemo(() => {
     const map: Record<string, ExplorerSite> = {};
@@ -654,6 +656,14 @@ export default function ExplorerGraph({
     } as CSSProperties;
   }, [selectedPointInfo, selectedSite, shellSize.height, shellSize.width]);
 
+
+  useEffect(() => {
+    if (!selectedSite || !selectedPointInfo) return;
+    infoCardRef.current?.focus();
+  }, [selectedPointInfo, selectedSite]);
+
+  const graphAriaLabel = `${sites.length} public explorer nodes and ${connections.length} approved connections. Use the accessible site list after the graph for keyboard navigation.`;
+
   const handleShellPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!selectedPointInfo) return;
     const card = infoCardRef.current;
@@ -666,6 +676,14 @@ export default function ExplorerGraph({
       <div
         className={`explorer-graph-shell${isPointHovered ? " explorer-graph-shell-point-hovered" : ""}`}
         ref={shellRef}
+        role="img"
+        aria-label={graphAriaLabel}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            clearSelectedInfo();
+          }
+        }}
         onPointerDownCapture={handleShellPointerDown}
       >
         {graphData.viewerPointIndices.map((index) => {
@@ -708,6 +726,13 @@ export default function ExplorerGraph({
             key={`${selectedSite.id}:${selectedPointInfo.nonce}`}
             style={infoCardStyle}
             ref={infoCardRef}
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                clearSelectedInfo();
+                shellRef.current?.focus();
+              }
+            }}
           >
             <SiteAssetImage
               siteUrl={selectedSite.canonicalUrl}
@@ -736,6 +761,16 @@ export default function ExplorerGraph({
             </div>
           </article>
         )}
+      </div>
+      <div className="explorer-accessible-list">
+        <ExplorerSitesList
+          sites={sites}
+          connections={connections}
+          totalSiteCount={sites.length}
+          totalConnectionCount={connections.length}
+          searchQuery={accessibleSearchQuery}
+          onSearchQueryChange={setAccessibleSearchQuery}
+        />
       </div>
     </section>
   );

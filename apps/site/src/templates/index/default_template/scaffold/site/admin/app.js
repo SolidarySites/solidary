@@ -8,6 +8,7 @@ import {
   normalizeDomainInput,
   readStoredBridgeToken,
   readStoredLocalAdminToken,
+  renderLink,
   rememberBridgeToken,
   rememberLocalAdminToken,
 } from "../shared.js";
@@ -58,6 +59,36 @@ const state = {
 };
 
 const byId = (id) => document.getElementById(id);
+
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[character]));
+
+const safeHttpUrl = (value) => {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  if (!candidate) return "";
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
+const appendMetaRow = (list, term, description) => {
+  const row = document.createElement("div");
+  const dt = document.createElement("dt");
+  const dd = document.createElement("dd");
+  dt.textContent = term;
+  dd.textContent = description || "-";
+  row.append(dt, dd);
+  list.append(row);
+};
 
 const setNotice = (message, kind = "notice") => {
   state.notice = message;
@@ -199,43 +230,42 @@ const buildWorkflowRunSummaryMarkup = (latestRun) => {
     return "";
   }
 
+  const jobsMarkup = (latestRun.jobs || [])
+    .map((job) => {
+      const steps = job.steps?.length
+        ? ` - ${job.steps
+          .map(
+            (step) =>
+              `${escapeHtml(step.name)}: ${escapeHtml(step.status || "unknown")}${
+                step.conclusion ? ` (${escapeHtml(step.conclusion)})` : ""
+              }`,
+          )
+          .join(" | ")}`
+        : "";
+      return `<div>
+              <dt>${escapeHtml(job.name)}</dt>
+              <dd>${escapeHtml(job.status || "unknown")}${
+        job.conclusion ? ` / ${escapeHtml(job.conclusion)}` : ""
+      }${steps}</dd>
+            </div>`;
+    })
+    .join("");
+
   return `
     <div class="details-card">
       <h3>Latest workflow run</h3>
       <dl class="details-list">
         <div>
           <dt>Run status</dt>
-          <dd>${latestRun.status || "unknown"}${
-    latestRun.conclusion ? ` / ${latestRun.conclusion}` : ""
+          <dd>${escapeHtml(latestRun.status || "unknown")}${
+    latestRun.conclusion ? ` / ${escapeHtml(latestRun.conclusion)}` : ""
   }</dd>
         </div>
         <div>
           <dt>Last update</dt>
-          <dd>${latestRun.updatedAt || "-"}</dd>
+          <dd>${escapeHtml(latestRun.updatedAt || "-")}</dd>
         </div>
-        ${(latestRun.jobs || [])
-    .map(
-      (job) => `<div>
-              <dt>${job.name}</dt>
-              <dd>${job.status || "unknown"}${
-        job.conclusion ? ` / ${job.conclusion}` : ""
-      }${
-        job.steps?.length
-          ? ` - ${
-            job.steps
-              .map(
-                (step) =>
-                  `${step.name}: ${step.status || "unknown"}${
-                    step.conclusion ? ` (${step.conclusion})` : ""
-                  }`,
-              )
-              .join(" | ")
-          }`
-          : ""
-      }</dd>
-            </div>`,
-    )
-    .join("")}
+        ${jobsMarkup}
       </dl>
     </div>
   `;
@@ -334,6 +364,7 @@ const renderFinalizationCard = () => {
     return;
   }
 
+  const sourceRepoUrl = safeHttpUrl(finalization.sourceRepoUrl);
   const sourceRepoLabel = finalization.sourceRepoFullName ||
     finalization.sourceRepoUrl || "-";
   const functionsReady = finalization.functionsDeployStatus === "deployed";
@@ -354,57 +385,57 @@ const renderFinalizationCard = () => {
   card.hidden = false;
   card.innerHTML = `
     <div class="details-head">
-      <h2>${heading}</h2>
-      <p>${lead}</p>
+      <h2>${escapeHtml(heading)}</h2>
+      <p>${escapeHtml(lead)}</p>
     </div>
     <dl class="details-list">
       <div>
         <dt>Status</dt>
-        <dd>${finalization.status || "idle"}</dd>
+        <dd>${escapeHtml(finalization.status || "idle")}</dd>
       </div>
       <div>
         <dt>Step</dt>
-        <dd>${finalization.step || "-"}</dd>
+        <dd>${escapeHtml(finalization.step || "-")}</dd>
       </div>
       <div>
         <dt>Deploy workflow</dt>
-        <dd>${
+        <dd>${escapeHtml(
     FUNCTIONS_DEPLOY_STATUS_LABELS[finalization.functionsDeployStatus] ||
     "Not ready"
-  }</dd>
+  )}</dd>
       </div>
       <div>
         <dt>Source repo</dt>
         <dd>${
-    finalization.sourceRepoUrl
-      ? `<a href="${finalization.sourceRepoUrl}" target="_blank" rel="noreferrer">${sourceRepoLabel}</a>`
-      : sourceRepoLabel
+    sourceRepoUrl
+      ? `<a href="${sourceRepoUrl}" target="_blank" rel="noreferrer">${escapeHtml(sourceRepoLabel)}</a>`
+      : escapeHtml(sourceRepoLabel)
   }</dd>
       </div>
       <div>
         <dt>Source status</dt>
-        <dd>${
+        <dd>${escapeHtml(
     FINALIZATION_SOURCE_STATUS_LABELS[finalization.sourceRepoStatus] ||
     "Missing lineage"
-  }</dd>
+  )}</dd>
       </div>
       ${
     finalization.sourceRepoMessage
-      ? `<div><dt>Source note</dt><dd>${finalization.sourceRepoMessage}</dd></div>`
+      ? `<div><dt>Source note</dt><dd>${escapeHtml(finalization.sourceRepoMessage)}</dd></div>`
       : ""
   }
       ${
     finalization.functionsDeployMessage
-      ? `<div><dt>Deploy note</dt><dd>${finalization.functionsDeployMessage}</dd></div>`
+      ? `<div><dt>Deploy note</dt><dd>${escapeHtml(finalization.functionsDeployMessage)}</dd></div>`
       : ""
   }
       <div>
         <dt>Completed</dt>
-        <dd>${finalization.completedAt || "-"}</dd>
+        <dd>${escapeHtml(finalization.completedAt || "-")}</dd>
       </div>
       ${
     finalization.error
-      ? `<div><dt>Latest error</dt><dd>${finalization.error}</dd></div>`
+      ? `<div><dt>Latest error</dt><dd>${escapeHtml(finalization.error)}</dd></div>`
       : ""
   }
     </dl>
@@ -418,10 +449,10 @@ const renderFinalizationCard = () => {
           .map(
             (secret) =>
               `<div>
-                    <dt>${secret.name}</dt>
+                    <dt>${escapeHtml(secret.name)}</dt>
                     <dd>${secret.isConfigured ? "Configured" : "Missing"}${
-                secret.value ? ` — ${secret.value}` : ""
-              }${secret.description ? ` — ${secret.description}` : ""}</dd>
+                secret.description ? ` — ${escapeHtml(secret.description)}` : ""
+              }</dd>
                   </div>`,
           )
           .join("")
@@ -438,7 +469,7 @@ const renderFinalizationCard = () => {
             <h3>Next steps</h3>
             <ol class="details-steps">
               ${
-        state.setup.nextSteps.map((step) => `<li>${step}</li>`).join("")
+        state.setup.nextSteps.map((step) => `<li>${escapeHtml(step)}</li>`).join("")
       }
             </ol>
           </div>`
@@ -560,7 +591,7 @@ const renderGeneral = (panel) => {
       </div>
       <label>
         Index title
-        <input id="general-title" value="${index.title || ""}" ${
+        <input id="general-title" ${
     canEdit ? "" : "disabled"
   } />
       </label>
@@ -568,11 +599,11 @@ const renderGeneral = (panel) => {
         Description
         <textarea id="general-description" rows="4" ${
     canEdit ? "" : "disabled"
-  }>${index.description || ""}</textarea>
+  }></textarea>
       </label>
       <label>
         Live URL
-        <input value="${index.canonicalUrl || ""}" readonly />
+        <input id="general-live-url" readonly />
       </label>
       <label>
         Index image (JPEG)
@@ -587,6 +618,13 @@ const renderGeneral = (panel) => {
       </div>
     </section>
   `;
+
+  const titleInput = byId("general-title");
+  if (titleInput) titleInput.value = index.title || "";
+  const descriptionInput = byId("general-description");
+  if (descriptionInput) descriptionInput.value = index.description || "";
+  const liveUrlInput = byId("general-live-url");
+  if (liveUrlInput) liveUrlInput.value = index.canonicalUrl || "";
 
   const saveButton = byId("general-save");
   if (saveButton) {
@@ -655,57 +693,68 @@ const renderConnections = (panel) => {
   connections.forEach((connection) => {
     const card = document.createElement("article");
     card.className = "connected-site-card";
-    card.innerHTML = `
-      <h3>${connection.title || connection.siteId}</h3>
-      ${connection.description ? `<p>${connection.description}</p>` : ""}
-      <dl class="connected-site-meta">
-        <div><dt>Status</dt><dd>${connection.status}</dd></div>
-        <div><dt>Site URL</dt><dd>${connection.canonicalUrl || "-"}</dd></div>
-        <div><dt>Parent index URL</dt><dd>${
-      connection.parentIndexUrl || "-"
-    }</dd></div>
-      </dl>
-      <div class="hero-actions">
-        ${
-      connection.canonicalUrl
-        ? `<a href="${connection.canonicalUrl}" target="_blank" rel="noreferrer">Visit site</a>`
-        : ""
-    }
-        <button class="button-link" data-site-id="${connection.siteId}" ${
-      canManage ? "" : "disabled"
-    }>
-          ${connection.status === "tracked" ? "Disconnect" : "Reconnect"}
-        </button>
-      </div>
-    `;
 
-    const actionButton = card.querySelector("button[data-site-id]");
-    if (actionButton) {
-      actionButton.addEventListener("click", async () => {
-        try {
-          const payload = await callAdminFunction({
-            functionName: "index-admin-write",
-            body: {
-              index_id: state.config.indexId,
-              action: "set_connection_status",
-              site_id: connection.siteId,
-              status: connection.status === "tracked" ? "delisted" : "tracked",
-            },
-          });
-          state.adminState = payload.state;
-          state.setup = payload.setup;
-          setNotice("Connection state updated.");
-          renderAll();
-        } catch (error) {
-          setNotice(
-            error instanceof Error
-              ? error.message
-              : "Could not update connection.",
-            "error",
-          );
-        }
-      });
+    const heading = document.createElement("h3");
+    heading.textContent = connection.title || connection.siteId || "Untitled site";
+    card.append(heading);
+
+    if (connection.description) {
+      const description = document.createElement("p");
+      description.textContent = connection.description;
+      card.append(description);
     }
+
+    const meta = document.createElement("dl");
+    meta.className = "connected-site-meta";
+    appendMetaRow(meta, "Status", connection.status);
+    appendMetaRow(meta, "Site URL", connection.canonicalUrl || "-");
+    appendMetaRow(meta, "Parent index URL", connection.parentIndexUrl || "-");
+    card.append(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "hero-actions";
+
+    const canonicalUrl = safeHttpUrl(connection.canonicalUrl);
+    if (canonicalUrl) {
+      const visitLink = document.createElement("a");
+      visitLink.href = canonicalUrl;
+      visitLink.target = "_blank";
+      visitLink.rel = "noreferrer";
+      visitLink.textContent = "Visit site";
+      actions.append(visitLink);
+    }
+
+    const actionButton = document.createElement("button");
+    actionButton.className = "button-link";
+    actionButton.dataset.siteId = connection.siteId || "";
+    actionButton.disabled = !canManage;
+    actionButton.textContent = connection.status === "tracked" ? "Disconnect" : "Reconnect";
+    actionButton.addEventListener("click", async () => {
+      try {
+        const payload = await callAdminFunction({
+          functionName: "index-admin-write",
+          body: {
+            index_id: state.config.indexId,
+            action: "set_connection_status",
+            site_id: connection.siteId,
+            status: connection.status === "tracked" ? "delisted" : "tracked",
+          },
+        });
+        state.adminState = payload.state;
+        state.setup = payload.setup;
+        setNotice("Connection state updated.");
+        renderAll();
+      } catch (error) {
+        setNotice(
+          error instanceof Error
+            ? error.message
+            : "Could not update connection.",
+          "error",
+        );
+      }
+    });
+    actions.append(actionButton);
+    card.append(actions);
 
     section.append(card);
   });

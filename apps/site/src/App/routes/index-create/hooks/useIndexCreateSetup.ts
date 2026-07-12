@@ -35,6 +35,7 @@ export const useIndexCreateSetup = ({
   const [supabasePersonalAccessToken, setSupabasePersonalAccessToken] = useState("");
   const [supabasePatConfirmed, setSupabasePatConfirmed] = useState(false);
   const previousFunctionsStatusRef = useRef<string | null>(null);
+  const refreshRequestIdRef = useRef(0);
 
   const syncBridgeTokenFromSetup = useCallback((nextSetup: IndexAdminSetup | null) => {
     const nextBridgeToken = extractBridgeTokenFromStandaloneAdminUrl(nextSetup?.standaloneAdminUrl);
@@ -67,15 +68,19 @@ export const useIndexCreateSetup = ({
         return null;
       }
 
+      const requestId = refreshRequestIdRef.current + 1;
+      refreshRequestIdRef.current = requestId;
       setSetupLoading(true);
       try {
         const response = await readIndexAdmin(normalizedIndexId, {
           bridgeToken: bridgeToken || undefined,
           supabasePersonalAccessToken: nextSupabasePersonalAccessToken?.trim() || undefined
         });
+        if (refreshRequestIdRef.current !== requestId) return null;
         applySetupResponse(response.setup);
         return response;
       } catch (error) {
+        if (refreshRequestIdRef.current !== requestId) return null;
         setSetup(null);
         setRouteNotice(
           error instanceof Error ? error.message : "Could not load the child setup state.",
@@ -83,7 +88,9 @@ export const useIndexCreateSetup = ({
         );
         return null;
       } finally {
-        setSetupLoading(false);
+        if (refreshRequestIdRef.current === requestId) {
+          setSetupLoading(false);
+        }
       }
     },
     [applySetupResponse, bridgeToken, indexId, setRouteNotice]
@@ -95,6 +102,7 @@ export const useIndexCreateSetup = ({
       setBridgeToken("");
       setFunctionsDeploymentPending(false);
       previousFunctionsStatusRef.current = null;
+      refreshRequestIdRef.current += 1;
       return;
     }
 

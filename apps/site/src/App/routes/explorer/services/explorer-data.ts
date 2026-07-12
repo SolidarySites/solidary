@@ -1,4 +1,5 @@
 import { supabase, supabaseFunctionUrl } from "../../../lib/supabase";
+import { normalizeCanonicalUrl } from "../../../services/public-sites";
 
 export type ExplorerNodeType = "site" | "index";
 export type ExplorerEdgeType =
@@ -97,7 +98,7 @@ const mapGraphNodes = (rows: unknown): ExplorerSite[] =>
     .map((row) => {
       const entry = (row ?? {}) as PublicExplorerGraphNodeRow;
       const id = toTrimmedString(entry.id);
-      const canonicalUrl = toTrimmedString(entry.canonical_url);
+      const canonicalUrl = normalizeCanonicalUrl(toTrimmedString(entry.canonical_url));
       if (!id || !canonicalUrl) return null;
 
       const nodeType = toTrimmedString(entry.node_type) === "index"

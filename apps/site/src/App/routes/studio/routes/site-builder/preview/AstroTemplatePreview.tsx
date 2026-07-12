@@ -72,6 +72,8 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   var lastExecutedScriptKey = "";
   var lastAppliedBodySlug = "";
   var lastAppliedBodyHtml = "";
+  var pendingFocusedBodySlug = "";
+  var pendingFocusedBodyHtml = "";
   var externalImageTrackers = new Map();
   var externalImageObserver = null;
   var externalImageDimensionsCache = new Map();
@@ -2185,6 +2187,11 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
       currentPersistableBodyHtml = getPersistableEditorHtml();
     }
 
+    if (shouldApplyBodyHtml && isEditorFocused) {
+      pendingFocusedBodySlug = state.activeSlug;
+      pendingFocusedBodyHtml = nextBodyHtml;
+    }
+
     if (
       shouldApplyBodyHtml &&
       !isEditorFocused &&
@@ -2202,11 +2209,15 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
         clearSelectedImage(true);
       }
       emitSelectedElementChange(null);
+      pendingFocusedBodySlug = "";
+      pendingFocusedBodyHtml = "";
     }
 
     if (shouldApplyBodyHtml && (!isEditorFocused || editorElement.innerHTML === nextBodyHtml)) {
       lastAppliedBodySlug = state.activeSlug;
       lastAppliedBodyHtml = nextBodyHtml;
+      pendingFocusedBodySlug = "";
+      pendingFocusedBodyHtml = "";
     }
 
     syncExternalImagesInEditor();
@@ -2528,6 +2539,7 @@ const buildPreviewFrameRuntimeScript = (channel: string, imageAspectRatioAttr: s
   }
 
   function handleMessage(event) {
+    if (event.source !== window.parent) return;
     var message = event.data;
     if (!message || typeof message !== "object") return;
     if (message.channel !== CHANNEL || typeof message.type !== "string") return;
@@ -2633,6 +2645,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       token: createBridgeToken(),
       isReady: false
     });
+    const lastInitializedSrcDocRef = useRef<string | null>(null);
     const srcDoc = useMemo(() => buildPreviewFrameSrcDoc(headHtml), [headHtml]);
 
     const frameState = useMemo<PreviewFrameState>(
@@ -2678,6 +2691,10 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     const postMessageToFrame = useCallback((message: PreviewBridgeMessage) => {
       const target = frameRef.current?.contentWindow;
       if (!target) return;
+      // Sandboxed srcdoc frames have an opaque origin serialized as "null", so
+      // postMessage cannot use a concrete URL target. Inbound messages are
+      // restricted to that opaque origin below, and iframe load handling avoids
+      // re-initializing the bridge after any unexpected navigation.
       target.postMessage(message, "*");
     }, []);
 
@@ -2723,6 +2740,13 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
       });
     }, [postMessageToFrame]);
 
+    const handleFrameLoad = useCallback(() => {
+      bridgeStateRef.current.isReady = false;
+      if (lastInitializedSrcDocRef.current === srcDoc) return;
+      lastInitializedSrcDocRef.current = srcDoc;
+      initializeBridge();
+    }, [initializeBridge, srcDoc]);
+
     useEffect(() => {
       sendStateToFrame();
     }, [sendStateToFrame]);
@@ -2730,7 +2754,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
     useEffect(() => {
       const handleMessage = (event: MessageEvent) => {
         const frameWindow = frameRef.current?.contentWindow;
-        if (!frameWindow || event.source !== frameWindow) return;
+        if (!frameWindow || event.source !== frameWindow || event.origin !== "null") return;
 
         const data = event.data as PreviewBridgeMessage;
         if (!data || typeof data !== "object") return;
@@ -2883,7 +2907,7 @@ const AstroTemplatePreview = forwardRef<AstroTemplatePreviewHandle, AstroTemplat
         sandbox="allow-scripts"
         srcDoc={srcDoc}
         title="Builder preview"
-        onLoad={initializeBridge}
+        onLoad={handleFrameLoad}
       />
     );
   }

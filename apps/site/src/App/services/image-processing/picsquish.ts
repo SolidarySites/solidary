@@ -322,7 +322,8 @@ const renderVariantFromOriginal = async ({
     const refineRadius = Math.max(4, Math.min(32, Math.floor(maxDimensionAttempts / 2)));
     const refineStart = Math.max(normalizedMin, state.bestUnderLimit.dimension - refineRadius);
     const refineEnd = Math.min(normalizedStart, state.bestUnderLimit.dimension + refineRadius);
-    for (let dimension = refineStart; dimension <= refineEnd; dimension += 1) {
+    const refineStep = Math.max(1, Math.floor(refineRadius / 4));
+    for (let dimension = refineStart; dimension <= refineEnd; dimension += refineStep) {
       const blob = await encodeAtDimension(dimension);
       considerCandidate(dimension, blob);
     }

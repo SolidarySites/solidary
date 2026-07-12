@@ -335,37 +335,15 @@ const BuilderPreviewPanel = ({
 
         {!isDraftLoading && !draftLoadError && (
           <div className={`builder-preview-surface ${mobilePreviewEnabled ? "is-mobile" : ""}`.trim()}>
-            {mobilePreviewEnabled ? (
-              <div className="builder-preview-device" aria-label="Mobile preview frame">
-                <div className="builder-preview-device-screen">
-                  <AstroTemplatePreview
-                    ref={previewRef}
-                    editable={canEditContent}
-                    headHtml={headHtml}
-                    previewBrand={previewBrand}
-                    pages={pages}
-                    draftImages={draftImages}
-                    repoFontsCss={repoFontsCss}
-                    tokensCss={tokensCss}
-                    styleMode={styleMode}
-                    advancedStructureCss={advancedStructureCss}
-                    previewStylesCss={previewStylesCss}
-                    dynamicImageLoadingEnabled={dynamicImageLoadingEnabled}
-                    homeFallbackBody={homeFallbackBody}
-                    activePageSlug={activePreviewSlug}
-                    publishedSiteBaseUrl={publishedSiteBaseUrl}
-                    previewAssetBaseUrl={previewAssetBaseUrl}
-                    header={header}
-                    footer={footer}
-                    onActivePageChange={onActivePreviewSlugChange}
-                    onPageBodyChange={onPageBodyChange}
-                    onSelectedImageChange={onSelectedImageChange}
-                    onSelectedElementChange={onSelectedElementChange}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="builder-preview-desktop-viewport">
+            <div
+              className={
+                mobilePreviewEnabled
+                  ? "builder-preview-device"
+                  : "builder-preview-desktop-viewport"
+              }
+              aria-label={mobilePreviewEnabled ? "Mobile preview frame" : undefined}
+            >
+              <div className={mobilePreviewEnabled ? "builder-preview-device-screen" : undefined}>
                 <AstroTemplatePreview
                   ref={previewRef}
                   editable={canEditContent}
@@ -391,7 +369,7 @@ const BuilderPreviewPanel = ({
                   onSelectedElementChange={onSelectedElementChange}
                 />
               </div>
-            )}
+            </div>
           </div>
         )}
       </section>

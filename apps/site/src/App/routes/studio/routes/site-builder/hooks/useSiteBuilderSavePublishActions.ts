@@ -75,6 +75,7 @@ type UseSiteBuilderSavePublishActionsParams = {
   hasUnsavedChanges: boolean;
   currentDraftSignature: string;
   savingDraft: boolean;
+  uploadingInlineImage: boolean;
   sessionDisplayName: string;
   touchedPageSlugsRef: MutableRefObject<Set<string>>;
   deletedPageSlugsRef: MutableRefObject<Set<string>>;
@@ -126,6 +127,7 @@ export const useSiteBuilderSavePublishActions = ({
   hasUnsavedChanges,
   currentDraftSignature,
   savingDraft,
+  uploadingInlineImage,
   sessionDisplayName,
   touchedPageSlugsRef,
   deletedPageSlugsRef,
@@ -270,14 +272,7 @@ export const useSiteBuilderSavePublishActions = ({
       setDraftStateTracked((current) => applyDraftPublishPendingResult(current, nextState));
     } catch (error) {
       console.warn("[publish] Failed to sync publish pending state.", error);
-      setDraftStateTracked((current) =>
-        current
-          ? {
-              ...current,
-              hasPublishPendingChanges: pending
-            }
-          : current
-      );
+      throw error;
     }
   };
 
@@ -319,7 +314,8 @@ export const useSiteBuilderSavePublishActions = ({
       draftState: draftStateRef.current,
       siteSettingsInput,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
+      buildDraftSignatureForState: () => buildDraftSignatureForState(),
+      applyDraftRevisionRow
     });
 
   const saveFooterSection = async () =>
@@ -327,7 +323,8 @@ export const useSiteBuilderSavePublishActions = ({
       draftState: draftStateRef.current,
       siteSettingsInput,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
+      buildDraftSignatureForState: () => buildDraftSignatureForState(),
+      applyDraftRevisionRow
     });
 
   const saveHeadSection = async () =>
@@ -335,7 +332,8 @@ export const useSiteBuilderSavePublishActions = ({
       draftState: draftStateRef.current,
       siteSettingsInput,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
+      buildDraftSignatureForState: () => buildDraftSignatureForState(),
+      applyDraftRevisionRow
     });
 
   const saveStylesSection = async () =>
@@ -343,7 +341,8 @@ export const useSiteBuilderSavePublishActions = ({
       draftState: draftStateRef.current,
       styles,
       markEditorDraftTouched: (section) => markEditorDraftTouched(section),
-      buildDraftSignatureForState: () => buildDraftSignatureForState()
+      buildDraftSignatureForState: () => buildDraftSignatureForState(),
+      applyDraftRevisionRow
     });
 
   const saveSectionByKey = async (sectionKey: BuilderEditableSectionKey) => {
@@ -387,6 +386,12 @@ export const useSiteBuilderSavePublishActions = ({
 
     if (!canPublishByRole) {
       setNotice("You do not have publish access for this draft.");
+      setNoticeKind("error");
+      return;
+    }
+
+    if (uploadingInlineImage) {
+      setNotice("Wait for image uploads to finish before publishing.");
       setNoticeKind("error");
       return;
     }
@@ -514,6 +519,11 @@ export const useSiteBuilderSavePublishActions = ({
 
   const handleSaveDraft = async () => {
     if (!draftState || savingDraft) return;
+    if (uploadingInlineImage) {
+      setNotice("Wait for image uploads to finish before saving.");
+      setNoticeKind("error");
+      return;
+    }
     if (!canEditDraft) {
       setNotice("Your role is read-only for this site.");
       setNoticeKind("error");

@@ -419,6 +419,7 @@ export const useSiteBuilderRouteController = ({
     hasUnsavedChanges,
     currentDraftSignature,
     savingDraft,
+    uploadingInlineImage,
     sessionDisplayName,
     touchedPageSlugsRef,
     deletedPageSlugsRef,

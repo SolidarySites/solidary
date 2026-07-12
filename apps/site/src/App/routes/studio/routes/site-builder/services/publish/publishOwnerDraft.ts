@@ -145,7 +145,7 @@ export const publishOwnerDraft = async ({
     repoName,
     PAGE_PATH_PREFIX.replace(/\/$/, ""),
     draftState.branch
-  ).catch(() => []);
+  );
   const desiredPagePaths = new Set(
     publishPages.map((page, index) => {
       const safeSlug = getPageSafeSlug(page, index);

@@ -15,6 +15,7 @@ import {
   resetAdminFormFields
 } from "./adminRouteShared";
 import type { CollaboratorSearchResult } from "../../studio/routes/site-builder/services/types";
+import { readAdminBridgeToken, rememberAdminBridgeToken } from "../../index-create/hooks/indexCreateShared";
 
 type SetRouteNotice = (message: string | null, kind: NoticeKind) => void;
 
@@ -47,9 +48,20 @@ export const useAdminRouteData = ({
 
   const activeSection = parseStudioSettingsSection(searchParams.get("section")) ?? "general";
   const requestedIndexId = searchParams.get("indexId")?.trim() ?? "";
-  const bridgeToken = searchParams.get("bridge")?.trim() ?? "";
+  const bridgeTokenFromUrl = searchParams.get("bridge")?.trim() ?? "";
+  const bridgeToken = bridgeTokenFromUrl || readAdminBridgeToken(requestedIndexId);
   const isBridgeMode = Boolean(bridgeToken);
   const createdMode = searchParams.get("created") === "1";
+
+  useEffect(() => {
+    if (!bridgeTokenFromUrl) return;
+    if (requestedIndexId) {
+      rememberAdminBridgeToken({ indexId: requestedIndexId, token: bridgeTokenFromUrl });
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("bridge");
+    setSearchParams(nextParams, { replace: true });
+  }, [bridgeTokenFromUrl, requestedIndexId, searchParams, setSearchParams]);
 
   const selectedArchiveId = useMemo(() => {
     if (isBridgeMode) {

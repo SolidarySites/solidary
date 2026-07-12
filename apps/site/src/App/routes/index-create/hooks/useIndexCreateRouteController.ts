@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { buildIndexCreateWizardSteps } from "../services/wizard-progress";
 import {
   buildPrerequisites,
-  getFunctionsDeploymentDisplay
+  getFunctionsDeploymentDisplay,
+  rememberAdminBridgeToken
 } from "./indexCreateShared";
 import { useIndexCreateConnections } from "./useIndexCreateConnections";
 import { useIndexCreateProvisioning } from "./useIndexCreateProvisioning";
@@ -220,7 +221,7 @@ export const useIndexCreateRouteController = () => {
       const params = new URLSearchParams();
       params.set("indexId", indexId);
       if (setup.bridgeToken) {
-        params.set("bridge", setup.bridgeToken);
+        rememberAdminBridgeToken({ indexId, token: setup.bridgeToken });
       }
       navigate(`/admin?${params.toString()}`);
     }

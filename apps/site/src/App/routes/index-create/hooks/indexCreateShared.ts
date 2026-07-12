@@ -9,6 +9,32 @@ export const GITHUB_CONNECT_POPUP_NAME = "solidary_github_app_connect";
 export const SUPABASE_CONNECT_POPUP_NAME = "solidary_supabase_management_connect";
 export const INITIAL_PROVISION_STEP = "Preparing your index...";
 
+const ADMIN_BRIDGE_TOKEN_STORAGE_PREFIX = "solidary:index-admin:bridge";
+
+export const getAdminBridgeTokenStorageKey = (indexId: string) =>
+  `${ADMIN_BRIDGE_TOKEN_STORAGE_PREFIX}:${indexId.trim()}`;
+
+export const rememberAdminBridgeToken = ({
+  indexId,
+  token
+}: {
+  indexId: string;
+  token: string;
+}) => {
+  if (typeof window === "undefined") return;
+  const normalizedIndexId = indexId.trim();
+  const normalizedToken = token.trim();
+  if (!normalizedIndexId || !normalizedToken) return;
+  window.sessionStorage.setItem(getAdminBridgeTokenStorageKey(normalizedIndexId), normalizedToken);
+};
+
+export const readAdminBridgeToken = (indexId: string) => {
+  if (typeof window === "undefined") return "";
+  const normalizedIndexId = indexId.trim();
+  if (!normalizedIndexId) return "";
+  return window.sessionStorage.getItem(getAdminBridgeTokenStorageKey(normalizedIndexId))?.trim() ?? "";
+};
+
 export type RepoConflict = {
   repoName: string;
   repoUrl: string;
@@ -69,7 +95,13 @@ export const extractBridgeTokenFromStandaloneAdminUrl = (value: string | null | 
   }
 
   try {
-    return new URL(rawValue).searchParams.get("bridge")?.trim() ?? "";
+    const parsedUrl = new URL(rawValue);
+    const token = parsedUrl.searchParams.get("bridge")?.trim() ?? "";
+    const indexId = parsedUrl.searchParams.get("indexId")?.trim() ?? "";
+    if (token && indexId) {
+      rememberAdminBridgeToken({ indexId, token });
+    }
+    return token;
   } catch {
     return "";
   }

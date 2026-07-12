@@ -39,9 +39,13 @@ export const resolveAuthReturnPath = ({
   requestedReturnToPath?: string;
 }) => {
   const fallbackPath = currentPathname === "/*" ? "/" : currentPathname || "/";
+  const trimmedRequestedPath =
+    typeof requestedReturnToPath === "string" ? requestedReturnToPath.trim() : "";
   const normalizedRequestedPath =
-    typeof requestedReturnToPath === "string" && requestedReturnToPath.trim().startsWith("/")
-      ? requestedReturnToPath.trim()
+    trimmedRequestedPath.startsWith("/") &&
+    !trimmedRequestedPath.startsWith("//") &&
+    !trimmedRequestedPath.startsWith("/\\")
+      ? trimmedRequestedPath
       : fallbackPath;
   const basename = resolveGitHubPagesBasename({
     hostname,

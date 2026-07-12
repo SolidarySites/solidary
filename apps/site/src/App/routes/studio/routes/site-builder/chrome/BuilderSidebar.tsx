@@ -277,6 +277,7 @@ const BuilderSidebar = ({
     activeSettingsSection === "media" ? sectionLocks.styles : sectionLocks[activeSettingsSection];
   const activeSettingsLockedByOther = Boolean(activeSettingsLock && !activeSettingsLock.isSelf);
   const canEditPageJavaScript = accessRole === "owner" || accessRole === "admin";
+  const canEditHeadHtml = accessRole === "owner" || accessRole === "admin";
   const inMainMenu = activeSection === "menu";
   const inSubmenu = activeSection === "settings";
   const backDestinationPath =
@@ -537,6 +538,7 @@ const BuilderSidebar = ({
                     onSeoStructuredDataChange={onSeoStructuredDataChange}
                     onSeoIndexFollowChange={onSeoIndexFollowChange}
                     onHeadHtmlChange={onHeadHtmlChange}
+                    canEditHeadHtml={canEditHeadHtml}
                   />
                 )}
 

@@ -150,9 +150,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (mounted) {
-        scrubOAuthParamsFromCurrentUrl({
-          session: nextSession
-        });
+        if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+          scrubOAuthParamsFromCurrentUrl({
+            session: nextSession
+          });
+        }
         const previousUserId = sessionUserIdRef.current;
         if (event === "SIGNED_OUT" && previousUserId) {
           clearCachedGithubProviderCredentialsForUser(previousUserId);

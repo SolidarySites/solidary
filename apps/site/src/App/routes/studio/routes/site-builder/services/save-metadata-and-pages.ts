@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { normalizeAstroSiteFeatures } from "../../../../../features/site-draft/types";
 import { supabase } from "../../../../../lib/supabase";
+import { DraftConflictError } from "./save-draft-state";
 import { buildWellKnownFiles } from "./build-files";
 import { DEFAULT_OG_IMAGE_URL, FILE_KEYS } from "./constants";
 import {
@@ -86,13 +87,14 @@ export const saveMetadataSection = async ({
       last_edited_at: nowIso
     })
     .eq("id", draftState.id)
+    .eq("revision", draftState.revision)
     .select("revision, last_edited_at, last_edited_by_user_id")
     .maybeSingle();
   if (draftError) {
     throw new Error(draftError.message);
   }
   if (!draftRow) {
-    throw new Error("Failed to save draft metadata.");
+    throw new DraftConflictError();
   }
   applyDraftRevisionRow(draftRow);
   updateDraftWellKnownFiles(solidaryFile, solidaryLinksFile);

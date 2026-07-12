@@ -171,12 +171,12 @@ const mapIndexAdminState = (rawState: RawIndexAdminState | null | undefined): In
         actor?.role === "contributor" ||
         actor?.role === "owner"
           ? actor.role
-          : "owner",
+          : "contributor",
       via: actor?.via === "bridge" ? "bridge" : "session",
-      canEditGeneral: actor?.canEditGeneral !== false,
-      canManageConnections: actor?.canManageConnections !== false,
-      canManageCollaborators: actor?.canManageCollaborators !== false,
-      canManageAdvanced: actor?.canManageAdvanced !== false
+      canEditGeneral: actor?.canEditGeneral === true,
+      canManageConnections: actor?.canManageConnections === true,
+      canManageCollaborators: actor?.canManageCollaborators === true,
+      canManageAdvanced: actor?.canManageAdvanced === true
     },
     index: {
       id: typeof index?.id === "string" ? index.id : "",

@@ -184,7 +184,7 @@ export const loadDraftById = async ({
       collaboratorRow?.role === "contributor" ||
       collaboratorRow?.role === "viewer"
     ) {
-      accessRole = collaboratorRow.role === "viewer" ? "contributor" : collaboratorRow.role;
+      accessRole = collaboratorRow.role;
     }
   }
 
@@ -253,7 +253,7 @@ export const loadDraftById = async ({
     files
   };
 
-  const [{ data: pagesData }, { data: settingsData }, { data: draftImagesData }] = await Promise.all([
+  const [pagesResult, settingsResult, draftImagesResult] = await Promise.all([
     supabase
       .from("site_draft_pages")
       .select("id, slug, title, content, javascript, show_in_nav, position, is_home")
@@ -270,6 +270,14 @@ export const loadDraftById = async ({
       .eq("draft_id", resolvedDraft.id)
       .order("uploaded_at", { ascending: true })
   ]);
+
+  if (pagesResult.error) throw pagesResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+  if (draftImagesResult.error) throw draftImagesResult.error;
+
+  const pagesData = pagesResult.data;
+  const settingsData = settingsResult.data;
+  const draftImagesData = draftImagesResult.data;
 
   const draftImages: DraftImageAsset[] = (draftImagesData ?? [])
     .map((image) => {
