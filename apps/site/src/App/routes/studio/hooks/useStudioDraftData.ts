@@ -92,10 +92,7 @@ export const useStudioDraftData = ({
               membership.role === "contributor" ||
               membership.role === "viewer")
         );
-        const resolvedSharedMemberships = sharedMemberships.map((membership) => ({
-          ...membership,
-          role: membership.role === "viewer" ? "contributor" : membership.role
-        }));
+        const resolvedSharedMemberships = sharedMemberships;
 
         const ownedDraftIds = new Set(ownedItems.map((item) => item.id));
         const sharedDraftIds = Array.from(

@@ -1,5 +1,16 @@
 export const textById = (id) => document.getElementById(id);
 
+const safeHttpUrl = (value) => {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  if (!candidate) return "";
+  try {
+    const url = new URL(candidate);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
 export const clearChildren = (element) => {
   if (!element) return;
   while (element.firstChild) {
@@ -17,19 +28,21 @@ export const setText = (id, value) => {
 export const setHref = (id, href, label) => {
   const anchor = document.getElementById(id);
   if (!anchor) return;
-  if (!href) {
+  const safeHref = safeHttpUrl(href);
+  if (!safeHref) {
     anchor.removeAttribute("href");
     anchor.textContent = "Unavailable";
     return;
   }
-  anchor.href = href;
+  anchor.href = safeHref;
   anchor.textContent = label;
 };
 
 export const renderLink = (container, { href, label, primary = false }) => {
-  if (!container || !href) return;
+  const safeHref = safeHttpUrl(href);
+  if (!container || !safeHref) return;
   const anchor = document.createElement("a");
-  anchor.href = href;
+  anchor.href = safeHref;
   anchor.target = "_blank";
   anchor.rel = "noreferrer";
   anchor.textContent = label;

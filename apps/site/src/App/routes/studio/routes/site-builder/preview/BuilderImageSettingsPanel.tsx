@@ -40,8 +40,13 @@ const BuilderImageSettingsPanel = ({
       <label>
         Alt text
         <input
-          value={image.alt}
-          onChange={(event) => onAltChange(event.target.value)}
+          key={`alt-${image.src}`}
+          defaultValue={image.alt}
+          onBlur={(event) => {
+            const nextAlt = event.target.value;
+            if (nextAlt === image.alt) return;
+            onAltChange(nextAlt);
+          }}
           placeholder="Describe the image"
         />
       </label>

@@ -668,7 +668,7 @@ export default function IndexCreateRoute() {
         <section className="index-create-hero">
           <div className="index-create-hero-copy">
             <p className="index-create-masthead-label">Index Setup Wizard</p>
-            <h1>Create your own publishing platform with with a Supabase postgREST backend</h1>
+            <h1>Create your own publishing platform with a Supabase postgREST backend</h1>
             <p>
               Your platform will be free to run and fully customizable within Supabase free tier limits.
             </p>

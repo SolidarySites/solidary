@@ -23,7 +23,7 @@ const homeEntry = await getEntry("pages", "home");
 const { Content: HomeContent } = homeEntry ? await homeEntry.render() : { Content: null };
 const homeJavaScript =
   typeof homeEntry?.data.javascript === "string" ? homeEntry.data.javascript.trim() : "";
-const sanitizedHomeJavaScript = homeJavaScript.replaceAll("</script", "<\\/script");
+const sanitizedHomeJavaScript = homeJavaScript.replace(/<\/script/gi, "<\\/script");
 ---
 <Base description={siteDescription} canonicalPath="/" jsonLd={jsonLd}>
   <article class="prose">

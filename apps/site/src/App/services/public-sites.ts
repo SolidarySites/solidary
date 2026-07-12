@@ -22,7 +22,7 @@ type PublicSiteRow = {
 const normalizeText = (value: string | null | undefined) =>
   typeof value === "string" ? value.trim() : "";
 
-const normalizeCanonicalUrl = (value: string | null | undefined) => {
+export const normalizeCanonicalUrl = (value: string | null | undefined) => {
   const trimmed = normalizeText(value);
   if (!trimmed) return "";
 

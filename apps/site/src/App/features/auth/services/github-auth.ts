@@ -7,7 +7,7 @@ type SessionWithProviderCredentials = Session & {
 };
 
 const GITHUB_TOKEN_DEBUG = /^(1|true|yes|on)$/i.test(
-  String(import.meta.env.GITHUB_TOKEN_DEBUG ?? "")
+  String(import.meta.env.VITE_GITHUB_TOKEN_DEBUG ?? "")
 );
 
 export const GITHUB_OAUTH_SCOPES = "repo delete_repo workflow";
@@ -182,8 +182,14 @@ export const syncGithubAuthSnapshotFromSession = (session: Session | null) => {
   return inMemorySnapshot;
 };
 
+const isSessionFresh = (session: Session | null) => {
+  if (!session) return false;
+  const expiresAtMs = typeof session.expires_at === "number" ? session.expires_at * 1000 : 0;
+  return expiresAtMs > Date.now() + 60_000;
+};
+
 const getOrLoadSnapshot = async (): Promise<InternalGithubAuthSnapshot> => {
-  if (inMemorySnapshot?.session) {
+  if (inMemorySnapshot?.session && isSessionFresh(inMemorySnapshot.session)) {
     return inMemorySnapshot;
   }
 
@@ -255,6 +261,16 @@ export const requireFreshSupabaseAuth = async (): Promise<FreshSupabaseAuth> => 
     providerToken,
     supabaseAccessToken
   };
+};
+
+
+const normalizeTrustedHttpsUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
 };
 
 const navigateToGitHubAppConnectUrl = ({
@@ -333,9 +349,9 @@ export const connectGitHubAppForCurrentUser = async ({
     } satisfies ConnectGitHubAppResult;
   }
 
-  const url = payload.url?.trim() ?? "";
+  const url = normalizeTrustedHttpsUrl(payload.url?.trim() ?? "");
   if (!url) {
-    throw new Error("GitHub App connect URL is missing.");
+    throw new Error("GitHub App connect URL is missing or invalid.");
   }
 
   navigateToGitHubAppConnectUrl({

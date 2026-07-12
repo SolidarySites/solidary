@@ -46,10 +46,11 @@ export const useIndexCreateProvisioning = ({
   const repoCheckRequestIdRef = useRef(0);
 
   const computedSlug = useMemo(() => slugify(title), [title]);
+  const adminPasswordMeetsMinimum = adminPassword.trim().length >= 12;
   const detailsCanContinue =
     Boolean(title.trim()) &&
     Boolean(description.trim()) &&
-    Boolean(adminPassword.trim()) &&
+    adminPasswordMeetsMinimum &&
     Boolean(computedSlug) &&
     !repoCheckInFlight &&
     !repoConflict;
@@ -147,6 +148,10 @@ export const useIndexCreateProvisioning = ({
       setRouteNotice("Add a title, description, and admin password before continuing.", "error");
       return;
     }
+    if (!adminPasswordMeetsMinimum) {
+      setRouteNotice("Use an admin password with at least 12 characters.", "error");
+      return;
+    }
     if (!computedSlug) {
       setRouteNotice("Choose a title that can become a GitHub repository name.", "error");
       return;
@@ -168,6 +173,7 @@ export const useIndexCreateProvisioning = ({
     setDetailsConfirmed(true);
   }, [
     adminPassword,
+    adminPasswordMeetsMinimum,
     computedSlug,
     description,
     prerequisites,

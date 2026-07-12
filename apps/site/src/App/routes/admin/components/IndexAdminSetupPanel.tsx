@@ -419,7 +419,6 @@ export default function IndexAdminSetupPanel({
                     <dt>{secret.name}</dt>
                     <dd>
                       {secret.isConfigured ? "Configured" : "Missing"}
-                      {secret.value ? ` - ${secret.value}` : ""}
                       {secret.description ? ` - ${secret.description}` : ""}
                     </dd>
                   </div>

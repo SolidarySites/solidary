@@ -22,6 +22,7 @@ const EXTERNAL_IMAGE_PLACEHOLDER_LEFT_CSS_VAR = "--external-image-placeholder-le
 const EXTERNAL_IMAGE_VARIANT_SMALL_TARGET_PX = 560
 const EXTERNAL_IMAGE_VARIANT_MEDIUM_TARGET_PX = 1080
 const EXTERNAL_IMAGE_VARIANT_LARGE_TARGET_PX = 1600
+const EXTERNAL_IMAGE_LOAD_TIMEOUT_MS = 30_000
 
 const EXTERNAL_IMAGE_DIMENSIONS_CACHE = new Map<string, { width: number; height: number }>()
 
@@ -491,6 +492,9 @@ export const startExternalImageLoadWithPlaceholder = (
     if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return
 
     const onImageReady = () => {
+      if (loadTimeoutId !== null) {
+        window.clearTimeout(loadTimeoutId)
+      }
       if (cancelled) return
       if (image.getAttribute(EXTERNAL_IMAGE_TOKEN_ATTR) !== token) return
 
@@ -535,6 +539,15 @@ export const startExternalImageLoadWithPlaceholder = (
     revealSource("error")
   }
 
+  const loadTimeoutId = typeof window === "undefined"
+    ? null
+    : window.setTimeout(() => {
+        if (cancelled) return
+        loader.onload = null
+        loader.onerror = null
+        revealSource("error")
+      }, EXTERNAL_IMAGE_LOAD_TIMEOUT_MS)
+
   loader.src = loadSource
 
   return () => {
@@ -542,6 +555,9 @@ export const startExternalImageLoadWithPlaceholder = (
     stopPlaceholderSizingSync()
     loader.onload = null
     loader.onerror = null
+    if (loadTimeoutId !== null) {
+      window.clearTimeout(loadTimeoutId)
+    }
     clearRevealListeners()
     clearInitialDisplayLoadListener()
     hideSpinner()

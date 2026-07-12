@@ -33,3 +33,6 @@ CLAUDE.md
 # local structure snapshots
 apps/site/STRUCTURE.json
 .omx/
+
+# Local review notes
+code-review.md

@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type {
   AstroTemplatePreviewHandle,
@@ -251,6 +251,28 @@ export const useBuilderPreviewEditor = ({
   const [selectedEditorElement, setSelectedEditorElement] =
     useState<PreviewSelectedElement | null>(null);
   const previewRef = useRef<AstroTemplatePreviewHandle | null>(null);
+  const mountedRef = useRef(true);
+  const [pendingInlineImageUploads, setPendingInlineImageUploads] = useState(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const updatePendingInlineImageUploads = (delta: number) => {
+    if (!mountedRef.current) return;
+    setPendingInlineImageUploads((current) => Math.max(0, current + delta));
+  };
+
+  const setNoticeIfMounted = (message: string | null, kind?: NoticeKind) => {
+    if (!mountedRef.current) return;
+    setNotice(message);
+    if (kind !== undefined) {
+      setNoticeKind(kind);
+    }
+  };
 
   const resetNotices = () => {
     setNotice(null);
@@ -371,10 +393,10 @@ export const useBuilderPreviewEditor = ({
       previewRef.current?.setImageAspectRatioBySource(localPreviewUrl, imageAspectRatio);
     }
 
-    void (async () => {
-      const uploadedStoragePaths: string[] = [];
+    const uploadedStoragePaths: string[] = [];
+    updatePendingInlineImageUploads(1);
 
-      try {
+    try {
         const processed = await buildProcessedVariants({
           file,
           options
@@ -439,29 +461,31 @@ export const useBuilderPreviewEditor = ({
           throw new Error(metadataError.message);
         }
 
+      if (mountedRef.current) {
         setDraftImages((items) => [...items, ...uploadedAssets]);
+      }
 
         if (!primaryPublicUrl) {
           throw new Error("Failed to resolve the primary uploaded image.");
         }
 
-        previewRef.current?.replaceImageSource(
-          localPreviewUrl,
-          primaryPublicUrl,
-          imageAspectRatio ?? undefined
-        );
-        setNotice("Image uploaded.");
-        setNoticeKind("notice");
-      } catch (caught) {
-        if (uploadedStoragePaths.length) {
-          await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
-        }
-        previewRef.current?.replaceImageSource(localPreviewUrl, null, imageAspectRatio ?? undefined);
-        const message = caught instanceof Error ? caught.message : "Failed to upload image.";
-        setNotice(message);
-        setNoticeKind("error");
+      previewRef.current?.replaceImageSource(
+        localPreviewUrl,
+        primaryPublicUrl,
+        imageAspectRatio ?? undefined
+      );
+      setNoticeIfMounted("Image uploaded.", "notice");
+    } catch (caught) {
+      if (uploadedStoragePaths.length) {
+        await supabase.storage.from(SITE_DRAFT_IMAGES_BUCKET).remove(uploadedStoragePaths);
       }
-    })();
+      previewRef.current?.replaceImageSource(localPreviewUrl, null, imageAspectRatio ?? undefined);
+      const message = caught instanceof Error ? caught.message : "Failed to upload image.";
+      setNoticeIfMounted(message, "error");
+      throw caught;
+    } finally {
+      updatePendingInlineImageUploads(-1);
+    }
   };
 
   return {
@@ -471,7 +495,7 @@ export const useBuilderPreviewEditor = ({
     setSelectedEditorImage,
     setSelectedEditorElement,
     clearSelectedEditorImage,
-    uploadingInlineImage: false,
+    uploadingInlineImage: pendingInlineImageUploads > 0,
     runPreviewCommand,
     runPreviewLink,
     capturePreviewSelection,

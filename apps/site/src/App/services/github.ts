@@ -1,32 +1,20 @@
 import { toBase64 } from "../lib/base64";
-import { getFreshSupabaseAuthSnapshot } from "../features/auth/services/github-auth";
+import { requireFreshSupabaseAuth } from "../features/auth/services/github-auth";
 import { supabaseFunctionUrl } from "../lib/supabase";
 
 export async function githubRequest<T>(
   functionName: string,
   body: Record<string, unknown>
 ): Promise<T> {
+  const { supabaseAccessToken } = await requireFreshSupabaseAuth();
   const payloadBody: Record<string, unknown> = { ...body };
-  const existingSupabaseAccessToken =
-    typeof payloadBody.supabase_access_token === "string"
-      ? payloadBody.supabase_access_token.trim()
-      : "";
-  if (!existingSupabaseAccessToken) {
-    try {
-      const snapshot = await getFreshSupabaseAuthSnapshot();
-      const supabaseAccessToken = snapshot.supabaseAccessToken?.trim() ?? "";
-      if (supabaseAccessToken) {
-        payloadBody.supabase_access_token = supabaseAccessToken;
-      }
-    } catch {
-      // Caller-level auth checks will still surface clearer errors if session is missing.
-    }
-  }
+  delete payloadBody.supabase_access_token;
 
   const response = await fetch(supabaseFunctionUrl(functionName), {
     method: "POST",
     headers: {
-      "content-type": "application/json"
+      "content-type": "application/json",
+      Authorization: `Bearer ${supabaseAccessToken}`
     },
     body: JSON.stringify(payloadBody)
   });
@@ -53,7 +41,10 @@ export async function readTextFile(
       { owner, repo, path, branch }
     );
     if (result?.encoding === "base64") {
-      return atob(result.content.replace(/\n/g, ""));
+      const cleaned = result.content.replace(/\n/g, "");
+      return new TextDecoder().decode(
+        Uint8Array.from(atob(cleaned), (character) => character.charCodeAt(0))
+      );
     }
     return result.content ?? "";
   } catch (error) {

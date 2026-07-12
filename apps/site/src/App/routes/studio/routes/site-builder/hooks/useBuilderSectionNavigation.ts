@@ -107,28 +107,34 @@ export const useBuilderSectionNavigation = ({
   ]);
 
   const handleActivePreviewSlugChange = useCallback(async (nextSlug: string) => {
-    await switchPreviewSlugWithLocks({
-      nextSlug,
-      activePreviewSlug,
-      activeSection,
-      activeSettingsSection,
-      isPageEditingMode,
-      pages,
-      draftStateId,
-      sessionUserId,
-      canEditDraft,
-      hasUnsavedChanges,
-      currentDraftSignature,
-      saveSectionByKey: (sectionKey) => saveSectionByKey(sectionKey),
-      acquireSectionLock,
-      releaseSectionLock,
-      loadSectionLocks,
-      reloadLatestDraftAfterConflict,
-      setLastSavedDraftSignature,
-      setActivePreviewSlug,
-      setNotice,
-      setNoticeKind
-    });
+    if (sectionTransitionInFlightRef.current) return;
+    sectionTransitionInFlightRef.current = true;
+    try {
+      await switchPreviewSlugWithLocks({
+        nextSlug,
+        activePreviewSlug,
+        activeSection,
+        activeSettingsSection,
+        isPageEditingMode,
+        pages,
+        draftStateId,
+        sessionUserId,
+        canEditDraft,
+        hasUnsavedChanges,
+        currentDraftSignature,
+        saveSectionByKey: (sectionKey) => saveSectionByKey(sectionKey),
+        acquireSectionLock,
+        releaseSectionLock,
+        loadSectionLocks,
+        reloadLatestDraftAfterConflict,
+        setLastSavedDraftSignature,
+        setActivePreviewSlug,
+        setNotice,
+        setNoticeKind
+      });
+    } finally {
+      sectionTransitionInFlightRef.current = false;
+    }
   }, [
     activePreviewSlug,
     activeSection,

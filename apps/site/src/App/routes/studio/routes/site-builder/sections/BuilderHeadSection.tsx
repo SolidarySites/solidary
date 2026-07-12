@@ -16,6 +16,7 @@ type BuilderHeadSectionProps = {
   onSeoStructuredDataChange: (value: boolean) => void;
   onSeoIndexFollowChange: (value: boolean) => void;
   onHeadHtmlChange: (value: string) => void;
+  canEditHeadHtml: boolean;
 };
 
 const headEditorExtensions = [htmlLanguage(), EditorView.lineWrapping];
@@ -38,7 +39,8 @@ const BuilderHeadSection = ({
   onSeoOpenGraphChange,
   onSeoStructuredDataChange,
   onSeoIndexFollowChange,
-  onHeadHtmlChange
+  onHeadHtmlChange,
+  canEditHeadHtml
 }: BuilderHeadSectionProps) => {
   const localeOptions = SEO_LOCALE_OPTIONS.some((option) => option.value === seoLocale)
     ? SEO_LOCALE_OPTIONS
@@ -115,12 +117,16 @@ const BuilderHeadSection = ({
         value={headHtml}
         extensions={headEditorExtensions}
         basicSetup={headEditorBasicSetup}
-        onChange={onHeadHtmlChange}
+        onChange={(value) => {
+          if (canEditHeadHtml) onHeadHtmlChange(value);
+        }}
+        editable={canEditHeadHtml}
         height="280px"
         aria-label="Custom head HTML"
       />
       <p className="builder-format-toolbar-note">
         This content is injected by <code>src/components/SEO.astro</code>.
+        {!canEditHeadHtml ? " Only owners and admins can edit custom head HTML." : ""}
       </p>
     </div>
   );
