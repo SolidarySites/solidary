@@ -1416,6 +1416,12 @@
 .builder-preview-desktop-viewport {
   width: max(980px, 100%);
   min-height: 100%;
+  height: 100%;
+}
+
+.builder-preview-desktop-screen {
+  min-height: 0;
+  height: 100%;
 }
 
 .builder-preview-desktop-viewport .astro-preview-shell,

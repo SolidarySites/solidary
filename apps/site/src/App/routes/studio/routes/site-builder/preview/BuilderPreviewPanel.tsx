@@ -343,7 +343,13 @@ const BuilderPreviewPanel = ({
               }
               aria-label={mobilePreviewEnabled ? "Mobile preview frame" : undefined}
             >
-              <div className={mobilePreviewEnabled ? "builder-preview-device-screen" : undefined}>
+              <div
+                className={
+                  mobilePreviewEnabled
+                    ? "builder-preview-device-screen"
+                    : "builder-preview-desktop-screen"
+                }
+              >
                 <AstroTemplatePreview
                   ref={previewRef}
                   editable={canEditContent}
